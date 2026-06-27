@@ -20,7 +20,12 @@ import { FIREBASE_CONFIG, GOOGLE_CLIENT_ID, GOOGLE_API_KEY, getFirebaseAuthScrip
 import { criarAssinaturaPIX, verificarPagamento, PLANOS } from './woovi'
 import { buscarTodosPostosANP, getMapaBrasilHTML, getEstatisticasNacionais, PRECOS_MEDIOS_UF } from './brasil'
 
-const app = new Hono()
+// ─── Bindings do Cloudflare (KV, D1, etc.) ───────────────────────────────────
+type Bindings = {
+  PRECOS_ANP: KVNamespace  // Preços semanais ANP por posto (CNPJ) e município
+}
+
+const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('*', cors())
 app.use('/static/*', serveStatic({ root: './' }))
@@ -325,6 +330,28 @@ app.get('/mapa-brasil', (c) => {
   return c.html(getMapaBrasilHTML())
 })
 
+// ─── Helpers KV ───────────────────────────────────────────────────────────────
+async function kvGetJson(kv: KVNamespace | undefined, key: string): Promise<any | null> {
+  if (!kv) return null
+  try {
+    const val = await kv.get(key, 'text')
+    if (!val) return null
+    return JSON.parse(val)
+  } catch { return null }
+}
+
+// Cache em memória para KV (evitar hits desnecessários no CF KV — cota: 100K/dia free)
+const kvCache = new Map<string, { data: any; ts: number }>()
+const KV_CACHE_TTL = 60 * 60 * 1000 // 1 hora
+
+async function kvGetCached(kv: KVNamespace | undefined, key: string): Promise<any | null> {
+  const cached = kvCache.get(key)
+  if (cached && Date.now() - cached.ts < KV_CACHE_TTL) return cached.data
+  const data = await kvGetJson(kv, key)
+  if (data !== null) kvCache.set(key, { data, ts: Date.now() })
+  return data
+}
+
 // ─── API: Todos os postos do Brasil (paginado) ────────────────────────────────
 // GET /api/postos/brasil?pagina=1&tamanhoPagina=500&uf=SP&combustivel=GASOLINA+C+COMUM&bandeira=IPIRANGA
 app.get('/api/postos/brasil', async (c) => {
@@ -335,27 +362,83 @@ app.get('/api/postos/brasil', async (c) => {
   const bandeira = c.req.query('bandeira') || ''
 
   try {
+    // 1. Buscar postos cadastrais na ANP (46K com coordenadas)
     const resultado = await buscarTodosPostosANP(uf || undefined, pagina, tamanhoPagina)
 
-    // Filtrar por combustível se especificado
+    // 2. Filtros
     let postos = resultado.postos
     if (combustivel) {
       postos = postos.filter(p =>
         p.produtos.some(prod => prod.toUpperCase().includes(combustivel.toUpperCase()))
       )
     }
-    // Filtrar por bandeira se especificado
     if (bandeira) {
       postos = postos.filter(p =>
         (p.bandeira || '').toUpperCase().includes(bandeira.toUpperCase())
       )
     }
 
-    // Adicionar preços médios da UF em cada posto
-    const postosComPrecos = postos.map(p => ({
-      ...p,
-      precosMediosUF: PRECOS_MEDIOS_UF[p.uf] || null
-    }))
+    // 3. Enriquecer com preços reais do KV (se disponível)
+    const kv = (c.env as any)?.PRECOS_ANP as KVNamespace | undefined
+    let precosPorCNPJ: Record<string, any> = {}
+    let precosUFAtual: Record<string, Record<string, number>> = PRECOS_MEDIOS_UF
+    let semanaKV = ''
+
+    if (kv && uf) {
+      // Carregar preços do KV para a UF específica
+      const kvData = await kvGetCached(kv, `precos:postos:${uf.toUpperCase()}`)
+      if (kvData?.postos) {
+        precosPorCNPJ = kvData.postos
+        semanaKV = kvData.s || ''
+      }
+      // Carregar médias por município do KV
+      const kvMun = await kvGetCached(kv, 'precos:municipios')
+      if (kvMun?.m) {
+        // Converter para estrutura por UF
+        const precosUF: Record<string, number> = {}
+        for (const [chave, precos] of Object.entries(kvMun.m as Record<string, any>)) {
+          if (chave.startsWith(uf.toUpperCase() + ':')) {
+            for (const [prod, val] of Object.entries(precos as Record<string, number>)) {
+              if (!precosUF[prod]) precosUF[prod] = val as number
+            }
+          }
+        }
+        if (Object.keys(precosUF).length > 0) {
+          precosUFAtual = { ...PRECOS_MEDIOS_UF, [uf.toUpperCase()]: precosUF }
+        }
+      }
+    }
+
+    // 4. Montar resposta com preços reais quando disponíveis
+    const postosComPrecos = postos.map(p => {
+      // CNPJ do posto: tentar match com dados do KV
+      const cnpjLimpo = (p.cnpj || '').replace(/\D/g, '').padStart(14, '0')
+      const precoKV = precosPorCNPJ[cnpjLimpo]
+
+      // Converter campos comprimidos do KV → formato padrão
+      const precosReais = precoKV?.p ? {
+        gasolina: precoKV.p.gasolina,
+        gasolinaAditivada: precoKV.p.gasolinaAditivada,
+        etanol: precoKV.p.etanol,
+        diesel: precoKV.p.diesel,
+        dieselS10: precoKV.p.dieselS10,
+        gnv: precoKV.p.gnv,
+        glp: precoKV.p.glp,
+        semanaColeta: semanaKV,
+        fonte: 'anp-real' as const
+      } : null
+
+      return {
+        ...p,
+        // Preços individuais (KV) têm prioridade sobre médias por UF
+        precosReais,
+        precosMediosUF: precosUFAtual[p.uf] || null,
+        // Flag útil para o frontend
+        temPrecoReal: !!precosReais
+      }
+    })
+
+    const totalComPrecoReal = postosComPrecos.filter(p => p.temPrecoReal).length
 
     return c.json({
       postos: postosComPrecos,
@@ -364,41 +447,177 @@ app.get('/api/postos/brasil', async (c) => {
       paginaAtual: pagina,
       filtros: { uf, combustivel, bandeira },
       fonte: 'ANP – Agência Nacional do Petróleo',
-      nota: 'Preços médios por UF referentes à semana 21-27/06/2026 (ANP). Preços individuais por posto via sistema colaborativo RotaPosto.'
+      semanaPrecos: semanaKV || 'Semana 21-27/06/2026',
+      totalComPrecoReal,
+      nota: semanaKV
+        ? `Preços individuais por posto: ${totalComPrecoReal} de ${postosComPrecos.length} postos. Fonte: ANP planilha semanal ${semanaKV}.`
+        : 'Preços médios por UF (ANP). Atualize os preços rodando o sync do GitHub Actions.'
     })
   } catch (e: any) {
     return c.json({ error: 'Erro ao buscar postos: ' + e.message, postos: [] }, 500)
   }
 })
 
+// ─── API: Preços por município (do KV) ───────────────────────────────────────
+// GET /api/precos/municipio?uf=SP&municipio=SAO+PAULO
+app.get('/api/precos/municipio', async (c) => {
+  const uf = (c.req.query('uf') || '').toUpperCase()
+  const municipio = (c.req.query('municipio') || '').toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9 ]/g, '').trim()
+
+  const kv = (c.env as any)?.PRECOS_ANP as KVNamespace | undefined
+  const kvMun = await kvGetCached(kv, 'precos:municipios')
+
+  if (!kvMun?.m) {
+    // Fallback para dados estáticos
+    const precos = uf ? PRECOS_MEDIOS_UF[uf] : null
+    return c.json({
+      uf, municipio,
+      precos: precos || null,
+      fonte: 'fallback-estatico',
+      semana: '21-27/06/2026'
+    })
+  }
+
+  // Buscar município exato ou por UF
+  let precos: any = null
+  let found_mun = ''
+  const chaveExata = `${uf}:${municipio}`
+
+  if (kvMun.m[chaveExata]) {
+    precos = kvMun.m[chaveExata]
+    found_mun = chaveExata
+  } else {
+    // Busca parcial: primeiro município da UF que contém o texto
+    for (const [k, v] of Object.entries(kvMun.m)) {
+      if (k.startsWith(uf + ':') && k.includes(municipio)) {
+        precos = v
+        found_mun = k
+        break
+      }
+    }
+  }
+
+  return c.json({
+    uf, municipio: found_mun || municipio,
+    precos,
+    fonte: 'anp-kv',
+    semana: kvMun.s || '21-27/06/2026'
+  })
+})
+
+// ─── API: Preços por posto (CNPJ) — do KV ────────────────────────────────────
+// GET /api/precos/posto?cnpj=12345678000195&uf=SP
+app.get('/api/precos/posto', async (c) => {
+  const cnpj = (c.req.query('cnpj') || '').replace(/\D/g, '').padStart(14, '0')
+  const uf   = (c.req.query('uf') || '').toUpperCase()
+
+  if (!cnpj || cnpj.length < 14) {
+    return c.json({ error: 'CNPJ inválido' }, 400)
+  }
+
+  const kv = (c.env as any)?.PRECOS_ANP as KVNamespace | undefined
+
+  // Tentar buscar pelo UF informado ou tentar todas as UFs
+  const ufs = uf ? [uf] : Object.keys(PRECOS_MEDIOS_UF)
+
+  for (const u of ufs) {
+    const kvData = await kvGetCached(kv, `precos:postos:${u}`)
+    if (kvData?.postos?.[cnpj]) {
+      const posto = kvData.postos[cnpj]
+      return c.json({
+        cnpj,
+        nome: posto.n,
+        municipio: posto.m,
+        uf: posto.u,
+        bandeira: posto.b,
+        precos: posto.p,
+        dataColeta: posto.dt,
+        semana: kvData.s,
+        fonte: 'anp-kv'
+      })
+    }
+  }
+
+  return c.json({ cnpj, precos: null, fonte: 'nao-encontrado', semana: null }, 404)
+})
+
 // ─── API: Preços médios nacionais e por UF ────────────────────────────────────
 // GET /api/precos/brasil?uf=SP
-app.get('/api/precos/brasil', (c) => {
-  const uf = c.req.query('uf') || ''
-
+app.get('/api/precos/brasil', async (c) => {
+  const uf = (c.req.query('uf') || '').toUpperCase()
   const stats = getEstatisticasNacionais()
 
-  if (uf && PRECOS_MEDIOS_UF[uf.toUpperCase()]) {
-    const precos = PRECOS_MEDIOS_UF[uf.toUpperCase()]
+  // Tentar buscar do KV (dados mais recentes)
+  const kv = (c.env as any)?.PRECOS_ANP as KVNamespace | undefined
+  const meta = await kvGetCached(kv, 'precos:meta')
+  const kvMun = await kvGetCached(kv, 'precos:municipios')
+
+  // Recalcular médias por UF a partir do KV (se disponível)
+  let precosPorUF = PRECOS_MEDIOS_UF
+  let semanaRef = stats.semanaReferencia
+
+  if (kvMun?.m) {
+    semanaRef = `${meta?.semanaIni || '21/06/2026'} a ${meta?.semanaFim || '27/06/2026'}`
+    // Agregar médias do KV por UF
+    const somaPorUF: Record<string, Record<string, number[]>> = {}
+    for (const [chave, precos] of Object.entries(kvMun.m as Record<string, Record<string, number>>)) {
+      const [u] = chave.split(':')
+      if (!somaPorUF[u]) somaPorUF[u] = {}
+      for (const [prod, val] of Object.entries(precos)) {
+        if (!somaPorUF[u][prod]) somaPorUF[u][prod] = []
+        somaPorUF[u][prod].push(val)
+      }
+    }
+    const novosPrecosUF: Record<string, Record<string, number>> = {}
+    for (const [u, produtos] of Object.entries(somaPorUF)) {
+      novosPrecosUF[u] = {}
+      for (const [prod, vals] of Object.entries(produtos)) {
+        novosPrecosUF[u][prod] = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100
+      }
+    }
+    precosPorUF = { ...PRECOS_MEDIOS_UF, ...novosPrecosUF }
+  }
+
+  if (uf && precosPorUF[uf]) {
     return c.json({
-      uf: uf.toUpperCase(),
-      precos,
-      semana: stats.semanaReferencia,
-      fonte: stats.fonteDados,
+      uf,
+      precos: precosPorUF[uf],
+      semana: semanaRef,
+      fonte: kvMun?.m ? 'anp-kv' : 'anp-estatico',
+      totalPostosPesquisados: meta ? meta.totalPostos : 7250,
       precosMediosNacional: stats.precosMediosNacional
     })
   }
 
-  // Retornar todos os estados
   return c.json({
     ...stats,
-    precosPorUF: PRECOS_MEDIOS_UF
+    semanaReferencia: semanaRef,
+    fonte: kvMun?.m ? 'anp-kv' : 'anp-estatico',
+    totalPostosPesquisados: meta?.totalPostos || 7250,
+    precosPorUF
   })
 })
 
 // ─── API: Estatísticas nacionais ──────────────────────────────────────────────
-app.get('/api/brasil/stats', (c) => {
-  return c.json(getEstatisticasNacionais())
+app.get('/api/brasil/stats', async (c) => {
+  const kv = (c.env as any)?.PRECOS_ANP as KVNamespace | undefined
+  const meta = await kvGetCached(kv, 'precos:meta')
+  const stats = getEstatisticasNacionais()
+
+  return c.json({
+    ...stats,
+    ...(meta ? {
+      semanaReferencia: `${meta.semanaIni} a ${meta.semanaFim}`,
+      totalPostosPesquisados: meta.totalPostos,
+      totalMunicipiosPesquisados: meta.totalMunicipios,
+      atualizadoEm: meta.atualizadoEm,
+      ufsComDados: meta.ufs,
+      fonte: 'anp-kv'
+    } : {
+      fonte: 'anp-estatico'
+    })
+  })
 })
 
 // ─── API: Pagamento / Assinatura MercadoPago ─────────────────────────────────

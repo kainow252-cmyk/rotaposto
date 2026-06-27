@@ -1,0 +1,67 @@
+name: ANP Precos Sync
+
+on:
+  # Toda sexta-feira às 18h BRT (21h UTC) — ANP publica na sexta
+  schedule:
+    - cron: '0 21 * * 5'
+
+  # Rodar também todo sábado às 10h UTC como fallback
+  # (caso a ANP atrase a publicação)
+  #- cron: '0 10 * * 6'
+
+  # Permite rodar manualmente pelo GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forçar re-sync mesmo se já sincronizou esta semana'
+        required: false
+        default: 'false'
+        type: boolean
+      dry_run:
+        description: 'Apenas testar o parse sem fazer upload'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  sync:
+    name: Sincronizar preços ANP → Cloudflare KV
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependências Python
+        run: |
+          pip install openpyxl --quiet
+          python -c "import openpyxl; print('openpyxl', openpyxl.__version__)"
+
+      - name: Executar sync ANP → KV
+        env:
+          CLOUDFLARE_API_TOKEN:      ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID:     ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+          DRY_RUN: ${{ inputs.dry_run == 'true' && 'true' || '' }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.force }}" = "true" ]; then
+            ARGS="$ARGS --force"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          python3 scripts/anp_precos_sync.py $ARGS
+
+      - name: Resultado do sync
+        if: always()
+        run: |
+          echo "✅ Workflow concluído"
+          echo "Data/hora: $(date -u '+%Y-%m-%d %H:%M UTC')"
