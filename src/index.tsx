@@ -18,6 +18,7 @@ import {
 } from './apis'
 import { FIREBASE_CONFIG, GOOGLE_CLIENT_ID, GOOGLE_API_KEY, getFirebaseAuthScripts } from './auth'
 import { criarAssinaturaPIX, verificarPagamento, PLANOS } from './woovi'
+import { buscarTodosPostosANP, getMapaBrasilHTML, getEstatisticasNacionais, PRECOS_MEDIOS_UF } from './brasil'
 
 const app = new Hono()
 
@@ -313,6 +314,91 @@ app.get('/api/geocode/reverso', async (c) => {
 // ─── Landing Page ─────────────────────────────────────────────────────────────
 app.get('/landing', (c) => {
   return c.html(getLandingHTML())
+})
+
+// ═══════════════════════════════════════════════════════════════════════
+//  BRASIL – 46.071 POSTOS NACIONAIS
+// ═══════════════════════════════════════════════════════════════════════
+
+// ─── Página: Mapa Brasil com todos os postos ANP ──────────────────────────────
+app.get('/mapa-brasil', (c) => {
+  return c.html(getMapaBrasilHTML())
+})
+
+// ─── API: Todos os postos do Brasil (paginado) ────────────────────────────────
+// GET /api/postos/brasil?pagina=1&tamanhoPagina=500&uf=SP&combustivel=GASOLINA+C+COMUM&bandeira=IPIRANGA
+app.get('/api/postos/brasil', async (c) => {
+  const pagina = parseInt(c.req.query('pagina') || '1')
+  const tamanhoPagina = Math.min(parseInt(c.req.query('tamanhoPagina') || '500'), 5000)
+  const uf = c.req.query('uf') || ''
+  const combustivel = c.req.query('combustivel') || ''
+  const bandeira = c.req.query('bandeira') || ''
+
+  try {
+    const resultado = await buscarTodosPostosANP(uf || undefined, pagina, tamanhoPagina)
+
+    // Filtrar por combustível se especificado
+    let postos = resultado.postos
+    if (combustivel) {
+      postos = postos.filter(p =>
+        p.produtos.some(prod => prod.toUpperCase().includes(combustivel.toUpperCase()))
+      )
+    }
+    // Filtrar por bandeira se especificado
+    if (bandeira) {
+      postos = postos.filter(p =>
+        (p.bandeira || '').toUpperCase().includes(bandeira.toUpperCase())
+      )
+    }
+
+    // Adicionar preços médios da UF em cada posto
+    const postosComPrecos = postos.map(p => ({
+      ...p,
+      precosMediosUF: PRECOS_MEDIOS_UF[p.uf] || null
+    }))
+
+    return c.json({
+      postos: postosComPrecos,
+      totalRegistros: resultado.totalRegistros,
+      totalPaginas: resultado.totalPaginas,
+      paginaAtual: pagina,
+      filtros: { uf, combustivel, bandeira },
+      fonte: 'ANP – Agência Nacional do Petróleo',
+      nota: 'Preços médios por UF referentes à semana 21-27/06/2026 (ANP). Preços individuais por posto via sistema colaborativo RotaPosto.'
+    })
+  } catch (e: any) {
+    return c.json({ error: 'Erro ao buscar postos: ' + e.message, postos: [] }, 500)
+  }
+})
+
+// ─── API: Preços médios nacionais e por UF ────────────────────────────────────
+// GET /api/precos/brasil?uf=SP
+app.get('/api/precos/brasil', (c) => {
+  const uf = c.req.query('uf') || ''
+
+  const stats = getEstatisticasNacionais()
+
+  if (uf && PRECOS_MEDIOS_UF[uf.toUpperCase()]) {
+    const precos = PRECOS_MEDIOS_UF[uf.toUpperCase()]
+    return c.json({
+      uf: uf.toUpperCase(),
+      precos,
+      semana: stats.semanaReferencia,
+      fonte: stats.fonteDados,
+      precosMediosNacional: stats.precosMediosNacional
+    })
+  }
+
+  // Retornar todos os estados
+  return c.json({
+    ...stats,
+    precosPorUF: PRECOS_MEDIOS_UF
+  })
+})
+
+// ─── API: Estatísticas nacionais ──────────────────────────────────────────────
+app.get('/api/brasil/stats', (c) => {
+  return c.json(getEstatisticasNacionais())
 })
 
 // ─── API: Pagamento / Assinatura MercadoPago ─────────────────────────────────
@@ -1520,6 +1606,9 @@ app.get('/app', (c) => {
   <button class="tab-btn" onclick="mudarTab('planejar', this)">
     <i class="fas fa-route"></i>Planejar
   </button>
+  <a href="/mapa-brasil" class="tab-btn" style="text-decoration:none;color:inherit">
+    <i class="fas fa-globe-americas" style="color:#00C853"></i>Brasil
+  </a>
 </div>
 
 <!-- ===== VIEW: DESTAQUE ===== -->

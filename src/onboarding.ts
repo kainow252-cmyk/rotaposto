@@ -469,15 +469,15 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   <!-- Stats (números de impacto) -->
   <div class="ob-stats">
     <div class="stat-item">
-      <div class="stat-num">787+</div>
-      <div class="stat-lbl">Postos SP</div>
+      <div class="stat-num">46K</div>
+      <div class="stat-lbl">Postos Brasil</div>
     </div>
     <div class="stat-item">
       <div class="stat-num">R$0,80</div>
       <div class="stat-lbl">Economia/L</div>
     </div>
     <div class="stat-item">
-      <div class="stat-num">4 tipos</div>
+      <div class="stat-num">7 tipos</div>
       <div class="stat-lbl">Combustível</div>
     </div>
   </div>
@@ -494,6 +494,10 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       <i class="fas fa-user"></i>
       Já tenho uma conta
     </button>
+    <a href="/mapa-brasil" class="btn-secondary" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(0,200,83,0.12);border-color:rgba(0,200,83,0.4);color:#00C853;">
+      <i class="fas fa-globe-americas"></i>
+      Ver mapa com 46.071 postos do Brasil
+    </a>
     <p class="terms-note">Ao criar sua conta você concorda com nossos <a href="#">Termos de Uso</a></p>
   </div>
 
