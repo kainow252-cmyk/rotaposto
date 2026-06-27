@@ -2,216 +2,257 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { getLandingHTML } from './landing'
+import {
+  buscarPostosANP,
+  buscarPostosOSM,
+  geocodeReverso,
+  geocodeNominatim,
+  calcularRotaOSRM,
+  rankearPostosPorIA,
+  mergePostos,
+  emojiPorBandeira,
+  haversine,
+  type PostoReal,
+  type EconomiaPosto
+} from './apis'
 
 const app = new Hono()
 
 app.use('*', cors())
 app.use('/static/*', serveStatic({ root: './' }))
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-interface Posto {
-  id: string
-  nome: string
-  bandeira: string
-  endereco: string
-  cidade: string
-  estado: string
-  lat: number
-  lng: number
-  precos: Record<string, number>
-  atualizadoEm: string
+// ─── Cache em memória (válido por 10 min por cidade) ─────────────────────────
+interface CacheEntry {
+  postos: PostoReal[]
+  ts: number
+}
+const cache = new Map<string, CacheEntry>()
+const CACHE_TTL = 10 * 60 * 1000 // 10 minutos
+
+function getCached(key: string): PostoReal[] | null {
+  const entry = cache.get(key)
+  if (!entry) return null
+  if (Date.now() - entry.ts > CACHE_TTL) { cache.delete(key); return null }
+  return entry.postos
 }
 
-// ─── Dados simulados (baseados em postos reais ANP) ──────────────────────────
-const POSTOS_MOCK: Posto[] = [
-  {
-    id: '1',
-    nome: 'Auto Posto Ipiranga Centro',
-    bandeira: 'Ipiranga',
-    endereco: 'Av. Paulista, 1578',
-    cidade: 'São Paulo',
-    estado: 'SP',
-    lat: -23.5630,
-    lng: -46.6543,
-    precos: { gasolina: 6.19, etanol: 4.39, diesel: 5.89, gnv: 4.29 },
-    atualizadoEm: '2025-06-25'
-  },
-  {
-    id: '2',
-    nome: 'Posto Shell Consolação',
-    bandeira: 'Shell',
-    endereco: 'R. da Consolação, 2300',
-    cidade: 'São Paulo',
-    estado: 'SP',
-    lat: -23.5512,
-    lng: -46.6601,
-    precos: { gasolina: 5.97, etanol: 4.19, diesel: 5.79, gnv: 4.15 },
-    atualizadoEm: '2025-06-25'
-  },
-  {
-    id: '3',
-    nome: 'Posto BR Higienópolis',
-    bandeira: 'BR',
-    endereco: 'Av. Angélica, 900',
-    cidade: 'São Paulo',
-    estado: 'SP',
-    lat: -23.5481,
-    lng: -46.6520,
-    precos: { gasolina: 5.69, etanol: 3.99, diesel: 5.59, gnv: 3.99 },
-    atualizadoEm: '2025-06-26'
-  },
-  {
-    id: '4',
-    nome: 'Raízen Avenida Brasil',
-    bandeira: 'Raízen',
-    endereco: 'Av. Brasil, 1200',
-    cidade: 'São Paulo',
-    estado: 'SP',
-    lat: -23.5699,
-    lng: -46.6421,
-    precos: { gasolina: 6.09, etanol: 4.29, diesel: 5.75, gnv: 4.09 },
-    atualizadoEm: '2025-06-26'
-  },
-  {
-    id: '5',
-    nome: 'Posto Bandeirante Liberdade',
-    bandeira: 'Bandeirante',
-    endereco: 'R. Galvão Bueno, 350',
-    cidade: 'São Paulo',
-    estado: 'SP',
-    lat: -23.5598,
-    lng: -46.6360,
-    precos: { gasolina: 5.85, etanol: 4.09, diesel: 5.65, gnv: 4.05 },
-    atualizadoEm: '2025-06-24'
-  },
-  {
-    id: '6',
-    nome: 'Auto Posto Pantanal',
-    bandeira: 'Independente',
-    endereco: 'R. Vergueiro, 4200',
-    cidade: 'São Paulo',
-    estado: 'SP',
-    lat: -23.5831,
-    lng: -46.6342,
-    precos: { gasolina: 5.79, etanol: 4.05, diesel: 5.55, gnv: 3.95 },
-    atualizadoEm: '2025-06-26'
-  },
-  {
-    id: '7',
-    nome: 'Posto Petrobras Ibirapuera',
-    bandeira: 'BR',
-    endereco: 'Av. Ibirapuera, 2907',
-    cidade: 'São Paulo',
-    estado: 'SP',
-    lat: -23.5962,
-    lng: -46.6547,
-    precos: { gasolina: 6.29, etanol: 4.49, diesel: 5.99, gnv: 4.39 },
-    atualizadoEm: '2025-06-25'
-  },
-  {
-    id: '8',
-    nome: 'Auto Posto Esso Moema',
-    bandeira: 'Esso',
-    endereco: 'Av. Santo Amaro, 1100',
-    cidade: 'São Paulo',
-    estado: 'SP',
-    lat: -23.5912,
-    lng: -46.6631,
-    precos: { gasolina: 5.99, etanol: 4.25, diesel: 5.72, gnv: 4.19 },
-    atualizadoEm: '2025-06-26'
+function setCached(key: string, postos: PostoReal[]): void {
+  cache.set(key, { postos, ts: Date.now() })
+  // Limitar tamanho do cache
+  if (cache.size > 50) {
+    const oldest = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0]
+    cache.delete(oldest[0])
   }
-]
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-function getBandeiraEmoji(bandeira: string): string {
-  const map: Record<string, string> = {
-    'BR': '🟢', 'Ipiranga': '🟡', 'Shell': '🔴', 'Esso': '🔵',
-    'Raízen': '🟠', 'Bandeirante': '⚪', 'Independente': '⚫'
-  }
-  return map[bandeira] || '⚫'
-}
-
-// ─── API: Postos próximos ─────────────────────────────────────────────────────
-app.get('/api/postos', (c) => {
+// ─── API: Postos próximos (ANP + OSM + IA de Economia) ───────────────────────
+app.get('/api/postos', async (c) => {
   const lat = parseFloat(c.req.query('lat') || '-23.5505')
   const lng = parseFloat(c.req.query('lng') || '-46.6333')
   const raio = parseFloat(c.req.query('raio') || '10')
-  const combustivel = c.req.query('combustivel') || 'gasolina'
+  const combustivel = (c.req.query('combustivel') || 'gasolina') as keyof PostoReal['precos']
+  const litros = parseFloat(c.req.query('litros') || '50')
+  const consumo = parseFloat(c.req.query('consumo') || '12')
 
-  const postos = POSTOS_MOCK
-    .map(p => ({
-      ...p,
-      distancia: haversine(lat, lng, p.lat, p.lng),
-      preco: p.precos[combustivel] || null,
-      emoji: getBandeiraEmoji(p.bandeira)
-    }))
-    .filter(p => p.distancia <= raio && p.preco !== null)
-    .sort((a, b) => (a.preco || 0) - (b.preco || 0))
+  try {
+    // 1. Geocode reverso para obter cidade/UF do GPS
+    let uf = 'SP'
+    let municipio = 'SAO PAULO'
 
-  if (postos.length === 0) {
-    return c.json({ error: 'Nenhum posto encontrado neste raio', postos: [] })
+    const geo = await geocodeReverso(lat, lng)
+    if (geo?.uf) uf = geo.uf
+    if (geo?.cidade) municipio = geo.cidade
+
+    // 2. Checar cache
+    const cacheKey = `${uf}:${municipio}`
+    let postosBase = getCached(cacheKey)
+
+    if (!postosBase) {
+      // 3. Buscar em paralelo: ANP + OSM
+      const [anpPostos, osmPostos] = await Promise.allSettled([
+        buscarPostosANP(uf, municipio),
+        buscarPostosOSM(lat, lng, Math.min(raio * 1000, 8000))
+      ])
+
+      const anp = anpPostos.status === 'fulfilled' ? anpPostos.value : []
+      const osm = osmPostos.status === 'fulfilled' ? osmPostos.value : []
+
+      // 4. Merge deduplicado
+      postosBase = mergePostos(anp, osm)
+      setCached(cacheKey, postosBase)
+    }
+
+    // 5. Filtrar por raio e presença do combustível solicitado
+    const noRaio = postosBase.filter(p => {
+      const dist = haversine(lat, lng, p.lat, p.lng)
+      return dist <= raio && p.precos[combustivel]
+    })
+
+    if (noRaio.length === 0) {
+      // Fallback: OSM sem filtro de cidade (busca por coordenadas)
+      const osmFallback = await buscarPostosOSM(lat, lng, Math.min(raio * 1000, 5000))
+      const fallbackComCombustivel = osmFallback.filter(p => p.precos[combustivel])
+
+      if (fallbackComCombustivel.length === 0) {
+        return c.json({ error: 'Nenhum posto encontrado neste raio', postos: [], fonte: 'vazio' })
+      }
+
+      const rankeados = rankearPostosPorIA(fallbackComCombustivel, lat, lng, combustivel, litros, consumo)
+      return buildResponse(rankeados, combustivel, 'osm_fallback')
+    }
+
+    // 6. Ranking com IA de Economia
+    const rankeados = rankearPostosPorIA(noRaio, lat, lng, combustivel, litros, consumo)
+    return buildResponse(rankeados, combustivel, postosBase.some(p => p.fonte === 'anp') ? 'anp+osm' : 'osm')
+
+    function buildResponse(rankeados: EconomiaPosto[], combustivel: keyof PostoReal['precos'], fonte: string) {
+      if (rankeados.length === 0) {
+        return c.json({ error: 'Nenhum posto com esse combustível', postos: [], fonte })
+      }
+
+      const menorPreco = rankeados[0].precos[combustivel]!
+      const maiorPreco = Math.max(...rankeados.map(p => p.precos[combustivel] || 0))
+      const mediaPreco = rankeados.reduce((s, p) => s + (p.precos[combustivel] || 0), 0) / rankeados.length
+
+      return c.json({
+        postos: rankeados.map(p => ({
+          id: p.id,
+          nome: p.nome,
+          bandeira: p.bandeira,
+          endereco: p.endereco,
+          bairro: p.bairro,
+          cidade: p.cidade,
+          estado: p.estado,
+          lat: p.lat,
+          lng: p.lng,
+          precos: p.precos,
+          atualizadoEm: p.atualizadoEm,
+          fontePreco: p.fontePreco,
+          fonte: p.fonte,
+          // Campos calculados
+          distancia: Math.round(p.distancia * 100) / 100,
+          preco: p.precos[combustivel],
+          emoji: emojiPorBandeira(p.bandeira),
+          rank: p.rank,
+          score: Math.round(p.score * 100) / 100,
+          economiaPorLitro: p.economiaPorLitro,
+          economiaTanque: p.economiaTanque,
+          custoDeslocamento: p.custoDeslocamento,
+          melhor: p.rank === 1
+        })),
+        estatisticas: {
+          totalPostos: rankeados.length,
+          menorPreco: Math.round(menorPreco * 100) / 100,
+          maiorPreco: Math.round(maiorPreco * 100) / 100,
+          mediaPreco: Math.round(mediaPreco * 100) / 100,
+          combustivel,
+          cidade: municipio,
+          uf,
+          fonte
+        }
+      })
+    }
+  } catch (e: any) {
+    console.error('Erro /api/postos:', e)
+    return c.json({ error: 'Erro ao buscar postos: ' + (e?.message || 'erro desconhecido'), postos: [] }, 500)
   }
+})
 
-  const menorPreco = postos[0].preco!
-  const maiorPreco = postos[postos.length - 1].preco!
+// ─── API: Preços colaborativos (reportar preço) ───────────────────────────────
+interface PrecoReporte {
+  postoId: string
+  combustivel: string
+  preco: number
+  lat: number
+  lng: number
+  ts: number
+  confirmacoes: number
+}
+
+// Store em memória (em produção: Cloudflare KV/D1)
+const PRECOS_REPORTADOS = new Map<string, PrecoReporte>()
+
+app.post('/api/precos/reportar', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { postoId, combustivel, preco, lat, lng } = body
+
+    if (!postoId || !combustivel || !preco || preco < 1 || preco > 30) {
+      return c.json({ sucesso: false, mensagem: 'Dados inválidos' }, 400)
+    }
+
+    const key = `${postoId}:${combustivel}`
+    const existente = PRECOS_REPORTADOS.get(key)
+
+    if (existente) {
+      // Atualizar com média ponderada se há confirmações recentes
+      const agora = Date.now()
+      const idadeHoras = (agora - existente.ts) / 3600000
+      if (idadeHoras < 24) {
+        // Média com peso para o mais recente
+        existente.preco = Math.round(((existente.preco * existente.confirmacoes + preco) / (existente.confirmacoes + 1)) * 100) / 100
+        existente.confirmacoes++
+        existente.ts = agora
+        PRECOS_REPORTADOS.set(key, existente)
+        return c.json({ sucesso: true, mensagem: `Preço confirmado! ${existente.confirmacoes} confirmações`, confirmacoes: existente.confirmacoes })
+      }
+    }
+
+    // Novo reporte
+    PRECOS_REPORTADOS.set(key, {
+      postoId, combustivel,
+      preco: Math.round(preco * 100) / 100,
+      lat: lat || 0,
+      lng: lng || 0,
+      ts: Date.now(),
+      confirmacoes: 1
+    })
+
+    return c.json({
+      sucesso: true,
+      mensagem: 'Preço reportado com sucesso! Obrigado por colaborar. 🙏',
+      confirmacoes: 1
+    })
+  } catch (e: any) {
+    return c.json({ sucesso: false, mensagem: 'Erro ao salvar preço' }, 500)
+  }
+})
+
+// ─── API: Listar preços colaborativos reportados ──────────────────────────────
+app.get('/api/precos/reportados', (c) => {
+  const reportes = [...PRECOS_REPORTADOS.values()]
+    .filter(r => Date.now() - r.ts < 24 * 3600000) // últimas 24h
+    .sort((a, b) => b.confirmacoes - a.confirmacoes)
 
   return c.json({
-    postos: postos.map((p, i) => ({
-      ...p,
-      rank: i + 1,
-      economia: i === 0 ? 0 : Math.round((p.preco! - menorPreco) * 100) / 100,
-      melhor: i === 0
-    })),
-    estatisticas: {
-      totalPostos: postos.length,
-      menorPreco,
-      maiorPreco,
-      mediaPreco: Math.round((postos.reduce((s, p) => s + p.preco!, 0) / postos.length) * 100) / 100,
-      combustivel
-    }
+    total: reportes.length,
+    reportes: reportes.map(r => ({
+      ...r,
+      idadeMin: Math.round((Date.now() - r.ts) / 60000)
+    }))
   })
 })
 
 // ─── API: Calcular Rota via OSRM ──────────────────────────────────────────────
 app.get('/api/rota', async (c) => {
-  const origemLat = c.req.query('origemLat')
-  const origemLng = c.req.query('origemLng')
-  const destinoLat = c.req.query('destinoLat')
-  const destinoLng = c.req.query('destinoLng')
+  const origemLat = parseFloat(c.req.query('origemLat') || '')
+  const origemLng = parseFloat(c.req.query('origemLng') || '')
+  const destinoLat = parseFloat(c.req.query('destinoLat') || '')
+  const destinoLng = parseFloat(c.req.query('destinoLng') || '')
 
-  if (!origemLat || !origemLng || !destinoLat || !destinoLng) {
+  if (isNaN(origemLat) || isNaN(origemLng) || isNaN(destinoLat) || isNaN(destinoLng)) {
     return c.json({ error: 'Parâmetros de rota inválidos' }, 400)
   }
 
-  try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${origemLng},${origemLat};${destinoLng},${destinoLat}?overview=false&steps=false`
-    const res = await fetch(url)
-    const data = await res.json() as any
+  const rota = await calcularRotaOSRM(origemLat, origemLng, destinoLat, destinoLng)
+  if (!rota) return c.json({ error: 'Serviço de rota indisponível' }, 500)
 
-    if (data.code !== 'Ok') {
-      return c.json({ error: 'Erro ao calcular rota' }, 500)
-    }
-
-    const rota = data.routes[0]
-    return c.json({
-      distanciaKm: Math.round(rota.distance / 1000 * 10) / 10,
-      duracaoMin: Math.round(rota.duration / 60),
-      url_mapa: `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${origemLat}%2C${origemLng}%3B${destinoLat}%2C${destinoLng}`
-    })
-  } catch (e) {
-    return c.json({ error: 'Serviço de rota indisponível' }, 500)
-  }
+  return c.json({
+    distanciaKm: rota.distanciaKm,
+    duracaoMin: rota.duracaoMin,
+    url_mapa: rota.urlOSM,
+    url_google: rota.urlGoogleMaps
+  })
 })
 
 // ─── API: Calcular Economia ───────────────────────────────────────────────────
@@ -239,19 +280,27 @@ app.get('/api/geocode', async (c) => {
   const q = c.req.query('q') || ''
   if (!q) return c.json({ error: 'Query vazia' }, 400)
 
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', Brasil')}&format=json&limit=5&countrycodes=br`
-    const res = await fetch(url, { headers: { 'User-Agent': 'RotaPosto/1.0' } })
-    const data = await res.json() as any[]
+  const resultados = await geocodeNominatim(q)
+  return c.json(resultados.map(r => ({
+    nome: r.nome,
+    lat: r.lat,
+    lng: r.lng,
+    cidade: r.cidade,
+    estado: r.estado
+  })))
+})
 
-    return c.json(data.map(r => ({
-      nome: r.display_name,
-      lat: parseFloat(r.lat),
-      lng: parseFloat(r.lon)
-    })))
-  } catch {
-    return c.json({ error: 'Erro ao buscar localização' }, 500)
-  }
+// ─── API: Geocode Reverso ─────────────────────────────────────────────────────
+app.get('/api/geocode/reverso', async (c) => {
+  const lat = parseFloat(c.req.query('lat') || '')
+  const lng = parseFloat(c.req.query('lng') || '')
+
+  if (isNaN(lat) || isNaN(lng)) return c.json({ error: 'Coordenadas inválidas' }, 400)
+
+  const geo = await geocodeReverso(lat, lng)
+  if (!geo) return c.json({ error: 'Não foi possível identificar a localização' }, 404)
+
+  return c.json(geo)
 })
 
 // ─── Landing Page ─────────────────────────────────────────────────────────────
@@ -760,6 +809,9 @@ app.get('/app', (c) => {
     .badge-combustivel { background: var(--laranja-claro); color: var(--laranja); }
     .badge-melhor { background: var(--verde-claro); color: #2E7D32; }
     .badge-atualizado { background: #F3F4F6; color: var(--cinza-texto); }
+    .badge-anp { background: #EEF2FF; color: var(--azul-vivo); }
+    .badge-osm { background: var(--laranja-claro); color: #E65100; }
+    .badge-ia { background: #F3E5F5; color: #7B1FA2; }
 
     .posto-preco-col {
       text-align: right;
@@ -1204,6 +1256,7 @@ app.get('/app', (c) => {
       <div class="label">⭐ Melhor Posto Próximo</div>
       <h2 id="banner-nome">Buscando postos...</h2>
       <div class="endereco" id="banner-end">Ative a localização para começar</div>
+      <div id="fonte-info" style="margin-bottom:10px;"></div>
       <div class="preco-destaque" id="banner-preco">
         <span class="cifra">R$</span>
         <span class="valor" id="banner-valor">–,–</span>
@@ -1511,7 +1564,7 @@ function renderizarDestaque() {
 
   // Banner
   document.getElementById('banner-nome').textContent = melhor.nome;
-  document.getElementById('banner-end').textContent = melhor.endereco + ' · ' + melhor.cidade;
+  document.getElementById('banner-end').textContent = (melhor.endereco || melhor.bairro || '') + ' · ' + melhor.cidade;
 
   const precoStr = melhor.preco.toFixed(2);
   const [int, dec] = precoStr.split('.');
@@ -1523,11 +1576,26 @@ function renderizarDestaque() {
     : melhor.distancia.toFixed(1) + 'km';
   document.getElementById('stat-dist').textContent = dist;
 
-  const econLitro = segundo ? (segundo.preco - melhor.preco) : (mediaPreco - melhor.preco);
+  const econLitro = segundo ? Math.max(0, segundo.preco - melhor.preco) : Math.max(0, mediaPreco - melhor.preco);
   const ecoTanque = (econLitro * 50).toFixed(2);
   document.getElementById('stat-eco-litro').textContent = 'R$ ' + econLitro.toFixed(2) + '/L';
   document.getElementById('stat-eco-tanque').textContent = 'R$ ' + ecoTanque;
   document.getElementById('stat-total').textContent = postos.length + ' postos';
+
+  // Badge de fonte
+  const fonte = state.estatisticas?.fonte || 'anp+osm';
+  const fonteTxt = fonte.includes('anp') ? '🏛 ANP + OSM' : '🗺 OpenStreetMap';
+  const city = state.estatisticas?.cidade || '';
+  document.getElementById('banner-end').textContent =
+    (melhor.endereco || melhor.bairro || city) + ' · ' + melhor.cidade;
+
+  // Info fonte (insere depois do banner)
+  const fonteEl = document.getElementById('fonte-info');
+  if (fonteEl) {
+    fonteEl.innerHTML = \`<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.55)">
+      \${fonteTxt} · \${postos.length} postos · \${city}
+    </span>\`;
+  }
 
   // Lista ranking (top 5)
   const top = postos.slice(0, 5);
@@ -1557,6 +1625,18 @@ function gerarCardPosto(p, i, menorPreco) {
   const economiaPorLitro = (p.preco - menorPreco).toFixed(2);
   const isMelhor = i === 0 && state.ordenacao === 'preco';
 
+  // Badge de fonte de dados
+  const fonteBadge = p.fonte === 'anp'
+    ? '<span class="badge badge-anp">🏛 ANP</span>'
+    : p.fonte === 'osm'
+      ? '<span class="badge badge-osm">🗺 OSM</span>'
+      : '<span class="badge badge-ia">👥 Colab</span>';
+
+  // Score IA se disponível
+  const scoreBadge = p.score
+    ? \`<span class="badge badge-ia" title="Score IA de economia">🤖 \${p.score.toFixed(0)}</span>\`
+    : '';
+
   return \`
   <div class="card-posto \${isMelhor ? 'melhor-posto' : ''}" onclick="abrirModalPosto('\${p.id}')" style="animation-delay:\${i * 0.05}s">
     <div class="bandeira-box">
@@ -1565,11 +1645,11 @@ function gerarCardPosto(p, i, menorPreco) {
     </div>
     <div class="posto-info">
       <div class="posto-nome">\${p.nome}</div>
-      <div class="posto-end">\${p.endereco}</div>
+      <div class="posto-end">\${p.endereco || p.bairro || p.cidade}</div>
       <div class="posto-tags">
         <span class="badge badge-dist"><i class="fas fa-map-pin"></i> \${dist}</span>
         \${isMelhor ? '<span class="badge badge-melhor">⭐ Mais barato</span>' : ''}
-        <span class="badge badge-atualizado">\${formatarData(p.atualizadoEm)}</span>
+        \${fonteBadge}
       </div>
     </div>
     <div class="posto-preco-col">
@@ -1696,6 +1776,24 @@ function abrirModalPosto(id) {
       <button class="modal-btn modal-btn-sec" onclick="calcularRotaPosto()">
         <i class="fas fa-route"></i> Ver rota
       </button>
+    </div>
+
+    <div style="margin-top:10px;padding:10px;background:var(--cinza-bg);border-radius:12px;border:1.5px dashed var(--cinza-borda)">
+      <div style="font-size:11px;font-weight:700;color:var(--cinza-texto);margin-bottom:7px;">
+        <i class="fas fa-users" style="color:var(--azul-vivo)"></i> Você sabe o preço atual? Ajude a comunidade!
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="number" id="preco-reportar" placeholder="R$ preço/litro" step="0.01" min="1" max="20"
+          style="flex:1;padding:8px 10px;border:1.5px solid var(--cinza-borda);border-radius:8px;font-family:'Raleway',sans-serif;font-size:13px;font-weight:700;color:var(--texto-principal);background:var(--branco);outline:none"/>
+        <button onclick="reportarPreco('\${posto.id}', '\${state.combustivel}')"
+          style="padding:8px 14px;background:var(--azul-vivo);color:white;border:none;border-radius:8px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">
+          <i class="fas fa-paper-plane"></i> Enviar
+        </button>
+      </div>
+      <div style="font-size:10px;color:var(--cinza-texto);margin-top:5px;">
+        Fonte: <span class="\${posto.fonte === 'anp' ? 'badge badge-anp' : 'badge badge-osm'}">\${posto.fonte?.toUpperCase() || 'ANP'}</span>
+        · Preço: \${posto.fontePreco === 'estimado' ? '📊 estimado (ANP médio)' : '👥 colaborativo'}
+      </div>
     </div>
   \`;
 
@@ -1873,6 +1971,478 @@ function formatarData(str) {
 function abrirFiltros() {
   mostrarToast('⚙️ Configurações em breve');
 }
+
+// ═══ REPORTAR PREÇO (COLABORATIVO) ════════════════════════════════════════════
+async function reportarPreco(postoId, combustivel) {
+  const input = document.getElementById('preco-reportar');
+  const preco = parseFloat(input.value);
+  if (!preco || preco < 1 || preco > 30) {
+    mostrarToast('⚠️ Informe um preço válido (ex: 5.89)');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/precos/reportar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postoId, combustivel, preco, lat: state.lat, lng: state.lng })
+    });
+    const data = await res.json();
+    if (data.sucesso) {
+      mostrarToast('✅ ' + data.mensagem);
+      document.getElementById('modal-overlay').classList.remove('visible');
+      // Refresh postos após reporte
+      setTimeout(() => buscarPostos(), 800);
+    } else {
+      mostrarToast('❌ ' + data.mensagem);
+    }
+  } catch {
+    mostrarToast('Erro ao reportar preço');
+  }
+}
+</script>
+</body>
+</html>`
+
+  return c.html(html)
+})
+
+// ─── Painel Administrativo ────────────────────────────────────────────────────
+app.get('/admin', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RotaPosto Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Raleway',sans-serif;background:#0D1B2A;color:#E0E7EF;min-height:100vh}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:#0A1520;border-right:1px solid rgba(255,255,255,0.08);padding:24px 0;display:flex;flex-direction:column}
+    .sidebar-logo{padding:0 20px 24px;border-bottom:1px solid rgba(255,255,255,0.08)}
+    .sidebar-logo h1{font-size:22px;font-weight:900;color:#fff}.sidebar-logo h1 span{color:#FF6D00}
+    .sidebar-logo p{font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:2px}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,0.5);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,0.06)}
+    .nav-item.active{color:#FF6D00;background:rgba(255,109,0,0.10);border-left-color:#FF6D00}
+    .nav-item i{width:18px;text-align:center;font-size:14px}
+    .main{margin-left:240px;padding:28px 32px;min-height:100vh}
+    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+    .page-header h2{font-size:22px;font-weight:900;color:#fff}
+    .page-header .badge-live{background:rgba(0,200,83,0.15);color:#00C853;padding:5px 12px;border-radius:100px;font-size:11px;font-weight:800;display:flex;align-items:center;gap:5px}
+    .badge-live::before{content:'';width:7px;height:7px;background:#00C853;border-radius:50%;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+    .kpi-card{background:#112035;border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,0.07)}
+    .kpi-card .kpi-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px}
+    .kpi-card .kpi-val{font-size:28px;font-weight:900;color:#fff;line-height:1}
+    .kpi-card .kpi-label{font-size:12px;color:rgba(255,255,255,0.45);font-weight:600;margin-top:4px}
+    .kpi-card .kpi-delta{font-size:11px;font-weight:700;margin-top:8px}
+    .kpi-delta.up{color:#00C853}.kpi-delta.down{color:#FF6D00}
+    .section-card{background:#112035;border-radius:16px;border:1px solid rgba(255,255,255,0.07);margin-bottom:20px}
+    .section-header{padding:18px 22px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between}
+    .section-header h3{font-size:14px;font-weight:800;color:#fff}
+    .section-body{padding:22px}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;font-size:10px;font-weight:800;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.8px;padding:0 0 12px;border-bottom:1px solid rgba(255,255,255,0.07)}
+    td{padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px;color:rgba(255,255,255,0.85);font-weight:600;vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800}
+    .badge-anp{background:rgba(21,101,192,0.2);color:#42A5F5}
+    .badge-osm{background:rgba(255,109,0,0.15);color:#FF8F00}
+    .badge-collab{background:rgba(0,200,83,0.15);color:#00C853}
+    .badge-premium{background:rgba(255,214,0,0.15);color:#FFD600}
+    .badge-free{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4)}
+    .tabs{display:flex;gap:4px;background:rgba(255,255,255,0.05);border-radius:10px;padding:4px}
+    .tab{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.4);cursor:pointer;transition:all 0.2s}
+    .tab.active{background:#FF6D00;color:#fff}
+    .chart-wrap{height:220px;position:relative}
+    .stat-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+    .stat-row:last-child{border-bottom:none}
+    .stat-row .lbl{font-size:12px;color:rgba(255,255,255,0.5);font-weight:600}
+    .stat-row .val{font-size:14px;font-weight:800;color:#fff}
+    .btn-refresh{padding:8px 16px;background:rgba(255,109,0,0.15);color:#FF6D00;border:1px solid rgba(255,109,0,0.3);border-radius:8px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:800;cursor:pointer;transition:all 0.2s}
+    .btn-refresh:hover{background:rgba(255,109,0,0.25)}
+    .fonte-bar{display:flex;height:8px;border-radius:100px;overflow:hidden;margin-top:8px;gap:2px}
+    .fonte-bar-anp{background:#1565C0;flex:0 0 var(--pct)}
+    .fonte-bar-osm{background:#FF6D00;flex:0 0 var(--pct)}
+    .fonte-bar-collab{background:#00C853;flex:0 0 var(--pct)}
+    #precos-lista{max-height:320px;overflow-y:auto}
+  </style>
+</head>
+<body>
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <h1>Rota<span>Posto</span></h1>
+    <p>Painel Administrativo</p>
+  </div>
+  <nav style="margin-top:16px;flex:1">
+    <div class="nav-item active" onclick="showSection('dashboard')"><i class="fas fa-tachometer-alt"></i>Dashboard</div>
+    <div class="nav-item" onclick="showSection('postos')"><i class="fas fa-gas-pump"></i>Postos</div>
+    <div class="nav-item" onclick="showSection('precos')"><i class="fas fa-tag"></i>Preços Reportados</div>
+    <div class="nav-item" onclick="showSection('usuarios')"><i class="fas fa-users"></i>Usuários</div>
+    <div class="nav-item" onclick="showSection('mapa')"><i class="fas fa-map"></i>Mapa ao Vivo</div>
+    <div class="nav-item" onclick="showSection('receita')"><i class="fas fa-dollar-sign"></i>Receita</div>
+  </nav>
+  <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,0.08)">
+    <div style="font-size:11px;color:rgba(255,255,255,0.25);font-weight:600;">RotaPosto v2.0</div>
+    <div style="font-size:10px;color:rgba(255,255,255,0.15);margin-top:2px" id="last-update">Atualizando...</div>
+  </div>
+</div>
+
+<main class="main">
+  <!-- Dashboard -->
+  <section id="section-dashboard">
+    <div class="page-header">
+      <h2>📊 Dashboard</h2>
+      <div class="badge-live">Sistema ao vivo</div>
+    </div>
+
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(21,101,192,0.2);color:#42A5F5"><i class="fas fa-gas-pump"></i></div>
+        <div class="kpi-val" id="kpi-postos">–</div>
+        <div class="kpi-label">Postos Encontrados</div>
+        <div class="kpi-delta up" id="kpi-postos-fonte">↑ ANP + OSM</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(0,200,83,0.15);color:#00C853"><i class="fas fa-tag"></i></div>
+        <div class="kpi-val" id="kpi-preco-medio">–</div>
+        <div class="kpi-label">Preço Médio Gasolina</div>
+        <div class="kpi-delta" id="kpi-preco-label">São Paulo, SP</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(255,109,0,0.15);color:#FF6D00"><i class="fas fa-comments"></i></div>
+        <div class="kpi-val" id="kpi-reportes">–</div>
+        <div class="kpi-label">Preços Colaborativos</div>
+        <div class="kpi-delta up" id="kpi-reportes-24h">Últimas 24h</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(255,214,0,0.15);color:#FFD600"><i class="fas fa-crown"></i></div>
+        <div class="kpi-val">–</div>
+        <div class="kpi-label">Assinantes Premium</div>
+        <div class="kpi-delta down">🔒 Firebase Auth</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:20px">
+      <div class="section-card">
+        <div class="section-header">
+          <h3><i class="fas fa-chart-line" style="color:#FF6D00;margin-right:8px"></i>Preços por Combustível</h3>
+          <div class="tabs">
+            <div class="tab active" onclick="toggleChart('gasolina',this)">Gasolina</div>
+            <div class="tab" onclick="toggleChart('etanol',this)">Etanol</div>
+            <div class="tab" onclick="toggleChart('diesel',this)">Diesel</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="chart-wrap"><canvas id="chart-precos"></canvas></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h3><i class="fas fa-database" style="color:#42A5F5;margin-right:8px"></i>Fontes de Dados</h3>
+        </div>
+        <div class="section-body">
+          <div class="stat-row">
+            <span class="lbl"><span class="badge badge-anp">ANP</span> Postos Cadastrados</span>
+            <span class="val" id="stat-anp">–</span>
+          </div>
+          <div class="stat-row">
+            <span class="lbl"><span class="badge badge-osm">OSM</span> OpenStreetMap</span>
+            <span class="val" id="stat-osm">–</span>
+          </div>
+          <div class="stat-row">
+            <span class="lbl"><span class="badge badge-collab">👥</span> Colaborativos</span>
+            <span class="val" id="stat-collab">–</span>
+          </div>
+          <div class="fonte-bar" id="fonte-bar" style="margin-top:16px">
+            <div class="fonte-bar-anp" style="--pct:60%"></div>
+            <div class="fonte-bar-osm" style="--pct:35%"></div>
+            <div class="fonte-bar-collab" style="--pct:5%"></div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:10px">
+            <span style="font-size:10px;color:#42A5F5;font-weight:700">■ ANP</span>
+            <span style="font-size:10px;color:#FF8F00;font-weight:700">■ OSM</span>
+            <span style="font-size:10px;color:#00C853;font-weight:700">■ Colab</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Postos -->
+  <section id="section-postos" style="display:none">
+    <div class="page-header">
+      <h2>⛽ Postos Encontrados</h2>
+      <button class="btn-refresh" onclick="carregarPostos()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+    </div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3>Lista de Postos (São Paulo)</h3>
+        <span style="font-size:12px;color:rgba(255,255,255,0.35);font-weight:600" id="postos-count">Carregando...</span>
+      </div>
+      <div class="section-body" style="padding:0">
+        <div style="overflow-x:auto">
+          <table style="min-width:700px">
+            <thead><tr>
+              <th>Nome</th><th>Bandeira</th><th>Fonte</th>
+              <th>Gasolina</th><th>Etanol</th><th>Diesel</th>
+              <th>Cidade</th>
+            </tr></thead>
+            <tbody id="postos-tbody"><tr><td colspan="7" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Carregando postos...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Preços Reportados -->
+  <section id="section-precos" style="display:none">
+    <div class="page-header">
+      <h2>💬 Preços Colaborativos</h2>
+      <button class="btn-refresh" onclick="carregarReportes()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+    </div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3>Reportes de Preço (últimas 24h)</h3>
+      </div>
+      <div class="section-body" style="padding:0" id="precos-lista">
+        <table>
+          <thead><tr><th>Posto ID</th><th>Combustível</th><th>Preço</th><th>Confirmações</th><th>Tempo</th></tr></thead>
+          <tbody id="reportes-tbody"><tr><td colspan="5" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Nenhum reporte ainda</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Usuários (placeholder) -->
+  <section id="section-usuarios" style="display:none">
+    <div class="page-header"><h2>👥 Usuários</h2></div>
+    <div class="section-card">
+      <div class="section-body" style="text-align:center;padding:60px">
+        <i class="fas fa-lock" style="font-size:48px;color:rgba(255,255,255,0.15);display:block;margin-bottom:16px"></i>
+        <h3 style="font-size:18px;font-weight:800;color:rgba(255,255,255,0.6)">Requer Firebase Auth</h3>
+        <p style="color:rgba(255,255,255,0.3);font-size:13px;margin-top:8px">Integração com Firebase Authentication em desenvolvimento</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mapa ao Vivo -->
+  <section id="section-mapa" style="display:none">
+    <div class="page-header"><h2>🗺️ Mapa ao Vivo</h2></div>
+    <div class="section-card">
+      <div class="section-body" style="padding:0">
+        <div id="admin-map" style="width:100%;height:500px;border-radius:0 0 16px 16px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Receita -->
+  <section id="section-receita" style="display:none">
+    <div class="page-header"><h2>💰 Receita</h2></div>
+    <div class="section-card">
+      <div class="section-body" style="text-align:center;padding:60px">
+        <i class="fas fa-credit-card" style="font-size:48px;color:rgba(255,255,255,0.15);display:block;margin-bottom:16px"></i>
+        <h3 style="font-size:18px;font-weight:800;color:rgba(255,255,255,0.6)">Requer MercadoPago API</h3>
+        <p style="color:rgba(255,255,255,0.3);font-size:13px;margin-top:8px">Configure MP_ACCESS_TOKEN para ver dados de assinaturas</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let adminMap = null;
+let chartPrecos = null;
+let currentSection = 'dashboard';
+
+function showSection(name) {
+  document.querySelectorAll('main section').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('section-' + name).style.display = 'block';
+  event.currentTarget.classList.add('active');
+  currentSection = name;
+
+  if (name === 'mapa') iniciarMapaAdmin();
+  if (name === 'postos') carregarPostos();
+  if (name === 'precos') carregarReportes();
+  if (name === 'dashboard') carregarDashboard();
+}
+
+async function carregarDashboard() {
+  try {
+    const [postosRes, reportesRes] = await Promise.all([
+      fetch('/api/postos?lat=-23.5505&lng=-46.6333&combustivel=gasolina&raio=15'),
+      fetch('/api/precos/reportados')
+    ]);
+    const postosData = await postosRes.json();
+    const reportesData = await reportesRes.json();
+
+    const postos = postosData.postos || [];
+    const anp = postos.filter(p => p.fonte === 'anp').length;
+    const osm = postos.filter(p => p.fonte === 'osm').length;
+    const collab = reportesData.total || 0;
+
+    document.getElementById('kpi-postos').textContent = postos.length;
+    document.getElementById('kpi-postos-fonte').textContent = '↑ ANP:' + anp + ' OSM:' + osm;
+
+    if (postosData.estatisticas?.mediaPreco) {
+      document.getElementById('kpi-preco-medio').textContent = 'R$ ' + postosData.estatisticas.mediaPreco.toFixed(2);
+      document.getElementById('kpi-preco-label').textContent = postosData.estatisticas.cidade + ', ' + postosData.estatisticas.uf;
+    }
+
+    document.getElementById('kpi-reportes').textContent = collab;
+    document.getElementById('stat-anp').textContent = anp;
+    document.getElementById('stat-osm').textContent = osm;
+    document.getElementById('stat-collab').textContent = collab;
+
+    const total = Math.max(anp + osm, 1);
+    const pAnp = Math.round(anp / total * 100);
+    const pOsm = Math.round(osm / total * 100);
+    const pC = Math.max(0, 100 - pAnp - pOsm);
+    const bar = document.getElementById('fonte-bar');
+    bar.innerHTML = \`<div class="fonte-bar-anp" style="--pct:\${pAnp}%;flex:0 0 \${pAnp}%"></div>
+      <div class="fonte-bar-osm" style="--pct:\${pOsm}%;flex:0 0 \${pOsm}%"></div>
+      <div class="fonte-bar-collab" style="--pct:\${pC}%;flex:0 0 \${pC}%"></div>\`;
+
+    // Gráfico de preços
+    const labels = postos.slice(0, 8).map(p => p.bandeira.substring(0, 8));
+    const data = postos.slice(0, 8).map(p => p.preco || p.precos?.gasolina || 0);
+    renderChart(labels, data, 'Gasolina');
+
+    document.getElementById('last-update').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+  } catch(e) {
+    console.error('Erro dashboard:', e);
+  }
+}
+
+function renderChart(labels, data, label) {
+  const ctx = document.getElementById('chart-precos').getContext('2d');
+  if (chartPrecos) chartPrecos.destroy();
+  chartPrecos = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'R$/L ' + label,
+        data,
+        backgroundColor: data.map((v, i) => i === 0 ? 'rgba(0,200,83,0.8)' : 'rgba(21,101,192,0.6)'),
+        borderRadius: 8,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          beginAtZero: false, min: 4,
+          ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 },
+            callback: v => 'R$ ' + v.toFixed(2) },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        },
+        x: { ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } },
+          grid: { display: false } }
+      }
+    }
+  });
+}
+
+async function toggleChart(combustivel, el) {
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const res = await fetch('/api/postos?lat=-23.5505&lng=-46.6333&combustivel=' + combustivel + '&raio=15');
+  const data = await res.json();
+  const postos = data.postos || [];
+  const labels = postos.slice(0, 8).map(p => p.bandeira.substring(0, 8));
+  const values = postos.slice(0, 8).map(p => p.preco || 0);
+  renderChart(labels, values, combustivel.charAt(0).toUpperCase() + combustivel.slice(1));
+}
+
+async function carregarPostos() {
+  const tbody = document.getElementById('postos-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Buscando postos na ANP e OSM...</td></tr>';
+  try {
+    const res = await fetch('/api/postos?lat=-23.5505&lng=-46.6333&combustivel=gasolina&raio=15');
+    const data = await res.json();
+    const postos = data.postos || [];
+    document.getElementById('postos-count').textContent = postos.length + ' postos';
+
+    tbody.innerHTML = postos.map(p => {
+      const fonteBadge = p.fonte === 'anp' ? '<span class="badge badge-anp">ANP</span>' :
+        p.fonte === 'osm' ? '<span class="badge badge-osm">OSM</span>' :
+        '<span class="badge badge-collab">Colab</span>';
+      return \`<tr>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${p.nome}</td>
+        <td>\${p.bandeira}</td>
+        <td>\${fonteBadge}</td>
+        <td style="color:#69F0AE;font-weight:800">\${p.precos?.gasolina ? 'R$ ' + p.precos.gasolina.toFixed(2) : '–'}</td>
+        <td>\${p.precos?.etanol ? 'R$ ' + p.precos.etanol.toFixed(2) : '–'}</td>
+        <td>\${p.precos?.diesel ? 'R$ ' + p.precos.diesel.toFixed(2) : '–'}</td>
+        <td style="color:rgba(255,255,255,0.5)">\${p.cidade}</td>
+      </tr>\`;
+    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Nenhum posto encontrado</td></tr>';
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:#FF6D00;text-align:center;padding:24px">Erro ao carregar postos</td></tr>';
+  }
+}
+
+async function carregarReportes() {
+  const tbody = document.getElementById('reportes-tbody');
+  try {
+    const res = await fetch('/api/precos/reportados');
+    const data = await res.json();
+    const reportes = data.reportes || [];
+
+    tbody.innerHTML = reportes.length > 0
+      ? reportes.map(r => \`<tr>
+          <td style="font-size:11px;color:rgba(255,255,255,0.5)">\${r.postoId}</td>
+          <td><span class="badge badge-collab">\${r.combustivel}</span></td>
+          <td style="font-weight:800;color:#69F0AE">R$ \${r.preco.toFixed(2)}</td>
+          <td style="color:#FFD600">⭐ \${r.confirmacoes}x</td>
+          <td style="color:rgba(255,255,255,0.4);font-size:12px">há \${r.idadeMin} min</td>
+        </tr>\`).join('')
+      : '<tr><td colspan="5" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Nenhum reporte nas últimas 24h</td></tr>';
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Nenhum reporte ainda</td></tr>';
+  }
+}
+
+function iniciarMapaAdmin() {
+  if (adminMap) { adminMap.invalidateSize(); return; }
+  adminMap = L.map('admin-map').setView([-23.5505, -46.6333], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 19
+  }).addTo(adminMap);
+
+  // Carregar postos no mapa
+  fetch('/api/postos?lat=-23.5505&lng=-46.6333&combustivel=gasolina&raio=15')
+    .then(r => r.json())
+    .then(data => {
+      (data.postos || []).forEach(p => {
+        const cor = p.fonte === 'anp' ? '#1565C0' : '#FF6D00';
+        const icon = L.divIcon({
+          html: \`<div style="background:\${cor};color:white;padding:3px 7px;border-radius:8px;font-size:10px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.4);border:2px solid white;white-space:nowrap">R$\${p.preco?.toFixed(2)}</div>\`,
+          className: '', iconAnchor: [20, 12]
+        });
+        L.marker([p.lat, p.lng], { icon })
+          .addTo(adminMap)
+          .bindPopup(\`<strong>\${p.nome}</strong><br>\${p.bandeira} · \${p.fonte?.toUpperCase()}<br>R$ \${p.preco?.toFixed(2)}\`);
+      });
+    });
+}
+
+// Init
+carregarDashboard();
+document.getElementById('last-update').textContent = 'Carregando...';
+// Auto-refresh a cada 5 minutos
+setInterval(() => { if (currentSection === 'dashboard') carregarDashboard(); }, 5 * 60000);
 </script>
 </body>
 </html>`
