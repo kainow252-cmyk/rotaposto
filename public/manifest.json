@@ -1,0 +1,43 @@
+{
+  "name": "RotaPosto – Ache o Melhor Preço",
+  "short_name": "RotaPosto",
+  "description": "Encontre o posto de combustível mais barato próximo a você. Gasolina, Etanol, Diesel e GNV em tempo real.",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#0D1B2A",
+  "theme_color": "#0D1B2A",
+  "orientation": "portrait",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "scope": "/",
+  "categories": ["utilities", "navigation", "travel"],
+  "icons": [
+    { "src": "/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Buscar Postos",
+      "short_name": "Buscar",
+      "description": "Encontrar postos próximos",
+      "url": "/app",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Calculadora",
+      "short_name": "Calcular",
+      "description": "Calcular economia de combustível",
+      "url": "/app#planejar",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

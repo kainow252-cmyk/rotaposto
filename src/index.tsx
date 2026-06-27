@@ -15,6 +15,8 @@ import {
   type PostoReal,
   type EconomiaPosto
 } from './apis'
+import { FIREBASE_CONFIG, GOOGLE_CLIENT_ID, GOOGLE_API_KEY, getFirebaseAuthScripts } from './auth'
+import { criarAssinaturaPIX, verificarPagamento, PLANOS } from './woovi'
 
 const app = new Hono()
 
@@ -410,9 +412,71 @@ app.post('/api/pagamento/assinar', async (c) => {
 // ─── API: Webhook MercadoPago ─────────────────────────────────────────────────
 app.post('/api/pagamento/webhook', async (c) => {
   const body = await c.req.json() as any
-  // Aqui você processaria a notificação do MP e ativaria o plano do usuário
   console.log('MP Webhook:', JSON.stringify(body))
   return c.json({ status: 'ok' })
+})
+
+// ─── API: PIX Recorrente (Woovi/OpenPix) ─────────────────────────────────────
+app.post('/api/pix/assinar', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { nome, email, cpf, plano } = body
+
+    if (!nome || !email) {
+      return c.json({ sucesso: false, mensagem: 'Nome e email são obrigatórios' }, 400)
+    }
+
+    const planoValido = plano in PLANOS ? plano : 'premium'
+    // CPF é opcional — em demo mode não é necessário
+    const cpfLimpo = (cpf || '').replace(/\D/g, '')
+    const resultado = await criarAssinaturaPIX(c.env as any, nome, email, cpfLimpo, planoValido)
+
+    if (resultado.error) {
+      return c.json({ sucesso: false, mensagem: resultado.error }, 500)
+    }
+
+    return c.json({
+      sucesso: true,
+      plano: planoValido,
+      valor: PLANOS[planoValido].valor / 100,
+      subscriptionId: resultado.subscriptionId,
+      qrCode: resultado.qrCode,
+      brcode: resultado.brcode,
+      mensagem: 'QR Code PIX gerado! Escaneie para ativar o plano Premium.',
+      instrucoes: [
+        '1. Abra seu app de banco',
+        '2. Escaneie o QR Code ou copie o código PIX',
+        '3. Confirme o pagamento',
+        '4. Seu plano será ativado automaticamente em até 1 minuto'
+      ]
+    })
+  } catch (e: any) {
+    return c.json({ sucesso: false, mensagem: 'Erro ao gerar PIX. Tente novamente.' }, 500)
+  }
+})
+
+// ─── API: Verificar Pagamento PIX ─────────────────────────────────────────────
+app.get('/api/pix/verificar/:txid', async (c) => {
+  const txid = c.req.param('txid')
+  const pago = await verificarPagamento(c.env as any, txid)
+  return c.json({ pago, txid })
+})
+
+// ─── API: Webhook Woovi ───────────────────────────────────────────────────────
+app.post('/api/pix/webhook', async (c) => {
+  const body = await c.req.json() as any
+  console.log('[Woovi Webhook]', JSON.stringify(body))
+  // Aqui: ativar assinatura do usuário via Firebase Firestore
+  // body.charge.status === 'COMPLETED' → ativar premium
+  return c.json({ status: 'ok' })
+})
+
+// ─── API: Firebase Config (segura - não expõe secrets) ───────────────────────
+app.get('/api/auth/config', (c) => {
+  return c.json({
+    firebaseConfig: FIREBASE_CONFIG,
+    googleClientId: GOOGLE_CLIENT_ID
+  })
 })
 
 // ─── Frontend Principal ───────────────────────────────────────────────────────
@@ -421,19 +485,41 @@ app.get('/', (c) => {
 })
 
 app.get('/app', (c) => {
+  const firebaseScripts = getFirebaseAuthScripts()
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <meta name="theme-color" content="#0D1B2A"/>
+  <meta name="description" content="Encontre o posto de combustível mais barato perto de você. Gasolina, Etanol, Diesel e GNV com dados reais ANP."/>
+  <!-- PWA -->
+  <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
+  <meta name="application-name" content="RotaPosto"/>
+  <meta name="msapplication-TileColor" content="#0D1B2A"/>
+  <!-- Open Graph -->
+  <meta property="og:title" content="RotaPosto – Ache o Melhor Preço"/>
+  <meta property="og:description" content="Posto de combustível mais barato perto de você"/>
+  <meta property="og:image" content="/icons/icon-512x512.png"/>
+  <meta property="og:type" content="website"/>
+  <!-- Google OAuth -->
+  <meta name="google-signin-client_id" content="${GOOGLE_CLIENT_ID}"/>
   <title>RotaPosto – Ache o Melhor Preço</title>
+  <!-- PWA Manifest + Icons -->
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
+  <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png"/>
+  <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png"/>
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+  <!-- Firebase Auth (modular) -->
+  ${firebaseScripts}
   <style>
     :root {
       --azul-escuro: #0D1B2A;
@@ -1166,10 +1252,196 @@ app.get('/app', (c) => {
       font-size: 11px; font-weight: 800;
       cursor: pointer;
     }
+
+    /* ── MODAL LOGIN FIREBASE ── */
+    .auth-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.70);
+      z-index: 900;
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .auth-modal-overlay.visible { display: flex; }
+    .auth-modal {
+      background: var(--branco);
+      border-radius: 24px;
+      padding: 28px 24px;
+      width: 100%; max-width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      animation: slideUp 0.3s ease;
+    }
+    .auth-logo { text-align: center; margin-bottom: 20px; }
+    .auth-logo img { width: 72px; height: 72px; border-radius: 18px; margin-bottom: 8px; }
+    .auth-logo h2 { font-size: 20px; font-weight: 900; color: var(--azul-escuro); }
+    .auth-logo p { font-size: 12px; color: var(--cinza-texto); font-weight: 500; margin-top: 2px; }
+    .auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
+    .auth-divider span { font-size: 11px; color: var(--cinza-texto); font-weight: 600; white-space: nowrap; }
+    .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--cinza-borda); }
+    .btn-social {
+      width: 100%; padding: 13px;
+      border-radius: 12px; border: 1.5px solid var(--cinza-borda);
+      background: var(--branco);
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      font-family: 'Raleway', sans-serif;
+      font-size: 14px; font-weight: 700;
+      color: var(--texto-principal);
+      cursor: pointer; margin-bottom: 10px;
+      transition: all 0.2s;
+    }
+    .btn-social:active { background: var(--cinza-bg); }
+    .btn-social img { width: 20px; height: 20px; }
+    .btn-social.fb { background: #1877F2; color: white; border-color: #1877F2; }
+    .auth-input {
+      width: 100%; padding: 12px 14px;
+      border: 1.5px solid var(--cinza-borda);
+      border-radius: 12px;
+      font-family: 'Raleway', sans-serif;
+      font-size: 14px; font-weight: 600;
+      color: var(--texto-principal);
+      background: var(--cinza-bg);
+      outline: none; margin-bottom: 10px;
+    }
+    .auth-input:focus { border-color: var(--azul-vivo); background: var(--branco); }
+    .btn-auth-primary {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, var(--azul-escuro), var(--azul-medio));
+      color: var(--branco); border: none; border-radius: 12px;
+      font-family: 'Raleway', sans-serif;
+      font-size: 15px; font-weight: 800;
+      cursor: pointer; margin-top: 4px;
+      transition: transform 0.15s;
+    }
+    .btn-auth-primary:active { transform: scale(0.98); }
+    .auth-footer { text-align: center; margin-top: 14px; font-size: 11px; color: var(--cinza-texto); font-weight: 500; }
+    .auth-footer a { color: var(--azul-vivo); font-weight: 700; text-decoration: none; }
+
+    /* ── BANNER PIX PREMIUM ── */
+    #pwa-install-banner {
+      position: fixed; bottom: calc(var(--tab-h) + 12px); left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      width: calc(100% - 32px); max-width: 398px;
+      background: linear-gradient(135deg, var(--azul-escuro), #1B3A5C);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      z-index: 600;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #pwa-install-banner.visible {
+      transform: translateX(-50%) translateY(0);
+    }
+    #pwa-install-banner img { width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0; }
+    #pwa-install-banner .banner-txt { flex: 1; }
+    #pwa-install-banner .banner-txt strong { font-size: 13px; font-weight: 800; color: var(--branco); display: block; }
+    #pwa-install-banner .banner-txt span { font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 500; }
+    .btn-install {
+      padding: 9px 16px;
+      background: var(--laranja); color: var(--branco);
+      border: none; border-radius: 10px;
+      font-family: 'Raleway', sans-serif;
+      font-size: 12px; font-weight: 800;
+      cursor: pointer; white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── MODAL PIX ASSINATURA ── */
+    .pix-modal { max-width: 360px; text-align: center; }
+    .pix-qr-wrap { 
+      background: var(--cinza-bg); border-radius: 16px;
+      padding: 20px; margin: 16px 0;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .pix-qr-wrap img { width: 200px; height: 200px; border-radius: 8px; }
+    .pix-copy-btn {
+      width: 100%; padding: 12px;
+      background: var(--azul-escuro); color: var(--branco);
+      border: none; border-radius: 10px;
+      font-family: 'Raleway', sans-serif;
+      font-size: 13px; font-weight: 800;
+      cursor: pointer;
+    }
+    .pix-steps { text-align: left; }
+    .pix-steps li { font-size: 12px; color: var(--cinza-texto); font-weight: 500; margin-bottom: 5px; padding-left: 4px; }
+
+    /* ── AVATAR USUÁRIO ── */
+    .user-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--laranja);
+    }
+    .btn-premium-tag {
+      background: linear-gradient(135deg, #FFD600, #FF6D00);
+      color: var(--azul-escuro);
+      font-size: 9px; font-weight: 900;
+      padding: 2px 7px; border-radius: 100px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 </head>
 <body>
+
+<!-- ═══ MODAL LOGIN FIREBASE ═══════════════════════════════════════════════ -->
+<div class="auth-modal-overlay" id="auth-modal">
+  <div class="auth-modal">
+    <div class="auth-logo">
+      <img src="/icons/icon-192x192.png" alt="RotaPosto"/>
+      <h2>RotaPosto</h2>
+      <p>Entre para salvar seus postos favoritos</p>
+    </div>
+
+    <!-- Login Social -->
+    <button class="btn-social" id="btn-google-login" onclick="loginGoogle()">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continuar com Google
+    </button>
+
+    <button class="btn-social fb" id="btn-fb-login" onclick="loginFacebook()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      Continuar com Facebook
+    </button>
+
+    <div class="auth-divider"><span>ou use seu email</span></div>
+
+    <input type="email" class="auth-input" id="auth-email" placeholder="seu@email.com"/>
+    <input type="password" class="auth-input" id="auth-senha" placeholder="Senha"/>
+    <button class="btn-auth-primary" onclick="loginEmail()">
+      <i class="fas fa-sign-in-alt"></i> Entrar
+    </button>
+
+    <div id="auth-erro" style="color:#FF6D00;font-size:12px;font-weight:600;min-height:18px;margin-top:4px;text-align:center"></div>
+
+    <div class="auth-footer">
+      Não tem conta? <a href="#" onclick="registrarEmail()">Criar conta grátis</a><br>
+      <a href="#" onclick="fecharLogin()" style="margin-top:8px;display:block;">Continuar sem login</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL PIX ASSINATURA ════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="pix-modal-overlay" onclick="fecharPixModal(event)">
+  <div class="modal-sheet pix-modal" id="pix-modal-sheet">
+    <div class="modal-handle"></div>
+    <div id="pix-modal-content">
+      <div style="text-align:center;padding:32px">
+        <div class="spinner" style="margin:0 auto 12px;border-top-color:var(--laranja)"></div>
+        <p style="font-size:13px;font-weight:700;color:var(--cinza-texto)">Gerando QR Code PIX...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BANNER INSTALL PWA ══════════════════════════════════════════════════ -->
+<div id="pwa-install-banner">
+  <img src="/icons/icon-192x192.png" alt="RotaPosto"/>
+  <div class="banner-txt">
+    <strong>Instalar RotaPosto</strong>
+    <span>Acesso rápido na tela inicial</span>
+  </div>
+  <button class="btn-install" id="btn-pwa-install">Instalar</button>
+</div>
 
 <!-- Loading -->
 <div class="loading-overlay" id="loading">
@@ -1202,6 +1474,15 @@ app.get('/app', (c) => {
       <button class="btn-icon" onclick="abrirFiltros()" title="Configurações">
         <i class="fas fa-sliders-h"></i>
       </button>
+      <!-- Área dinâmica: botão login ou avatar do usuário -->
+      <div id="header-auth-area" style="display:flex;align-items:center;gap:6px">
+        <button class="btn-icon" onclick="abrirLogin()" title="Entrar">
+          <i class="fas fa-user-circle" style="font-size:20px"></i>
+        </button>
+        <button class="btn-premium-tag" onclick="abrirModalPIX('premium')">
+          ⚡ Premium
+        </button>
+      </div>
     </div>
   </div>
   <div class="search-bar">
@@ -1440,6 +1721,9 @@ document.addEventListener('DOMContentLoaded', () => {
   iniciarMapa();
   usarLocalizacao();
   configurarBusca();
+  registrarSW();
+  iniciarPWAPrompt();
+  iniciarFirebaseAuth();
 });
 
 // ═══ GEOLOCALIZAÇÃO ══════════════════════════════════════════════════════════
@@ -1972,6 +2256,551 @@ function abrirFiltros() {
   mostrarToast('⚙️ Configurações em breve');
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// ═══ SERVICE WORKER ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+function registrarSW() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        console.log('[SW] Registrado com sucesso:', reg.scope);
+        reg.addEventListener('updatefound', () => {
+          const novoSW = reg.installing;
+          novoSW.addEventListener('statechange', () => {
+            if (novoSW.state === 'installed' && navigator.serviceWorker.controller) {
+              mostrarToast('🔄 Atualização disponível! Recarregue a página.');
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('[SW] Falha ao registrar:', err));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ═══ PWA INSTALL PROMPT ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+let _pwaPrompt = null;
+
+function iniciarPWAPrompt() {
+  const banner = document.getElementById('pwa-install-banner');
+  const btnInstalar = document.getElementById('btn-pwa-install');
+
+  // Detectar se já está instalado (modo standalone)
+  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+
+  if (jaInstalado) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  // Escutar o evento beforeinstallprompt
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    _pwaPrompt = e;
+    // Mostrar banner após 3 segundos
+    setTimeout(() => banner.classList.add('visible'), 3000);
+  });
+
+  // Botão instalar
+  if (btnInstalar) {
+    btnInstalar.addEventListener('click', async () => {
+      if (!_pwaPrompt) {
+        // iOS/Safari — não tem beforeinstallprompt
+        mostrarToast('📱 No Safari: Menu → "Adicionar à Tela de Início"');
+        return;
+      }
+      banner.classList.remove('visible');
+      _pwaPrompt.prompt();
+      const { outcome } = await _pwaPrompt.userChoice;
+      console.log('[PWA] Resultado:', outcome);
+      if (outcome === 'accepted') {
+        mostrarToast('✅ App instalado com sucesso!');
+      }
+      _pwaPrompt = null;
+    });
+  }
+
+  // Fechar banner ao clicar fora
+  banner.addEventListener('click', (e) => {
+    if (e.target === banner) banner.classList.remove('visible');
+  });
+
+  // Detectar instalação concluída
+  window.addEventListener('appinstalled', () => {
+    banner.classList.remove('visible');
+    mostrarToast('🎉 RotaPosto instalado!');
+    _pwaPrompt = null;
+  });
+
+  // iOS: mostrar instrução após 5s se não houver beforeinstallprompt
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (isIOS && !jaInstalado) {
+    setTimeout(() => {
+      banner.classList.add('visible');
+      document.getElementById('btn-pwa-install').textContent = 'Ver como';
+      document.getElementById('btn-pwa-install').onclick = () => {
+        mostrarToast('📱 Toque em Compartilhar → "Adicionar à Tela de Início"');
+        banner.classList.remove('visible');
+      };
+    }, 5000);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ═══ FIREBASE AUTH ════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+let _firebaseApp = null;
+let _firebaseAuth = null;
+let _usuarioLogado = null;
+
+function iniciarFirebaseAuth() {
+  // Firebase SDK é um módulo ES6 — pode já estar pronto ou chegar via evento
+  if (window._firebaseReady) {
+    _configurarAuth();
+    return;
+  }
+  // Escutar evento disparado pelo script type="module"
+  window.addEventListener('firebase-ready', () => {
+    _configurarAuth();
+  }, { once: true });
+  // Fallback: polling por 6 segundos
+  let tentativas = 0;
+  const intervalo = setInterval(() => {
+    tentativas++;
+    if (window._firebaseReady) {
+      clearInterval(intervalo);
+      _configurarAuth();
+    } else if (tentativas >= 20) {
+      clearInterval(intervalo);
+      console.warn('[Auth] Firebase SDK não carregou após 6s');
+    }
+  }, 300);
+}
+
+function _configurarAuth() {
+  try {
+    if (!window._fbAuth || !window._fbOnAuthStateChanged) {
+      console.warn('[Auth] _fbAuth não disponível');
+      return;
+    }
+    _firebaseAuth = window._fbAuth;
+
+    // Observer de estado de autenticação — atualiza UI sempre que o user muda
+    window._fbOnAuthStateChanged(_firebaseAuth, (user) => {
+      const eraPrimeiroLogin = !_usuarioLogado && !!user;
+      _usuarioLogado = user;
+      _atualizarHeaderAuth(user);
+      if (eraPrimeiroLogin) {
+        fecharLogin();
+        mostrarToast('👋 Olá, ' + (user.displayName || user.email || 'usuário') + '!');
+      }
+    });
+
+    // Inicializar a área de auth no header
+    _atualizarHeaderAuth(_firebaseAuth.currentUser);
+    console.log('[Auth] Firebase Auth configurado ✓');
+  } catch (err) {
+    console.error('[Auth] Erro ao configurar:', err);
+  }
+}
+
+function _atualizarHeaderAuth(user) {
+  const actionsEl = document.getElementById('header-auth-area');
+  if (!actionsEl) return;
+
+  if (user) {
+    const foto = user.photoURL || '';
+    const nome = user.displayName || user.email || 'Usuário';
+    const iniciais = nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    actionsEl.innerHTML = \`
+      <button class="btn-icon user-avatar-btn" onclick="toggleMenuUser()" title="\${nome}">
+        \${foto
+          ? \`<img src="\${foto}" alt="\${nome}" class="user-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--laranja)"/>\`
+          : \`<div class="user-avatar" style="width:32px;height:32px;border-radius:50%;background:var(--laranja);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:white">\${iniciais}</div>\`
+        }
+      </button>
+      <button class="btn-premium-tag" onclick="abrirModalPIX('premium')">
+        ⚡ Premium
+      </button>
+    \`;
+  } else {
+    actionsEl.innerHTML = \`
+      <button class="btn-icon" onclick="abrirLogin()" title="Entrar">
+        <i class="fas fa-user-circle" style="font-size:20px"></i>
+      </button>
+      <button class="btn-premium-tag" onclick="abrirModalPIX('premium')">
+        ⚡ Premium
+      </button>
+    \`;
+  }
+}
+
+let _menuUserAberto = false;
+function toggleMenuUser() {
+  // Menu dropdown simples
+  let menu = document.getElementById('user-dropdown-menu');
+  if (menu) { menu.remove(); _menuUserAberto = false; return; }
+  _menuUserAberto = true;
+
+  const user = _usuarioLogado;
+  menu = document.createElement('div');
+  menu.id = 'user-dropdown-menu';
+  menu.style.cssText = \`
+    position:fixed;top:64px;right:12px;background:#1a2744;border:1px solid rgba(255,255,255,0.1);
+    border-radius:16px;padding:16px;z-index:9999;min-width:220px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  \`;
+  menu.innerHTML = \`
+    <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1)">
+      <div style="font-weight:800;font-size:14px;color:white">\${user?.displayName || 'Usuário'}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.5)">\${user?.email || ''}</div>
+    </div>
+    <button onclick="abrirModalPIX('premium');document.getElementById('user-dropdown-menu')?.remove()" style="width:100%;background:linear-gradient(135deg,#FF6D00,#ff8c00);border:none;color:white;font-weight:800;padding:10px 16px;border-radius:10px;cursor:pointer;margin-bottom:8px">
+      ⚡ Assinar Premium
+    </button>
+    <button onclick="fazerLogout();document.getElementById('user-dropdown-menu')?.remove()" style="width:100%;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.7);font-weight:600;padding:10px 16px;border-radius:10px;cursor:pointer">
+      <i class="fas fa-sign-out-alt"></i> Sair
+    </button>
+  \`;
+  document.body.appendChild(menu);
+
+  // Fechar ao clicar fora
+  setTimeout(() => {
+    document.addEventListener('click', function fecharMenu(e) {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', fecharMenu);
+      }
+    });
+  }, 100);
+}
+
+async function fazerLogout() {
+  try {
+    if (window._fbSignOut && _firebaseAuth) {
+      await window._fbSignOut(_firebaseAuth);
+      mostrarToast('👋 Até logo!');
+      _usuarioLogado = null;
+      _atualizarHeaderAuth(null);
+    }
+  } catch (err) {
+    mostrarToast('Erro ao sair: ' + err.message);
+  }
+}
+
+// ─── Abrir / Fechar modal de login ────────────────────────────────────────────
+function abrirLogin() {
+  document.getElementById('auth-modal').classList.add('visible');
+}
+
+function fecharLogin() {
+  document.getElementById('auth-modal').classList.remove('visible');
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-senha').value = '';
+  document.getElementById('auth-erro').textContent = '';
+}
+
+// ─── Login com Google ─────────────────────────────────────────────────────────
+async function loginGoogle() {
+  if (!window._fbSignInWithPopup || !window._fbGoogleProvider || !_firebaseAuth) {
+    mostrarToast('⏳ Carregando Firebase...');
+    setTimeout(loginGoogle, 800);
+    return;
+  }
+  const btn = document.getElementById('btn-google-login');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;margin:0 auto"></div>';
+
+  try {
+    const result = await window._fbSignInWithPopup(_firebaseAuth, window._fbGoogleProvider);
+    console.log('[Auth] Login Google OK:', result.user.email);
+  } catch (err) {
+    _mostrarErroAuth(err);
+    btn.disabled = false;
+    btn.innerHTML = \`<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continuar com Google\`;
+  }
+}
+
+// ─── Login com Facebook ───────────────────────────────────────────────────────
+async function loginFacebook() {
+  if (!window._fbSignInWithPopup || !window._fbFacebookProvider || !_firebaseAuth) {
+    mostrarToast('⏳ Carregando Firebase...');
+    setTimeout(loginFacebook, 800);
+    return;
+  }
+  const btn = document.getElementById('btn-fb-login');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(255,255,255,0.3);border-top-color:white;margin:0 auto"></div>';
+
+  try {
+    const result = await window._fbSignInWithPopup(_firebaseAuth, window._fbFacebookProvider);
+    console.log('[Auth] Login Facebook OK:', result.user.email);
+  } catch (err) {
+    _mostrarErroAuth(err);
+    btn.disabled = false;
+    btn.innerHTML = \`<svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg> Continuar com Facebook\`;
+  }
+}
+
+// ─── Login com Email/Senha ────────────────────────────────────────────────────
+async function loginEmail() {
+  if (!window._fbSignInWithEmailAndPassword || !_firebaseAuth) {
+    mostrarToast('⏳ Carregando Firebase...');
+    return;
+  }
+  const email = document.getElementById('auth-email').value.trim();
+  const senha = document.getElementById('auth-senha').value;
+
+  if (!email || !senha) {
+    _mostrarErroAuth({ code: 'auth/empty-fields' });
+    return;
+  }
+
+  const btn = document.querySelector('.btn-auth-primary');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div>';
+
+  try {
+    await window._fbSignInWithEmailAndPassword(_firebaseAuth, email, senha);
+    console.log('[Auth] Login email OK');
+  } catch (err) {
+    _mostrarErroAuth(err);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+  }
+}
+
+// ─── Registrar com Email/Senha ────────────────────────────────────────────────
+async function registrarEmail() {
+  if (!window._fbCreateUserWithEmailAndPassword || !_firebaseAuth) {
+    mostrarToast('⏳ Carregando Firebase...');
+    return;
+  }
+  const email = document.getElementById('auth-email').value.trim();
+  const senha = document.getElementById('auth-senha').value;
+
+  if (!email || !senha) {
+    _mostrarErroAuth({ code: 'auth/empty-fields' });
+    return;
+  }
+  if (senha.length < 6) {
+    _mostrarErroAuth({ code: 'auth/weak-password' });
+    return;
+  }
+
+  const btn = document.querySelector('.btn-auth-primary');
+  btn.disabled = true;
+  btn.textContent = 'Criando conta...';
+
+  try {
+    const result = await window._fbCreateUserWithEmailAndPassword(_firebaseAuth, email, senha);
+    console.log('[Auth] Conta criada:', result.user.uid);
+    mostrarToast('🎉 Conta criada com sucesso!');
+  } catch (err) {
+    _mostrarErroAuth(err);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+  }
+}
+
+// ─── Mensagens de erro amigáveis ──────────────────────────────────────────────
+function _mostrarErroAuth(err) {
+  const msgs = {
+    'auth/user-not-found':     'Usuário não encontrado. Crie uma conta!',
+    'auth/wrong-password':     'Senha incorreta. Tente novamente.',
+    'auth/email-already-in-use': 'Email já cadastrado. Faça login!',
+    'auth/weak-password':      'Senha precisa ter pelo menos 6 caracteres.',
+    'auth/invalid-email':      'Email inválido.',
+    'auth/popup-closed-by-user': 'Login cancelado.',
+    'auth/network-request-failed': 'Sem conexão. Verifique sua internet.',
+    'auth/empty-fields':       'Preencha email e senha.',
+    'auth/too-many-requests':  'Muitas tentativas. Aguarde alguns minutos.',
+  };
+  const el = document.getElementById('auth-erro');
+  if (el) el.textContent = msgs[err.code] || 'Erro: ' + (err.message || err.code);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ═══ MODAL PIX ASSINATURA ════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+let _pixPlanoAtivo = 'premium';
+
+async function abrirModalPIX(plano = 'premium') {
+  _pixPlanoAtivo = plano;
+  const overlay = document.getElementById('pix-modal-overlay');
+  const content = document.getElementById('pix-modal-content');
+  overlay.classList.add('visible');
+
+  // Mostrar loading
+  content.innerHTML = \`
+    <div style="text-align:center;padding:32px 16px">
+      <div class="spinner" style="margin:0 auto 16px;border-top-color:var(--laranja)"></div>
+      <p style="font-size:13px;font-weight:700;color:var(--cinza-texto)">Gerando QR Code PIX...</p>
+      <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Conectando à API Woovi</p>
+    </div>
+  \`;
+
+  // Coletar dados do usuário
+  const usuario = _usuarioLogado;
+  const nome = usuario?.displayName || 'Usuário RotaPosto';
+  const email = usuario?.email || 'usuario@rotaposto.com.br';
+  const cpf = '';  // Pode ser pedido em formulário futuro
+
+  try {
+    const res = await fetch('/api/pix/assinar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, email, cpf, plano })
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      content.innerHTML = \`
+        <div style="text-align:center;padding:24px 16px">
+          <div style="font-size:48px;margin-bottom:12px">❌</div>
+          <p style="font-size:14px;font-weight:700;color:#FF6D00">Erro ao gerar cobrança</p>
+          <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:8px 0">\${data.error}</p>
+          <button onclick="fecharPixModal(null,true)" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;margin-top:12px">Fechar</button>
+        </div>
+      \`;
+      return;
+    }
+
+    const nomesPlan = { premium: 'Premium Mensal', anual: 'Premium Anual' };
+    const valoresPlan = { premium: 'R$ 9,90/mês', anual: 'R$ 89,00/ano' };
+
+    content.innerHTML = \`
+      <div style="text-align:center;padding:16px">
+        <div style="background:linear-gradient(135deg,#0D1B2A,#1a2744);border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid rgba(255,109,0,0.3)">
+          <div style="font-size:28px;margin-bottom:6px">⚡</div>
+          <h3 style="font-size:16px;font-weight:800;color:white;margin:0 0 4px">RotaPosto \${nomesPlan[plano] || plano}</h3>
+          <div style="font-size:24px;font-weight:900;color:var(--laranja)">\${valoresPlan[plano] || ''}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">Sem mensalidade escondida · Cancele quando quiser</div>
+        </div>
+
+        \${data.qrCode ? \`
+          <div class="pix-qr-wrap">
+            <img src="\${data.qrCode}" alt="QR Code PIX" style="width:220px;height:220px;border-radius:12px"/>
+          </div>
+        \` : ''}
+
+        \${data.brcode ? \`
+          <div style="margin:14px 0">
+            <p style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px">Ou copie o código PIX:</p>
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:10px 12px;font-size:11px;font-family:monospace;color:rgba(255,255,255,0.7);word-break:break-all;text-align:left;max-height:80px;overflow:hidden">
+              \${data.brcode.substring(0, 120)}...
+            </div>
+            <button onclick="copiarCodigo('\${data.brcode}')" style="background:rgba(255,255,255,0.1);border:none;color:white;font-weight:700;padding:10px 20px;border-radius:10px;cursor:pointer;margin-top:10px;font-size:13px">
+              <i class="fas fa-copy"></i> Copiar código PIX
+            </button>
+          </div>
+        \` : ''}
+
+        \${data.txid ? \`
+          <div style="margin-top:12px;padding:10px;background:rgba(0,200,83,0.1);border-radius:10px;border:1px solid rgba(0,200,83,0.2)">
+            <p style="font-size:11px;color:var(--verde);margin:0">✅ Após o pagamento, sua conta é ativada automaticamente</p>
+          </div>
+        \` : ''}
+
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button onclick="fecharPixModal(null,true)" style="flex:1;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);font-weight:600;padding:12px;border-radius:12px;cursor:pointer">
+            Agora não
+          </button>
+          \${data.txid ? \`
+          <button onclick="verificarPagamentoPIX('\${data.txid}')" style="flex:1;background:var(--laranja);border:none;color:white;font-weight:800;padding:12px;border-radius:12px;cursor:pointer">
+            <i class="fas fa-check"></i> Já paguei
+          </button>
+          \` : ''}
+        </div>
+      </div>
+    \`;
+
+  } catch (err) {
+    content.innerHTML = \`
+      <div style="text-align:center;padding:24px">
+        <div style="font-size:40px;margin-bottom:12px">📵</div>
+        <p style="font-weight:700;color:#FF6D00">Sem conexão</p>
+        <p style="font-size:12px;color:rgba(255,255,255,0.5)">Verifique sua internet e tente novamente</p>
+        <button onclick="abrirModalPIX(_pixPlanoAtivo)" style="background:var(--laranja);border:none;color:white;font-weight:800;padding:10px 24px;border-radius:10px;cursor:pointer;margin-top:14px">
+          Tentar novamente
+        </button>
+      </div>
+    \`;
+  }
+}
+
+async function verificarPagamentoPIX(txid) {
+  const content = document.getElementById('pix-modal-content');
+  content.innerHTML = \`
+    <div style="text-align:center;padding:32px">
+      <div class="spinner" style="margin:0 auto 16px;border-top-color:#00C853"></div>
+      <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.7)">Verificando pagamento...</p>
+    </div>
+  \`;
+
+  try {
+    const res = await fetch('/api/pix/verificar/' + txid);
+    const data = await res.json();
+
+    if (data.pago) {
+      content.innerHTML = \`
+        <div style="text-align:center;padding:32px">
+          <div style="font-size:64px;margin-bottom:16px">🎉</div>
+          <h3 style="font-size:20px;font-weight:900;color:var(--verde);margin:0 0 8px">Pagamento Confirmado!</h3>
+          <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:20px">Seja bem-vindo ao RotaPosto Premium! ⚡</p>
+          <button onclick="fecharPixModal(null,true)" style="background:var(--verde);border:none;color:white;font-weight:800;padding:14px 32px;border-radius:14px;cursor:pointer;font-size:14px">
+            Começar a usar!
+          </button>
+        </div>
+      \`;
+      mostrarToast('🎉 Premium ativado! Seja bem-vindo!');
+      // Atualizar header
+      if (_usuarioLogado) _atualizarHeaderAuth(_usuarioLogado);
+    } else {
+      content.innerHTML = \`
+        <div style="text-align:center;padding:24px">
+          <div style="font-size:40px;margin-bottom:12px">⏳</div>
+          <p style="font-weight:700;color:#FFC107">Pagamento pendente</p>
+          <p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:16px">Pode levar alguns segundos para confirmar</p>
+          <button onclick="abrirModalPIX(_pixPlanoAtivo)" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:10px 20px;border-radius:10px;cursor:pointer;margin-right:8px">
+            Ver QR Code
+          </button>
+          <button onclick="verificarPagamentoPIX('\${txid}')" style="background:var(--laranja);border:none;color:white;font-weight:800;padding:10px 20px;border-radius:10px;cursor:pointer">
+            Verificar novamente
+          </button>
+        </div>
+      \`;
+    }
+  } catch {
+    mostrarToast('Erro ao verificar pagamento. Tente novamente.');
+    abrirModalPIX(_pixPlanoAtivo);
+  }
+}
+
+function copiarCodigo(texto) {
+  navigator.clipboard.writeText(texto).then(() => {
+    mostrarToast('✅ Código PIX copiado!');
+  }).catch(() => {
+    // Fallback para navegadores antigos
+    const el = document.createElement('textarea');
+    el.value = texto;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    mostrarToast('✅ Código copiado!');
+  });
+}
+
+function fecharPixModal(event, forcar = false) {
+  if (forcar || !event || event.target === document.getElementById('pix-modal-overlay')) {
+    document.getElementById('pix-modal-overlay').classList.remove('visible');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ═══ REPORTAR PREÇO (COLABORATIVO) ════════════════════════════════════════════
 async function reportarPreco(postoId, combustivel) {
   const input = document.getElementById('preco-reportar');
