@@ -1,15 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "rotaposto",
+  "main": "dist/index.js",
   "compatibility_date": "2026-04-26",
-  "pages_build_output_dir": "./dist",
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "kv_namespaces": [
-    {
-      "binding": "PRECOS_ANP",
-      "id": "65a90251b1e34502a4c8214335ad2abf"
-    }
-  ]
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  }
 }

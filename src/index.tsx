@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { serveStatic } from 'hono/cloudflare-workers'
 import { getLandingHTML } from './landing'
 import { getLandingOnboardingHTML } from './onboarding'
 import {
@@ -20,19 +19,14 @@ import { FIREBASE_CONFIG, GOOGLE_CLIENT_ID, GOOGLE_API_KEY, getFirebaseAuthScrip
 import { criarAssinaturaPIX, verificarPagamento, PLANOS } from './woovi'
 import { buscarTodosPostosANP, getMapaBrasilHTML, getEstatisticasNacionais, PRECOS_MEDIOS_UF } from './brasil'
 
-// ─── Bindings do Cloudflare (KV, D1, etc.) ───────────────────────────────────
-type Bindings = {
-  PRECOS_ANP: KVNamespace  // Preços semanais ANP por posto (CNPJ) e município
-}
+// ─── Bindings do Cloudflare ─────────────────────────────────────────────────
+// KV removido: plataforma hospedada usa fallback estático para preços ANP
+// Assets estáticos servidos automaticamente pelo binding ASSETS
+type Bindings = Record<string, unknown>
 
 const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('*', cors())
-app.use('/static/*', serveStatic({ root: './' }))
-app.use('/icons/*', serveStatic({ root: './public' }))
-app.get('/manifest.json', serveStatic({ path: './public/manifest.json' }))
-app.get('/sw.js', serveStatic({ path: './public/sw.js' }))
-app.get('/logo-rotaposto.png', serveStatic({ path: './public/logo-rotaposto.png' }))
 
 // ─── Cache em memória (válido por 10 min por cidade) ─────────────────────────
 interface CacheEntry {
