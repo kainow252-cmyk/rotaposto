@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { getLandingHTML } from './landing'
+import { getLandingOnboardingHTML } from './onboarding'
 import {
   buscarPostosANP,
   buscarPostosOSM,
@@ -484,9 +485,13 @@ app.get('/api/auth/config', (c) => {
 })
 
 // ─── Frontend Principal ───────────────────────────────────────────────────────
+// Rota raiz → nova landing onboarding profissional (igual ShareWallet)
 app.get('/', (c) => {
-  return c.redirect('/landing')
+  const firebaseScripts = getFirebaseAuthScripts()
+  return c.html(getLandingOnboardingHTML(firebaseScripts))
 })
+
+// /landing → mantém a landing page de marketing com planos (mantida como alias)
 
 app.get('/app', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
