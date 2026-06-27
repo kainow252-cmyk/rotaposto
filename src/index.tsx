@@ -334,9 +334,37 @@ app.get('/mapa-brasil', (c) => {
 async function kvGetJson(kv: KVNamespace | undefined, key: string): Promise<any | null> {
   if (!kv) return null
   try {
-    const val = await kv.get(key, 'text')
-    if (!val) return null
-    return JSON.parse(val)
+    // Tenta ler como ArrayBuffer (pode ser gzip ou texto puro)
+    const buf = await kv.get(key, 'arrayBuffer')
+    if (!buf) return null
+
+    // Detectar gzip: magic bytes 0x1f 0x8b
+    const bytes = new Uint8Array(buf)
+    let text: string
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      // Descomprimir gzip usando DecompressionStream (disponível no Workers)
+      const ds = new DecompressionStream('gzip')
+      const writer = ds.writable.getWriter()
+      const reader = ds.readable.getReader()
+      writer.write(bytes)
+      writer.close()
+      const chunks: Uint8Array[] = []
+      let done = false
+      while (!done) {
+        const { value, done: d } = await reader.read()
+        if (value) chunks.push(value)
+        done = d
+      }
+      const total = chunks.reduce((a, c) => a + c.length, 0)
+      const merged = new Uint8Array(total)
+      let offset = 0
+      for (const c of chunks) { merged.set(c, offset); offset += c.length }
+      text = new TextDecoder().decode(merged)
+    } else {
+      // Texto puro
+      text = new TextDecoder().decode(bytes)
+    }
+    return JSON.parse(text)
   } catch { return null }
 }
 
