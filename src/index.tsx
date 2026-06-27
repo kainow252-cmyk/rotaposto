@@ -22,6 +22,10 @@ const app = new Hono()
 
 app.use('*', cors())
 app.use('/static/*', serveStatic({ root: './' }))
+app.use('/icons/*', serveStatic({ root: './public' }))
+app.get('/manifest.json', serveStatic({ path: './public/manifest.json' }))
+app.get('/sw.js', serveStatic({ path: './public/sw.js' }))
+app.get('/logo-rotaposto.png', serveStatic({ path: './public/logo-rotaposto.png' }))
 
 // ─── Cache em memória (válido por 10 min por cidade) ─────────────────────────
 interface CacheEntry {
