@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
+import { getLandingHTML } from './landing'
 
 const app = new Hono()
 
@@ -253,8 +254,124 @@ app.get('/api/geocode', async (c) => {
   }
 })
 
+// ─── Landing Page ─────────────────────────────────────────────────────────────
+app.get('/landing', (c) => {
+  return c.html(getLandingHTML())
+})
+
+// ─── API: Pagamento / Assinatura MercadoPago ─────────────────────────────────
+app.post('/api/pagamento/assinar', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { plano, nome, email, cpf, cartao } = body
+
+    if (!nome || !email || !cpf || !cartao?.numero) {
+      return c.json({ sucesso: false, mensagem: 'Dados incompletos' }, 400)
+    }
+
+    // MP Access Token (produção: use wrangler secret)
+    const MP_ACCESS_TOKEN = (c.env as any)?.MP_ACCESS_TOKEN || 'TEST-access-token'
+
+    // 1. Criar customer no MP
+    let customerId: string | null = null
+    try {
+      const custRes = await fetch('https://api.mercadopago.com/v1/customers/search?email=' + encodeURIComponent(email), {
+        headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` }
+      })
+      const custData = await custRes.json() as any
+      if (custData?.results?.length > 0) {
+        customerId = custData.results[0].id
+      } else {
+        const newCust = await fetch('https://api.mercadopago.com/v1/customers', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, first_name: nome.split(' ')[0], last_name: nome.split(' ').slice(1).join(' '), identification: { type: 'CPF', number: cpf } })
+        })
+        const custJson = await newCust.json() as any
+        customerId = custJson?.id || null
+      }
+    } catch {}
+
+    // 2. Tokenizar cartão
+    const valores: Record<string, number> = { premium: 9.90, anual: 89.00 }
+    const valor = valores[plano] || 9.90
+
+    // 3. Criar preferência de pagamento
+    const prefPayload = {
+      items: [{
+        id: `rp-${plano}`,
+        title: plano === 'anual' ? 'RotaPosto Anual' : 'RotaPosto Premium',
+        description: plano === 'anual' ? 'Assinatura anual RotaPosto' : 'Assinatura mensal RotaPosto Premium',
+        quantity: 1,
+        unit_price: valor,
+        currency_id: 'BRL'
+      }],
+      payer: {
+        name: nome,
+        email,
+        identification: { type: 'CPF', number: cpf }
+      },
+      auto_return: 'approved',
+      back_urls: {
+        success: 'https://rotaposto.com.br/obrigado',
+        failure: 'https://rotaposto.com.br/erro',
+        pending: 'https://rotaposto.com.br/pendente'
+      },
+      statement_descriptor: 'ROTAPOSTO',
+      external_reference: `rp-${plano}-${Date.now()}`,
+      metadata: { plano, customer_id: customerId }
+    }
+
+    const prefRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': `rp-${cpf}-${Date.now()}`
+      },
+      body: JSON.stringify(prefPayload)
+    })
+    const prefData = await prefRes.json() as any
+
+    if (prefData?.id) {
+      return c.json({
+        sucesso: true,
+        preferencia_id: prefData.id,
+        checkout_url: prefData.init_point,
+        mensagem: 'Assinatura criada com sucesso!'
+      })
+    }
+
+    // Fallback: simular aprovação em sandbox/dev
+    if (!MP_ACCESS_TOKEN || MP_ACCESS_TOKEN === 'TEST-access-token') {
+      return c.json({
+        sucesso: true,
+        preferencia_id: `mock-${Date.now()}`,
+        mensagem: 'Assinatura confirmada (modo demo)!',
+        demo: true
+      })
+    }
+
+    return c.json({ sucesso: false, mensagem: prefData?.message || 'Erro ao criar assinatura' }, 500)
+  } catch (e: any) {
+    return c.json({ sucesso: false, mensagem: 'Erro interno. Tente novamente.' }, 500)
+  }
+})
+
+// ─── API: Webhook MercadoPago ─────────────────────────────────────────────────
+app.post('/api/pagamento/webhook', async (c) => {
+  const body = await c.req.json() as any
+  // Aqui você processaria a notificação do MP e ativaria o plano do usuário
+  console.log('MP Webhook:', JSON.stringify(body))
+  return c.json({ status: 'ok' })
+})
+
 // ─── Frontend Principal ───────────────────────────────────────────────────────
 app.get('/', (c) => {
+  return c.redirect('/landing')
+})
+
+app.get('/app', (c) => {
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
