@@ -1,9 +1,9 @@
-// RotaPosto Service Worker v3.0
-// Cache inteligente para funcionamento offline
+// RotaPosto Service Worker v4.0
+// Cache inteligente + Auto-update no PWA
 
-const CACHE_NAME = 'rotaposto-v3';
-const STATIC_CACHE = 'rotaposto-static-v3';
-const API_CACHE = 'rotaposto-api-v3';
+const CACHE_NAME = 'rotaposto-v4';
+const STATIC_CACHE = 'rotaposto-static-v4';
+const API_CACHE = 'rotaposto-api-v4';
 
 // Assets estáticos para cache
 const STATIC_ASSETS = [
@@ -15,29 +15,46 @@ const STATIC_ASSETS = [
   '/logo-rotaposto.png'
 ];
 
-// Install: pré-cache assets estáticos
+// Install: pré-cache assets estáticos + skipWaiting imediato
 self.addEventListener('install', event => {
-  console.log('[SW] Installing RotaPosto v3...');
+  console.log('[SW] Installing RotaPosto v4...');
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(cache => cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: 'reload' }))))
-      .then(() => self.skipWaiting())
+      .then(() => {
+        console.log('[SW] v4 instalado — skipWaiting imediato');
+        return self.skipWaiting(); // Auto-ativar sem esperar
+      })
       .catch(err => console.warn('[SW] Cache install error:', err))
   );
 });
 
-// Activate: limpar caches antigos
+// Activate: limpar caches antigos + claim imediato (auto-update)
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating RotaPosto v3...');
+  console.log('[SW] Activating RotaPosto v4...');
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
         keys
           .filter(key => key !== STATIC_CACHE && key !== API_CACHE)
-          .map(key => caches.delete(key))
+          .map(key => { console.log('[SW] Removendo cache antigo:', key); return caches.delete(key); })
       ))
-      .then(() => self.clients.claim())
+      .then(() => self.clients.claim()) // Tomar controle imediato de todas as abas
+      .then(() => {
+        // Notificar todas as abas que o SW foi atualizado
+        self.clients.matchAll({ type: 'window' }).then(clients => {
+          clients.forEach(client => client.postMessage({ type: 'SW_UPDATED', version: 'v4' }));
+        });
+      })
   );
+});
+
+// Escutar mensagem de SKIP_WAITING (chamado pelo app para forçar update)
+self.addEventListener('message', event => {
+  if (event.data === 'SKIP_WAITING' || event.data?.type === 'SKIP_WAITING') {
+    console.log('[SW] SKIP_WAITING recebido — ativando novo SW');
+    self.skipWaiting();
+  }
 });
 
 // Fetch: estratégia inteligente por tipo de recurso

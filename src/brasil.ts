@@ -434,10 +434,6 @@ export function getMapaBrasilHTML(): string {
   <button class="btn-buscar" id="btn-buscar" onclick="carregarPostos()">
     <i class="fas fa-search"></i> Buscar
   </button>
-  <button class="btn-buscar" onclick="verPrecosNacionais()"
-    style="background:linear-gradient(135deg,#00C853,#00A846)">
-    <i class="fas fa-chart-bar"></i> Preços
-  </button>
 </div>
 
 <!-- Stats Bar -->

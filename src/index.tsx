@@ -198,24 +198,49 @@ app.get('/api/postos', async (c) => {
   }
 })
 
-// ─── API: Preços colaborativos (reportar preço) ───────────────────────────────
+// ─── API: Preços colaborativos (reportar preço) + Gamificação ─────────────────
 interface PrecoReporte {
   postoId: string
+  postoNome?: string
   combustivel: string
   preco: number
   lat: number
   lng: number
   ts: number
   confirmacoes: number
+  userId?: string
+  userName?: string
+}
+
+interface ContribuicaoUsuario {
+  userId: string
+  userName: string
+  userEmail: string
+  totalReportes: number
+  numerossorteio: number[]   // números gerados por sorteio
+  pontos: number
+  ultimoReporte: number
 }
 
 // Store em memória (em produção: Cloudflare KV/D1)
 const PRECOS_REPORTADOS = new Map<string, PrecoReporte>()
+const CONTRIBUICOES_USUARIOS = new Map<string, ContribuicaoUsuario>()
+// Contador global de sorteio
+let _contadorSorteio = 1000
+
+// Gerar número único de sorteio (6 dígitos)
+function gerarNumeroSorteio(): number {
+  _contadorSorteio++
+  const base = _contadorSorteio
+  // Embaralhar com hash simples para não ser sequencial
+  const hash = ((base * 2654435769) >>> 0) % 900000 + 100000
+  return hash
+}
 
 app.post('/api/precos/reportar', async (c) => {
   try {
     const body = await c.req.json()
-    const { postoId, combustivel, preco, lat, lng } = body
+    const { postoId, postoNome, combustivel, preco, lat, lng, userId, userName } = body
 
     if (!postoId || !combustivel || !preco || preco < 1 || preco > 30) {
       return c.json({ sucesso: false, mensagem: 'Dados inválidos' }, 400)
@@ -223,35 +248,95 @@ app.post('/api/precos/reportar', async (c) => {
 
     const key = `${postoId}:${combustivel}`
     const existente = PRECOS_REPORTADOS.get(key)
+    let isNovoReporte = true
 
     if (existente) {
-      // Atualizar com média ponderada se há confirmações recentes
       const agora = Date.now()
       const idadeHoras = (agora - existente.ts) / 3600000
       if (idadeHoras < 24) {
-        // Média com peso para o mais recente
+        // Se mesmo usuário tentou reportar denovo em menos de 1h, bloquear
+        if (userId && existente.userId === userId) {
+          const idadeMin = (agora - existente.ts) / 60000
+          if (idadeMin < 60) {
+            return c.json({ sucesso: false, mensagem: 'Você já reportou este posto recentemente. Aguarde 1 hora.' }, 429)
+          }
+        }
+        // Média ponderada
         existente.preco = Math.round(((existente.preco * existente.confirmacoes + preco) / (existente.confirmacoes + 1)) * 100) / 100
         existente.confirmacoes++
         existente.ts = agora
+        if (userName) existente.userName = userName
         PRECOS_REPORTADOS.set(key, existente)
-        return c.json({ sucesso: true, mensagem: `Preço confirmado! ${existente.confirmacoes} confirmações`, confirmacoes: existente.confirmacoes })
+        isNovoReporte = false
+      } else {
+        // Mais de 24h — resetar
+        PRECOS_REPORTADOS.set(key, {
+          postoId, postoNome, combustivel,
+          preco: Math.round(preco * 100) / 100,
+          lat: lat || 0, lng: lng || 0,
+          ts: Date.now(), confirmacoes: 1,
+          userId, userName
+        })
       }
+    } else {
+      PRECOS_REPORTADOS.set(key, {
+        postoId, postoNome, combustivel,
+        preco: Math.round(preco * 100) / 100,
+        lat: lat || 0, lng: lng || 0,
+        ts: Date.now(), confirmacoes: 1,
+        userId, userName
+      })
     }
 
-    // Novo reporte
-    PRECOS_REPORTADOS.set(key, {
-      postoId, combustivel,
-      preco: Math.round(preco * 100) / 100,
-      lat: lat || 0,
-      lng: lng || 0,
-      ts: Date.now(),
-      confirmacoes: 1
-    })
+    // ── Gamificação: registrar contribuição do usuário ─────────────────────
+    let numeroSorteio: number | null = null
+    let totalPontos = 0
+    let totalNumeros = 0
 
+    if (userId) {
+      const contrib = CONTRIBUICOES_USUARIOS.get(userId) || {
+        userId,
+        userName: userName || 'Usuário',
+        userEmail: '',
+        totalReportes: 0,
+        numerossorteio: [],
+        pontos: 0,
+        ultimoReporte: 0
+      }
+      contrib.totalReportes++
+      contrib.pontos += isNovoReporte ? 10 : 5  // 10pts novo, 5pts confirmação
+      contrib.ultimoReporte = Date.now()
+      if (userName) contrib.userName = userName
+
+      // Ganhar número de sorteio a cada reporte (1 número por reporte único)
+      if (isNovoReporte) {
+        numeroSorteio = gerarNumeroSorteio()
+        contrib.numerossorteio.push(numeroSorteio)
+        // Máximo 50 números por usuário
+        if (contrib.numerossorteio.length > 50) contrib.numerossorteio.shift()
+      }
+
+      totalPontos = contrib.pontos
+      totalNumeros = contrib.numerossorteio.length
+      CONTRIBUICOES_USUARIOS.set(userId, contrib)
+    }
+
+    const confirmacoes = PRECOS_REPORTADOS.get(key)?.confirmacoes || 1
     return c.json({
       sucesso: true,
-      mensagem: 'Preço reportado com sucesso! Obrigado por colaborar. 🙏',
-      confirmacoes: 1
+      mensagem: isNovoReporte
+        ? 'Preço reportado! Obrigado por colaborar! 🙏'
+        : `Preço confirmado! ${confirmacoes} confirmações`,
+      confirmacoes,
+      gamificacao: userId ? {
+        pontosGanhos: isNovoReporte ? 10 : 5,
+        totalPontos,
+        numeroSorteio,
+        totalNumerossorteio: totalNumeros,
+        mensagem: numeroSorteio
+          ? `🎰 Você ganhou o número ${numeroSorteio} no sorteio!`
+          : isNovoReporte ? '🎯 +10 pontos!' : '✅ +5 pontos por confirmação!'
+      } : null
     })
   } catch (e: any) {
     return c.json({ sucesso: false, mensagem: 'Erro ao salvar preço' }, 500)
@@ -261,7 +346,7 @@ app.post('/api/precos/reportar', async (c) => {
 // ─── API: Listar preços colaborativos reportados ──────────────────────────────
 app.get('/api/precos/reportados', (c) => {
   const reportes = [...PRECOS_REPORTADOS.values()]
-    .filter(r => Date.now() - r.ts < 24 * 3600000) // últimas 24h
+    .filter(r => Date.now() - r.ts < 24 * 3600000)
     .sort((a, b) => b.confirmacoes - a.confirmacoes)
 
   return c.json({
@@ -270,6 +355,35 @@ app.get('/api/precos/reportados', (c) => {
       ...r,
       idadeMin: Math.round((Date.now() - r.ts) / 60000)
     }))
+  })
+})
+
+// ─── API: Ranking de contribuidores (gamificação) ─────────────────────────────
+app.get('/api/contribuidores/ranking', (c) => {
+  const ranking = [...CONTRIBUICOES_USUARIOS.values()]
+    .sort((a, b) => b.pontos - a.pontos)
+    .slice(0, 20)
+    .map((u, i) => ({
+      posicao: i + 1,
+      nome: u.userName,
+      pontos: u.pontos,
+      reportes: u.totalReportes,
+      numerossorteio: u.numerossorteio.length,
+      ultimoReporte: Math.round((Date.now() - u.ultimoReporte) / 60000)
+    }))
+  return c.json({ ranking, total: CONTRIBUICOES_USUARIOS.size })
+})
+
+// ─── API: Meus números de sorteio ────────────────────────────────────────────
+app.get('/api/meus-numeros/:userId', (c) => {
+  const userId = c.req.param('userId')
+  const contrib = CONTRIBUICOES_USUARIOS.get(userId)
+  if (!contrib) return c.json({ numeros: [], pontos: 0, reportes: 0 })
+  return c.json({
+    numeros: contrib.numerossorteio,
+    pontos: contrib.pontos,
+    reportes: contrib.totalReportes,
+    nome: contrib.userName
   })
 })
 
@@ -869,23 +983,53 @@ app.post('/api/pagamento/webhook', async (c) => {
   return c.json({ status: 'ok' })
 })
 
+// ─── Store de assinaturas em memória (produção: usar D1/KV) ──────────────────
+interface AssinaturaUsuario {
+  userId: string
+  email: string
+  plano: string
+  status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED'
+  subscriptionId?: string
+  txidPendente?: string
+  qrCodePendente?: string
+  brcodePendente?: string
+  ativadaEm?: number
+  expiraEm?: number
+  ultimaVerificacao?: number
+}
+const ASSINATURAS = new Map<string, AssinaturaUsuario>()
+
 // ─── API: PIX Recorrente (Woovi/OpenPix) ─────────────────────────────────────
 app.post('/api/pix/assinar', async (c) => {
   try {
     const body = await c.req.json()
-    const { nome, email, cpf, plano } = body
+    const { nome, email, cpf, plano, userId } = body
 
     if (!nome || !email) {
       return c.json({ sucesso: false, mensagem: 'Nome e email são obrigatórios' }, 400)
     }
 
     const planoValido = plano in PLANOS ? plano : 'premium'
-    // CPF é opcional — em demo mode não é necessário
     const cpfLimpo = (cpf || '').replace(/\D/g, '')
     const resultado = await criarAssinaturaPIX(c.env as any, nome, email, cpfLimpo, planoValido)
 
     if (resultado.error) {
       return c.json({ sucesso: false, mensagem: resultado.error }, 500)
+    }
+
+    // Salvar assinatura pendente
+    if (userId) {
+      ASSINATURAS.set(userId, {
+        userId,
+        email,
+        plano: planoValido,
+        status: 'PENDING',
+        subscriptionId: resultado.subscriptionId,
+        txidPendente: resultado.subscriptionId,
+        qrCodePendente: resultado.qrCode,
+        brcodePendente: resultado.brcode,
+        ultimaVerificacao: Date.now()
+      })
     }
 
     return c.json({
@@ -900,7 +1044,7 @@ app.post('/api/pix/assinar', async (c) => {
         '1. Abra seu app de banco',
         '2. Escaneie o QR Code ou copie o código PIX',
         '3. Confirme o pagamento',
-        '4. Seu plano será ativado automaticamente em até 1 minuto'
+        '4. Seu plano sera ativado automaticamente em ate 1 minuto'
       ]
     })
   } catch (e: any) {
@@ -915,13 +1059,148 @@ app.get('/api/pix/verificar/:txid', async (c) => {
   return c.json({ pago, txid })
 })
 
+// ─── API: Status de assinatura do usuário ─────────────────────────────────────
+app.get('/api/assinatura/status/:userId', async (c) => {
+  const userId = c.req.param('userId')
+  const assinatura = ASSINATURAS.get(userId)
+
+  if (!assinatura) {
+    return c.json({ status: 'FREE', plano: null, ativa: false })
+  }
+
+  // Se pendente, verificar se foi pago
+  if (assinatura.status === 'PENDING' && assinatura.txidPendente) {
+    const pago = await verificarPagamento(c.env as any, assinatura.txidPendente)
+    if (pago) {
+      // Ativar assinatura por 30 dias
+      assinatura.status = 'ACTIVE'
+      assinatura.ativadaEm = Date.now()
+      assinatura.expiraEm = Date.now() + 30 * 24 * 3600 * 1000
+      assinatura.txidPendente = undefined
+      assinatura.qrCodePendente = undefined
+      assinatura.brcodePendente = undefined
+      ASSINATURAS.set(userId, assinatura)
+    }
+  }
+
+  // Checar expiração
+  if (assinatura.status === 'ACTIVE' && assinatura.expiraEm && Date.now() > assinatura.expiraEm) {
+    assinatura.status = 'EXPIRED'
+    ASSINATURAS.set(userId, assinatura)
+  }
+
+  return c.json({
+    status: assinatura.status,
+    plano: assinatura.plano,
+    ativa: assinatura.status === 'ACTIVE',
+    expiraEm: assinatura.expiraEm,
+    // Se pendente, retornar QR code para o usuário pagar
+    qrCodePendente: assinatura.status === 'PENDING' ? assinatura.qrCodePendente : null,
+    brcodePendente: assinatura.status === 'PENDING' ? assinatura.brcodePendente : null,
+    txidPendente: assinatura.status === 'PENDING' ? assinatura.txidPendente : null
+  })
+})
+
+// ─── API: Gerar QR Code manual (para usuário com pagamento pendente) ──────────
+app.post('/api/pix/gerar-manual', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { nome, email, cpf, plano, userId } = body
+
+    const planoValido = plano in PLANOS ? plano : 'premium'
+    const cpfLimpo = (cpf || '').replace(/\D/g, '')
+    const resultado = await criarAssinaturaPIX(c.env as any, nome || 'Usuario', email || '', cpfLimpo, planoValido)
+
+    if (resultado.error) {
+      return c.json({ sucesso: false, mensagem: resultado.error }, 500)
+    }
+
+    // Atualizar assinatura com novo QR
+    if (userId) {
+      const assin = ASSINATURAS.get(userId) || {
+        userId, email: email || '', plano: planoValido, status: 'PENDING' as const
+      }
+      assin.status = 'PENDING'
+      assin.txidPendente = resultado.subscriptionId
+      assin.qrCodePendente = resultado.qrCode
+      assin.brcodePendente = resultado.brcode
+      ASSINATURAS.set(userId, assin as AssinaturaUsuario)
+    }
+
+    return c.json({
+      sucesso: true,
+      qrCode: resultado.qrCode,
+      brcode: resultado.brcode,
+      txid: resultado.subscriptionId,
+      valor: PLANOS[planoValido].valor / 100,
+      mensagem: 'Novo QR Code gerado com sucesso!'
+    })
+  } catch {
+    return c.json({ sucesso: false, mensagem: 'Erro ao gerar QR Code' }, 500)
+  }
+})
+
 // ─── API: Webhook Woovi ───────────────────────────────────────────────────────
 app.post('/api/pix/webhook', async (c) => {
   const body = await c.req.json() as any
   console.log('[Woovi Webhook]', JSON.stringify(body))
-  // Aqui: ativar assinatura do usuário via Firebase Firestore
-  // body.charge.status === 'COMPLETED' → ativar premium
+  // Webhook Woovi: charge.status === 'COMPLETED' → ativar assinatura
+  if (body?.charge?.status === 'COMPLETED' || body?.event === 'OPENPIX:CHARGE_COMPLETED') {
+    const correlationID = body?.charge?.correlationID || ''
+    // Ativar todas as assinaturas com esse txid pendente
+    for (const [uid, assin] of ASSINATURAS.entries()) {
+      if (assin.txidPendente === correlationID || assin.subscriptionId === correlationID) {
+        assin.status = 'ACTIVE'
+        assin.ativadaEm = Date.now()
+        assin.expiraEm = Date.now() + 30 * 24 * 3600 * 1000
+        assin.txidPendente = undefined
+        assin.qrCodePendente = undefined
+        ASSINATURAS.set(uid, assin)
+        console.log('[Woovi] Assinatura ativada para:', uid)
+        break
+      }
+    }
+  }
   return c.json({ status: 'ok' })
+})
+
+// ─── API: Upload de foto de perfil (base64) ───────────────────────────────────
+// Armazena temporariamente em memória (produção: usar R2 ou Firebase Storage)
+const FOTOS_PERFIL = new Map<string, { url: string; ts: number }>()
+
+app.post('/api/perfil/foto', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { userId, fotoBase64, mimeType } = body
+
+    if (!userId || !fotoBase64) {
+      return c.json({ sucesso: false, mensagem: 'Dados incompletos' }, 400)
+    }
+
+    // Validar tamanho (max 2MB base64 = ~1.5MB real)
+    if (fotoBase64.length > 2 * 1024 * 1024) {
+      return c.json({ sucesso: false, mensagem: 'Imagem muito grande. Maximo 1.5MB.' }, 400)
+    }
+
+    const mime = mimeType || 'image/jpeg'
+    const dataUrl = `data:${mime};base64,${fotoBase64}`
+    FOTOS_PERFIL.set(userId, { url: dataUrl, ts: Date.now() })
+
+    return c.json({
+      sucesso: true,
+      fotoUrl: dataUrl,
+      mensagem: 'Foto de perfil atualizada!'
+    })
+  } catch {
+    return c.json({ sucesso: false, mensagem: 'Erro ao salvar foto' }, 500)
+  }
+})
+
+app.get('/api/perfil/foto/:userId', (c) => {
+  const userId = c.req.param('userId')
+  const foto = FOTOS_PERFIL.get(userId)
+  if (!foto) return c.json({ fotoUrl: null })
+  return c.json({ fotoUrl: foto.url, ts: foto.ts })
 })
 
 // ─── API: Firebase Config (segura - não expõe secrets) ───────────────────────
@@ -2823,21 +3102,37 @@ function abrirModalPosto(id) {
       </button>
     </div>
 
-    <div style="margin-top:10px;padding:10px;background:var(--cinza-bg);border-radius:12px;border:1.5px dashed var(--cinza-borda)">
-      <div style="font-size:11px;font-weight:700;color:var(--cinza-texto);margin-bottom:7px;">
-        <i class="fas fa-users" style="color:var(--azul-vivo)"></i> Você sabe o preço atual? Ajude a comunidade!
+    <!-- Crowdsourcing + Gamificação -->
+    <div style="margin-top:10px;background:linear-gradient(135deg,rgba(13,27,42,0.8),rgba(26,39,64,0.8));border-radius:14px;border:1.5px solid rgba(255,109,0,0.25);overflow:hidden">
+      <!-- Header gamificado -->
+      <div style="padding:10px 12px;background:rgba(255,109,0,0.08);border-bottom:1px solid rgba(255,109,0,0.15);display:flex;align-items:center;gap:8px">
+        <div style="background:rgba(255,193,7,0.15);border-radius:8px;padding:5px 8px;display:flex;align-items:center;gap:5px">
+          <i class="fas fa-ticket-alt" style="color:#FFC107;font-size:11px"></i>
+          <span style="font-size:10px;font-weight:800;color:#FFC107">+1 NUMERO SORTEIO</span>
+        </div>
+        <span style="font-size:10px;color:rgba(255,255,255,0.4)">+10 pontos ao reportar!</span>
       </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="number" id="preco-reportar" placeholder="R$ preço/litro" step="0.01" min="1" max="20"
-          style="flex:1;padding:8px 10px;border:1.5px solid var(--cinza-borda);border-radius:8px;font-family:'Raleway',sans-serif;font-size:13px;font-weight:700;color:var(--texto-principal);background:var(--branco);outline:none"/>
-        <button onclick="reportarPreco('\${posto.id}', '\${state.combustivel}')"
-          style="padding:8px 14px;background:var(--azul-vivo);color:white;border:none;border-radius:8px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">
-          <i class="fas fa-paper-plane"></i> Enviar
-        </button>
-      </div>
-      <div style="font-size:10px;color:var(--cinza-texto);margin-top:5px;">
-        Fonte: <span class="\${posto.fonte === 'anp' ? 'badge badge-anp' : 'badge badge-osm'}">\${posto.fonte?.toUpperCase() || 'ANP'}</span>
-        · Preço: \${posto.fontePreco === 'estimado' ? '📊 estimado (ANP médio)' : '👥 colaborativo'}
+      <!-- Input de preco -->
+      <div style="padding:12px">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.6);margin-bottom:8px">
+          <i class="fas fa-users" style="color:var(--azul-vivo)"></i> Sabe o preco atual? Ajude e ganhe pontos!
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <div style="position:relative;flex:1">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:800;color:rgba(255,255,255,0.4)">R$</span>
+            <input type="number" id="preco-reportar" placeholder="0,00" step="0.01" min="1" max="20"
+              style="width:100%;padding:9px 10px 9px 30px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-family:'Raleway',sans-serif;font-size:15px;font-weight:800;color:white;background:rgba(255,255,255,0.06);outline:none;box-sizing:border-box"
+              onfocus="this.style.borderColor='var(--laranja)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'"/>
+          </div>
+          <button id="btn-reportar-preco" onclick="reportarPreco('\${posto.id}', '\${state.combustivel}', '\${(posto.nome||'').replace(/'/g,'')}')"
+            style="padding:9px 16px;background:linear-gradient(135deg,#FF6D00,#ff8c00);color:white;border:none;border-radius:10px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">
+            <i class="fas fa-paper-plane"></i> Reportar
+          </button>
+        </div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:6px;display:flex;align-items:center;gap:6px">
+          <span class="\${posto.fonte === 'anp' ? 'badge badge-anp' : 'badge badge-osm'}">\${posto.fonte?.toUpperCase() || 'ANP'}</span>
+          <span>\${posto.fontePreco === 'estimado' ? '📊 Preco estimado ANP' : posto.fontePreco === 'colaborativo' ? \`👥 \${posto.confirmacoesPreco || 1} confirmacoes\` : '📊 Dado ANP'}</span>
+        </div>
       </div>
     </div>
   \`;
@@ -3039,58 +3334,117 @@ function abrirFiltros() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ═══ SERVICE WORKER ══════════════════════════════════════════════════════════
+// ═══ SERVICE WORKER + PWA AUTO-UPDATE ════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════
+let _swRegistration = null;
+
 function registrarSW() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        console.log('[SW] Registrado com sucesso:', reg.scope);
-        reg.addEventListener('updatefound', () => {
-          const novoSW = reg.installing;
-          novoSW.addEventListener('statechange', () => {
-            if (novoSW.state === 'installed' && navigator.serviceWorker.controller) {
-              mostrarToast('🔄 Atualização disponível! Recarregue a página.');
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.register('/sw.js')
+    .then(reg => {
+      _swRegistration = reg;
+      console.log('[SW] Registrado ok:', reg.scope);
+
+      // Checar por update imediatamente (importante ao abrir o PWA)
+      reg.update().catch(() => {});
+
+      // Quando um novo SW é encontrado
+      reg.addEventListener('updatefound', () => {
+        const novoSW = reg.installing;
+        if (!novoSW) return;
+
+        novoSW.addEventListener('statechange', () => {
+          if (novoSW.state === 'installed') {
+            if (navigator.serviceWorker.controller) {
+              // Ha um SW antigo ativo — novo SW esperando
+              // Auto-aplicar: enviar SKIP_WAITING e recarregar
+              console.log('[SW] Novo SW instalado — aplicando auto-update...');
+              novoSW.postMessage({ type: 'SKIP_WAITING' });
+            } else {
+              // Primeira instalacao
+              console.log('[SW] SW instalado pela primeira vez');
             }
-          });
+          }
         });
-      })
-      .catch(err => console.warn('[SW] Falha ao registrar:', err));
-  }
+      });
+    })
+    .catch(err => console.warn('[SW] Falha ao registrar:', err));
+
+  // Escutar mensagem SW_UPDATED (enviada pelo SW apos ativar)
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'SW_UPDATED') {
+      console.log('[SW] Update recebido:', event.data.version);
+      // Recarregar silenciosamente para aplicar novo SW
+      window.location.reload();
+    }
+  });
+
+  // Detectar quando o controlador muda (SW novo tomou conta)
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    console.log('[SW] Controller mudou — recarregando');
+    window.location.reload();
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ═══ PWA INSTALL PROMPT ═══════════════════════════════════════════════════════
+// ═══ PWA INSTALL PROMPT INTELIGENTE ═══════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════
 let _pwaPrompt = null;
 
+function _isPWAInstalada() {
+  // Modo standalone = PWA aberta como app instalado
+  if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  // iOS Safari standalone
+  if (window.navigator.standalone === true) return true;
+  // Android TWA
+  if (document.referrer.includes('android-app://')) return true;
+  return false;
+}
+
 function iniciarPWAPrompt() {
   const banner = document.getElementById('pwa-install-banner');
-  const btnInstalar = document.getElementById('btn-pwa-install');
+  if (!banner) return;
 
-  // Detectar se já está instalado (modo standalone)
-  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
+  const jaInstalado = _isPWAInstalada();
 
+  // Se ja instalado: nunca mostrar banner + checar updates
   if (jaInstalado) {
     banner.style.display = 'none';
+    console.log('[PWA] App instalado — modo standalone ativo');
+    // Forcar verificacao de update ao abrir o PWA
+    if (_swRegistration) {
+      _swRegistration.update().then(() => {
+        console.log('[PWA] Verificacao de update concluida');
+      }).catch(() => {});
+    } else {
+      // SW ainda nao registrado — aguardar
+      setTimeout(() => {
+        if (_swRegistration) _swRegistration.update().catch(() => {});
+      }, 3000);
+    }
     return;
   }
+
+  const btnInstalar = document.getElementById('btn-pwa-install');
 
   // Escutar o evento beforeinstallprompt
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     _pwaPrompt = e;
-    // Mostrar banner após 3 segundos
-    setTimeout(() => banner.classList.add('visible'), 3000);
+    // Mostrar banner apos 4 segundos (nao intrusivo)
+    setTimeout(() => {
+      if (!_isPWAInstalada()) banner.classList.add('visible');
+    }, 4000);
   });
 
-  // Botão instalar
+  // Botao instalar
   if (btnInstalar) {
     btnInstalar.addEventListener('click', async () => {
       if (!_pwaPrompt) {
-        // iOS/Safari — não tem beforeinstallprompt
-        mostrarToast('📱 No Safari: Menu → "Adicionar à Tela de Início"');
+        // iOS/Safari
+        mostrarToast('📱 No Safari: Compartilhar → "Adicionar a Tela de Inicio"');
+        banner.classList.remove('visible');
         return;
       }
       banner.classList.remove('visible');
@@ -3098,7 +3452,9 @@ function iniciarPWAPrompt() {
       const { outcome } = await _pwaPrompt.userChoice;
       console.log('[PWA] Resultado:', outcome);
       if (outcome === 'accepted') {
-        mostrarToast('✅ App instalado com sucesso!');
+        mostrarToast('✅ RotaPosto instalado com sucesso!');
+        // Guardar que ja instalou
+        localStorage.setItem('rp_pwa_installed', '1');
       }
       _pwaPrompt = null;
     });
@@ -3109,24 +3465,30 @@ function iniciarPWAPrompt() {
     if (e.target === banner) banner.classList.remove('visible');
   });
 
-  // Detectar instalação concluída
+  // Detectar instalacao concluida
   window.addEventListener('appinstalled', () => {
     banner.classList.remove('visible');
+    banner.style.display = 'none';
     mostrarToast('🎉 RotaPosto instalado!');
     _pwaPrompt = null;
+    localStorage.setItem('rp_pwa_installed', '1');
   });
 
-  // iOS: mostrar instrução após 5s se não houver beforeinstallprompt
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  if (isIOS && !jaInstalado) {
+  // iOS: mostrar instrucao manual apos 6s se nao houver beforeinstallprompt
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const jaInstalou = localStorage.getItem('rp_pwa_installed') === '1';
+  if (isIOS && !jaInstalado && !jaInstalou) {
     setTimeout(() => {
       banner.classList.add('visible');
-      document.getElementById('btn-pwa-install').textContent = 'Ver como';
-      document.getElementById('btn-pwa-install').onclick = () => {
-        mostrarToast('📱 Toque em Compartilhar → "Adicionar à Tela de Início"');
-        banner.classList.remove('visible');
-      };
-    }, 5000);
+      const btnText = document.getElementById('btn-pwa-install');
+      if (btnText) {
+        btnText.textContent = 'Como instalar';
+        btnText.onclick = () => {
+          mostrarToast('📱 Toque em Compartilhar → "Adicionar a Tela de Inicio"');
+          banner.classList.remove('visible');
+        };
+      }
+    }, 6000);
   }
 }
 
@@ -3161,6 +3523,45 @@ function iniciarFirebaseAuth() {
   }, 300);
 }
 
+// Estado da assinatura
+let _assinaturaStatus = null; // 'FREE' | 'ACTIVE' | 'PENDING' | 'EXPIRED'
+let _assinaturaTxid = null;
+let _assinaturaQrCode = null;
+let _assinaturaBrcode = null;
+
+// Verificar status de assinatura do usuário
+async function verificarStatusAssinatura(userId) {
+  try {
+    const res = await fetch(\`/api/assinatura/status/\${userId}\`);
+    const data = await res.json();
+    _assinaturaStatus = data.status || 'FREE';
+    _assinaturaTxid = data.txidPendente || null;
+    _assinaturaQrCode = data.qrCodePendente || null;
+    _assinaturaBrcode = data.brcodePendente || null;
+    return data;
+  } catch {
+    _assinaturaStatus = 'FREE';
+    return { status: 'FREE', ativa: false };
+  }
+}
+
+// Carregar foto de perfil personalizada (salva no servidor)
+async function carregarFotoPerfil(userId) {
+  try {
+    const res = await fetch(\`/api/perfil/foto/\${userId}\`);
+    const data = await res.json();
+    if (data.fotoUrl) {
+      // Salvar no localStorage para acesso rápido
+      localStorage.setItem('rp_foto_perfil', data.fotoUrl);
+      return data.fotoUrl;
+    }
+    // Verificar localStorage como fallback
+    return localStorage.getItem('rp_foto_perfil') || null;
+  } catch {
+    return localStorage.getItem('rp_foto_perfil') || null;
+  }
+}
+
 function _configurarAuth() {
   try {
     if (!window._fbAuth || !window._fbOnAuthStateChanged) {
@@ -3170,22 +3571,48 @@ function _configurarAuth() {
     _firebaseAuth = window._fbAuth;
 
     // Observer de estado de autenticação — atualiza UI sempre que o user muda
-    window._fbOnAuthStateChanged(_firebaseAuth, (user) => {
+    window._fbOnAuthStateChanged(_firebaseAuth, async (user) => {
       const eraPrimeiroLogin = !_usuarioLogado && !!user;
       const eraSessaoAtiva   = !!_usuarioLogado && !user; // logout
       _usuarioLogado = user;
-      _atualizarHeaderAuth(user);
-      atualizarSidebarUser(user);
-      // Atualizar painel desktop (revelar/ocultar dados)
-      _atualizarPainelAuthState(user);
-      if (eraPrimeiroLogin) {
-        fecharLogin();
-        mostrarToast('👋 Olá, ' + (user.displayName || user.email || 'usuário') + '!');
-        // Carregar dados do painel após login
-        if (window.innerWidth >= 768) carregarPainelDesktop();
+
+      if (user) {
+        // Verificar foto personalizada salva no servidor
+        const fotoPersonalizada = await carregarFotoPerfil(user.uid);
+        if (fotoPersonalizada && !user.photoURL) {
+          // Injetar foto personalizada no objeto user temporariamente
+          user._fotoLocal = fotoPersonalizada;
+        } else if (fotoPersonalizada) {
+          user._fotoLocal = fotoPersonalizada;
+        }
+
+        _atualizarHeaderAuth(user);
+        atualizarSidebarUser(user);
+        _atualizarPainelAuthState(user);
+
+        if (eraPrimeiroLogin) {
+          fecharLogin();
+          mostrarToast('👋 Olá, ' + (user.displayName || user.email || 'usuário') + '!');
+          if (window.innerWidth >= 768) carregarPainelDesktop();
+        }
+
+        // Verificar status de assinatura em background
+        verificarStatusAssinatura(user.uid).then(assin => {
+          // Se expirada ou pendente há muito tempo, mostrar aviso (não bloquear totalmente)
+          // O app é gratuito — premium é opcional; não bloqueamos o acesso básico
+          if (assin.status === 'PENDING' && _assinaturaQrCode) {
+            // Mostrar badge pendente no avatar
+            _mostrarBadgePendente();
+          }
+        });
+      } else {
+        _assinaturaStatus = null;
+        _atualizarHeaderAuth(null);
+        atualizarSidebarUser(null);
+        _atualizarPainelAuthState(null);
       }
+
       if (eraSessaoAtiva) {
-        // Voltou a visitante — mostrar CTA novamente
         _atualizarPainelAuthState(null);
       }
     });
@@ -3193,10 +3620,45 @@ function _configurarAuth() {
     // Inicializar a área de auth no header
     _atualizarHeaderAuth(_firebaseAuth.currentUser);
     atualizarSidebarUser(_firebaseAuth.currentUser);
-    console.log('[Auth] Firebase Auth configurado ✓');
+    console.log('[Auth] Firebase Auth configurado ok');
   } catch (err) {
     console.error('[Auth] Erro ao configurar:', err);
   }
+}
+
+// Mostrar badge laranja no avatar indicando pagamento pendente
+function _mostrarBadgePendente() {
+  const avatarBtn = document.querySelector('.user-avatar-btn');
+  if (!avatarBtn) return;
+  if (document.getElementById('badge-pendente')) return;
+  const badge = document.createElement('span');
+  badge.id = 'badge-pendente';
+  badge.style.cssText = \`
+    position:absolute;top:-4px;right:-4px;
+    background:#FFC107;color:#000;font-size:9px;font-weight:900;
+    border-radius:50%;width:14px;height:14px;display:flex;align-items:center;
+    justify-content:center;z-index:10;
+  \`;
+  badge.textContent = '!';
+  badge.title = 'Pagamento pendente';
+  avatarBtn.style.position = 'relative';
+  avatarBtn.appendChild(badge);
+}
+
+function _getFotoUsuario(user) {
+  if (!user) return null;
+  // Prioridade: foto local salva > photoURL do Firebase > null
+  return user._fotoLocal || localStorage.getItem('rp_foto_perfil') || user.photoURL || null;
+}
+
+function _getAvatarHTML(user, size = 32) {
+  const foto = _getFotoUsuario(user);
+  const nome = user?.displayName || user?.email || 'Usuário';
+  const iniciais = nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  if (foto) {
+    return \`<img src="\${foto}" alt="\${nome}" style="width:\${size}px;height:\${size}px;border-radius:50%;object-fit:cover;border:2px solid var(--laranja)"/>\`;
+  }
+  return \`<div style="width:\${size}px;height:\${size}px;border-radius:50%;background:var(--laranja);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:\${Math.round(size*0.4)}px;color:white">\${iniciais}</div>\`;
 }
 
 function _atualizarHeaderAuth(user) {
@@ -3204,15 +3666,10 @@ function _atualizarHeaderAuth(user) {
   if (!actionsEl) return;
 
   if (user) {
-    const foto = user.photoURL || '';
     const nome = user.displayName || user.email || 'Usuário';
-    const iniciais = nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     actionsEl.innerHTML = \`
-      <button class="btn-icon user-avatar-btn" onclick="toggleMenuUser()" title="\${nome}">
-        \${foto
-          ? \`<img src="\${foto}" alt="\${nome}" class="user-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--laranja)"/>\`
-          : \`<div class="user-avatar" style="width:32px;height:32px;border-radius:50%;background:var(--laranja);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:white">\${iniciais}</div>\`
-        }
+      <button class="btn-icon user-avatar-btn" onclick="toggleMenuUser()" title="\${nome}" style="position:relative">
+        \${_getAvatarHTML(user, 32)}
       </button>
       <button class="btn-premium-tag" onclick="abrirModalPIX('premium')">
         ⚡ Premium
@@ -3232,34 +3689,66 @@ function _atualizarHeaderAuth(user) {
 
 let _menuUserAberto = false;
 function toggleMenuUser() {
-  // Menu dropdown simples
   let menu = document.getElementById('user-dropdown-menu');
   if (menu) { menu.remove(); _menuUserAberto = false; return; }
   _menuUserAberto = true;
 
   const user = _usuarioLogado;
+  const foto = _getFotoUsuario(user);
+  const nome = user?.displayName || 'Usuário';
+  const email = user?.email || '';
+  const iniciais = nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+  // Badge de sorteio
+  const pontos = parseInt(localStorage.getItem('rp_pontos') || '0');
+  const numSorteios = parseInt(localStorage.getItem('rp_numeros_sorteio') || '0');
+
   menu = document.createElement('div');
   menu.id = 'user-dropdown-menu';
   menu.style.cssText = \`
     position:fixed;top:64px;right:12px;background:#1a2744;border:1px solid rgba(255,255,255,0.1);
-    border-radius:16px;padding:16px;z-index:9999;min-width:220px;
-    box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    border-radius:16px;padding:0;z-index:9999;min-width:240px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.5);overflow:hidden;
   \`;
   menu.innerHTML = \`
-    <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1)">
-      <div style="font-weight:800;font-size:14px;color:white">\${user?.displayName || 'Usuário'}</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.5)">\${user?.email || ''}</div>
+    <!-- Header do perfil -->
+    <div style="padding:16px;background:linear-gradient(135deg,#0D1B2A,#1a2744);display:flex;gap:12px;align-items:center">
+      <div style="position:relative;cursor:pointer" onclick="abrirUploadFoto();document.getElementById('user-dropdown-menu')?.remove()" title="Alterar foto">
+        \${foto
+          ? \`<img src="\${foto}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--laranja)"/>\`
+          : \`<div style="width:48px;height:48px;border-radius:50%;background:var(--laranja);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:white">\${iniciais}</div>\`
+        }
+        <div style="position:absolute;bottom:0;right:0;background:var(--laranja);border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center">
+          <i class="fas fa-camera" style="font-size:8px;color:white"></i>
+        </div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:14px;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${nome}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${email}</div>
+        <div style="font-size:10px;color:#FFC107;margin-top:2px">
+          <i class="fas fa-star"></i> \${pontos} pts &nbsp;·&nbsp;
+          <i class="fas fa-ticket-alt"></i> \${numSorteios} números
+        </div>
+      </div>
     </div>
-    <button onclick="abrirModalPIX('premium');document.getElementById('user-dropdown-menu')?.remove()" style="width:100%;background:linear-gradient(135deg,#FF6D00,#ff8c00);border:none;color:white;font-weight:800;padding:10px 16px;border-radius:10px;cursor:pointer;margin-bottom:8px">
-      ⚡ Assinar Premium
-    </button>
-    <button onclick="fazerLogout();document.getElementById('user-dropdown-menu')?.remove()" style="width:100%;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.7);font-weight:600;padding:10px 16px;border-radius:10px;cursor:pointer">
-      <i class="fas fa-sign-out-alt"></i> Sair
-    </button>
+    <!-- Acoes -->
+    <div style="padding:12px;display:flex;flex-direction:column;gap:6px">
+      <button onclick="abrirUploadFoto();document.getElementById('user-dropdown-menu')?.remove()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.8);font-weight:600;padding:9px 14px;border-radius:10px;cursor:pointer;text-align:left;font-size:13px">
+        <i class="fas fa-camera" style="color:var(--laranja);margin-right:8px;width:14px"></i> Alterar foto de perfil
+      </button>
+      <button onclick="abrirMeusNumeros();document.getElementById('user-dropdown-menu')?.remove()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.8);font-weight:600;padding:9px 14px;border-radius:10px;cursor:pointer;text-align:left;font-size:13px">
+        <i class="fas fa-ticket-alt" style="color:#FFC107;margin-right:8px;width:14px"></i> Meus numeros do sorteio
+      </button>
+      <button onclick="abrirModalPIX('premium');document.getElementById('user-dropdown-menu')?.remove()" style="width:100%;background:linear-gradient(135deg,#FF6D00,#ff8c00);border:none;color:white;font-weight:800;padding:10px 14px;border-radius:10px;cursor:pointer;text-align:left;font-size:13px">
+        <i class="fas fa-bolt" style="margin-right:8px"></i> Assinar Premium R$ 9,90/mes
+      </button>
+      <button onclick="fazerLogout();document.getElementById('user-dropdown-menu')?.remove()" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);font-weight:600;padding:9px 14px;border-radius:10px;cursor:pointer;text-align:left;font-size:13px">
+        <i class="fas fa-sign-out-alt" style="margin-right:8px;width:14px"></i> Sair
+      </button>
+    </div>
   \`;
   document.body.appendChild(menu);
 
-  // Fechar ao clicar fora
   setTimeout(() => {
     document.addEventListener('click', function fecharMenu(e) {
       if (!menu.contains(e.target)) {
@@ -3268,6 +3757,163 @@ function toggleMenuUser() {
       }
     });
   }, 100);
+}
+
+// ── Upload de foto de perfil ──────────────────────────────────────────────────
+function abrirUploadFoto() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/png,image/webp';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    document.body.removeChild(input);
+
+    if (file.size > 2 * 1024 * 1024) {
+      mostrarToast('⚠️ Imagem muito grande. Escolha uma imagem menor que 2MB.');
+      return;
+    }
+
+    mostrarToast('📷 Processando foto...');
+
+    // Redimensionar e converter para base64
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const img = new Image();
+      img.onload = async () => {
+        // Redimensionar para 200x200
+        const canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 200;
+        const ctx = canvas.getContext('2d');
+
+        // Cortar centro (crop quadrado)
+        const size = Math.min(img.width, img.height);
+        const sx = (img.width - size) / 2;
+        const sy = (img.height - size) / 2;
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, 200, 200);
+
+        const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+        const userId = _usuarioLogado?.uid;
+        if (!userId) return;
+
+        try {
+          const res = await fetch('/api/perfil/foto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, fotoBase64: base64, mimeType: 'image/jpeg' })
+          });
+          const data = await res.json();
+          if (data.sucesso) {
+            // Guardar localmente
+            localStorage.setItem('rp_foto_perfil', data.fotoUrl);
+            if (_usuarioLogado) {
+              _usuarioLogado._fotoLocal = data.fotoUrl;
+              _atualizarHeaderAuth(_usuarioLogado);
+              atualizarSidebarUser(_usuarioLogado);
+            }
+            mostrarToast('✅ Foto de perfil atualizada!');
+          } else {
+            mostrarToast('❌ Erro ao salvar foto');
+          }
+        } catch {
+          mostrarToast('❌ Erro ao enviar foto');
+        }
+      };
+      img.src = e.target.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  input.click();
+}
+
+// ── Meus números do sorteio ───────────────────────────────────────────────────
+async function abrirMeusNumeros() {
+  const user = _usuarioLogado;
+  if (!user) { abrirLogin(); return; }
+
+  const overlay = document.getElementById('pix-modal-overlay');
+  const content = document.getElementById('pix-modal-content');
+  overlay.classList.add('visible');
+
+  content.innerHTML = \`
+    <div style="text-align:center;padding:24px">
+      <div class="spinner" style="margin:0 auto 16px;border-top-color:#FFC107"></div>
+      <p style="font-size:13px;color:rgba(255,255,255,0.5)">Carregando seus numeros...</p>
+    </div>
+  \`;
+
+  try {
+    const res = await fetch(\`/api/meus-numeros/\${user.uid}\`);
+    const data = await res.json();
+    const numeros = data.numeros || [];
+    const pontos = data.pontos || 0;
+    const reportes = data.reportes || 0;
+
+    content.innerHTML = \`
+      <div style="padding:16px">
+        <div style="text-align:center;margin-bottom:20px">
+          <div style="font-size:36px;margin-bottom:8px">🎰</div>
+          <h3 style="font-size:18px;font-weight:900;color:white;margin:0 0 4px">Meus Numeros do Sorteio</h3>
+          <p style="font-size:12px;color:rgba(255,255,255,0.4)">Cada reporte de preco ganha 1 numero!</p>
+        </div>
+
+        <!-- Stats -->
+        <div style="display:flex;gap:10px;margin-bottom:20px">
+          <div style="flex:1;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:900;color:#FFC107">\${pontos}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">pontos</div>
+          </div>
+          <div style="flex:1;background:rgba(255,109,0,0.1);border:1px solid rgba(255,109,0,0.3);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:900;color:var(--laranja)">\${reportes}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">reportes</div>
+          </div>
+          <div style="flex:1;background:rgba(0,200,83,0.1);border:1px solid rgba(0,200,83,0.3);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:900;color:#00C853">\${numeros.length}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">numeros</div>
+          </div>
+        </div>
+
+        \${numeros.length > 0 ? \`
+          <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:14px;margin-bottom:16px">
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">Seus numeros da sorte:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              \${numeros.map(n => \`<span style="background:linear-gradient(135deg,#FF6D00,#ff8c00);color:white;font-weight:900;font-size:13px;padding:6px 10px;border-radius:8px;letter-spacing:1px">\${n}</span>\`).join('')}
+            </div>
+          </div>
+        \` : \`
+          <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:24px;text-align:center;margin-bottom:16px">
+            <div style="font-size:32px;margin-bottom:8px">🎫</div>
+            <p style="font-size:13px;color:rgba(255,255,255,0.4)">Reporte precos nos postos para ganhar numeros!</p>
+          </div>
+        \`}
+
+        <div style="background:rgba(255,193,7,0.08);border:1px solid rgba(255,193,7,0.2);border-radius:10px;padding:12px;margin-bottom:16px">
+          <div style="font-size:11px;color:#FFC107;font-weight:700;margin-bottom:4px">Como funciona:</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.6">
+            • Cada reporte novo = +1 numero do sorteio + 10 pontos<br>
+            • Confirmar preco existente = +5 pontos<br>
+            • Sorteio mensal com premios para os mais ativos!
+          </div>
+        </div>
+
+        <button onclick="fecharPixModal(null,true)" style="width:100%;background:rgba(255,255,255,0.08);border:none;color:white;font-weight:700;padding:12px;border-radius:12px;cursor:pointer">
+          Fechar
+        </button>
+      </div>
+    \`;
+  } catch {
+    content.innerHTML = \`
+      <div style="text-align:center;padding:32px">
+        <p style="color:rgba(255,255,255,0.5)">Erro ao carregar dados</p>
+        <button onclick="fecharPixModal(null,true)" style="background:var(--laranja);border:none;color:white;padding:10px 20px;border-radius:10px;cursor:pointer;margin-top:12px">Fechar</button>
+      </div>
+    \`;
+  }
 }
 
 async function fazerLogout() {
@@ -3648,32 +4294,115 @@ function fecharPixModal(event, forcar = false) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ═══ REPORTAR PREÇO (COLABORATIVO) ════════════════════════════════════════════
-async function reportarPreco(postoId, combustivel) {
-  const input = document.getElementById('preco-reportar');
-  const preco = parseFloat(input.value);
-  if (!preco || preco < 1 || preco > 30) {
-    mostrarToast('⚠️ Informe um preço válido (ex: 5.89)');
+async function reportarPreco(postoId, combustivel, postoNome) {
+  if (!_usuarioLogado) {
+    mostrarToast('⚠️ Faca login para reportar precos e ganhar pontos!');
+    abrirLogin();
     return;
+  }
+
+  const input = document.getElementById('preco-reportar');
+  const preco = parseFloat(input?.value || '');
+  if (!preco || preco < 1 || preco > 30) {
+    mostrarToast('⚠️ Informe um preco valido (ex: 5.89)');
+    return;
+  }
+
+  const btnReportar = document.getElementById('btn-reportar-preco');
+  if (btnReportar) {
+    btnReportar.disabled = true;
+    btnReportar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
   }
 
   try {
     const res = await fetch('/api/precos/reportar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ postoId, combustivel, preco, lat: state.lat, lng: state.lng })
+      body: JSON.stringify({
+        postoId,
+        postoNome: postoNome || postoId,
+        combustivel,
+        preco,
+        lat: state.lat,
+        lng: state.lng,
+        userId: _usuarioLogado.uid,
+        userName: _usuarioLogado.displayName || _usuarioLogado.email?.split('@')[0] || 'Usuario'
+      })
     });
     const data = await res.json();
     if (data.sucesso) {
-      mostrarToast('✅ ' + data.mensagem);
-      document.getElementById('modal-overlay').classList.remove('visible');
-      // Refresh postos após reporte
+      document.getElementById('modal-overlay')?.classList.remove('visible');
+
+      // Gamificacao: salvar pontos localmente
+      if (data.gamificacao) {
+        localStorage.setItem('rp_pontos', String(data.gamificacao.totalPontos));
+        localStorage.setItem('rp_numeros_sorteio', String(data.gamificacao.totalNumerossorteio));
+
+        // Mostrar notificacao especial de sorteio
+        if (data.gamificacao.numeroSorteio) {
+          setTimeout(() => _mostrarNotificacaoSorteio(data.gamificacao), 400);
+        } else {
+          mostrarToast('✅ ' + (data.gamificacao.mensagem || data.mensagem));
+        }
+      } else {
+        mostrarToast('✅ ' + data.mensagem);
+      }
+
       setTimeout(() => buscarPostos(), 800);
     } else {
       mostrarToast('❌ ' + data.mensagem);
+      if (btnReportar) {
+        btnReportar.disabled = false;
+        btnReportar.innerHTML = '<i class="fas fa-paper-plane"></i> Reportar';
+      }
     }
   } catch {
-    mostrarToast('Erro ao reportar preço');
+    mostrarToast('Erro ao reportar preco');
+    if (btnReportar) {
+      btnReportar.disabled = false;
+      btnReportar.innerHTML = '<i class="fas fa-paper-plane"></i> Reportar';
+    }
   }
+}
+
+// Notificacao animada de numero de sorteio ganho
+function _mostrarNotificacaoSorteio(gamif) {
+  const notif = document.createElement('div');
+  notif.style.cssText = \`
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.8);
+    background:linear-gradient(135deg,#1a2744,#0D1B2A);
+    border:2px solid #FFC107;border-radius:20px;padding:28px 32px;
+    text-align:center;z-index:99999;
+    box-shadow:0 20px 60px rgba(0,0,0,0.7),0 0 40px rgba(255,193,7,0.2);
+    animation:sorteioAnim 0.4s ease forwards;
+    min-width:280px;
+  \`;
+  notif.innerHTML = \`
+    <style>
+      @keyframes sorteioAnim { from { transform:translate(-50%,-50%) scale(0.7);opacity:0 } to { transform:translate(-50%,-50%) scale(1);opacity:1 } }
+    </style>
+    <div style="font-size:48px;margin-bottom:12px">🎰</div>
+    <h3 style="font-size:18px;font-weight:900;color:#FFC107;margin:0 0 6px">Numero sorteado!</h3>
+    <div style="font-size:36px;font-weight:900;color:white;letter-spacing:4px;margin:12px 0;
+      background:linear-gradient(135deg,#FF6D00,#FFC107);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
+      \${gamif.numeroSorteio}
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:0 0 16px">Guarde este numero! Sorteio mensal.</p>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <div style="background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:8px;padding:8px 14px;font-size:11px;color:#FFC107">
+        <i class="fas fa-star"></i> \${gamif.totalPontos} pontos
+      </div>
+      <div style="background:rgba(0,200,83,0.1);border:1px solid rgba(0,200,83,0.3);border-radius:8px;padding:8px 14px;font-size:11px;color:#00C853">
+        <i class="fas fa-ticket-alt"></i> \${gamif.totalNumerossorteio} numeros
+      </div>
+    </div>
+    <button onclick="this.parentElement.remove()" style="margin-top:16px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);font-size:12px;padding:8px 20px;border-radius:8px;cursor:pointer;width:100%">
+      Oba! Fechar
+    </button>
+  \`;
+  document.body.appendChild(notif);
+  // Auto-remover após 8s
+  setTimeout(() => notif.remove(), 8000);
 }
 
 // ── Sidebar desktop: sincronizar nav ──────────────────────────────────────────
@@ -3783,14 +4512,20 @@ function atualizarSidebarUser(user) {
   const pl = document.getElementById('sidebar-user-plan');
   if (!nm || !pl) return;
   if (user) {
-    nm.textContent = user.displayName || user.email || 'Usuário';
-    pl.textContent = '⚡ Premium';
+    nm.textContent = user.displayName || user.email?.split('@')[0] || 'Usuario';
+    const pontos = parseInt(localStorage.getItem('rp_pontos') || '0');
+    pl.textContent = pontos > 0 ? \`⭐ \${pontos} pontos\` : '⚡ Premium';
     const area = document.getElementById('sidebar-user-area');
     if (area) {
-      const img = user.photoURL;
+      const foto = _getFotoUsuario(user);
       const icon = area.querySelector('i');
-      if (img && icon) {
-        icon.outerHTML = \`<img src="\${img}" style="width:30px;height:30px;border-radius:50%;border:2px solid var(--laranja);object-fit:cover" />\`;
+      const existImg = area.querySelector('img');
+      if (foto) {
+        if (existImg) {
+          existImg.src = foto;
+        } else if (icon) {
+          icon.outerHTML = \`<img src="\${foto}" style="width:30px;height:30px;border-radius:50%;border:2px solid var(--laranja);object-fit:cover" />\`;
+        }
       }
     }
   } else {
@@ -4142,16 +4877,49 @@ app.get('/admin', (c) => {
   <!-- Preços Reportados -->
   <section id="section-precos" style="display:none">
     <div class="page-header">
-      <h2>💬 Preços Colaborativos</h2>
+      <h2>🎯 Colabore & Ganhe</h2>
       <button class="btn-refresh" onclick="carregarReportes()"><i class="fas fa-sync-alt"></i> Atualizar</button>
     </div>
+
+    <!-- Banner gamificacao -->
+    <div style="background:linear-gradient(135deg,#1a2744,#0D1B2A);border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid rgba(255,193,7,0.3)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="font-size:28px">🎰</div>
+        <div>
+          <div style="font-size:14px;font-weight:900;color:white">Sorteio Mensal RotaPosto!</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Reporte precos nos postos e concorra a premios!</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.25);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:11px;color:#FFC107;font-weight:800">📊 Novo reporte</div>
+          <div style="font-size:12px;color:white;margin-top:4px">+10 pts + 1 numero</div>
+        </div>
+        <div style="flex:1;background:rgba(0,200,83,0.1);border:1px solid rgba(0,200,83,0.25);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:11px;color:#00C853;font-weight:800">✅ Confirmacao</div>
+          <div style="font-size:12px;color:white;margin-top:4px">+5 pontos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ranking de contribuidores -->
+    <div class="section-card" style="margin-bottom:16px">
+      <div class="section-header">
+        <h3><i class="fas fa-trophy" style="color:#FFC107;margin-right:6px"></i> Ranking de Colaboradores</h3>
+      </div>
+      <div class="section-body" style="padding:12px" id="ranking-lista">
+        <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:13px">Carregando ranking...</div>
+      </div>
+    </div>
+
+    <!-- Lista de reportes -->
     <div class="section-card">
       <div class="section-header">
-        <h3>Reportes de Preço (últimas 24h)</h3>
+        <h3>Reportes de Preco (ultimas 24h)</h3>
       </div>
       <div class="section-body" style="padding:0" id="precos-lista">
         <table>
-          <thead><tr><th>Posto ID</th><th>Combustível</th><th>Preço</th><th>Confirmações</th><th>Tempo</th></tr></thead>
+          <thead><tr><th>Posto</th><th>Combustivel</th><th>Preco</th><th>Conf.</th><th>Ha</th></tr></thead>
           <tbody id="reportes-tbody"><tr><td colspan="5" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Nenhum reporte ainda</td></tr></tbody>
         </table>
       </div>
@@ -4333,20 +5101,55 @@ async function carregarPostos() {
 
 async function carregarReportes() {
   const tbody = document.getElementById('reportes-tbody');
+  const rankingEl = document.getElementById('ranking-lista');
+
+  // Carregar ranking e reportes em paralelo
+  const [resReportes, resRanking] = await Promise.allSettled([
+    fetch('/api/precos/reportados'),
+    fetch('/api/contribuidores/ranking')
+  ]);
+
+  // Ranking de colaboradores
+  if (rankingEl && resRanking.status === 'fulfilled' && resRanking.value.ok) {
+    try {
+      const rk = await resRanking.value.json();
+      const ranking = rk.ranking || [];
+      const medalhas = ['🥇', '🥈', '🥉'];
+
+      rankingEl.innerHTML = ranking.length > 0
+        ? ranking.slice(0, 10).map((u, i) => \`
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;\${i < ranking.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.05)' : ''}">
+              <div style="font-size:16px;min-width:22px">\${medalhas[i] || \`<span style="font-size:12px;color:rgba(255,255,255,0.3)">\${i+1}º</span>\`}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${u.nome}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.4)">\${u.reportes} reportes · \${u.ultimoReporte}min atras</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:12px;font-weight:900;color:#FFC107">\${u.pontos} pts</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3)">\${u.numerossorteio} nums</div>
+              </div>
+            </div>
+          \`).join('')
+        : '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:13px">Seja o primeiro a reportar precos!</div>';
+    } catch {}
+  }
+
+  // Reportes de preco
+  if (!tbody) return;
   try {
-    const res = await fetch('/api/precos/reportados');
-    const data = await res.json();
+    if (resReportes.status === 'rejected') throw new Error('failed');
+    const data = await resReportes.value.json();
     const reportes = data.reportes || [];
 
     tbody.innerHTML = reportes.length > 0
       ? reportes.map(r => \`<tr>
-          <td style="font-size:11px;color:rgba(255,255,255,0.5)">\${r.postoId}</td>
+          <td style="font-size:11px;color:rgba(255,255,255,0.6);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${r.postoNome || r.postoId}</td>
           <td><span class="badge badge-collab">\${r.combustivel}</span></td>
           <td style="font-weight:800;color:#69F0AE">R$ \${r.preco.toFixed(2)}</td>
-          <td style="color:#FFD600">⭐ \${r.confirmacoes}x</td>
-          <td style="color:rgba(255,255,255,0.4);font-size:12px">há \${r.idadeMin} min</td>
+          <td style="color:#FFD600;font-size:12px">\${r.confirmacoes}x</td>
+          <td style="color:rgba(255,255,255,0.4);font-size:11px">\${r.idadeMin}min</td>
         </tr>\`).join('')
-      : '<tr><td colspan="5" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Nenhum reporte nas últimas 24h</td></tr>';
+      : '<tr><td colspan="5" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Nenhum reporte nas ultimas 24h</td></tr>';
   } catch {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Nenhum reporte ainda</td></tr>';
   }
