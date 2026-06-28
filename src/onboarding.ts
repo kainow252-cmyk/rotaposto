@@ -856,71 +856,76 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     }, 600);
   }
 
-  // Helper: aguardar Firebase estar pronto (retry até 3s)
+  // ── Helper: aguardar Firebase estar pronto (retry até 5s) ──
   function aguardarFirebase(callback, tentativa) {
     tentativa = tentativa || 0;
-    if (window._fbSignInWithPopup && window._fbAuth) {
+    if (window._fbSignInWithRedirect && window._fbAuth) {
       callback();
-    } else if (tentativa < 15) {
-      setTimeout(() => aguardarFirebase(callback, tentativa + 1), 200);
+    } else if (tentativa < 25) {
+      setTimeout(function() { aguardarFirebase(callback, tentativa + 1); }, 200);
     } else {
       showLoading(false);
-      showToast('Firebase nao carregou. Recarregue a pagina.');
+      showToast('Firebase nao carregou. Verifique sua conexao.');
     }
+  }
+
+  // ── Helper: tratar erros de auth ──
+  function tratarErroAuth(err, provedor) {
+    showLoading(false);
+    var code = err.code || '';
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+    if (code === 'auth/unauthorized-domain') {
+      // Fallback: tentar redirect
+      showToast('Redirecionando para login...');
+      return;
+    }
+    if (code === 'auth/popup-blocked') {
+      showToast('Popup bloqueado. Usando redirecionamento...');
+      return;
+    }
+    if (code === 'auth/account-exists-with-different-credential') {
+      showToast('Email ja vinculado ao Google. Use "Continuar com Google".');
+      return;
+    }
+    if (code === 'auth/network-request-failed') {
+      showToast('Sem conexao. Verifique sua internet.');
+      return;
+    }
+    console.error('[Auth] Erro ' + provedor + ':', code, err.message);
+    showToast('Erro ao entrar. Tente novamente.');
   }
 
   // ── Google Login ──
   function loginGoogle() {
-    const btn = document.getElementById('btn-google-login');
+    var btn = document.getElementById('btn-google-login');
     if (btn) btn.disabled = true;
     showLoading(true);
+    localStorage.setItem('rp_login_provider', 'google');
 
     aguardarFirebase(function() {
-      window._fbSignInWithPopup(window._fbAuth, window._fbGoogleProvider)
-        .then(function(result) {
-          showLoading(false);
-          onLoginSuccess(result.user);
-        })
+      // Usar redirect — funciona após adicionar rotaposto.com.br no Firebase Console
+      window._fbSignInWithRedirect(window._fbAuth, window._fbGoogleProvider)
         .catch(function(err) {
-          showLoading(false);
           if (btn) btn.disabled = false;
-          if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
-          if (err.code === 'auth/popup-blocked') {
-            showToast('Popup bloqueado! Permita popups para este site.');
-          } else if (err.code === 'auth/unauthorized-domain') {
-            showToast('Dominio nao autorizado no Firebase.');
-          } else {
-            showToast('Erro Google: ' + (err.message || err.code));
-          }
+          showLoading(false);
+          tratarErroAuth(err, 'Google');
         });
     });
   }
 
   // ── Facebook Login ──
   function loginFacebook() {
-    const btn = document.getElementById('btn-facebook-login');
+    var btn = document.getElementById('btn-facebook-login');
     if (btn) btn.disabled = true;
     showLoading(true);
+    localStorage.setItem('rp_login_provider', 'facebook');
 
     aguardarFirebase(function() {
-      window._fbSignInWithPopup(window._fbAuth, window._fbFacebookProvider)
-        .then(function(result) {
-          showLoading(false);
-          onLoginSuccess(result.user);
-        })
+      window._fbSignInWithRedirect(window._fbAuth, window._fbFacebookProvider)
         .catch(function(err) {
-          showLoading(false);
           if (btn) btn.disabled = false;
-          if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
-          if (err.code === 'auth/account-exists-with-different-credential') {
-            showToast('Este email ja esta vinculado ao Google. Use o login do Google.');
-          } else if (err.code === 'auth/popup-blocked') {
-            showToast('Popup bloqueado! Permita popups para este site.');
-          } else if (err.code === 'auth/unauthorized-domain') {
-            showToast('Dominio nao autorizado. Configure rotaposto.com.br no Firebase.');
-          } else {
-            showToast('Erro Facebook: ' + (err.message || err.code));
-          }
+          showLoading(false);
+          tratarErroAuth(err, 'Facebook');
         });
     });
   }
@@ -935,24 +940,52 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     setTimeout(() => window.location.href = '/app', 600);
   }
 
-  // ── Init: verificar se já logado ──
+  // ── Init: verificar se já logado / resultado de redirect ──
   (function init() {
     // Registrar SW
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.register('/sw.js').catch(function() {});
     }
 
     // Se já tem usuário logado → vai direto pro app
-    const user = localStorage.getItem('rp_user');
+    var user = localStorage.getItem('rp_user');
     if (user) {
       try {
-        const u = JSON.parse(user);
+        var u = JSON.parse(user);
         if (u.uid) {
           window.location.href = '/app';
           return;
         }
-      } catch {}
+      } catch(e) {}
     }
+
+    // Se estava fazendo login via redirect, mostrar loading
+    var provider = localStorage.getItem('rp_login_provider');
+    if (provider) {
+      showLoading(true);
+      showToast('Finalizando login...');
+    }
+
+    // Listener: resultado do redirect retornou (firebase-ready dispara getRedirectResult)
+    window.addEventListener('firebase-redirect-result', function(e) {
+      showLoading(false);
+      localStorage.removeItem('rp_login_provider');
+      if (e.detail && e.detail.user) {
+        onLoginSuccess(e.detail.user);
+      }
+    });
+
+    // Listener: erro no redirect
+    window.addEventListener('firebase-redirect-error', function(e) {
+      showLoading(false);
+      localStorage.removeItem('rp_login_provider');
+      var code = e.detail && e.detail.code;
+      if (code === 'auth/account-exists-with-different-credential') {
+        showToast('Email ja vinculado ao Google. Use "Continuar com Google".');
+      } else if (code) {
+        showToast('Erro ao entrar: ' + code);
+      }
+    });
   })();
 </script>
 </body>

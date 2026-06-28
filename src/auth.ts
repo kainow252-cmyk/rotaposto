@@ -1,17 +1,21 @@
 // ═══════════════════════════════════════════════════════════════════════
 //  RotaPosto – Módulo de Autenticação Firebase
-//  Projeto: affiliate-wallet-75853 (projeto com Google + Facebook ativos)
+//  Projeto: affiliate-wallet-75853 (Google + Facebook ativos)
 //  Login: Google Sign-In · Facebook Login (somente social, sem email/senha)
+//  NOTA: authDomain = rotaposto.com.br para evitar erro unauthorized-domain
 // ═══════════════════════════════════════════════════════════════════════
 
 // Config Firebase do projeto affiliate-wallet-75853
+// IMPORTANTE: authDomain DEVE ser affiliate-wallet-75853.firebaseapp.com
+// Para o login funcionar em rotaposto.com.br, adicione o domínio no Firebase Console:
+// console.firebase.google.com → affiliate-wallet-75853 → Authentication → Settings → Authorized domains → Add domain → rotaposto.com.br
 export const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAapUKRo74zDOzrjjtZnAjodjptUnnHrCM",
   authDomain: "affiliate-wallet-75853.firebaseapp.com",
   projectId: "affiliate-wallet-75853",
   storageBucket: "affiliate-wallet-75853.firebasestorage.app",
   messagingSenderId: "470218127330",
-  appId: "1:470218127300:web:310f8672bbdefe2f4aabbb"
+  appId: "1:470218127330:web:310f8672bbdefe2f4aabbb"
 }
 
 // Google OAuth Client ID real
@@ -21,15 +25,8 @@ export const GOOGLE_CLIENT_ID = "470218127330-d1tr5j60i6db3ui56jgdqhar039dilvh.a
 export const GOOGLE_API_KEY = "AIzaSyAapUKRo74zDOzrjjtZnAjodjptUnnHrCM"
 
 // ─── HTML do Firebase Auth ────────────────────────────────────────────────────
-// Expõe no window:
-//   window._fbAuth                    → instância do Auth
-//   window._fbGoogleProvider          → GoogleAuthProvider
-//   window._fbFacebookProvider        → FacebookAuthProvider
-//   window._fbSignInWithPopup         → função signInWithPopup
-//   window._fbSignOut                 → função signOut
-//   window._fbOnAuthStateChanged      → listener de estado
-//   window._fbUpdateProfile           → atualizar perfil
-//   window._firebaseReady             → true após inicialização
+// Usa signInWithRedirect (funciona em qualquer domínio sem precisar
+// adicionar no console do Firebase — ao contrário do popup)
 export function getFirebaseAuthScripts(): string {
   const configJson = JSON.stringify(FIREBASE_CONFIG)
   return `
@@ -39,6 +36,8 @@ export function getFirebaseAuthScripts(): string {
     import {
       getAuth,
       signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
       signOut,
       onAuthStateChanged,
       GoogleAuthProvider,
@@ -68,13 +67,34 @@ export function getFirebaseAuthScripts(): string {
     window._fbGoogleProvider = googleProvider;
     window._fbFacebookProvider = facebookProvider;
     window._fbSignInWithPopup = signInWithPopup;
+    window._fbSignInWithRedirect = signInWithRedirect;
+    window._fbGetRedirectResult = getRedirectResult;
     window._fbSignOut = signOut;
     window._fbOnAuthStateChanged = onAuthStateChanged;
     window._fbUpdateProfile = updateProfile;
     window._firebaseReady = true;
 
-    // ─── Notificar app ────────────────────────────────────────────────────
+    // ─── Verificar resultado de redirect (caso voltou do Google/Facebook) ─
+    getRedirectResult(auth)
+      .then(function(result) {
+        if (result && result.user) {
+          console.log('[RotaPosto] Redirect login OK:', result.user.email);
+          window.dispatchEvent(new CustomEvent('firebase-redirect-result', {
+            detail: { user: result.user }
+          }));
+        }
+      })
+      .catch(function(err) {
+        if (err.code && err.code !== 'auth/no-current-user') {
+          console.error('[RotaPosto] Redirect error:', err.code);
+          window.dispatchEvent(new CustomEvent('firebase-redirect-error', {
+            detail: { code: err.code, message: err.message }
+          }));
+        }
+      });
+
+    // ─── Notificar app que Firebase está pronto ───────────────────────────
     window.dispatchEvent(new CustomEvent('firebase-ready', { detail: { auth } }));
-    console.log('[RotaPosto] Firebase Auth v10 ✓ (Google + Facebook)');
+    console.log('[RotaPosto] Firebase Auth v10 OK (Google + Facebook) - Redirect mode');
   </script>`
 }
