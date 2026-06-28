@@ -3046,8 +3046,8 @@ function renderizarDestaque() {
   const melhor = postos[0];
   const segundo = postos.find((p, i) => i > 0);
   const mediaPreco = state.estatisticas?.mediaPreco || melhor.preco;
-  const consumoAtual = parseFloat((document.getElementById('select-consumo') as HTMLSelectElement)?.value || '12');
-  const tanqueAtual  = parseFloat((document.getElementById('select-tanque')  as HTMLSelectElement)?.value || '50');
+  const consumoAtual = parseFloat((document.getElementById('select-consumo'))?.value || '12');
+  const tanqueAtual  = parseFloat((document.getElementById('select-tanque') )?.value || '50');
 
   // Banner
   document.getElementById('banner-nome').textContent = melhor.nome;
@@ -3514,8 +3514,8 @@ function ordenarPor(tipo) {
 // Atualizar consumo e reprocessar resultados
 function atualizarConsumo(val?) {
   // Re-buscar postos com novo consumo/tanque
-  const consumo = parseFloat((document.getElementById('select-consumo') as HTMLSelectElement)?.value || '12');
-  const tanque  = parseFloat((document.getElementById('select-tanque')  as HTMLSelectElement)?.value || '50');
+  const consumo = parseFloat((document.getElementById('select-consumo'))?.value || '12');
+  const tanque  = parseFloat((document.getElementById('select-tanque') )?.value || '50');
   // Atualizar parâmetros de busca para próxima requisição
   state.consumoKmL = consumo;
   state.litrosTanque = tanque;
@@ -3694,7 +3694,7 @@ function iniciarPWAPrompt() {
   });
 
   // iOS: mostrar instrucao manual apos 6s se nao houver beforeinstallprompt
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window['MSStream'];
   const jaInstalou = localStorage.getItem('rp_pwa_installed') === '1';
   if (isIOS && !jaInstalado && !jaInstalou) {
     setTimeout(() => {
@@ -4156,9 +4156,9 @@ function abrirLogin(tab = 'entrar') {
 
 function fecharLogin() {
   document.getElementById('auth-modal').classList.remove('visible');
-  const emailEl = document.getElementById('auth-email') as HTMLInputElement;
-  const senhaEl = document.getElementById('auth-senha') as HTMLInputElement;
-  const nomeEl  = document.getElementById('auth-nome')  as HTMLInputElement;
+  const emailEl = document.getElementById('auth-email');
+  const senhaEl = document.getElementById('auth-senha');
+  const nomeEl  = document.getElementById('auth-nome') ;
   if (emailEl) emailEl.value = '';
   if (senhaEl) senhaEl.value = '';
   if (nomeEl)  nomeEl.value  = '';
@@ -4260,15 +4260,15 @@ async function loginEmail() {
     mostrarToast('⏳ Carregando Firebase...');
     return;
   }
-  const email = (document.getElementById('auth-email') as HTMLInputElement).value.trim();
-  const senha = (document.getElementById('auth-senha') as HTMLInputElement).value;
+  const email = (document.getElementById('auth-email')).value.trim();
+  const senha = (document.getElementById('auth-senha')).value;
 
   if (!email || !senha) {
     _mostrarErroAuth({ code: 'auth/empty-fields' });
     return;
   }
 
-  const btn = document.getElementById('btn-auth-submit') as HTMLButtonElement;
+  const btn = document.getElementById('btn-auth-submit');
   if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div>'; }
 
   try {
@@ -4286,9 +4286,9 @@ async function registrarEmail() {
     mostrarToast('⏳ Carregando Firebase...');
     return;
   }
-  const nome  = (document.getElementById('auth-nome') as HTMLInputElement)?.value?.trim() || '';
-  const email = (document.getElementById('auth-email') as HTMLInputElement).value.trim();
-  const senha = (document.getElementById('auth-senha') as HTMLInputElement).value;
+  const nome  = (document.getElementById('auth-nome'))?.value?.trim() || '';
+  const email = (document.getElementById('auth-email')).value.trim();
+  const senha = (document.getElementById('auth-senha')).value;
 
   if (!email || !senha) {
     _mostrarErroAuth({ code: 'auth/empty-fields' });
@@ -4299,7 +4299,7 @@ async function registrarEmail() {
     return;
   }
 
-  const btn = document.getElementById('btn-auth-submit') as HTMLButtonElement;
+  const btn = document.getElementById('btn-auth-submit');
   if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div>'; }
 
   try {

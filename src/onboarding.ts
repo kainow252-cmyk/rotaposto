@@ -971,7 +971,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       'gap:14px', 'animation:slideUp 0.3s ease'
     ].join(';');
     banner.innerHTML = [
-      '<img src="/icons/icon-96x96.png" style="width:48px;height:48px;border-radius:12px;flex-shrink:0" onerror="this.style.display=\'none\'"/>',
+      '<img src="/icons/icon-96x96.png" style="width:48px;height:48px;border-radius:12px;flex-shrink:0"/>',
       '<div style="flex:1;min-width:0">',
         '<div style="font-weight:700;font-size:14px;color:#1A1A1A">Adicionar RotaPosto</div>',
         '<div style="font-size:12px;color:#888;margin-top:2px">Acesso rápido direto da tela inicial</div>',

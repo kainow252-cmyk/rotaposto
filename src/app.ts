@@ -1915,7 +1915,7 @@ export function getAppHTML(firebaseScripts: string): string {
     _deferredPrompt = e;
     // Só mostrar se não está em modo standalone e não dispensou
     const jaEstaInstalado = window.matchMedia('(display-mode: standalone)').matches
-      || (window.navigator as any).standalone === true;
+      || (window.navigator['standalone'] === true);
     const dispensado = localStorage.getItem('rp_pwa_dispensado');
     if (!jaEstaInstalado && !dispensado) {
       setTimeout(mostrarBannerInstalar, 3000);
@@ -1927,26 +1927,55 @@ export function getAppHTML(firebaseScripts: string): string {
     const banner = document.createElement('div');
     banner.id = 'pwa-install-banner';
     banner.style.cssText = 'position:fixed;bottom:80px;left:16px;right:16px;z-index:9999;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:16px;display:flex;align-items:center;gap:12px;animation:slideUp 0.3s ease';
-    banner.innerHTML = '<img src="/icons/icon-96x96.png" style="width:44px;height:44px;border-radius:10px;flex-shrink:0" onerror="this.style.display=\'none\'"/>'
-      + '<div style="flex:1"><div style="font-weight:700;font-size:14px;color:#1A1A1A">Adicionar \u00e0 tela inicial</div>'
-      + '<div style="font-size:12px;color:#888;margin-top:1px">Acesso r\u00e1pido ao RotaPosto</div></div>'
-      + '<button onclick="document.getElementById(\'pwa-install-banner\').remove();localStorage.setItem(\'rp_pwa_dispensado\',\'1\')" style="background:none;border:none;padding:6px;cursor:pointer;color:#bbb;font-size:18px">\u2715</button>'
-      + '<button onclick="instalarAppPWA()" style="background:#FF6D00;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0">Instalar</button>';
+    // Construir banner via DOM (sem innerHTML com aspas problemáticas)
+    const img = document.createElement('img');
+    img.src = '/icons/icon-96x96.png';
+    img.style.cssText = 'width:44px;height:44px;border-radius:10px;flex-shrink:0';
+    img.addEventListener('error', function() { img.style.display = 'none'; });
+
+    const txtWrap = document.createElement('div');
+    txtWrap.style.flex = '1';
+    const txtTitle = document.createElement('div');
+    txtTitle.style.cssText = 'font-weight:700;font-size:14px;color:#1A1A1A';
+    txtTitle.textContent = 'Adicionar \u00e0 tela inicial';
+    const txtSub = document.createElement('div');
+    txtSub.style.cssText = 'font-size:12px;color:#888;margin-top:1px';
+    txtSub.textContent = 'Acesso r\u00e1pido ao RotaPosto';
+    txtWrap.appendChild(txtTitle);
+    txtWrap.appendChild(txtSub);
+
+    const btnDismiss = document.createElement('button');
+    btnDismiss.style.cssText = 'background:none;border:none;padding:6px;cursor:pointer;color:#bbb;font-size:18px';
+    btnDismiss.textContent = '\u2715';
+    btnDismiss.addEventListener('click', function() {
+      document.getElementById('pwa-install-banner')?.remove();
+      localStorage.setItem('rp_pwa_dispensado', '1');
+    });
+
+    const btnInstall = document.createElement('button');
+    btnInstall.style.cssText = 'background:#FF6D00;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0';
+    btnInstall.textContent = 'Instalar';
+    btnInstall.addEventListener('click', instalarAppPWA);
+
+    banner.appendChild(img);
+    banner.appendChild(txtWrap);
+    banner.appendChild(btnDismiss);
+    banner.appendChild(btnInstall);
     document.body.appendChild(banner);
   }
 
-  (window as any).instalarAppPWA = function() {
+  function instalarAppPWA() {
     if (!_deferredPrompt) return;
     _deferredPrompt.prompt();
-    _deferredPrompt.userChoice.then((r: any) => {
+    _deferredPrompt.userChoice.then(function(r) {
       if (r.outcome === 'accepted') {
         localStorage.setItem('rp_pwa_instalado', '1');
         document.getElementById('pwa-install-banner')?.remove();
-        showToast('RotaPosto instalado! ✓');
+        showToast('RotaPosto instalado! \u2713');
       }
       _deferredPrompt = null;
     });
-  };
+  }
 
   window.addEventListener('appinstalled', function() {
     localStorage.setItem('rp_pwa_instalado', '1');
