@@ -2,13 +2,17 @@
 //  RotaPosto – Módulo de Autenticação Firebase
 //  Projeto: rotaposto-32e33 (projeto oficial RotaPosto)
 //  Login: Google Sign-In · Facebook Login (signInWithPopup)
-//  authDomain: rotaposto.com.br (domínio customizado — obrigatório para signInWithPopup)
+//  authDomain: rotaposto-32e33.firebaseapp.com
+//  NOTA: authDomain customizado (rotaposto.com.br) exige /__/auth/handler no servidor
+//  que só existe no Firebase Hosting. Usando o domínio padrão do Firebase.
+//  O login funciona desde que rotaposto.com.br esteja nos Authorized domains do Firebase
+//  E nos JavaScript origins do Google OAuth Console.
 // ═══════════════════════════════════════════════════════════════════════
 
 // Config Firebase do projeto rotaposto-32e33
 export const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8",
-  authDomain: "rotaposto.com.br",
+  authDomain: "rotaposto-32e33.firebaseapp.com",
   projectId: "rotaposto-32e33",
   storageBucket: "rotaposto-32e33.firebasestorage.app",
   messagingSenderId: "1078426960222",

@@ -5795,6 +5795,28 @@ app.get('/api/admin/sync-anp/status', async (c) => {
   }
 })
 
+// ─── Firebase Auth handler proxy ─────────────────────────────────────────────
+// O signInWithPopup com authDomain customizado precisa que /__/auth/* seja
+// servido pelo domínio. Fazemos proxy para o Firebase Hosting padrão.
+app.get('/__/auth/*', async (c) => {
+  const url = new URL(c.req.url)
+  const firebaseUrl = `https://rotaposto-32e33.firebaseapp.com${url.pathname}${url.search}`
+  const resp = await fetch(firebaseUrl, {
+    headers: {
+      'User-Agent': c.req.header('User-Agent') || 'Mozilla/5.0',
+      'Accept': c.req.header('Accept') || 'text/html',
+    }
+  })
+  const body = await resp.arrayBuffer()
+  return new Response(body, {
+    status: resp.status,
+    headers: {
+      'Content-Type': resp.headers.get('Content-Type') || 'text/html',
+      'Cache-Control': 'no-cache',
+    }
+  })
+})
+
 // ─── Cron handler: todo sábado ao meio-dia sincroniza ANP automaticamente ─────
 async function syncAnpScheduled(kv: KVNamespace | undefined): Promise<void> {
   if (!kv) {
