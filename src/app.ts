@@ -1108,14 +1108,14 @@ export function getAppHTML(firebaseScripts: string): string {
       </div>
 
       <div id="perfil-menu-list">
-        ${buildMenuItem('person', 'Minha conta', "showToast('Minha conta')")}
-        ${buildMenuItem('car', 'Meus veículos', "goToVehicle()")}
+        ${buildMenuItem('person', 'Minha conta', "abrirMinhaConta()")}
+        ${buildMenuItem('car', 'Meus veículos', "abrirMeusVeiculos()")}
         ${buildMenuItem('card', 'Assinatura', "goToAssinatura()")}
-        ${buildMenuItem('creditcard', 'Formas de pagamento', "showToast('Formas de pagamento')")}
-        ${buildMenuItem('bell', 'Notificações', "showToast('Notificações')")}
-        ${buildMenuItem('gift', 'Indique e ganhe', "showToast('Indique e ganhe')")}
-        ${buildMenuItem('help', 'Ajuda e suporte', "showToast('Ajuda e suporte')")}
-        ${buildMenuItem('settings', 'Configurações', "showToast('Configurações')")}
+        ${buildMenuItem('creditcard', 'Formas de pagamento', "abrirFormasPagamento()")}
+        ${buildMenuItem('bell', 'Notificações', "abrirNotificacoes()")}
+        ${buildMenuItem('gift', 'Indique e ganhe', "abrirIndiqueGanhe()")}
+        ${buildMenuItem('help', 'Ajuda e suporte', "abrirAjuda()")}
+        ${buildMenuItem('settings', 'Configurações', "abrirConfiguracoes()")}
         <div class="menu-item menu-item-sair" onclick="doLogout()">
           <div class="menu-item-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -1669,7 +1669,244 @@ export function getAppHTML(firebaseScripts: string): string {
 
   function toggleMenu() { goToView('perfil'); }
 
-  function goToVehicle() { showToast('Meus veículos em breve'); }
+  function goToVehicle() { abrirMeusVeiculos(); }
+
+  // ── Modal helper genérico ──────────────────────────────────────────────────
+  function abrirModal(titulo, conteudoHTML) {
+    var old = document.getElementById('rp-modal-overlay');
+    if (old) old.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'rp-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s';
+    overlay.innerHTML = '<div id="rp-modal" style="background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:24px 24px calc(env(safe-area-inset-bottom,0px) + 24px);max-height:85vh;overflow-y:auto;">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">'
+      + '<h2 style="font-size:18px;font-weight:800;color:#1A1A1A;margin:0;">' + titulo + '</h2>'
+      + '<button onclick="document.getElementById(\'rp-modal-overlay\').remove()" style="background:#F5F5F5;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">✕</button>'
+      + '</div>'
+      + conteudoHTML
+      + '</div>';
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  }
+
+  // ── Minha Conta ───────────────────────────────────────────────────────────
+  function abrirMinhaConta() {
+    var u = currentUser || {};
+    var nome = u.name || 'Usuário';
+    var email = u.email || '—';
+    var foto = u.photo || '';
+    var provider = u.provider === 'google.com' ? 'Google' : u.provider === 'facebook.com' ? 'Facebook' : 'E-mail';
+    var html = '<div style="text-align:center;margin-bottom:24px;">'
+      + (foto ? '<img src="' + foto + '" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;border:3px solid #FF6D00;">' : '<div style="width:72px;height:72px;border-radius:50%;background:#FF6D00;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;color:#fff;font-weight:700;">' + nome.charAt(0).toUpperCase() + '</div>')
+      + '<div style="font-size:18px;font-weight:700;color:#1A1A1A;">' + nome + '</div>'
+      + '<div style="font-size:13px;color:#888;margin-top:4px;">' + email + '</div>'
+      + '</div>'
+      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:16px;">'
+      + '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;"><span style="font-size:14px;color:#888;">Login via</span><span style="font-size:14px;font-weight:600;color:#1A1A1A;">' + provider + '</span></div>'
+      + '<div style="display:flex;justify-content:space-between;padding:10px 0;"><span style="font-size:14px;color:#888;">ID da conta</span><span style="font-size:11px;font-weight:500;color:#888;">' + (u.uid || '—').slice(0,16) + '...</span></div>'
+      + '</div>'
+      + '<button onclick="doLogout();document.getElementById(\'rp-modal-overlay\').remove();" style="width:100%;padding:14px;background:#FFF0F0;color:#E53935;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Sair da conta</button>';
+    abrirModal('Minha Conta', html);
+  }
+
+  // ── Meus Veículos ─────────────────────────────────────────────────────────
+  function abrirMeusVeiculos() {
+    var veh = null;
+    try { veh = JSON.parse(localStorage.getItem('rp_vehicle') || 'null'); } catch(e) {}
+    var tipo = veh ? (veh.type || 'Carro de passeio') : 'Não configurado';
+    var consumo = veh ? (veh.consumption || 12) + ' km/L' : '—';
+    var tanque = veh ? (veh.tank || 50) + ' litros' : '—';
+    var html = '<div style="background:#FFF8F0;border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;">'
+      + '<div style="font-size:40px;margin-bottom:8px;">🚗</div>'
+      + '<div style="font-size:16px;font-weight:700;color:#1A1A1A;">' + tipo + '</div>'
+      + '</div>'
+      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:20px;">'
+      + '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;"><span style="font-size:14px;color:#888;">Consumo médio</span><span style="font-size:14px;font-weight:600;color:#1A1A1A;">' + consumo + '</span></div>'
+      + '<div style="display:flex;justify-content:space-between;padding:10px 0;"><span style="font-size:14px;color:#888;">Tanque</span><span style="font-size:14px;font-weight:600;color:#1A1A1A;">' + tanque + '</span></div>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      + '<button onclick="editarVeiculo(\'tipo\')" style="padding:14px;background:#F5F5F5;color:#1A1A1A;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">Alterar tipo</button>'
+      + '<button onclick="editarVeiculo(\'consumo\')" style="padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">Editar consumo</button>'
+      + '</div>';
+    abrirModal('Meus Veículos', html);
+  }
+
+  function editarVeiculo(campo) {
+    var veh = null;
+    try { veh = JSON.parse(localStorage.getItem('rp_vehicle') || '{}'); } catch(e) { veh = {}; }
+    if (campo === 'tipo') {
+      var tipos = ['Carro de passeio','SUV / Picape','Moto','Caminhão / Van','Elétrico / Híbrido'];
+      var opts = tipos.map(function(t) { return '<option' + (veh.type === t ? ' selected' : '') + '>' + t + '</option>'; }).join('');
+      var html = '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Tipo de veículo</label>'
+        + '<select id="veh-edit-tipo" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;margin-bottom:20px;">' + opts + '</select>'
+        + '<button onclick="salvarVeiculoCampo(\'tipo\')" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Salvar</button>';
+      abrirModal('Tipo de Veículo', html);
+    } else {
+      var html = '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Consumo médio (km/L)</label>'
+        + '<input id="veh-edit-consumo" type="number" min="4" max="50" value="' + (veh.consumption || 12) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;margin-bottom:8px;">'
+        + '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;margin-top:12px;">Capacidade do tanque (litros)</label>'
+        + '<input id="veh-edit-tanque" type="number" min="20" max="200" value="' + (veh.tank || 50) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;margin-bottom:20px;">'
+        + '<button onclick="salvarVeiculoCampo(\'consumo\')" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Salvar</button>';
+      abrirModal('Consumo do Veículo', html);
+    }
+  }
+
+  function salvarVeiculoCampo(campo) {
+    var veh = null;
+    try { veh = JSON.parse(localStorage.getItem('rp_vehicle') || '{}'); } catch(e) { veh = {}; }
+    if (campo === 'tipo') {
+      var sel = document.getElementById('veh-edit-tipo');
+      if (sel) veh.type = sel.value;
+    } else {
+      var c = document.getElementById('veh-edit-consumo');
+      var t = document.getElementById('veh-edit-tanque');
+      if (c) veh.consumption = parseInt(c.value) || 12;
+      if (t) veh.tank = parseInt(t.value) || 50;
+    }
+    localStorage.setItem('rp_vehicle', JSON.stringify(veh));
+    document.getElementById('rp-modal-overlay')?.remove();
+    showToast('Veículo atualizado! ✓');
+  }
+
+  // ── Formas de Pagamento ───────────────────────────────────────────────────
+  function abrirFormasPagamento() {
+    var html = '<div style="background:#FFF8F0;border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;">'
+      + '<div style="font-size:36px;margin-bottom:8px;">💳</div>'
+      + '<div style="font-size:15px;color:#555;line-height:1.6;">O RotaPosto utiliza <strong>PIX recorrente</strong> como forma de pagamento para assinaturas Premium.</div>'
+      + '</div>'
+      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:20px;">'
+      + '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #eee;">'
+      + '<div style="width:40px;height:40px;background:#00C853;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🔑</div>'
+      + '<div><div style="font-size:14px;font-weight:700;color:#1A1A1A;">PIX Recorrente</div><div style="font-size:12px;color:#888;">Cobrança automática mensal ou anual</div></div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;">'
+      + '<div style="width:40px;height:40px;background:#E8F5E9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🔒</div>'
+      + '<div><div style="font-size:14px;font-weight:700;color:#1A1A1A;">Pagamento seguro</div><div style="font-size:12px;color:#888;">Processado via OpenPix/Woovi</div></div>'
+      + '</div>'
+      + '</div>'
+      + '<button onclick="document.getElementById(\'rp-modal-overlay\').remove();goToAssinatura();" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Ver planos Premium</button>';
+    abrirModal('Formas de Pagamento', html);
+  }
+
+  // ── Notificações ──────────────────────────────────────────────────────────
+  function abrirNotificacoes() {
+    var ativas = Notification.permission === 'granted';
+    var html = '<div style="background:#F9F9F9;border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;">'
+      + '<div style="font-size:40px;margin-bottom:8px;">' + (ativas ? '🔔' : '🔕') + '</div>'
+      + '<div style="font-size:16px;font-weight:700;color:#1A1A1A;margin-bottom:4px;">' + (ativas ? 'Notificações ativas' : 'Notificações desativadas') + '</div>'
+      + '<div style="font-size:13px;color:#888;">Status: ' + Notification.permission + '</div>'
+      + '</div>'
+      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:20px;">'
+      + '<div style="font-size:13px;color:#555;line-height:1.7;">Receba alertas quando:<br>• Preços próximos de você caírem<br>• Postos favoritos atualizarem preços<br>• Novas promoções na sua região</div>'
+      + '</div>'
+      + (!ativas ? '<button onclick="pedirPermissaoNotificacao()" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Ativar notificações</button>'
+      : '<div style="text-align:center;font-size:13px;color:#888;padding:12px;">Para desativar, acesse as configurações do seu navegador.</div>');
+    abrirModal('Notificações', html);
+  }
+
+  function pedirPermissaoNotificacao() {
+    if (!('Notification' in window)) { showToast('Notificações não suportadas'); return; }
+    Notification.requestPermission().then(function(result) {
+      document.getElementById('rp-modal-overlay')?.remove();
+      if (result === 'granted') showToast('Notificações ativadas! 🔔');
+      else showToast('Permissão negada pelo navegador');
+    });
+  }
+
+  // ── Indique e Ganhe ───────────────────────────────────────────────────────
+  function abrirIndiqueGanhe() {
+    var u = currentUser || {};
+    var link = 'https://rotaposto.com.br?ref=' + (u.uid || 'usuario').slice(0, 8);
+    var html = '<div style="background:linear-gradient(135deg,#FF6D00,#FF8F00);border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;color:#fff;">'
+      + '<div style="font-size:40px;margin-bottom:8px;">🎁</div>'
+      + '<div style="font-size:18px;font-weight:800;margin-bottom:6px;">Convide amigos!</div>'
+      + '<div style="font-size:13px;opacity:0.9;">Você e seu amigo ganham<br><strong>7 dias de Premium grátis</strong></div>'
+      + '</div>'
+      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:16px;">'
+      + '<div style="font-size:12px;color:#888;margin-bottom:6px;">Seu link de indicação</div>'
+      + '<div style="font-size:13px;font-weight:600;color:#FF6D00;word-break:break-all;">' + link + '</div>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      + '<button onclick="copiarLinkIndicacao(\'' + link + '\')" style="padding:14px;background:#F5F5F5;color:#1A1A1A;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">📋 Copiar link</button>'
+      + '<button onclick="compartilharIndicacao(\'' + link + '\')" style="padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">📤 Compartilhar</button>'
+      + '</div>';
+    abrirModal('Indique e Ganhe', html);
+  }
+
+  function copiarLinkIndicacao(link) {
+    navigator.clipboard.writeText(link).then(function() { showToast('Link copiado! ✓'); }).catch(function() { showToast('Erro ao copiar'); });
+  }
+
+  function compartilharIndicacao(link) {
+    if (navigator.share) {
+      navigator.share({ title: 'RotaPosto', text: 'Economize combustível comigo no RotaPosto! Use meu link:', url: link });
+    } else {
+      copiarLinkIndicacao(link);
+    }
+  }
+
+  // ── Ajuda e Suporte ───────────────────────────────────────────────────────
+  function abrirAjuda() {
+    var faqs = [
+      ['Como encontrar postos baratos?', 'Permita acesso à sua localização e o app mostrará automaticamente os postos mais baratos próximos a você.'],
+      ['Os preços são atualizados em tempo real?', 'Usamos dados da ANP (Agência Nacional do Petróleo) atualizados semanalmente, combinados com reportes da comunidade.'],
+      ['Como reportar um preço?', 'Clique em um posto no mapa, abra os detalhes e use o botão "Reportar preço" para atualizar o valor.'],
+      ['Como cancelar minha assinatura?', 'Acesse Perfil → Assinatura e clique em "Cancelar assinatura". Você continua com acesso Premium até o fim do período pago.'],
+    ];
+    var html = faqs.map(function(f) {
+      return '<details style="border:1px solid #E0E0E0;border-radius:12px;margin-bottom:10px;overflow:hidden;">'
+        + '<summary style="padding:14px 16px;font-size:14px;font-weight:600;color:#1A1A1A;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">'
+        + f[0] + '<span style="color:#FF6D00;font-size:18px;line-height:1;">+</span></summary>'
+        + '<div style="padding:0 16px 14px;font-size:14px;color:#555;line-height:1.6;">' + f[1] + '</div>'
+        + '</details>';
+    }).join('')
+    + '<div style="background:#FFF8F0;border-radius:16px;padding:16px;margin-top:8px;text-align:center;">'
+    + '<div style="font-size:13px;color:#555;margin-bottom:12px;">Não encontrou o que procura?</div>'
+    + '<a href="mailto:contato@rotaposto.com.br" style="display:inline-block;padding:12px 24px;background:#FF6D00;color:#fff;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;">📧 Falar com suporte</a>'
+    + '</div>';
+    abrirModal('Ajuda e Suporte', html);
+  }
+
+  // ── Configurações ─────────────────────────────────────────────────────────
+  function abrirConfiguracoes() {
+    var unidade = localStorage.getItem('rp_unidade') || 'km';
+    var tema = localStorage.getItem('rp_tema') || 'claro';
+    var html = '<div style="background:#F9F9F9;border-radius:16px;padding:4px;margin-bottom:16px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #eee;">'
+      + '<div><div style="font-size:14px;font-weight:600;color:#1A1A1A;">Unidade de distância</div><div style="font-size:12px;color:#888;">km ou milhas</div></div>'
+      + '<select id="cfg-unidade" onchange="salvarConfig(\'unidade\',this.value)" style="padding:8px 12px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:14px;">'
+      + '<option value="km"' + (unidade==='km'?' selected':'') + '>Quilômetros (km)</option>'
+      + '<option value="mi"' + (unidade==='mi'?' selected':'') + '>Milhas (mi)</option>'
+      + '</select></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #eee;">'
+      + '<div><div style="font-size:14px;font-weight:600;color:#1A1A1A;">Raio de busca padrão</div><div style="font-size:12px;color:#888;">Distância máxima para busca</div></div>'
+      + '<select id="cfg-raio" onchange="salvarConfig(\'raio\',this.value)" style="padding:8px 12px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:14px;">'
+      + ['5','10','15','20','30'].map(function(r){ var sel=localStorage.getItem('rp_raio')||'10'; return '<option value="'+r+'"'+(sel===r?' selected':'')+'>'+r+' km</option>'; }).join('')
+      + '</select></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;">'
+      + '<div><div style="font-size:14px;font-weight:600;color:#1A1A1A;">Limpar dados locais</div><div style="font-size:12px;color:#888;">Remove cache e histórico</div></div>'
+      + '<button onclick="limparDadosLocais()" style="padding:8px 14px;background:#FFF0F0;color:#E53935;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Limpar</button>'
+      + '</div></div>'
+      + '<div style="text-align:center;margin-top:8px;">'
+      + '<div style="font-size:11px;color:#aaa;">RotaPosto v1.0 • <a href="/termos" target="_blank" style="color:#FF6D00;">Termos</a> • <a href="/privacidade" target="_blank" style="color:#FF6D00;">Privacidade</a></div>'
+      + '</div>';
+    abrirModal('Configurações', html);
+  }
+
+  function salvarConfig(chave, valor) {
+    localStorage.setItem('rp_' + chave, valor);
+    showToast('Configuração salva ✓');
+  }
+
+  function limparDadosLocais() {
+    var user = localStorage.getItem('rp_user');
+    var device = localStorage.getItem('rp_device_id');
+    localStorage.clear();
+    if (user) localStorage.setItem('rp_user', user);
+    if (device) localStorage.setItem('rp_device_id', device);
+    document.getElementById('rp-modal-overlay')?.remove();
+    showToast('Dados locais limpos ✓');
+  }
 
   // ══════════════════════════════════════════════════════
   //  ASSINATURA PIX RECORRENTE – FLUXO COMPLETO
