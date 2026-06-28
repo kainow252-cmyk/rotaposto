@@ -893,6 +893,112 @@ app.get('/app', (c) => {
       overflow-x: hidden;
     }
 
+    /* ── DESKTOP LAYOUT (>= 768px) ───────────────────── */
+    #desktop-sidebar { display: none; }
+    #desktop-panel { display: none; }
+
+    @media (min-width: 768px) {
+      :root { --tab-h: 0px; }
+      body {
+        max-width: 100%; margin: 0;
+        display: flex; background: #0A1520;
+      }
+      /* Sidebar fixa esquerda */
+      #desktop-sidebar {
+        display: flex !important; flex-direction: column;
+        width: 220px; min-width: 220px;
+        height: 100dvh; position: sticky; top: 0;
+        background: #0A1520;
+        border-right: 1px solid rgba(255,255,255,0.08);
+        padding: 24px 0 16px; z-index: 300;
+      }
+      .sidebar-logo {
+        padding: 0 20px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        margin-bottom: 12px;
+      }
+      .sidebar-logo-inner { display: flex; align-items: center; gap: 10px; }
+      .sidebar-logo-icon {
+        width: 38px; height: 38px;
+        background: linear-gradient(135deg, var(--laranja), var(--amarelo));
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px; flex-shrink: 0;
+      }
+      .sidebar-logo-text { font-size: 20px; font-weight: 900; color: #fff; }
+      .sidebar-logo-text span { color: var(--laranja); }
+      .sidebar-logo-sub { font-size: 10px; color: rgba(255,255,255,0.35); font-weight: 600; margin-top: 1px; }
+      .sidebar-nav-item {
+        display: flex; align-items: center; gap: 11px;
+        padding: 12px 20px;
+        color: rgba(255,255,255,0.45);
+        font-size: 12px; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        cursor: pointer;
+        border-left: 3px solid transparent;
+        transition: all 0.2s;
+      }
+      .sidebar-nav-item i { font-size: 16px; width: 18px; text-align: center; }
+      .sidebar-nav-item:hover { color: #fff; background: rgba(255,255,255,0.05); }
+      .sidebar-nav-item.active {
+        color: var(--laranja); background: rgba(255,109,0,0.10); border-left-color: var(--laranja);
+      }
+      .sidebar-spacer { flex: 1; }
+      .sidebar-user {
+        padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.08);
+        display: flex; align-items: center; gap: 10px; cursor: pointer;
+      }
+      .sidebar-user:hover { background: rgba(255,255,255,0.04); }
+      .sidebar-user-info { flex: 1; min-width: 0; }
+      .sidebar-user-name { font-size: 12px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .sidebar-user-plan { font-size: 10px; color: var(--laranja); font-weight: 700; }
+      /* Área principal central */
+      #app-main {
+        flex: 1; min-width: 0;
+        background: var(--cinza-bg);
+        max-width: 500px;
+        height: 100dvh; overflow-y: auto;
+        border-right: 1px solid rgba(0,0,0,0.10);
+        scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.15) transparent;
+      }
+      /* Painel direito */
+      #desktop-panel {
+        display: flex !important; flex-direction: column;
+        flex: 1; min-width: 280px;
+        height: 100dvh; overflow-y: auto;
+        background: #0D1B2A;
+        padding: 24px 20px;
+        scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+      }
+      #desktop-panel h2 {
+        font-size: 14px; font-weight: 800;
+        color: rgba(255,255,255,0.5);
+        text-transform: uppercase; letter-spacing: 1px;
+        margin-bottom: 16px;
+      }
+      /* Header ajustes desktop */
+      #header { padding-top: 18px; }
+      /* Esconder bottom nav */
+      #bottom-nav { display: none !important; }
+      /* Views sem padding bottom extra */
+      #view-destaque, #view-planejar { padding-bottom: 24px; }
+      #view-lista { padding-bottom: 16px; }
+      #map-container { height: calc(100dvh - 130px); }
+      /* Modal centralizado */
+      .modal-overlay { align-items: center; }
+      .modal-sheet {
+        border-radius: var(--radius);
+        max-height: 90dvh;
+        animation: fadeScale 0.2s ease;
+      }
+      @keyframes fadeScale { from { opacity:0; transform:scale(0.96); } to { opacity:1; transform:scale(1); } }
+      #toast { bottom: 24px; }
+    }
+    @media (min-width: 1100px) {
+      #desktop-sidebar { width: 240px; min-width: 240px; }
+      #app-main { max-width: 540px; }
+    }
+
     /* ── HEADER ── */
     #header {
       background: var(--azul-escuro);
@@ -1719,6 +1825,45 @@ app.get('/app', (c) => {
 </head>
 <body>
 
+<!-- ═══ SIDEBAR DESKTOP ═══════════════════════════════════════════════════ -->
+<nav id="desktop-sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-inner">
+      <div class="sidebar-logo-icon">⛽</div>
+      <div>
+        <div class="sidebar-logo-text">Rota<span>Posto</span></div>
+        <div class="sidebar-logo-sub">Combustível inteligente</div>
+      </div>
+    </div>
+  </div>
+  <div class="sidebar-nav-item active" id="snav-destaque" onclick="mudarTab('destaque',null);snavSetActive('snav-destaque')">
+    <i class="fas fa-trophy"></i> Melhor Posto
+  </div>
+  <div class="sidebar-nav-item" id="snav-lista" onclick="mudarTab('lista',null);snavSetActive('snav-lista')">
+    <i class="fas fa-list"></i> Lista
+  </div>
+  <div class="sidebar-nav-item" id="snav-mapa" onclick="mudarTab('mapa',null);snavSetActive('snav-mapa')">
+    <i class="fas fa-map"></i> Mapa
+  </div>
+  <div class="sidebar-nav-item" id="snav-planejar" onclick="mudarTab('planejar',null);snavSetActive('snav-planejar')">
+    <i class="fas fa-route"></i> Planejar
+  </div>
+  <a class="sidebar-nav-item" href="/mapa-brasil" style="text-decoration:none">
+    <i class="fas fa-globe-americas" style="color:#00C853"></i> Brasil
+  </a>
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-user" onclick="abrirLogin()" id="sidebar-user-area">
+    <i class="fas fa-user-circle" style="font-size:28px;color:rgba(255,255,255,0.3)"></i>
+    <div class="sidebar-user-info">
+      <div class="sidebar-user-name" id="sidebar-user-name">Visitante</div>
+      <div class="sidebar-user-plan" id="sidebar-user-plan">Entrar</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ CONTEÚDO PRINCIPAL ════════════════════════════════════════════════ -->
+<div id="app-main">
+
 <!-- ═══ MODAL LOGIN FIREBASE ═══════════════════════════════════════════════ -->
 <div class="auth-modal-overlay" id="auth-modal">
   <div class="auth-modal">
@@ -2164,11 +2309,23 @@ async function buscarPostos() {
     renderizarDestaque();
     renderizarLista();
     atualizarMapa();
+    // Atualizar painel desktop com localização atual
+    atualizarPainelLocalizacao(data);
   } catch (e) {
     mostrarToast('Erro ao buscar postos');
   } finally {
     ocultarLoading();
   }
+}
+
+function atualizarPainelLocalizacao(data) {
+  const elC = document.getElementById('dp-cidade');
+  const elK = document.getElementById('dp-coords');
+  if (!elC || !elK) return;
+  const cidade = data.postos && data.postos[0] ? data.postos[0].cidade : '-';
+  const uf = data.postos && data.postos[0] ? (data.postos[0].uf || '') : '';
+  elC.textContent = cidade + (uf ? ' - ' + uf : '');
+  elK.textContent = state.lat.toFixed(4) + ', ' + state.lng.toFixed(4) + ' (' + state.postos.length + ' postos)';
 }
 
 // ═══ RENDER DESTAQUE ══════════════════════════════════════════════════════════
@@ -2527,6 +2684,10 @@ function mudarNavTab(tab) {
   const tabIdx = ['destaque','lista','mapa','planejar'].indexOf(tab);
   document.querySelectorAll('.tab-btn')[tabIdx]?.classList.add('active');
 
+  // Sincronizar sidebar desktop
+  const snavMap = {destaque:'snav-destaque',lista:'snav-lista',mapa:'snav-mapa',planejar:'snav-planejar'};
+  if (snavMap[tab]) snavSetActive(snavMap[tab]);
+
   if (tab === 'mapa') {
     setTimeout(() => { if (state.map) state.map.invalidateSize(); }, 200);
   }
@@ -2731,6 +2892,7 @@ function _configurarAuth() {
       const eraPrimeiroLogin = !_usuarioLogado && !!user;
       _usuarioLogado = user;
       _atualizarHeaderAuth(user);
+      atualizarSidebarUser(user);
       if (eraPrimeiroLogin) {
         fecharLogin();
         mostrarToast('👋 Olá, ' + (user.displayName || user.email || 'usuário') + '!');
@@ -2739,6 +2901,7 @@ function _configurarAuth() {
 
     // Inicializar a área de auth no header
     _atualizarHeaderAuth(_firebaseAuth.currentUser);
+    atualizarSidebarUser(_firebaseAuth.currentUser);
     console.log('[Auth] Firebase Auth configurado ✓');
   } catch (err) {
     console.error('[Auth] Erro ao configurar:', err);
@@ -3168,7 +3331,113 @@ async function reportarPreco(postoId, combustivel) {
     mostrarToast('Erro ao reportar preço');
   }
 }
+
+// ── Sidebar desktop: sincronizar nav ──────────────────────────────────────────
+function snavSetActive(id) {
+  document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+// ── Painel direito: carregar dados ────────────────────────────────────────────
+async function carregarPainelDesktop() {
+  if (window.innerWidth < 768) return;
+  try {
+    const res = await fetch('/api/brasil/stats');
+    const d = await res.json();
+    const elP = document.getElementById('dp-postos');
+    const elM = document.getElementById('dp-municipios');
+    const elU = document.getElementById('dp-ufs');
+    if (elP) elP.textContent = (d.totalPostos||0).toLocaleString('pt-BR');
+    if (elM) elM.textContent = (d.municipios||0).toLocaleString('pt-BR');
+    if (elU) elU.textContent = (d.ufs||0);
+  } catch {}
+  // Preencher médias UF (top 6 mais populosos)
+  const medias = [
+    {uf:'SP',v:'R$ 5.69'},{uf:'RJ',v:'R$ 5.79'},{uf:'MG',v:'R$ 5.71'},
+    {uf:'PR',v:'R$ 5.64'},{uf:'RS',v:'R$ 5.66'},{uf:'BA',v:'R$ 5.74'}
+  ];
+  const el = document.getElementById('dp-precos-uf');
+  if (el) el.innerHTML = medias.map(m =>
+    \`<div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:rgba(255,255,255,0.55);font-weight:600">\${m.uf}</span>
+      <span style="font-size:13px;font-weight:800;color:#fff">\${m.v}/L</span>
+    </div>\`
+  ).join('');
+}
+
+// ── Sidebar: atualizar usuário ─────────────────────────────────────────────────
+function atualizarSidebarUser(user) {
+  const nm = document.getElementById('sidebar-user-name');
+  const pl = document.getElementById('sidebar-user-plan');
+  if (!nm || !pl) return;
+  if (user) {
+    nm.textContent = user.displayName || user.email || 'Usuário';
+    pl.textContent = '⚡ Premium';
+    const area = document.getElementById('sidebar-user-area');
+    if (area) {
+      const img = user.photoURL;
+      const icon = area.querySelector('i');
+      if (img && icon) {
+        icon.outerHTML = \`<img src="\${img}" style="width:30px;height:30px;border-radius:50%;border:2px solid var(--laranja);object-fit:cover" />\`;
+      }
+    }
+  } else {
+    nm.textContent = 'Visitante'; pl.textContent = 'Entrar';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  carregarPainelDesktop();
+});
+window.addEventListener('resize', () => {
+  if (window.innerWidth >= 768) carregarPainelDesktop();
+});
 </script>
+</div><!-- /#app-main -->
+
+<!-- ═══ PAINEL DIREITO DESKTOP ════════════════════════════════════════════ -->
+<aside id="desktop-panel">
+  <h2><i class="fas fa-bolt" style="color:var(--laranja);margin-right:6px"></i>Informações Rápidas</h2>
+
+  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📊 Dados ANP Semana</div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:12px;color:rgba(255,255,255,0.55)">Postos monitorados</span>
+      <span style="font-size:14px;font-weight:800;color:#fff" id="dp-postos">–</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:12px;color:rgba(255,255,255,0.55)">Municípios cobertos</span>
+      <span style="font-size:14px;font-weight:800;color:#fff" id="dp-municipios">–</span>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <span style="font-size:12px;color:rgba(255,255,255,0.55)">UFs com dados</span>
+      <span style="font-size:14px;font-weight:800;color:#69F0AE" id="dp-ufs">–</span>
+    </div>
+  </div>
+
+  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📍 Busca Atual</div>
+    <div style="font-size:13px;font-weight:700;color:#fff" id="dp-cidade">–</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px" id="dp-coords">Aguardando localização...</div>
+  </div>
+
+  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📈 Média Gasolina por UF</div>
+    <div id="dp-precos-uf" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <div style="background:#1B3A5C;border-radius:14px;padding:18px">
+    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">🔗 Links</div>
+    <a href="/mapa-brasil" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.65);text-decoration:none;font-size:12px;font-weight:700">
+      <i class="fas fa-globe-americas" style="color:#00C853;width:16px"></i> Mapa Brasil 46K Postos
+    </a>
+    <a href="/" style="display:flex;align-items:center;gap:8px;padding:8px 0;color:rgba(255,255,255,0.65);text-decoration:none;font-size:12px;font-weight:700">
+      <i class="fas fa-home" style="color:var(--laranja);width:16px"></i> Página Inicial
+    </a>
+  </div>
+</aside>
+
 </body>
 </html>`
 
