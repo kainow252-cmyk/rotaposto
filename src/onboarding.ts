@@ -1,10 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════
-//  RotaPosto – Onboarding Flow (Telas 1-6)
-//  Pixel-perfect conforme referências de design
-//  Dark theme #0B121E + laranja #FF6D00
+//  RotaPosto – Onboarding Completo (Telas 1-6)
+//  Design pixel-perfect conforme referências do usuário
+//  Tema: BRANCO com laranja #FF6D00
 // ═══════════════════════════════════════════════════════════════════════
-
-import { GOOGLE_CLIENT_ID, getFirebaseAuthScripts } from './auth'
 
 export function getLandingOnboardingHTML(firebaseScripts: string): string {
   return `<!DOCTYPE html>
@@ -12,1290 +10,1112 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
-  <meta name="theme-color" content="#0B121E"/>
+  <meta name="theme-color" content="#1A1A2E"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
-  <meta name="google-signin-client_id" content="${GOOGLE_CLIENT_ID}"/>
-  <title>RotaPosto – Abasteça Mais Barato</title>
+  <title>RotaPosto – Boas-vindas</title>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   ${firebaseScripts}
   <style>
-    *, *::before, *::after {
-      margin: 0; padding: 0; box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
     :root {
-      --bg:      #0B121E;
-      --bg2:     #111827;
-      --card:    #151E2D;
-      --card2:   #1A2435;
-      --border:  rgba(255,255,255,0.08);
-      --laranja: #FF6D00;
-      --laranja2:#FF8C00;
-      --verde:   #22C55E;
-      --branco:  #FFFFFF;
-      --cinza:   rgba(255,255,255,0.45);
-      --cinza2:  rgba(255,255,255,0.25);
-      --radius:  16px;
-      --radius-sm: 12px;
+      --orange: #FF6D00;
+      --orange-dark: #E65100;
+      --orange-light: #FFF3E0;
+      --black: #1A1A1A;
+      --gray-dark: #555;
+      --gray: #888;
+      --gray-light: #CCC;
+      --gray-bg: #F5F5F5;
+      --white: #FFFFFF;
+      --green: #00C853;
+      --red: #E53935;
+      --border: #E0E0E0;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
     }
 
     html, body {
       width: 100%; height: 100%;
-      background: var(--bg);
-      font-family: 'Raleway', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #000;
       overflow: hidden;
-      color: var(--branco);
     }
 
-    /* ── SCREENS ──────────────────────────────────── */
-    .screen {
-      position: fixed;
-      inset: 0;
-      display: none;
-      flex-direction: column;
-      background: var(--bg);
+    /* ── CONTAINER PRINCIPAL ── */
+    #ob-root {
+      width: 100%; height: 100dvh;
+      position: fixed; inset: 0;
+      overflow: hidden;
     }
-    .screen.active { display: flex; }
 
-    /* ═══════════════════════════════════════════════
-       TELA 1: SPLASH
-    ═══════════════════════════════════════════════ */
+    /* ══════════════════════════════════════════════
+       TELA 1 — SPLASH
+    ══════════════════════════════════════════════ */
     #screen-splash {
-      background: #0B121E;
-      align-items: center;
-      justify-content: center;
-      position: relative;
+      width: 100%; height: 100%;
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      background: #1A1A2E;
       overflow: hidden;
     }
-    .splash-bg {
-      position: absolute;
-      inset: 0;
+
+    /* Foto de fundo: posto de combustível à noite */
+    #splash-bg {
+      position: absolute; inset: 0;
       background:
-        radial-gradient(ellipse 80% 50% at 50% 80%, rgba(255,109,0,0.18) 0%, transparent 70%),
-        radial-gradient(ellipse 60% 40% at 30% 60%, rgba(255,140,0,0.10) 0%, transparent 60%),
-        linear-gradient(180deg, #0B121E 0%, #0d1726 50%, #111520 100%);
+        linear-gradient(180deg, rgba(26,26,46,0.3) 0%, rgba(26,26,46,0.5) 40%, rgba(26,26,46,0.92) 70%, #1A1A2E 100%),
+        url('https://images.unsplash.com/photo-1545431781-3e1b506e9a37?w=800&q=80') center/cover no-repeat;
+      z-index: 0;
     }
-    /* Silhueta cidade/posto no fundo */
-    .splash-cityscape {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 45%;
-      background: linear-gradient(180deg, transparent 0%, rgba(255,80,0,0.06) 40%, rgba(0,0,0,0.4) 100%);
-      overflow: hidden;
-    }
-    .splash-cityscape::before {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 60%;
-      background: 
-        linear-gradient(to top, rgba(255,100,0,0.15), transparent),
-        repeating-linear-gradient(
-          90deg,
-          rgba(255,120,0,0.08) 0px, rgba(255,120,0,0.08) 2px,
-          transparent 2px, transparent 40px
-        );
-    }
-    /* Luzes da rua */
-    .splash-lights {
-      position: absolute;
-      bottom: 15%;
-      left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg,
-        transparent 0%,
-        rgba(255,140,0,0.3) 15%, rgba(255,200,0,0.6) 20%, rgba(255,200,0,0.6) 22%, rgba(255,140,0,0.3) 27%,
-        transparent 30%, transparent 35%,
-        rgba(255,140,0,0.3) 45%, rgba(255,200,0,0.6) 50%, rgba(255,200,0,0.6) 52%, rgba(255,140,0,0.3) 57%,
-        transparent 60%, transparent 65%,
-        rgba(255,140,0,0.3) 73%, rgba(255,200,0,0.6) 78%, rgba(255,200,0,0.6) 80%, rgba(255,140,0,0.3) 85%,
-        transparent 100%
-      );
-      box-shadow: 0 0 20px rgba(255,180,0,0.3);
-    }
-    .splash-content {
-      position: relative;
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
+
+    #splash-content {
+      position: relative; z-index: 1;
+      width: 100%; padding: 0 32px;
+      padding-bottom: calc(var(--sab) + 40px);
+      display: flex; flex-direction: column;
       align-items: center;
-      gap: 20px;
-      margin-top: -60px;
     }
-    .splash-icon-wrap {
-      width: 96px; height: 96px;
-      position: relative;
+
+    /* Logo central */
+    #splash-logo-wrap {
+      display: flex; flex-direction: column;
+      align-items: center; margin-bottom: 12px;
     }
-    .splash-icon-ring {
-      position: absolute;
-      inset: -8px;
-      border-radius: 50%;
-      border: 2px solid rgba(255,109,0,0.25);
-      animation: pulse-ring 2s ease-in-out infinite;
+
+    /* Ícone SVG: bomba + pin laranja */
+    .splash-icon {
+      width: 88px; height: 88px; margin-bottom: 16px;
     }
-    .splash-icon-ring2 {
-      position: absolute;
-      inset: -18px;
-      border-radius: 50%;
-      border: 1px solid rgba(255,109,0,0.12);
-      animation: pulse-ring 2s ease-in-out 0.5s infinite;
-    }
-    @keyframes pulse-ring {
-      0%, 100% { transform: scale(1); opacity: 0.6; }
-      50% { transform: scale(1.05); opacity: 1; }
-    }
-    .splash-icon-bg {
-      width: 96px; height: 96px;
-      background: linear-gradient(135deg, var(--laranja), var(--laranja2));
-      border-radius: 28px;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 8px 32px rgba(255,109,0,0.45);
-    }
-    /* Pin SVG estilizado */
-    .splash-pin {
-      width: 52px; height: 52px;
-      fill: none;
-      stroke: none;
-    }
-    .splash-logo {
-      text-align: center;
-    }
-    .splash-logo-text {
-      font-size: 38px;
-      font-weight: 900;
-      color: var(--branco);
-      letter-spacing: -1px;
+
+    #splash-brand {
+      font-size: 42px; font-weight: 900;
+      letter-spacing: -1px; margin-bottom: 10px;
       line-height: 1;
     }
-    .splash-logo-text span { color: var(--laranja); }
-    .splash-tagline {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--cinza);
-      text-align: center;
-      line-height: 1.5;
-      margin-top: 6px;
-    }
-    .splash-spinner {
-      position: absolute;
-      bottom: 60px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 28px; height: 28px;
-      border: 2px solid rgba(255,109,0,0.2);
-      border-top-color: var(--laranja);
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-    }
-    @keyframes spin { to { transform: translateX(-50%) rotate(360deg); } }
+    #splash-brand .rota { color: #fff; }
+    #splash-brand .posto { color: var(--orange); }
 
-    /* ═══════════════════════════════════════════════
-       TELA 2: BOAS-VINDAS (Onboarding carousel)
-    ═══════════════════════════════════════════════ */
+    #splash-sub {
+      font-size: 15px; font-weight: 400;
+      color: rgba(255,255,255,0.75);
+      text-align: center; line-height: 1.5;
+      margin-bottom: 48px;
+    }
+
+    .btn-splash-primary {
+      width: 100%; padding: 17px;
+      background: var(--orange);
+      border: none; border-radius: 14px;
+      color: #fff; font-family: 'Inter', sans-serif;
+      font-size: 17px; font-weight: 700;
+      cursor: pointer; margin-bottom: 16px;
+      transition: opacity 0.2s;
+    }
+    .btn-splash-primary:active { opacity: 0.85; }
+
+    .btn-splash-ghost {
+      background: none; border: none;
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px; font-weight: 500;
+      cursor: pointer; padding: 8px;
+    }
+
+    /* ══════════════════════════════════════════════
+       TELAS 2-6: CONTAINER BRANCO
+    ══════════════════════════════════════════════ */
+    .screen-white {
+      width: 100%; height: 100%;
+      position: absolute; inset: 0;
+      display: none; flex-direction: column;
+      background: var(--white);
+      overflow: hidden;
+    }
+    .screen-white.active { display: flex; }
+
+    /* Header com seta voltar */
+    .ob-header {
+      display: flex; align-items: center;
+      padding: calc(var(--sat) + 16px) 20px 0;
+      min-height: calc(var(--sat) + 56px);
+    }
+    .btn-back {
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer;
+      color: var(--black);
+    }
+    .btn-back svg { width: 22px; height: 22px; }
+
+    /* ══════════════════════════════════════════════
+       TELA 2 — BOAS-VINDAS (carrossel)
+    ══════════════════════════════════════════════ */
     #screen-welcome {
       justify-content: space-between;
     }
-    .welcome-top {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 24px 20px;
-      gap: 32px;
-    }
-    .welcome-illustration {
-      width: 220px; height: 220px;
-      display: flex; align-items: center; justify-content: center;
-      position: relative;
-    }
-    /* Glow atrás da ilustração */
-    .welcome-illustration::before {
-      content: '';
-      position: absolute;
-      width: 180px; height: 180px;
-      background: radial-gradient(circle, rgba(255,109,0,0.25) 0%, transparent 70%);
-      border-radius: 50%;
-    }
-    /* Bomba de combustível SVG/emoji estilizada */
-    .fuel-pump-wrap {
-      position: relative;
-      z-index: 1;
-    }
-    .fuel-pump-body {
-      width: 100px; height: 140px;
-      background: linear-gradient(160deg, #FF6D00, #CC5000);
-      border-radius: 16px 16px 12px 12px;
-      position: relative;
-      box-shadow: 0 12px 40px rgba(255,109,0,0.4), inset 0 2px 0 rgba(255,255,255,0.15);
-    }
-    .fuel-pump-screen {
-      position: absolute;
-      top: 14px; left: 12px; right: 12px;
-      height: 36px;
-      background: rgba(0,0,0,0.5);
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 800;
-      color: #22C55E;
-      letter-spacing: 1px;
-    }
-    .fuel-pump-logo {
-      position: absolute;
-      bottom: 16px; left: 50%;
-      transform: translateX(-50%);
-      font-size: 22px;
-    }
-    .fuel-pump-hose {
-      position: absolute;
-      right: -28px; top: 20px;
-      width: 28px; height: 60px;
-      border: 5px solid #CC5000;
-      border-left: none;
-      border-radius: 0 12px 12px 0;
-    }
-    .fuel-pump-nozzle {
-      position: absolute;
-      right: -42px; bottom: -8px;
-      width: 20px; height: 28px;
-      background: #CC5000;
-      border-radius: 4px 4px 10px 10px;
-    }
-    .fuel-drop {
-      position: absolute;
-      right: -46px; bottom: -28px;
-      width: 12px; height: 18px;
-      background: linear-gradient(180deg, #FFD700, #FF8C00);
-      border-radius: 50% 50% 60% 60% / 40% 40% 60% 60%;
-      animation: drip 2s ease-in-out infinite;
-    }
-    @keyframes drip {
-      0%, 100% { transform: translateY(0) scaleY(1); opacity: 1; }
-      50% { transform: translateY(4px) scaleY(1.1); opacity: 0.8; }
-    }
-    .welcome-text {
-      text-align: center;
-    }
-    .welcome-logo-row {
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      margin-bottom: 8px;
-    }
-    .welcome-logo-icon {
-      width: 28px; height: 28px;
-      background: linear-gradient(135deg, var(--laranja), var(--laranja2));
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
-    }
-    .welcome-logo-name {
-      font-size: 22px; font-weight: 900; color: var(--branco); letter-spacing: -0.5px;
-    }
-    .welcome-logo-name span { color: var(--laranja); }
-    .welcome-title {
-      font-size: 26px; font-weight: 800;
-      color: var(--branco);
-      line-height: 1.25;
-      margin-bottom: 12px;
-    }
-    .welcome-desc {
-      font-size: 15px; font-weight: 500;
-      color: var(--cinza);
-      line-height: 1.6;
-    }
-    /* Dots do carrossel */
-    .carousel-dots {
-      display: flex; gap: 6px;
-      justify-content: center;
-    }
-    .dot {
-      width: 8px; height: 8px;
-      border-radius: 4px;
-      background: rgba(255,255,255,0.2);
-      transition: all 0.3s;
-    }
-    .dot.active {
-      width: 24px;
-      background: var(--laranja);
-    }
-    .welcome-bottom {
-      padding: 16px 24px 40px;
-      display: flex; flex-direction: column; gap: 12px;
+
+    #welcome-illustration {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 20px 40px 0;
     }
 
-    /* ═══════════════════════════════════════════════
-       TELA 3: PERMISSÃO DE LOCALIZAÇÃO
-    ═══════════════════════════════════════════════ */
-    #screen-location {
-      position: relative;
-      overflow: hidden;
-    }
-    .location-map-bg {
-      position: absolute;
-      inset: 0;
-      background: #111827;
-      overflow: hidden;
-    }
-    /* Grade do mapa */
-    .location-map-bg::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-      background-size: 40px 40px;
-    }
-    /* Ruas do mapa */
-    .location-map-bg::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(45deg, rgba(255,255,255,0.06) 1px, transparent 1px) 0 0 / 80px 80px,
-        linear-gradient(-45deg, rgba(255,255,255,0.04) 1px, transparent 1px) 0 0 / 120px 80px,
-        linear-gradient(rgba(255,255,255,0.06) 2px, transparent 2px) 0 0 / 80px 200px,
-        linear-gradient(90deg, rgba(255,255,255,0.06) 2px, transparent 2px) 0 0 / 200px 80px;
-    }
-    .location-map-glow {
-      position: absolute;
-      top: 30%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 200px; height: 200px;
-      background: radial-gradient(circle, rgba(255,109,0,0.15) 0%, transparent 70%);
-      border-radius: 50%;
-    }
-    /* Pin de localização */
-    .location-pin-wrap {
-      position: absolute;
-      top: 32%; left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .location-pin {
-      width: 56px; height: 56px;
-      background: linear-gradient(135deg, var(--laranja), var(--laranja2));
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      box-shadow: 0 8px 24px rgba(255,109,0,0.5);
+    /* Ilustração bomba de gasolina */
+    .fuel-illustration {
+      width: 240px; height: 240px;
       display: flex; align-items: center; justify-content: center;
       position: relative;
     }
-    .location-pin::after {
-      content: '';
-      width: 18px; height: 18px;
-      background: white;
+
+    .fuel-circle-bg {
+      width: 200px; height: 200px;
       border-radius: 50%;
+      background: #F0F0F0;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
     }
-    .location-pin-shadow {
-      width: 20px; height: 6px;
-      background: rgba(255,109,0,0.3);
-      border-radius: 50%;
-      margin-top: 4px;
-      filter: blur(3px);
+
+    /* Silhueta cidade dentro do círculo */
+    .fuel-city-silhouette {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 60px;
+      background: linear-gradient(to top, rgba(200,200,200,0.4) 0%, transparent 100%);
     }
-    /* Ponto azul (usuário) */
-    .location-user-dot {
-      position: absolute;
-      top: 42%; left: 45%;
-      width: 18px; height: 18px;
-      background: #3B82F6;
-      border-radius: 50%;
-      border: 3px solid white;
-      box-shadow: 0 0 0 6px rgba(59,130,246,0.2);
-      z-index: 10;
+
+    /* Bomba 3D em SVG */
+    .fuel-pump-img {
+      position: relative; z-index: 1;
+      width: 130px; height: 130px;
     }
-    /* Card bottom */
-    .location-card {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      background: var(--card);
-      border-radius: 28px 28px 0 0;
-      padding: 28px 24px 48px;
-      z-index: 20;
+
+    #welcome-bottom {
+      padding: 0 28px calc(var(--sab) + 28px);
     }
-    .location-card-handle {
-      width: 40px; height: 4px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 2px;
-      margin: 0 auto 24px;
+
+    #welcome-title {
+      font-size: 26px; font-weight: 800;
+      color: var(--black); text-align: center;
+      line-height: 1.25; margin-bottom: 12px;
     }
-    .location-card-title {
-      font-size: 24px; font-weight: 800;
-      color: var(--branco);
-      text-align: center;
-      line-height: 1.3;
-      margin-bottom: 10px;
-    }
-    .location-card-desc {
-      font-size: 14px; font-weight: 500;
-      color: var(--cinza);
-      text-align: center;
-      line-height: 1.6;
+    #welcome-title .highlight { color: var(--orange); }
+
+    #welcome-sub {
+      font-size: 15px; color: var(--gray-dark);
+      text-align: center; line-height: 1.6;
       margin-bottom: 28px;
     }
 
-    /* ═══════════════════════════════════════════════
-       TELA 4: LOGIN / CADASTRO
-    ═══════════════════════════════════════════════ */
-    #screen-login {
-      overflow-y: auto;
+    /* Dots paginação */
+    .dots-row {
+      display: flex; justify-content: center;
+      gap: 6px; margin-bottom: 28px;
     }
-    .login-top {
-      padding: 60px 24px 24px;
-      text-align: center;
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--gray-light);
+      transition: all 0.3s;
     }
-    .login-logo {
-      font-size: 26px; font-weight: 900;
-      color: var(--branco); letter-spacing: -0.5px;
-      margin-bottom: 6px;
+    .dot.active {
+      width: 24px; border-radius: 4px;
+      background: var(--orange);
     }
-    .login-logo span { color: var(--laranja); }
-    .login-subtitle {
-      font-size: 15px; font-weight: 500;
-      color: var(--cinza);
-    }
-    .login-body {
-      padding: 0 24px 40px;
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    /* Botões sociais */
-    .social-btn {
-      width: 100%; height: 52px;
-      background: var(--branco);
+
+    .btn-primary {
+      width: 100%; padding: 17px;
+      background: var(--orange);
       border: none; border-radius: 14px;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      font-family: 'Raleway', sans-serif;
-      font-size: 15px; font-weight: 700;
-      color: #1a1a1a;
-      cursor: pointer;
-      transition: all 0.15s;
+      color: #fff; font-family: 'Inter', sans-serif;
+      font-size: 17px; font-weight: 700;
+      cursor: pointer; margin-bottom: 14px;
+      transition: opacity 0.2s;
     }
-    .social-btn:active { transform: scale(0.98); opacity: 0.9; }
-    .social-btn.apple { background: #1C1C1E; color: var(--branco); }
-    .social-btn-icon {
-      width: 22px; height: 22px;
+    .btn-primary:active { opacity: 0.85; }
+
+    .btn-ghost {
+      width: 100%; padding: 10px;
+      background: none; border: none;
+      color: var(--black); font-family: 'Inter', sans-serif;
+      font-size: 15px; font-weight: 600;
+      cursor: pointer; text-align: center;
+    }
+
+    /* ══════════════════════════════════════════════
+       TELA 3 — PERMISSÃO LOCALIZAÇÃO
+    ══════════════════════════════════════════════ */
+    #screen-location {
+      justify-content: space-between;
+    }
+
+    #location-illustration {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 20px 40px 0;
+    }
+
+    .location-map-wrap {
+      width: 260px; height: 260px;
+      position: relative;
       display: flex; align-items: center; justify-content: center;
     }
-    /* Divider */
-    .divider {
-      display: flex; align-items: center; gap: 12px;
-      color: var(--cinza2);
-      font-size: 13px; font-weight: 600;
+
+    /* Mapa de fundo (tiles simulados) */
+    .location-map-bg {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
+      position: absolute;
+      background: #E8F4FD;
     }
-    .divider::before, .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-    /* Inputs */
-    .input-group {
+
+    /* Grade do mapa */
+    .map-grid {
+      width: 100%; height: 100%;
       position: relative;
     }
-    .input-icon {
-      position: absolute;
-      left: 16px; top: 50%;
-      transform: translateY(-50%);
-      color: var(--cinza2);
-      font-size: 16px;
+
+    /* Linhas de rua simuladas */
+    .map-road-h {
+      position: absolute; left: 0; right: 0;
+      height: 8px; background: #fff;
+      border-radius: 2px;
     }
-    .auth-input {
-      width: 100%; height: 52px;
-      background: var(--card);
+    .map-road-v {
+      position: absolute; top: 0; bottom: 0;
+      width: 8px; background: #fff;
+      border-radius: 2px;
+    }
+
+    /* Blocos/quarteirões */
+    .map-block {
+      position: absolute;
+      background: #D4E9F7;
+      border-radius: 3px;
+    }
+
+    /* Círculo azul (raio/radar) */
+    .location-radar {
+      width: 140px; height: 140px;
+      border-radius: 50%;
+      background: rgba(66, 133, 244, 0.12);
+      border: 2px solid rgba(66, 133, 244, 0.25);
+      position: absolute; z-index: 1;
+    }
+
+    /* Pin laranja grande */
+    .location-pin {
+      position: absolute; z-index: 2;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Ponto azul do usuário */
+    .user-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #4285F4;
+      border: 2.5px solid #fff;
+      box-shadow: 0 2px 6px rgba(66,133,244,0.5);
+      position: absolute; z-index: 3;
+      left: 25%; bottom: 42%;
+    }
+
+    #location-bottom {
+      padding: 0 28px calc(var(--sab) + 28px);
+    }
+
+    #location-title {
+      font-size: 24px; font-weight: 800;
+      color: var(--black); text-align: center;
+      line-height: 1.3; margin-bottom: 12px;
+    }
+    #location-sub {
+      font-size: 15px; color: var(--gray-dark);
+      text-align: center; line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    /* ══════════════════════════════════════════════
+       TELA 4 — LOGIN / CADASTRO
+    ══════════════════════════════════════════════ */
+    #screen-login {
+      align-items: center;
+      padding: calc(var(--sat) + 48px) 28px calc(var(--sab) + 24px);
+      overflow-y: auto;
+    }
+
+    #login-logo {
+      font-size: 28px; font-weight: 900;
+      margin-bottom: 28px;
+      letter-spacing: -0.5px;
+    }
+    #login-logo .rota { color: var(--black); }
+    #login-logo .posto { color: var(--orange); }
+
+    #login-title {
+      font-size: 24px; font-weight: 800;
+      color: var(--black); text-align: center;
+      line-height: 1.25; margin-bottom: 6px;
+    }
+    #login-sub {
+      font-size: 14px; color: var(--gray);
+      margin-bottom: 32px; text-align: center;
+    }
+
+    /* Botões social */
+    .btn-social {
+      width: 100%; padding: 15px 20px;
+      background: var(--white);
       border: 1.5px solid var(--border);
-      border-radius: 14px;
-      padding: 0 16px 0 44px;
-      color: var(--branco);
-      font-family: 'Raleway', sans-serif;
-      font-size: 15px; font-weight: 500;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px; font-weight: 600;
+      color: var(--black); cursor: pointer;
+      margin-bottom: 12px;
+      transition: background 0.15s;
+    }
+    .btn-social:active { background: var(--gray-bg); }
+
+    /* Google G colorido */
+    .google-g {
+      width: 20px; height: 20px; flex-shrink: 0;
+    }
+
+    /* Apple logo */
+    .apple-logo {
+      width: 18px; height: 20px; flex-shrink: 0;
+    }
+
+    /* Divisor "ou" */
+    .divider-ou {
+      width: 100%; display: flex; align-items: center;
+      gap: 12px; margin: 4px 0 16px;
+    }
+    .divider-line { flex: 1; height: 1px; background: var(--border); }
+    .divider-text {
+      font-size: 13px; font-weight: 500; color: var(--gray);
+    }
+
+    /* Campos de formulário */
+    .field-group { width: 100%; margin-bottom: 12px; }
+    .field-wrap {
+      width: 100%; position: relative;
+    }
+    .field-input {
+      width: 100%; padding: 15px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px; font-weight: 400;
+      color: var(--black); background: var(--white);
       outline: none;
       transition: border-color 0.2s;
     }
-    .auth-input::placeholder { color: var(--cinza2); }
-    .auth-input:focus { border-color: var(--laranja); }
-    .input-eye {
-      position: absolute;
-      right: 16px; top: 50%;
+    .field-input::placeholder { color: var(--gray-light); }
+    .field-input:focus { border-color: var(--orange); }
+
+    .field-eye {
+      position: absolute; right: 14px; top: 50%;
       transform: translateY(-50%);
-      color: var(--cinza2);
-      font-size: 16px;
-      cursor: pointer;
-    }
-    .forgot-link {
-      text-align: center;
-      font-size: 13px; font-weight: 600;
-      color: var(--laranja);
-      cursor: pointer;
-      text-decoration: none;
-    }
-    .login-footer {
-      text-align: center;
-      font-size: 13px; font-weight: 500;
-      color: var(--cinza);
-    }
-    .login-footer a {
-      color: var(--laranja);
-      font-weight: 700;
-      cursor: pointer;
-      text-decoration: none;
+      background: none; border: none; cursor: pointer;
+      color: var(--gray); padding: 4px;
     }
 
-    /* ═══════════════════════════════════════════════
-       TELA 5: CADASTRO RÁPIDO
-    ═══════════════════════════════════════════════ */
+    /* Esqueci senha */
+    .link-forgot {
+      width: 100%; text-align: right;
+      font-size: 13px; font-weight: 600;
+      color: var(--orange); background: none; border: none;
+      cursor: pointer; padding: 0; margin-bottom: 20px;
+    }
+
+    /* Rodapé login */
+    #login-footer {
+      margin-top: 20px;
+      font-size: 14px; color: var(--gray-dark);
+      text-align: center;
+    }
+    #login-footer .link-orange {
+      color: var(--orange); font-weight: 700;
+      background: none; border: none; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 14px;
+    }
+
+    /* ══════════════════════════════════════════════
+       TELA 5 — CADASTRO RÁPIDO
+    ══════════════════════════════════════════════ */
     #screen-register {
       overflow-y: auto;
     }
-    .register-header {
-      padding: 56px 24px 8px;
-      display: flex; align-items: center; gap: 12px;
-    }
-    .back-btn {
-      width: 40px; height: 40px;
-      background: var(--card);
-      border: none; border-radius: 12px;
-      color: var(--branco);
-      font-size: 18px;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      transition: background 0.2s;
-    }
-    .back-btn:active { background: var(--card2); }
-    .register-title {
-      font-size: 26px; font-weight: 800;
-      color: var(--branco);
-      line-height: 1.2;
-    }
-    .register-subtitle {
-      font-size: 14px; font-weight: 500;
-      color: var(--cinza);
-      margin-top: 2px;
-    }
-    .register-body {
-      padding: 20px 24px 40px;
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    .input-full {
-      width: 100%; height: 52px;
-      background: var(--card);
-      border: 1.5px solid var(--border);
-      border-radius: 14px;
-      padding: 0 16px;
-      color: var(--branco);
-      font-family: 'Raleway', sans-serif;
-      font-size: 15px; font-weight: 500;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .input-full::placeholder { color: var(--cinza2); }
-    .input-full:focus { border-color: var(--laranja); }
-    .checkbox-row {
-      display: flex; align-items: flex-start; gap: 12px;
-      padding: 4px 0;
-    }
-    .checkbox-custom {
-      width: 20px; height: 20px;
-      border: 2px solid var(--border);
-      border-radius: 6px;
-      cursor: pointer;
-      flex-shrink: 0;
-      margin-top: 1px;
-      background: var(--card);
-      display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s;
-    }
-    .checkbox-custom.checked {
-      background: var(--laranja);
-      border-color: var(--laranja);
-    }
-    .checkbox-custom.checked::after {
-      content: '✓';
-      color: white;
-      font-size: 13px;
-      font-weight: 900;
-    }
-    .checkbox-label {
-      font-size: 13px; font-weight: 500;
-      color: var(--cinza);
-      line-height: 1.5;
-    }
-    .checkbox-label a {
-      color: var(--laranja);
-      font-weight: 700;
-      text-decoration: underline;
-      cursor: pointer;
+
+    #register-body {
+      flex: 1; padding: 0 28px calc(var(--sab) + 28px);
+      display: flex; flex-direction: column;
     }
 
-    /* ═══════════════════════════════════════════════
-       TELA 6: PREFERÊNCIAS DO VEÍCULO
-    ═══════════════════════════════════════════════ */
+    #register-title {
+      font-size: 26px; font-weight: 800;
+      color: var(--black); text-align: center;
+      line-height: 1.25; margin-bottom: 6px;
+    }
+    #register-sub {
+      font-size: 14px; color: var(--gray);
+      text-align: center; margin-bottom: 28px;
+    }
+
+    /* Checkbox termos */
+    .terms-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-bottom: 24px;
+    }
+    .terms-check {
+      width: 20px; height: 20px; flex-shrink: 0;
+      border: 2px solid var(--orange);
+      border-radius: 5px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--orange); margin-top: 1px;
+    }
+    .terms-check svg { width: 12px; height: 12px; }
+    .terms-text {
+      font-size: 13px; color: var(--gray-dark); line-height: 1.5;
+    }
+    .terms-text .link-orange {
+      color: var(--orange); font-weight: 600;
+      cursor: pointer; text-decoration: none;
+    }
+
+    /* ══════════════════════════════════════════════
+       TELA 6 — PREFERÊNCIAS VEÍCULO
+    ══════════════════════════════════════════════ */
     #screen-vehicle {
       overflow-y: auto;
     }
-    .vehicle-header {
-      padding: 56px 24px 8px;
-      display: flex; align-items: center; gap: 12px;
+
+    #vehicle-body {
+      flex: 1; padding: 0 28px calc(var(--sab) + 28px);
+      display: flex; flex-direction: column;
     }
-    .vehicle-title-wrap {}
-    .vehicle-title {
+
+    #vehicle-title {
       font-size: 26px; font-weight: 800;
-      color: var(--branco);
-      line-height: 1.2;
+      color: var(--black); text-align: center;
+      margin-bottom: 6px;
     }
-    .vehicle-subtitle {
-      font-size: 14px; font-weight: 500;
-      color: var(--cinza);
-      margin-top: 4px;
+    #vehicle-sub {
+      font-size: 14px; color: var(--gray);
+      text-align: center; margin-bottom: 32px;
       line-height: 1.5;
     }
-    .vehicle-body {
-      padding: 24px 24px 40px;
-      display: flex; flex-direction: column; gap: 16px;
+
+    /* Label + Dropdown */
+    .dropdown-group { margin-bottom: 18px; }
+    .dropdown-label {
+      font-size: 13px; font-weight: 600;
+      color: var(--gray-dark); margin-bottom: 6px;
     }
-    .vehicle-field label {
-      display: block;
-      font-size: 12px; font-weight: 700;
-      color: var(--cinza);
-      text-transform: uppercase; letter-spacing: 0.8px;
-      margin-bottom: 8px;
-    }
-    .select-custom {
-      width: 100%; height: 52px;
-      background: var(--card);
+    .dropdown-select {
+      width: 100%; padding: 15px 16px;
       border: 1.5px solid var(--border);
-      border-radius: 14px;
-      padding: 0 16px;
-      color: var(--branco);
-      font-family: 'Raleway', sans-serif;
-      font-size: 15px; font-weight: 600;
-      outline: none;
-      appearance: none;
-      -webkit-appearance: none;
-      cursor: pointer;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      border-radius: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px; font-weight: 500;
+      color: var(--black); background: var(--white);
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 16px center;
-      transition: border-color 0.2s;
+      background-size: 18px;
+      cursor: pointer; outline: none;
     }
-    .select-custom:focus { border-color: var(--laranja); }
-    .select-custom option { background: #1A2435; }
+    .dropdown-select:focus { border-color: var(--orange); }
 
-    /* ═══════════════════════════════════════════════
-       BOTÕES GLOBAIS
-    ═══════════════════════════════════════════════ */
-    .btn-primary {
-      width: 100%; height: 54px;
-      background: var(--laranja);
-      border: none; border-radius: 16px;
-      color: var(--branco);
-      font-family: 'Raleway', sans-serif;
-      font-size: 16px; font-weight: 800;
-      cursor: pointer;
-      transition: all 0.15s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .btn-primary:active { transform: scale(0.98); background: var(--laranja2); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-secondary {
-      width: 100%; height: 46px;
-      background: transparent;
-      border: none;
-      color: var(--cinza);
-      font-family: 'Raleway', sans-serif;
-      font-size: 14px; font-weight: 700;
-      cursor: pointer;
-      transition: color 0.15s;
-    }
-    .btn-secondary:active { color: var(--branco); }
+    /* Spacer */
+    .flex-spacer { flex: 1; }
 
-    /* ═══════════════════════════════════════════════
-       LOADING / TOAST
-    ═══════════════════════════════════════════════ */
-    .btn-loading {
-      display: none;
-      width: 20px; height: 20px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
+    /* ── TOAST ── */
+    #ob-toast {
+      position: fixed; bottom: calc(var(--sab) + 80px);
+      left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #333; color: #fff;
+      padding: 10px 20px; border-radius: 100px;
+      font-size: 13px; font-weight: 600;
+      opacity: 0; transition: opacity 0.3s, transform 0.3s;
+      z-index: 9999; pointer-events: none; white-space: nowrap;
+    }
+    #ob-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── LOADING OVERLAY ── */
+    #ob-loading {
+      position: fixed; inset: 0; background: rgba(255,255,255,0.85);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: 14px; z-index: 9999;
+    }
+    #ob-loading.show { display: flex; }
+    .ob-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(255,109,0,0.2);
+      border-top-color: var(--orange);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-    #toast-ob {
-      position: fixed;
-      bottom: 24px; left: 50%;
-      transform: translateX(-50%) translateY(80px);
-      background: rgba(0,0,0,0.85);
-      color: white;
-      padding: 12px 20px;
-      border-radius: 24px;
-      font-size: 13px; font-weight: 600;
-      white-space: nowrap;
-      z-index: 9999;
-      transition: transform 0.3s ease;
-      pointer-events: none;
-      backdrop-filter: blur(8px);
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ob-loading-text {
+      font-size: 14px; font-weight: 600; color: var(--gray-dark);
     }
-    #toast-ob.show { transform: translateX(-50%) translateY(0); }
 
-    /* ═══════════════════════════════════════════════
-       ERRO AUTH
-    ═══════════════════════════════════════════════ */
-    .auth-error {
-      background: rgba(239,68,68,0.12);
-      border: 1px solid rgba(239,68,68,0.3);
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-size: 13px; font-weight: 600;
-      color: #F87171;
-      display: none;
-    }
-    .auth-error.show { display: block; }
-
+    /* Animações de transição */
+    @keyframes fadeIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+    .screen-white.active { animation: fadeIn 0.28s ease; }
   </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════
-     TELA 1: SPLASH
-═══════════════════════════════════════════════════════ -->
-<section id="screen-splash" class="screen active">
-  <div class="splash-bg"></div>
-  <div class="splash-cityscape"></div>
-  <div class="splash-lights"></div>
-  <div class="splash-content">
-    <div class="splash-icon-wrap">
-      <div class="splash-icon-ring"></div>
-      <div class="splash-icon-ring2"></div>
-      <div class="splash-icon-bg">
-        <!-- Pin com bomba de gasolina -->
-        <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Pin shape -->
-          <path d="M26 4C17.716 4 11 10.716 11 19C11 30 26 48 26 48C26 48 41 30 41 19C41 10.716 34.284 4 26 4Z" fill="rgba(0,0,0,0.25)"/>
-          <!-- Bomba de gasolina icon inside pin -->
-          <g transform="translate(16, 8)">
-            <rect x="2" y="2" width="12" height="18" rx="2" fill="white" opacity="0.9"/>
-            <rect x="3.5" y="3.5" width="9" height="6" rx="1" fill="rgba(0,0,0,0.3)"/>
-            <rect x="5" y="13" width="6" height="2" rx="1" fill="rgba(0,0,0,0.2)"/>
-            <rect x="14" y="4" width="4" height="8" rx="1" fill="white" opacity="0.8"/>
-            <rect x="14" y="10" width="5" height="4" rx="1" fill="white" opacity="0.7"/>
-          </g>
+<div id="ob-root">
+
+  <!-- ═══════════════════════════════════════
+       TELA 1: SPLASH / ABERTURA
+  ═══════════════════════════════════════ -->
+  <div id="screen-splash">
+    <div id="splash-bg"></div>
+    <div id="splash-content">
+      <div id="splash-logo-wrap">
+        <!-- Ícone: bomba + pin laranja -->
+        <svg class="splash-icon" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="44" cy="44" r="44" fill="rgba(255,109,0,0.15)"/>
+          <!-- Pin base -->
+          <path d="M44 16C33.5 16 25 24.5 25 35C25 49 44 68 44 68C44 68 63 49 63 35C63 24.5 54.5 16 44 16Z" fill="#FF6D00"/>
+          <!-- Bomba de combustível dentro do pin -->
+          <rect x="36" y="26" width="16" height="20" rx="2" fill="white" opacity="0.9"/>
+          <rect x="38" y="28" width="12" height="8" rx="1" fill="#FF6D00" opacity="0.4"/>
+          <rect x="51" y="30" width="4" height="10" rx="1" fill="white" opacity="0.9"/>
+          <rect x="53" y="28" width="2" height="4" rx="1" fill="white" opacity="0.9"/>
+          <!-- Círculo branco no centro do pin -->
+          <circle cx="44" cy="46" r="5" fill="white"/>
         </svg>
+
+        <h1 id="splash-brand">
+          <span class="rota">Rota</span><span class="posto">Posto</span>
+        </h1>
+        <p id="splash-sub">O caminho mais inteligente<br/>para economizar combustível</p>
       </div>
-    </div>
-    <div class="splash-logo">
-      <div class="splash-logo-text">Rota<span>Posto</span></div>
-      <div class="splash-tagline">O caminho mais inteligente<br>para economizar combustível</div>
+
+      <button class="btn-splash-primary" onclick="goToScreen('welcome')">Começar</button>
+      <button class="btn-splash-ghost" onclick="goToScreen('login')">Já tenho conta</button>
     </div>
   </div>
-  <div class="splash-spinner"></div>
-</section>
 
-<!-- ═══════════════════════════════════════════════════════
-     TELA 2: BOAS-VINDAS
-═══════════════════════════════════════════════════════ -->
-<section id="screen-welcome" class="screen">
-  <div class="welcome-top">
-    <div class="welcome-illustration">
-      <div class="fuel-pump-wrap">
-        <div class="fuel-pump-body">
-          <div class="fuel-pump-screen">R$ 5,67/L</div>
-          <div class="fuel-pump-logo">⛽</div>
-          <div class="fuel-pump-hose"></div>
-          <div class="fuel-pump-nozzle"></div>
-          <div class="fuel-drop"></div>
+  <!-- ═══════════════════════════════════════
+       TELA 2: BOAS-VINDAS
+  ═══════════════════════════════════════ -->
+  <div id="screen-welcome" class="screen-white">
+    <div id="welcome-illustration">
+      <div class="fuel-illustration">
+        <div class="fuel-circle-bg">
+          <!-- Silhueta de cidade -->
+          <svg width="200" height="200" viewBox="0 0 200 200" fill="none" style="position:absolute;opacity:0.15">
+            <rect x="20" y="140" width="20" height="60" fill="#888"/>
+            <rect x="15" y="120" width="30" height="20" fill="#888"/>
+            <rect x="50" y="100" width="25" height="100" fill="#888"/>
+            <rect x="80" y="130" width="20" height="70" fill="#888"/>
+            <rect x="75" y="110" width="30" height="20" fill="#888"/>
+            <rect x="105" y="90" width="30" height="110" fill="#888"/>
+            <rect x="140" y="120" width="25" height="80" fill="#888"/>
+            <rect x="165" y="100" width="20" height="100" fill="#888"/>
+          </svg>
+
+          <!-- Bomba de gasolina 3D em SVG -->
+          <svg class="fuel-pump-img" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Corpo principal -->
+            <rect x="25" y="35" width="60" height="85" rx="6" fill="#FF6D00"/>
+            <!-- Painel frontal -->
+            <rect x="32" y="45" width="46" height="35" rx="4" fill="#E55A00"/>
+            <!-- Tela digital -->
+            <rect x="36" y="48" width="38" height="20" rx="3" fill="#1A1A2E"/>
+            <text x="55" y="62" fill="#00FF88" font-size="9" font-weight="700" text-anchor="middle" font-family="monospace">R$ 5,67</text>
+            <!-- Mangueira -->
+            <path d="M85 55 Q100 50 105 65 Q108 75 100 80 L95 82" stroke="#333" stroke-width="5" stroke-linecap="round" fill="none"/>
+            <!-- Bico -->
+            <rect x="88" y="78" width="14" height="8" rx="3" fill="#555" transform="rotate(-30 88 78)"/>
+            <!-- Base -->
+            <rect x="20" y="118" width="70" height="8" rx="3" fill="#E55A00"/>
+            <!-- Gota -->
+            <path d="M96 88 Q98 93 96 97 Q94 93 96 88Z" fill="#FFB800"/>
+          </svg>
         </div>
       </div>
     </div>
 
-    <div class="welcome-text">
-      <div class="welcome-logo-row">
-        <div class="welcome-logo-icon">⛽</div>
-        <div class="welcome-logo-name">Rota<span>Posto</span></div>
+    <div id="welcome-bottom">
+      <h2 id="welcome-title">Bem-vindo ao<br/><span class="rota" style="color:var(--black)">Rota</span><span class="highlight">Posto!</span></h2>
+      <p id="welcome-sub">Encontre os melhores preços,<br/>compare, economize e chegue mais longe.</p>
+
+      <div class="dots-row">
+        <div class="dot active"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
       </div>
-      <div class="welcome-title">Bem-vindo ao<br>RotaPosto</div>
-      <div class="welcome-desc">Encontre postos próximos,<br>compare preços e economize<br>em cada abastecimento.</div>
-    </div>
 
-    <div class="carousel-dots">
-      <div class="dot active"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
+      <button class="btn-primary" onclick="goToScreen('location')">Continuar</button>
+      <button class="btn-ghost" onclick="goToScreen('login')">Pular</button>
     </div>
   </div>
 
-  <div class="welcome-bottom">
-    <button class="btn-primary" onclick="irParaLocalizacao()">
-      Continuar <i class="fas fa-arrow-right"></i>
-    </button>
-    <button class="btn-secondary" onclick="irParaLogin()">Pular</button>
+  <!-- ═══════════════════════════════════════
+       TELA 3: PERMISSÃO DE LOCALIZAÇÃO
+  ═══════════════════════════════════════ -->
+  <div id="screen-location" class="screen-white">
+    <div id="location-illustration">
+      <div class="location-map-wrap">
+        <!-- Mapa de fundo circular -->
+        <div class="location-map-bg">
+          <svg width="260" height="260" viewBox="0 0 260 260" fill="none">
+            <!-- Blocos de quarteirão -->
+            <rect x="0" y="0" width="260" height="260" fill="#E8F4FD"/>
+            <!-- Ruas horizontais -->
+            <rect x="0" y="70" width="260" height="10" fill="white"/>
+            <rect x="0" y="130" width="260" height="10" fill="white"/>
+            <rect x="0" y="195" width="260" height="10" fill="white"/>
+            <!-- Ruas verticais -->
+            <rect x="60" y="0" width="10" height="260" fill="white"/>
+            <rect x="130" y="0" width="10" height="260" fill="white"/>
+            <rect x="200" y="0" width="10" height="260" fill="white"/>
+            <!-- Quarteirões azul claro -->
+            <rect x="10" y="10" width="45" height="55" rx="4" fill="#D4E9F7"/>
+            <rect x="75" y="10" width="50" height="55" rx="4" fill="#C8E4F4"/>
+            <rect x="145" y="10" width="50" height="55" rx="4" fill="#D4E9F7"/>
+            <rect x="10" y="85" width="45" height="40" rx="4" fill="#C8E4F4"/>
+            <rect x="75" y="85" width="50" height="40" rx="4" fill="#D4E9F7"/>
+            <rect x="145" y="85" width="50" height="40" rx="4" fill="#C8E4F4"/>
+            <rect x="10" y="145" width="45" height="45" rx="4" fill="#D4E9F7"/>
+            <rect x="75" y="145" width="50" height="45" rx="4" fill="#C8E4F4"/>
+            <rect x="145" y="145" width="50" height="45" rx="4" fill="#D4E9F7"/>
+          </svg>
+        </div>
+
+        <!-- Círculo radar azul -->
+        <div class="location-radar"></div>
+
+        <!-- Pin laranja grande -->
+        <div class="location-pin">
+          <svg width="52" height="66" viewBox="0 0 52 66" fill="none">
+            <path d="M26 0C11.64 0 0 11.64 0 26C0 45.5 26 66 26 66C26 66 52 45.5 52 26C52 11.64 40.36 0 26 0Z" fill="#FF6D00"/>
+            <circle cx="26" cy="26" r="11" fill="white"/>
+          </svg>
+        </div>
+
+        <!-- Ponto azul do usuário (fora do pin) -->
+        <div class="user-dot"></div>
+      </div>
+    </div>
+
+    <div id="location-bottom">
+      <h2 id="location-title">Permitir acesso à<br/>sua localização</h2>
+      <p id="location-sub">Para encontrarmos os melhores<br/>postos próximos a você.</p>
+
+      <button class="btn-primary" onclick="requestLocation()">Permitir localização</button>
+      <button class="btn-ghost" onclick="goToScreen('login')">Agora não</button>
+    </div>
   </div>
-</section>
 
-<!-- ═══════════════════════════════════════════════════════
-     TELA 3: PERMISSÃO LOCALIZAÇÃO
-═══════════════════════════════════════════════════════ -->
-<section id="screen-location" class="screen">
-  <div class="location-map-bg"></div>
-  <div class="location-map-glow"></div>
+  <!-- ═══════════════════════════════════════
+       TELA 4: LOGIN / CADASTRO
+  ═══════════════════════════════════════ -->
+  <div id="screen-login" class="screen-white">
+    <div id="login-logo"><span class="rota">Rota</span><span class="posto">Posto</span></div>
 
-  <!-- Pin de localização -->
-  <div class="location-pin-wrap">
-    <div class="location-pin"></div>
-    <div class="location-pin-shadow"></div>
-  </div>
+    <h2 id="login-title">Entrar ou criar<br/>sua conta</h2>
+    <p id="login-sub">É rápido, fácil e seguro.</p>
 
-  <!-- Ponto azul do usuário -->
-  <div class="location-user-dot"></div>
-
-  <!-- Card bottom -->
-  <div class="location-card">
-    <div class="location-card-handle"></div>
-    <div class="location-card-title">Permitir acesso à<br>sua localização</div>
-    <div class="location-card-desc">Para encontrar os melhores postos<br>próximos a você.</div>
-    <button class="btn-primary" onclick="solicitarLocalizacao()">
-      <i class="fas fa-location-arrow"></i> Permitir localização
-    </button>
-    <div style="height:12px"></div>
-    <button class="btn-secondary" onclick="irParaLogin()">Agora não</button>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════════════
-     TELA 4: LOGIN / CADASTRO
-═══════════════════════════════════════════════════════ -->
-<section id="screen-login" class="screen">
-  <div class="login-top">
-    <div class="login-logo">Rota<span>Posto</span></div>
-    <div class="login-subtitle">Entre ou crie sua conta</div>
-  </div>
-
-  <div class="login-body">
     <!-- Google -->
-    <button class="social-btn" onclick="loginGoogle()">
-      <div class="social-btn-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-        </svg>
-      </div>
+    <button class="btn-social" onclick="loginGoogle()">
+      <svg class="google-g" viewBox="0 0 20 20"><path d="M19.6 10.23c0-.68-.06-1.36-.17-2H10v3.79h5.4a4.61 4.61 0 01-2 3.03v2.51h3.23c1.89-1.74 2.97-4.3 2.97-7.33z" fill="#4285F4"/><path d="M10 20c2.7 0 4.97-.89 6.63-2.44l-3.23-2.51c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.13H1.06v2.6A10 10 0 0010 20z" fill="#34A853"/><path d="M4.39 11.88A6.01 6.01 0 014.1 10c0-.65.11-1.28.29-1.88V5.52H1.06A10 10 0 000 10c0 1.61.39 3.14 1.06 4.48l3.33-2.6z" fill="#FBBC05"/><path d="M10 3.96c1.47 0 2.79.51 3.83 1.5l2.86-2.86C14.96.99 12.7 0 10 0A10 10 0 001.06 5.52l3.33 2.6C5.18 5.72 7.39 3.96 10 3.96z" fill="#EA4335"/></svg>
       Continuar com Google
     </button>
 
     <!-- Apple -->
-    <button class="social-btn apple" onclick="loginApple()">
-      <div class="social-btn-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-        </svg>
-      </div>
+    <button class="btn-social" onclick="showToast('Apple Login em breve!')">
+      <svg class="apple-logo" viewBox="0 0 18 20" fill="#000"><path d="M15.77 10.57c-.02-2.15 1.76-3.19 1.84-3.24-1-1.47-2.56-1.67-3.12-1.69-1.33-.13-2.6.78-3.27.78-.68 0-1.71-.76-2.82-.74-1.44.02-2.77.84-3.51 2.12C3.06 10.47 4.2 14.72 5.98 17.14c.88 1.2 1.93 2.54 3.3 2.49 1.33-.05 1.83-.85 3.44-.85 1.6 0 2.05.85 3.45.83 1.43-.03 2.33-1.22 3.2-2.43.4-.56.7-1.17.92-1.82a5.21 5.21 0 01-3.52-4.79zM13.37 3.86C14.07 2.99 14.55 1.78 14.4.55c-1.07.05-2.36.71-3.12 1.61-.69.8-1.28 2.03-1.11 3.22 1.18.09 2.39-.59 3.2-1.52z"/></svg>
       Continuar com Apple
     </button>
 
-    <div class="divider">ou</div>
+    <!-- Divisor -->
+    <div class="divider-ou">
+      <div class="divider-line"></div>
+      <span class="divider-text">ou</span>
+      <div class="divider-line"></div>
+    </div>
 
     <!-- Email -->
-    <div class="input-group">
-      <i class="fas fa-user input-icon"></i>
-      <input type="email" class="auth-input" id="ob-email" placeholder="E-mail ou telefone" autocomplete="email"/>
-    </div>
-
-    <!-- Senha -->
-    <div class="input-group">
-      <i class="fas fa-lock input-icon"></i>
-      <input type="password" class="auth-input" id="ob-senha" placeholder="Senha" autocomplete="current-password"/>
-      <i class="fas fa-eye input-eye" id="toggle-senha" onclick="toggleSenha()"></i>
-    </div>
-
-    <!-- Erro auth -->
-    <div class="auth-error" id="auth-erro-login"></div>
-
-    <a class="forgot-link" onclick="esqueciSenha()">Esqueci minha senha</a>
-
-    <button class="btn-primary" id="btn-entrar" onclick="fazerLogin()">
-      <span id="btn-entrar-text">Entrar</span>
-      <div class="btn-loading" id="btn-entrar-load"></div>
-    </button>
-
-    <div class="login-footer">
-      Não tem uma conta? <a onclick="irParaCadastro()">Cadastre-se</a>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════════════
-     TELA 5: CADASTRO RÁPIDO
-═══════════════════════════════════════════════════════ -->
-<section id="screen-register" class="screen">
-  <div class="register-header">
-    <button class="back-btn" onclick="voltarParaLogin()">
-      <i class="fas fa-arrow-left"></i>
-    </button>
-    <div>
-      <div class="register-title">Vamos criar<br>sua conta</div>
-      <div class="register-subtitle">É rápido e fácil!</div>
-    </div>
-  </div>
-
-  <div class="register-body">
-    <input type="text" class="input-full" id="ob-nome" placeholder="Nome completo" autocomplete="name"/>
-    <input type="email" class="input-full" id="ob-email-reg" placeholder="E-mail" autocomplete="email"/>
-    <input type="tel" class="input-full" id="ob-tel" placeholder="Telefone (opcional)" autocomplete="tel"/>
-    <div class="input-group">
-      <i class="fas fa-lock input-icon"></i>
-      <input type="password" class="auth-input" id="ob-senha-reg" placeholder="Senha (mín. 6 caracteres)" autocomplete="new-password"/>
-    </div>
-
-    <!-- Erro auth -->
-    <div class="auth-error" id="auth-erro-reg"></div>
-
-    <div class="checkbox-row">
-      <div class="checkbox-custom checked" id="checkbox-termos" onclick="toggleTermos()"></div>
-      <div class="checkbox-label">
-        Eu aceito os <a href="#" onclick="event.preventDefault()">Termos de Uso</a>
-        e <a href="#" onclick="event.preventDefault()">Política de Privacidade</a>
+    <div class="field-group">
+      <div class="field-wrap">
+        <input type="email" class="field-input" id="login-email" placeholder="E-mail ou telefone" autocomplete="email"/>
       </div>
     </div>
 
-    <button class="btn-primary" id="btn-criar" onclick="criarConta()">
-      <span id="btn-criar-text">Criar conta</span>
-      <div class="btn-loading" id="btn-criar-load"></div>
-    </button>
-  </div>
-</section>
+    <!-- Senha -->
+    <div class="field-group" style="margin-bottom:6px">
+      <div class="field-wrap">
+        <input type="password" class="field-input" id="login-pass" placeholder="Senha" autocomplete="current-password"/>
+        <button class="field-eye" onclick="togglePass('login-pass',this)" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     TELA 6: PREFERÊNCIAS DO VEÍCULO
-═══════════════════════════════════════════════════════ -->
-<section id="screen-vehicle" class="screen">
-  <div class="vehicle-header">
-    <button class="back-btn" onclick="voltarParaLogin()">
-      <i class="fas fa-arrow-left"></i>
-    </button>
-    <div class="vehicle-title-wrap">
-      <div class="vehicle-title">Seu veículo</div>
-      <div class="vehicle-subtitle">Para calcular sua economia<br>com mais precisão.</div>
+    <button class="link-forgot" onclick="forgotPassword()">Esqueci minha senha</button>
+
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+
+    <div id="login-footer">
+      Não tem uma conta? <button class="link-orange" onclick="goToScreen('register')">Cadastre-se</button>
     </div>
   </div>
 
-  <div class="vehicle-body">
-    <div class="vehicle-field">
-      <label>Tipo de veículo</label>
-      <select class="select-custom" id="veh-tipo">
-        <option value="hatch">Hatch</option>
-        <option value="sedan">Sedan</option>
-        <option value="suv" selected>SUV / Picape</option>
-        <option value="moto">Moto</option>
-        <option value="comercial">Comercial / Caminhão</option>
-      </select>
+  <!-- ═══════════════════════════════════════
+       TELA 5: CADASTRO RÁPIDO
+  ═══════════════════════════════════════ -->
+  <div id="screen-register" class="screen-white">
+    <div class="ob-header">
+      <button class="btn-back" onclick="goToScreen('login')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
     </div>
+    <div id="register-body">
+      <h2 id="register-title">Vamos criar<br/>sua conta</h2>
+      <p id="register-sub">É rápido e fácil!</p>
 
-    <div class="vehicle-field">
-      <label>Consumo médio</label>
-      <select class="select-custom" id="veh-consumo">
-        <option value="5">5 km/L</option>
-        <option value="6">6 km/L</option>
-        <option value="7">7 km/L</option>
-        <option value="8" selected>8 km/L</option>
-        <option value="10">10 km/L</option>
-        <option value="12">12 km/L</option>
-        <option value="14">14 km/L</option>
-        <option value="15">15 km/L</option>
-      </select>
+      <!-- Nome -->
+      <div class="field-group">
+        <div class="field-wrap">
+          <input type="text" class="field-input" id="reg-name" placeholder="Nome completo" autocomplete="name"/>
+        </div>
+      </div>
+      <!-- Email -->
+      <div class="field-group">
+        <div class="field-wrap">
+          <input type="email" class="field-input" id="reg-email" placeholder="E-mail" autocomplete="email"/>
+        </div>
+      </div>
+      <!-- Telefone -->
+      <div class="field-group">
+        <div class="field-wrap">
+          <input type="tel" class="field-input" id="reg-phone" placeholder="Telefone (opcional)" autocomplete="tel"/>
+        </div>
+      </div>
+      <!-- Senha -->
+      <div class="field-group">
+        <div class="field-wrap">
+          <input type="password" class="field-input" id="reg-pass" placeholder="Senha" autocomplete="new-password"/>
+          <button class="field-eye" onclick="togglePass('reg-pass',this)" type="button">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Termos -->
+      <div class="terms-row">
+        <div class="terms-check" id="terms-check" onclick="toggleTerms()">
+          <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <p class="terms-text">Eu aceito os <span class="link-orange">Termos de Uso</span> e <span class="link-orange">Política de Privacidade</span></p>
+      </div>
+
+      <div class="flex-spacer"></div>
+      <button class="btn-primary" onclick="doRegister()">Criar conta</button>
     </div>
-
-    <div class="vehicle-field">
-      <label>Capacidade do tanque</label>
-      <select class="select-custom" id="veh-tanque">
-        <option value="30">30 litros</option>
-        <option value="40">40 litros</option>
-        <option value="45">45 litros</option>
-        <option value="50" selected>50 litros</option>
-        <option value="60">60 litros</option>
-        <option value="80">80 litros</option>
-        <option value="100">100 litros</option>
-      </select>
-    </div>
-
-    <div style="height: 8px"></div>
-
-    <button class="btn-primary" onclick="salvarVeiculo()">
-      Continuar <i class="fas fa-arrow-right"></i>
-    </button>
-
-    <button class="btn-secondary" onclick="pularVeiculo()">Pular por enquanto</button>
   </div>
-</section>
 
-<!-- TOAST -->
-<div id="toast-ob"></div>
+  <!-- ═══════════════════════════════════════
+       TELA 6: PREFERÊNCIAS DO VEÍCULO
+  ═══════════════════════════════════════ -->
+  <div id="screen-vehicle" class="screen-white">
+    <div class="ob-header">
+      <button class="btn-back" onclick="goToScreen('register')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
+    <div id="vehicle-body">
+      <h2 id="vehicle-title">Seu veículo</h2>
+      <p id="vehicle-sub">Para calcular sua economia<br/>com mais precisão.</p>
+
+      <!-- Tipo de veículo -->
+      <div class="dropdown-group">
+        <div class="dropdown-label">Tipo de veículo</div>
+        <select class="dropdown-select" id="veh-type">
+          <option>SUV / Picape</option>
+          <option>Carro de passeio</option>
+          <option>Moto</option>
+          <option>Caminhão / Van</option>
+          <option>Elétrico / Híbrido</option>
+        </select>
+      </div>
+
+      <!-- Consumo médio -->
+      <div class="dropdown-group">
+        <div class="dropdown-label">Consumo médio</div>
+        <select class="dropdown-select" id="veh-consumption">
+          <option>6 km/L</option>
+          <option selected>8 km/L</option>
+          <option>10 km/L</option>
+          <option>12 km/L</option>
+          <option>14 km/L</option>
+          <option>16 km/L</option>
+          <option>18 km/L</option>
+          <option>20+ km/L</option>
+        </select>
+      </div>
+
+      <!-- Capacidade do tanque -->
+      <div class="dropdown-group">
+        <div class="dropdown-label">Capacidade do tanque</div>
+        <select class="dropdown-select" id="veh-tank">
+          <option>30 litros</option>
+          <option>40 litros</option>
+          <option selected>50 litros</option>
+          <option>60 litros</option>
+          <option>70 litros</option>
+          <option>80 litros</option>
+          <option>90+ litros</option>
+        </select>
+      </div>
+
+      <div class="flex-spacer"></div>
+      <button class="btn-primary" onclick="saveVehicle()">Continuar</button>
+    </div>
+  </div>
+
+  <!-- Toast e Loading -->
+  <div id="ob-toast"></div>
+  <div id="ob-loading">
+    <div class="ob-spinner"></div>
+    <p class="ob-loading-text">Aguarde...</p>
+  </div>
+
+</div><!-- #ob-root -->
 
 <script>
-// ═══════════════════════════════════════════════
-// NAVEGAÇÃO ENTRE TELAS
-// ═══════════════════════════════════════════════
-let _obFirebaseAuth = null;
-let _obTermosAceitos = true;
+  // ── Estado ──
+  let termsAccepted = true;
+  let currentScreen = 'splash';
 
-function mostrarTela(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  window.scrollTo(0, 0);
-}
+  // ── Navegação ──
+  function goToScreen(id) {
+    // Ocultar todas
+    document.querySelectorAll('.screen-white').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-splash').style.display = 'none';
 
-// Splash → Welcome (após 2.5s)
-setTimeout(() => mostrarTela('screen-welcome'), 2500);
+    if (id === 'splash') {
+      document.getElementById('screen-splash').style.display = 'flex';
+    } else {
+      const el = document.getElementById('screen-' + id);
+      if (el) el.classList.add('active');
+    }
+    currentScreen = id;
+  }
 
-function irParaLocalizacao() {
-  mostrarTela('screen-location');
-}
+  // ── Toggle senha ──
+  function togglePass(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    } else {
+      inp.type = 'password';
+      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+  }
 
-function irParaLogin() {
-  mostrarTela('screen-login');
-}
+  // ── Termos ──
+  function toggleTerms() {
+    termsAccepted = !termsAccepted;
+    const el = document.getElementById('terms-check');
+    el.style.background = termsAccepted ? 'var(--orange)' : 'white';
+    el.style.borderColor = termsAccepted ? 'var(--orange)' : 'var(--border)';
+    el.innerHTML = termsAccepted
+      ? '<svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      : '';
+  }
 
-function irParaCadastro() {
-  mostrarTela('screen-register');
-}
+  // ── Toast ──
+  function showToast(msg, duration = 2500) {
+    const t = document.getElementById('ob-toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+  }
 
-function voltarParaLogin() {
-  mostrarTela('screen-login');
-}
+  // ── Loading ──
+  function showLoading(show) {
+    document.getElementById('ob-loading').classList.toggle('show', show);
+  }
 
-function irParaVeiculo() {
-  mostrarTela('screen-vehicle');
-}
-
-function solicitarLocalizacao() {
-  if ('geolocation' in navigator) {
+  // ── Localização ──
+  function requestLocation() {
+    if (!navigator.geolocation) {
+      showToast('Localização não suportada');
+      goToScreen('login');
+      return;
+    }
+    showLoading(true);
     navigator.geolocation.getCurrentPosition(
-      () => irParaLogin(),
-      () => irParaLogin(),
-      { timeout: 8000 }
+      pos => {
+        showLoading(false);
+        localStorage.setItem('rp_lat', pos.coords.latitude);
+        localStorage.setItem('rp_lng', pos.coords.longitude);
+        showToast('Localização obtida! ✓');
+        setTimeout(() => goToScreen('login'), 800);
+      },
+      err => {
+        showLoading(false);
+        showToast('Localização não permitida');
+        goToScreen('login');
+      },
+      { timeout: 10000 }
     );
-  } else {
-    irParaLogin();
   }
-}
 
-// ═══════════════════════════════════════════════
-// UI HELPERS
-// ═══════════════════════════════════════════════
-function toast(msg, dur = 3000) {
-  const t = document.getElementById('toast-ob');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), dur);
-}
-
-function toggleSenha() {
-  const inp = document.getElementById('ob-senha');
-  const ico = document.getElementById('toggle-senha');
-  if (inp.type === 'password') {
-    inp.type = 'text'; ico.className = 'fas fa-eye-slash input-eye';
-  } else {
-    inp.type = 'password'; ico.className = 'fas fa-eye input-eye';
+  // ── Google Login ──
+  function loginGoogle() {
+    if (!window._fbSignInWithPopup || !window._fbGoogleProvider) {
+      showToast('Carregando Firebase...');
+      return;
+    }
+    showLoading(true);
+    window._fbSignInWithPopup(window._fbAuth, window._fbGoogleProvider)
+      .then(result => {
+        showLoading(false);
+        const user = result.user;
+        localStorage.setItem('rp_user', JSON.stringify({ uid: user.uid, name: user.displayName, email: user.email, photo: user.photoURL }));
+        window.location.href = '/app';
+      })
+      .catch(err => {
+        showLoading(false);
+        if (err.code !== 'auth/popup-closed-by-user') showToast('Erro no login: ' + err.message);
+      });
   }
-}
 
-function toggleTermos() {
-  _obTermosAceitos = !_obTermosAceitos;
-  const cb = document.getElementById('checkbox-termos');
-  if (_obTermosAceitos) cb.classList.add('checked');
-  else cb.classList.remove('checked');
-}
+  // ── Login email/senha ──
+  async function doLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const pass = document.getElementById('login-pass').value;
+    if (!email || !pass) { showToast('Preencha email e senha'); return; }
 
-function setBtnLoading(btnId, loadId, loading) {
-  const btn = document.getElementById(btnId);
-  const txt = document.getElementById(btnId + '-text');
-  const load = document.getElementById(loadId);
-  btn.disabled = loading;
-  txt.style.display = loading ? 'none' : 'inline';
-  load.style.display = loading ? 'block' : 'none';
-}
-
-function mostrarErroLogin(msg) {
-  const el = document.getElementById('auth-erro-login');
-  el.textContent = msg;
-  el.classList.add('show');
-}
-
-function mostrarErroReg(msg) {
-  const el = document.getElementById('auth-erro-reg');
-  el.textContent = msg;
-  el.classList.add('show');
-}
-
-function limparErros() {
-  document.querySelectorAll('.auth-error').forEach(el => {
-    el.textContent = '';
-    el.classList.remove('show');
-  });
-}
-
-function traduzirErroAuth(code) {
-  const erros = {
-    'auth/user-not-found':     'Conta não encontrada. Verifique o e-mail.',
-    'auth/wrong-password':     'Senha incorreta. Tente novamente.',
-    'auth/invalid-email':      'E-mail inválido.',
-    'auth/email-already-in-use': 'Este e-mail já está cadastrado.',
-    'auth/weak-password':      'Senha precisa ter pelo menos 6 caracteres.',
-    'auth/too-many-requests':  'Muitas tentativas. Aguarde alguns minutos.',
-    'auth/network-request-failed': 'Sem conexão. Verifique sua internet.',
-    'auth/popup-closed-by-user': 'Login cancelado.',
-    'auth/invalid-credential': 'E-mail ou senha incorretos.',
-  };
-  return erros[code] || 'Erro ao autenticar. Tente novamente.';
-}
-
-// ═══════════════════════════════════════════════
-// FIREBASE AUTH
-// ═══════════════════════════════════════════════
-function fazerLogin() {
-  limparErros();
-  const email = document.getElementById('ob-email').value.trim();
-  const senha = document.getElementById('ob-senha').value;
-  if (!email || !senha) { mostrarErroLogin('Preencha e-mail e senha.'); return; }
-  if (!window._fbSignInWithEmailAndPassword || !_obFirebaseAuth) {
-    toast('Autenticação não carregada. Aguarde...');
-    return;
-  }
-  setBtnLoading('btn-entrar', 'btn-entrar-load', true);
-  window._fbSignInWithEmailAndPassword(_obFirebaseAuth, email, senha)
-    .then(result => {
-      window._firebaseUser = result.user;
-      salvarUserLocal(result.user);
-      window.location.href = '/app';
-    })
-    .catch(err => {
-      setBtnLoading('btn-entrar', 'btn-entrar-load', false);
-      mostrarErroLogin(traduzirErroAuth(err.code));
-    });
-}
-
-function criarConta() {
-  limparErros();
-  const nome = document.getElementById('ob-nome').value.trim();
-  const email = document.getElementById('ob-email-reg').value.trim();
-  const senha = document.getElementById('ob-senha-reg').value;
-  if (!nome) { mostrarErroReg('Informe seu nome completo.'); return; }
-  if (!email) { mostrarErroReg('Informe seu e-mail.'); return; }
-  if (senha.length < 6) { mostrarErroReg('Senha precisa ter pelo menos 6 caracteres.'); return; }
-  if (!_obTermosAceitos) { mostrarErroReg('Aceite os termos para continuar.'); return; }
-  if (!window._fbCreateUserWithEmailAndPassword || !_obFirebaseAuth) {
-    toast('Autenticação não carregada. Aguarde...');
-    return;
-  }
-  setBtnLoading('btn-criar', 'btn-criar-load', true);
-  window._fbCreateUserWithEmailAndPassword(_obFirebaseAuth, email, senha)
-    .then(result => {
-      window._firebaseUser = result.user;
-      salvarUserLocal(result.user, nome);
-      irParaVeiculo();
-    })
-    .catch(err => {
-      setBtnLoading('btn-criar', 'btn-criar-load', false);
-      mostrarErroReg(traduzirErroAuth(err.code));
-    });
-}
-
-function salvarVeiculo() {
-  const tipo    = document.getElementById('veh-tipo').value;
-  const consumo = document.getElementById('veh-consumo').value;
-  const tanque  = document.getElementById('veh-tanque').value;
-  localStorage.setItem('rp_veiculo', JSON.stringify({ tipo, consumo, tanque }));
-  toast('Preferências salvas!');
-  setTimeout(() => window.location.href = '/app', 800);
-}
-
-function pularVeiculo() {
-  window.location.href = '/app';
-}
-
-function salvarUserLocal(user, nome) {
-  const data = {
-    uid: user.uid,
-    email: user.email,
-    nome: nome || user.displayName || user.email?.split('@')[0] || 'Usuário',
-    foto: user.photoURL || null,
-    plano: 'gratuito',
-    ultimoLogin: Date.now()
-  };
-  localStorage.setItem('rp_user', JSON.stringify(data));
-}
-
-function loginGoogle() {
-  toast('Login com Google em breve...');
-}
-
-function loginApple() {
-  toast('Login com Apple em breve...');
-}
-
-function esqueciSenha() {
-  const email = document.getElementById('ob-email').value.trim();
-  if (!email) { mostrarErroLogin('Digite seu e-mail primeiro.'); return; }
-  if (!window._fbSendPasswordResetEmail || !_obFirebaseAuth) {
-    toast('Autenticação não carregada.');
-    return;
-  }
-  window._fbSendPasswordResetEmail(_obFirebaseAuth, email)
-    .then(() => toast('E-mail de recuperação enviado! Verifique sua caixa.', 4000))
-    .catch(() => toast('Não foi possível enviar. Verifique o e-mail.'));
-}
-
-// ═══════════════════════════════════════════════
-// FIREBASE INIT
-// ═══════════════════════════════════════════════
-function initFirebaseOB() {
-  if (!window._fbGetAuth || !window._fbFirebaseApp) return;
-  try {
-    _obFirebaseAuth = window._fbGetAuth(window._fbFirebaseApp);
-    window._fbOnAuthStateChanged(_obFirebaseAuth, user => {
-      if (user) {
-        const tela = document.querySelector('.screen.active')?.id;
-        if (tela === 'screen-login' || tela === 'screen-register' ||
-            tela === 'screen-splash' || tela === 'screen-welcome' ||
-            tela === 'screen-location') {
-          salvarUserLocal(user);
-          window.location.href = '/app';
-        }
+    showLoading(true);
+    try {
+      const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + encodeURIComponent('AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass, returnSecureToken: true })
+      });
+      const data = await res.json();
+      showLoading(false);
+      if (data.idToken) {
+        localStorage.setItem('rp_user', JSON.stringify({ uid: data.localId, email: data.email, token: data.idToken }));
+        window.location.href = '/app';
+      } else {
+        const msg = data.error?.message || 'Erro ao entrar';
+        if (msg.includes('EMAIL_NOT_FOUND') || msg.includes('INVALID_LOGIN_CREDENTIALS')) showToast('Email ou senha incorretos');
+        else if (msg.includes('INVALID_PASSWORD')) showToast('Senha incorreta');
+        else showToast(msg);
       }
-    });
-  } catch(e) { console.warn('[OB] Firebase init error:', e); }
-}
-
-// Tentar init assim que possível
-let _fbRetry = 0;
-function tryInitFB() {
-  if (window._fbGetAuth && window._fbFirebaseApp) {
-    initFirebaseOB();
-  } else if (_fbRetry++ < 20) {
-    setTimeout(tryInitFB, 300);
+    } catch {
+      showLoading(false);
+      showToast('Erro de conexão. Tente novamente.');
+    }
   }
-}
-tryInitFB();
 
-// Service Worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
-    .then(reg => { reg.update(); })
-    .catch(() => {});
-}
+  // ── Cadastro ──
+  async function doRegister() {
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const pass = document.getElementById('reg-pass').value;
+
+    if (!name || !email || !pass) { showToast('Preencha todos os campos'); return; }
+    if (pass.length < 6) { showToast('Senha precisa ter ao menos 6 caracteres'); return; }
+    if (!termsAccepted) { showToast('Aceite os Termos de Uso'); return; }
+
+    showLoading(true);
+    try {
+      const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + encodeURIComponent('AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass, displayName: name, returnSecureToken: true })
+      });
+      const data = await res.json();
+      showLoading(false);
+      if (data.idToken) {
+        localStorage.setItem('rp_user', JSON.stringify({ uid: data.localId, name, email, token: data.idToken }));
+        showToast('Conta criada com sucesso! 🎉');
+        setTimeout(() => goToScreen('vehicle'), 800);
+      } else {
+        const msg = data.error?.message || 'Erro ao criar conta';
+        if (msg.includes('EMAIL_EXISTS')) showToast('Este email já está cadastrado');
+        else if (msg.includes('WEAK_PASSWORD')) showToast('Senha muito fraca');
+        else showToast(msg);
+      }
+    } catch {
+      showLoading(false);
+      showToast('Erro de conexão. Tente novamente.');
+    }
+  }
+
+  // ── Esqueci senha ──
+  async function forgotPassword() {
+    const email = document.getElementById('login-email').value.trim();
+    if (!email) { showToast('Digite seu email primeiro'); return; }
+    showLoading(true);
+    try {
+      await fetch('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=' + encodeURIComponent('AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestType: 'PASSWORD_RESET', email })
+      });
+      showLoading(false);
+      showToast('Email de recuperação enviado! ✓');
+    } catch {
+      showLoading(false);
+      showToast('Erro ao enviar email');
+    }
+  }
+
+  // ── Salvar veículo e ir pro app ──
+  function saveVehicle() {
+    const type = document.getElementById('veh-type').value;
+    const consumption = document.getElementById('veh-consumption').value;
+    const tank = document.getElementById('veh-tank').value;
+    localStorage.setItem('rp_vehicle', JSON.stringify({ type, consumption: parseInt(consumption), tank: parseInt(tank) }));
+    showToast('Tudo pronto! 🚗');
+    setTimeout(() => window.location.href = '/app', 600);
+  }
+
+  // ── Init: verificar se já logado ──
+  (function init() {
+    // Registrar SW
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    // Se já tem usuário logado → vai direto pro app
+    const user = localStorage.getItem('rp_user');
+    if (user) {
+      try {
+        const u = JSON.parse(user);
+        if (u.uid) {
+          window.location.href = '/app';
+          return;
+        }
+      } catch {}
+    }
+  })();
 </script>
 </body>
-</html>`
+</html>`;
 }

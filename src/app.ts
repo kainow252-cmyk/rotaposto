@@ -1,1780 +1,1597 @@
 // ═══════════════════════════════════════════════════════════════════════
-//  RotaPosto – App Principal (Telas 7-11)
-//  PWA NATIVO: fullscreen, sem barra de browser, touch nativo
-//  Dark theme #0B121E · laranja #FF6D00 · verde #22C55E
+//  RotaPosto – App Principal (Telas 7-12)
+//  Design pixel-perfect conforme referências do usuário
+//  Tema: BRANCO com laranja #FF6D00, mapa claro
 // ═══════════════════════════════════════════════════════════════════════
-
-import { GOOGLE_CLIENT_ID, getFirebaseAuthScripts } from './auth'
 
 export function getAppHTML(firebaseScripts: string): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <!-- FULLSCREEN NATIVO — sem barra de URL, sem controles de browser -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
-
-  <!-- PWA: comportamento 100% nativo -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#FFFFFF"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
-  <meta name="application-name" content="RotaPosto"/>
-
-  <!-- Theme: escurece a status bar do Android -->
-  <meta name="theme-color" content="#0B121E" media="(prefers-color-scheme: dark)"/>
-  <meta name="theme-color" content="#0B121E"/>
-  <meta name="msapplication-TileColor" content="#0B121E"/>
-  <meta name="msapplication-navbutton-color" content="#0B121E"/>
-
-  <!-- SEO / OG -->
-  <meta name="description" content="Encontre o posto de combustível mais barato perto de você."/>
-  <meta property="og:title" content="RotaPosto"/>
-  <meta property="og:image" content="/icons/icon-512x512.png"/>
-  <meta name="google-signin-client_id" content="${GOOGLE_CLIENT_ID}"/>
   <title>RotaPosto</title>
-
-  <!-- Manifest PWA -->
   <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
-  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png"/>
-  <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png"/>
-  <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144x144.png"/>
-  <!-- Apple splash screens (remove barra de URL no iOS) -->
-  <meta name="apple-touch-fullscreen" content="yes"/>
-
-  <!-- Fonts -->
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Firebase -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
   ${firebaseScripts}
-
   <style>
-    /* ══════════════════════════════════════════════════
-       RESET ABSOLUTO — zero aparência de website
-    ══════════════════════════════════════════════════ */
-    *, *::before, *::after {
-      margin: 0; padding: 0; box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-    /* Permitir seleção só em inputs */
-    input, textarea { -webkit-user-select: text; user-select: text; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
     :root {
-      --bg:       #0B121E;
-      --bg2:      #0F1A2B;
-      --card:     #151E2D;
-      --card2:    #1A2435;
-      --card3:    #1F2D40;
-      --border:   rgba(255,255,255,0.07);
-      --border2:  rgba(255,255,255,0.13);
-      --laranja:  #FF6D00;
-      --laranja2: #FF8C00;
-      --verde:    #22C55E;
-      --azul:     #3B82F6;
-      --branco:   #FFFFFF;
-      --t1:       rgba(255,255,255,0.90);
-      --t2:       rgba(255,255,255,0.55);
-      --t3:       rgba(255,255,255,0.25);
-      --radius:   16px;
-      --radius-sm:12px;
-
-      /* Safe areas (notch / home bar) */
+      --orange: #FF6D00;
+      --orange-dark: #E65100;
+      --orange-light: #FFF3E0;
+      --black: #1A1A1A;
+      --gray-dark: #444;
+      --gray: #777;
+      --gray-light: #BBB;
+      --gray-bg: #F5F5F5;
+      --gray-card: #FAFAFA;
+      --white: #FFFFFF;
+      --green: #00C853;
+      --green-text: #2E7D32;
+      --green-bg: #E8F5E9;
+      --red: #E53935;
+      --red-bg: #FFEBEE;
+      --blue: #1565C0;
+      --border: #E0E0E0;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      --shadow-strong: 0 4px 24px rgba(0,0,0,0.15);
+      --radius: 16px;
+      --radius-sm: 10px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-
-      /* Altura da bottom nav (inclui home bar) */
-      --nav-h: calc(60px + var(--sab));
-      /* Padding-top das views (inclui notch) */
-      --pt: calc(var(--sat) + 12px);
+      --nav-h: 64px;
+      --header-h: 110px;
     }
 
-    /* FULLSCREEN REAL: ocupa 100% da tela física */
-    html {
-      height: 100%;
-      height: 100dvh;
-      background: var(--bg);
+    html, body {
+      width: 100%; height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--gray-bg);
       overflow: hidden;
     }
-    body {
-      width: 100%;
-      height: 100%;
-      height: 100dvh;
-      background: var(--bg);
-      font-family: 'Raleway', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      color: var(--t1);
-      overflow: hidden;
-      position: fixed; /* Bloqueia scroll do body — comportamento de app */
-      top: 0; left: 0; right: 0; bottom: 0;
-      overscroll-behavior: none;
-    }
 
-    /* ══════════════════════════════════════════════════
-       ESTRUTURA PRINCIPAL: fullscreen stack
-    ══════════════════════════════════════════════════ */
+    /* ── LAYOUT PRINCIPAL ── */
     #app-root {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg);
+      width: 100%; height: 100dvh;
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      background: var(--white);
       overflow: hidden;
     }
 
-    /* Área de conteúdo (acima do nav) */
-    #app-content {
-      flex: 1;
+    /* ══════════════════════════════════════════════
+       HEADER FIXO (Telas 7 e 8)
+    ══════════════════════════════════════════════ */
+    #app-header {
+      background: var(--white);
+      padding: calc(var(--sat) + 14px) 20px 0;
+      border-bottom: 1px solid var(--border);
+      position: relative; z-index: 200;
+    }
+
+    .header-row-1 {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .btn-menu {
+      width: 40px; height: 40px;
+      display: flex; flex-direction: column; justify-content: center; gap: 5px;
+      background: none; border: none; cursor: pointer; padding: 4px;
+    }
+    .btn-menu span {
+      display: block; width: 22px; height: 2px;
+      background: var(--black); border-radius: 2px;
+    }
+
+    .header-logo {
+      font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+    }
+    .header-logo .rota { color: var(--black); }
+    .header-logo .posto { color: var(--orange); }
+
+    .btn-bell {
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--black);
       position: relative;
-      overflow: hidden;
+    }
+    .btn-bell svg { width: 22px; height: 22px; }
+    .bell-dot {
+      position: absolute; top: 7px; right: 7px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--orange); border: 1.5px solid var(--white);
+    }
+
+    /* Barra de busca */
+    .search-bar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .search-wrap { flex: 1; position: relative; }
+    .search-wrap svg {
+      position: absolute; left: 13px; top: 50%;
+      transform: translateY(-50%);
+      width: 18px; height: 18px; color: var(--gray);
+    }
+    .search-input {
+      width: 100%; padding: 11px 12px 11px 38px;
+      background: var(--gray-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px; color: var(--black);
+      outline: none;
+    }
+    .search-input::placeholder { color: var(--gray-light); }
+    .btn-filter {
+      width: 42px; height: 42px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: 1px solid var(--border);
+      border-radius: 10px; cursor: pointer; color: var(--gray-dark);
+    }
+
+    /* Chips combustível */
+    .chips-row {
+      display: flex; gap: 8px;
+      overflow-x: auto; scrollbar-width: none;
+      padding-bottom: 12px;
+    }
+    .chips-row::-webkit-scrollbar { display: none; }
+    .chip-fuel {
+      padding: 7px 16px; border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 600;
+      color: var(--gray-dark); cursor: pointer;
+      white-space: nowrap; flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .chip-fuel.active {
+      background: var(--black); border-color: var(--black); color: var(--white);
+    }
+
+    /* ══════════════════════════════════════════════
+       CONTEÚDO / VIEWS
+    ══════════════════════════════════════════════ */
+    #app-content {
+      flex: 1; overflow: hidden; position: relative;
+    }
+
+    .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; }
+    .view.active { display: flex; flex-direction: column; }
+
+    /* ══════════════════════════════════════════════
+       TELA 7: MAPA
+    ══════════════════════════════════════════════ */
+    #view-mapa {
+      position: relative;
+    }
+
+    #map-leaflet {
+      flex: 1; width: 100%;
       min-height: 0;
     }
 
-    /* ══════════════════════════════════════════════════
-       VIEWS — slides que cobrem a tela toda
-    ══════════════════════════════════════════════════ */
-    .view {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg);
-      visibility: hidden;
-      pointer-events: none;
-      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s;
-      transform: translateX(20px);
-      opacity: 0;
-    }
-    .view.active {
-      visibility: visible;
-      pointer-events: all;
-      transform: translateX(0);
-      opacity: 1;
-    }
-    .view.slide-left {
-      transform: translateX(-20px);
-      opacity: 0;
+    /* Card inferior: Melhor posto próximo */
+    #map-card {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: var(--white);
+      border-radius: var(--radius) var(--radius) 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+      padding: 16px 20px calc(var(--sab) + 16px);
+      z-index: 500;
     }
 
-    /* ══════════════════════════════════════════════════
-       BOTTOM NAV — estilo app nativo
-    ══════════════════════════════════════════════════ */
-    #bottom-nav {
-      position: relative;
-      z-index: 100;
-      background: var(--card);
-      border-top: 1px solid var(--border2);
-      display: flex;
-      flex-shrink: 0;
-      height: var(--nav-h);
-      padding-bottom: var(--sab);
+    .map-card-label {
+      font-size: 12px; font-weight: 600;
+      color: var(--gray); margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .nav-btn {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      border: none;
-      background: none;
-      color: var(--t3);
-      font-family: 'Raleway', sans-serif;
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-      cursor: pointer;
-      padding: 8px 4px 4px;
-      transition: color 0.18s;
-      -webkit-tap-highlight-color: transparent;
-      position: relative;
-    }
-    .nav-btn i {
-      font-size: 22px;
-      line-height: 1;
-      transition: transform 0.15s, color 0.18s;
-    }
-    .nav-btn.active {
-      color: var(--laranja);
-    }
-    .nav-btn.active i {
-      transform: scale(1.08);
-    }
-    /* Indicador ativo */
-    .nav-btn.active::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 25%; right: 25%;
-      height: 2px;
-      background: var(--laranja);
-      border-radius: 0 0 2px 2px;
-    }
-
-    /* ══════════════════════════════════════════════════
-       HEADER NATIVO
-    ══════════════════════════════════════════════════ */
-    .app-header {
-      padding-top: var(--pt);
-      padding-left: 16px;
-      padding-right: 16px;
-      padding-bottom: 12px;
-      background: var(--bg);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-shrink: 0;
-      position: relative;
-      z-index: 10;
-    }
-    .header-title {
-      font-size: 18px;
-      font-weight: 900;
-      color: var(--t1);
-      letter-spacing: -0.3px;
-    }
-    .logo-text {
-      font-size: 22px;
-      font-weight: 900;
-      color: var(--t1);
-      letter-spacing: -0.5px;
-    }
-    .logo-text span { color: var(--laranja); }
-    .icon-btn {
-      width: 38px; height: 38px;
-      background: var(--card);
-      border: 1px solid var(--border2);
-      border-radius: 12px;
-      color: var(--t1); font-size: 16px;
-      cursor: pointer;
+    .btn-close-card {
+      width: 28px; height: 28px;
+      background: var(--gray-bg); border: none; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
+      cursor: pointer; color: var(--gray);
+    }
+
+    .map-posto-row {
+      display: flex; align-items: center; gap: 14px;
+    }
+
+    .posto-logo-circle {
+      width: 48px; height: 48px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+      border: 2px solid var(--border);
+      overflow: hidden; background: var(--white);
+    }
+    .posto-logo-circle img {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+
+    .map-posto-info { flex: 1; min-width: 0; }
+    .map-posto-nome {
+      font-size: 16px; font-weight: 800; color: var(--black);
+      margin-bottom: 4px;
+    }
+    .map-posto-preco {
+      font-size: 22px; font-weight: 900; color: var(--orange);
+      margin-bottom: 2px;
+    }
+    .map-posto-dist {
+      font-size: 13px; color: var(--gray); font-weight: 500;
+    }
+
+    .btn-ir-ata-la {
+      padding: 12px 20px;
+      background: var(--orange); border: none; border-radius: 12px;
+      color: var(--white); font-family: 'Inter', sans-serif;
+      font-size: 15px; font-weight: 700;
+      cursor: pointer; flex-shrink: 0;
+      transition: opacity 0.2s;
+    }
+    .btn-ir-ata-la:active { opacity: 0.85; }
+
+    /* Balões de preço no mapa */
+    .price-balloon {
+      padding: 5px 10px; border-radius: 6px;
+      font-size: 13px; font-weight: 700; color: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      cursor: pointer; white-space: nowrap;
+    }
+    .price-balloon.green { background: #00A651; }
+    .price-balloon.orange { background: #FF6D00; }
+    .price-balloon.red { background: #E53935; }
+
+    /* ══════════════════════════════════════════════
+       TELA 8: LISTA DE POSTOS
+    ══════════════════════════════════════════════ */
+    #view-lista {
+      overflow-y: auto;
+    }
+
+    #lista-container {
+      padding: 8px 0 calc(var(--sab) + 80px);
+    }
+
+    .posto-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer; background: var(--white);
       transition: background 0.15s;
     }
-    .icon-btn:active { background: var(--card2); }
+    .posto-item:active { background: var(--gray-bg); }
 
-    /* ══════════════════════════════════════════════════
-       TELA 7: MAPA
-    ══════════════════════════════════════════════════ */
-    #view-mapa { overflow: hidden; }
-
-    #map-wrap {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-      min-height: 0;
-    }
-    #leaflet-map {
-      position: absolute;
-      inset: 0;
-      background: #1a2535;
-    }
-
-    /* Barra de busca flutuante sobre o mapa */
-    .map-search-bar {
-      position: absolute;
-      top: 12px; left: 12px; right: 12px;
-      z-index: 50;
-    }
-    .map-search-inner {
-      display: flex;
-      align-items: center;
-      background: var(--card);
-      border: 1px solid var(--border2);
-      border-radius: 14px;
-      padding: 0 14px;
-      height: 46px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    }
-    .map-search-inner i { color: var(--t2); margin-right: 10px; font-size: 15px; }
-    .map-search-inner input {
-      flex: 1; background: none; border: none;
-      color: var(--t1); font-family: 'Raleway', sans-serif;
-      font-size: 14px; font-weight: 500; outline: none;
-    }
-    .map-search-inner input::placeholder { color: var(--t2); }
-
-    /* Botão localizar */
-    #btn-locate {
-      position: absolute;
-      right: 12px;
-      bottom: calc(var(--card-melhor-h, 160px) + 16px);
-      width: 44px; height: 44px;
-      background: var(--card);
-      border: 1px solid var(--border2);
-      border-radius: 50%;
-      color: var(--t1); font-size: 18px;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-      z-index: 50;
-      transition: all 0.15s;
-    }
-    #btn-locate:active { background: var(--card2); transform: scale(0.94); }
-
-    /* Card do melhor posto flutuante */
-    #card-melhor {
-      position: absolute;
-      bottom: 12px; left: 12px; right: 12px;
-      background: var(--card);
-      border-radius: var(--radius);
-      border: 1px solid var(--border2);
-      padding: 14px;
-      z-index: 50;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
-      display: none;
-    }
-    #card-melhor.show { display: block; }
-
-    .card-label {
-      font-size: 10px; font-weight: 800;
-      color: var(--verde);
-      text-transform: uppercase; letter-spacing: 1px;
-      margin-bottom: 10px;
-      display: flex; align-items: center; gap: 5px;
-    }
-    .card-body {
-      display: flex; align-items: center; gap: 12px;
-      margin-bottom: 12px;
-    }
-    .posto-emoji {
-      width: 46px; height: 46px;
-      background: white;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
-    .card-nome { font-size: 16px; font-weight: 800; color: var(--t1); }
-    .card-meta { font-size: 12px; font-weight: 500; color: var(--t2); margin-top: 2px; }
-    .card-preco { font-size: 22px; font-weight: 900; color: var(--verde); margin-left: auto; flex-shrink: 0; }
-
-    .btn-laranja {
-      width: 100%; height: 50px;
-      background: var(--laranja);
-      border: none; border-radius: 14px;
-      color: white; font-family: 'Raleway', sans-serif;
-      font-size: 16px; font-weight: 800;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      transition: all 0.15s;
-      box-shadow: 0 4px 16px rgba(255,109,0,0.35);
-      -webkit-tap-highlight-color: transparent;
-    }
-    .btn-laranja:active { transform: scale(0.97); box-shadow: none; }
-
-    /* ══════════════════════════════════════════════════
-       TELA 8: LISTA
-    ══════════════════════════════════════════════════ */
-    #view-lista { }
-
-    /* Chips de combustível */
-    .fuel-row {
-      display: flex; gap: 8px;
-      padding: 0 16px 12px;
-      overflow-x: auto;
-      scrollbar-width: none;
-      flex-shrink: 0;
-    }
-    .fuel-row::-webkit-scrollbar { display: none; }
-    .fuel-chip {
-      height: 34px;
-      padding: 0 16px;
-      border-radius: 100px;
-      border: 1.5px solid var(--border2);
-      background: transparent;
-      color: var(--t2);
-      font-family: 'Raleway', sans-serif;
-      font-size: 13px; font-weight: 700;
-      cursor: pointer; white-space: nowrap;
-      transition: all 0.18s;
-      flex-shrink: 0;
-    }
-    .fuel-chip.active {
-      background: var(--laranja);
-      border-color: var(--laranja);
-      color: white;
-    }
-
-    /* Barra de busca da lista */
-    .list-search {
-      padding: 0 16px 10px;
-      flex-shrink: 0;
-    }
-    .list-search-inner {
-      display: flex; align-items: center;
-      background: var(--card);
-      border: 1.5px solid var(--border);
-      border-radius: 12px;
-      padding: 0 14px; height: 44px;
-    }
-    .list-search-inner i { color: var(--t2); margin-right: 10px; }
-    .list-search-inner input {
-      flex: 1; background: none; border: none;
-      color: var(--t1); font-family: 'Raleway', sans-serif;
-      font-size: 14px; font-weight: 500; outline: none;
-    }
-    .list-search-inner input::placeholder { color: var(--t2); }
-
-    /* Scroll da lista */
-    #lista-scroll {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
-      padding: 4px 16px 16px;
-    }
-    #lista-scroll::-webkit-scrollbar { display: none; }
-
-    /* Card de posto */
-    .posto-card {
-      background: var(--card);
+    .posto-brand-logo {
+      width: 50px; height: 50px; border-radius: 50%;
+      flex-shrink: 0; overflow: hidden;
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-      margin-bottom: 10px;
-      display: flex; align-items: center; gap: 12px;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .posto-card:active { background: var(--card2); border-color: var(--border2); }
-    .posto-logo {
-      width: 46px; height: 46px;
-      background: white; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      font-size: 24px; background: var(--white);
     }
-    .posto-info { flex: 1; min-width: 0; }
-    .posto-nome {
-      font-size: 15px; font-weight: 800; color: var(--t1);
+
+    .posto-item-info { flex: 1; min-width: 0; }
+    .posto-item-nome {
+      font-size: 15px; font-weight: 700; color: var(--black);
+      margin-bottom: 4px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .posto-sub {
-      display: flex; align-items: center; gap: 6px;
-      margin-top: 3px;
+    .posto-item-rating {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 13px; color: var(--gray-dark);
     }
-    .posto-stars { color: #FBBF24; font-size: 11px; font-weight: 800; }
-    .posto-dist { font-size: 11px; font-weight: 500; color: var(--t2); }
-    .posto-preco-wrap { text-align: right; flex-shrink: 0; }
-    .posto-preco {
-      font-size: 18px; font-weight: 900; color: var(--t1);
+    .star-icon { color: #FFC107; font-size: 13px; }
+    .rating-val { font-weight: 600; color: var(--gray-dark); }
+    .green-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green); flex-shrink: 0;
+    }
+
+    .posto-item-preco {
+      text-align: right; flex-shrink: 0;
+    }
+    .posto-item-preco .preco-val {
+      font-size: 17px; font-weight: 800; color: var(--black);
       white-space: nowrap;
     }
-    .posto-preco.best { color: var(--verde); }
-    .posto-time { font-size: 11px; font-weight: 500; color: var(--t2); margin-top: 2px; }
-    .badge-best {
-      display: inline-flex; align-items: center; gap: 3px;
-      background: rgba(34,197,94,0.12);
-      border: 1px solid rgba(34,197,94,0.25);
-      color: var(--verde);
-      font-size: 9px; font-weight: 800;
-      padding: 2px 7px; border-radius: 100px;
-      text-transform: uppercase; letter-spacing: 0.5px;
-      margin-top: 4px;
+    .posto-item-preco .preco-unit {
+      font-size: 12px; font-weight: 500; color: var(--gray);
+    }
+    .posto-item-preco .dist-txt {
+      font-size: 12px; color: var(--gray);
+      margin-top: 3px;
     }
 
-    /* ══════════════════════════════════════════════════
+    /* ══════════════════════════════════════════════
        TELA 9: DETALHES DO POSTO
-    ══════════════════════════════════════════════════ */
-    #view-detalhes { }
-    #det-scroll {
-      flex: 1;
+    ══════════════════════════════════════════════ */
+    #view-detalhes {
       overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
+      background: var(--white);
     }
-    #det-scroll::-webkit-scrollbar { display: none; }
 
-    /* Capa do posto */
-    .det-capa {
-      width: 100%; height: 210px;
-      position: relative;
-      background: linear-gradient(160deg, #1A2435, #0F1B2D);
-      flex-shrink: 0;
+    #det-header {
+      position: relative; height: 220px; flex-shrink: 0;
+      background: linear-gradient(135deg, #1A1A2E, #2D2D44);
       overflow: hidden;
     }
-    .det-capa-icon {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 10px;
-    }
-    .det-capa-icon i { font-size: 56px; color: var(--laranja); opacity: 0.5; }
-    .det-capa-overlay {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      height: 60%;
-      background: linear-gradient(transparent, rgba(11,18,30,0.9));
-    }
-    .det-back {
-      position: absolute;
-      top: calc(var(--sat) + 10px); left: 14px;
-      width: 38px; height: 38px;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: none; border-radius: 10px;
-      color: white; font-size: 16px;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .det-logo {
-      position: absolute;
-      bottom: 14px; left: 16px;
-      width: 54px; height: 54px;
-      background: white; border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 30px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+
+    #det-hero-img {
+      width: 100%; height: 100%; object-fit: cover; opacity: 0.7;
     }
 
-    /* Conteúdo detalhes */
-    .det-body { padding: 14px 16px; }
-    .det-nome { font-size: 22px; font-weight: 900; color: var(--t1); margin-bottom: 4px; }
-    .det-end { font-size: 13px; font-weight: 500; color: var(--t2); margin-bottom: 10px; }
-    .det-rating-row {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
-      flex-wrap: wrap;
+    .det-overlay-btns {
+      position: absolute; top: calc(var(--sat) + 12px); left: 0; right: 0;
+      padding: 0 16px;
+      display: flex; justify-content: space-between; align-items: center;
     }
-    .stars-row { display: flex; align-items: center; gap: 4px; color: #FBBF24; font-size: 15px; font-weight: 800; }
-    .stars-row i { font-size: 14px; }
-    .avl-count { font-size: 13px; font-weight: 500; color: var(--t2); }
+    .det-btn-icon {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(0,0,0,0.35); border: none;
+      display: flex; align-items: center; justify-content: center;
+      color: white; cursor: pointer; backdrop-filter: blur(4px);
+    }
+    .det-btn-group { display: flex; gap: 8px; }
+
+    #det-logo-badge {
+      position: absolute; bottom: -24px; left: 20px;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: white; border: 3px solid white;
+      box-shadow: var(--shadow);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; overflow: hidden;
+    }
+
+    #det-body {
+      padding: 36px 20px 20px;
+    }
+
+    #det-nome {
+      font-size: 22px; font-weight: 800; color: var(--black);
+      margin-bottom: 4px;
+    }
+    #det-endereco {
+      font-size: 13px; color: var(--gray); line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    #det-info-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 18px;
+    }
+    .det-stars { display: flex; gap: 2px; }
+    .det-star { color: #FFC107; font-size: 15px; }
+    .det-rating-count { font-size: 13px; color: var(--gray); }
     .badge-aberto {
-      background: rgba(34,197,94,0.15);
-      border: 1px solid rgba(34,197,94,0.3);
-      color: var(--verde);
-      font-size: 11px; font-weight: 800;
       padding: 3px 10px; border-radius: 100px;
-      text-transform: uppercase; letter-spacing: 0.5px;
+      background: var(--green-bg); color: var(--green-text);
+      font-size: 12px; font-weight: 700;
     }
 
-    /* Card preço principal */
-    .preco-card-principal {
-      background: rgba(34,197,94,0.10);
-      border: 1px solid rgba(34,197,94,0.2);
+    /* Card preço destaque */
+    #det-preco-destaque {
+      background: var(--green-bg);
+      border: 1px solid rgba(0,200,83,0.2);
       border-radius: var(--radius-sm);
       padding: 14px 16px;
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 10px; cursor: pointer;
-    }
-    .pcp-label { font-size: 12px; font-weight: 700; color: var(--t2); margin-bottom: 4px; }
-    .pcp-valor { font-size: 28px; font-weight: 900; color: var(--verde); line-height: 1; }
-    .pcp-unit { font-size: 14px; font-weight: 600; color: var(--t2); }
-    .pcp-arrow { color: var(--verde); font-size: 18px; }
-
-    /* Tabela outros combustíveis */
-    .outros-precos {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      overflow: hidden;
       margin-bottom: 16px;
-    }
-    .preco-linha {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 16px;
+    }
+    .det-comb-nome { font-size: 13px; font-weight: 600; color: var(--green-text); }
+    .det-comb-preco { font-size: 22px; font-weight: 900; color: var(--green-text); }
+    .det-arrow svg { width: 18px; height: 18px; color: var(--green-text); }
+
+    /* Lista combustíveis */
+    .det-fuel-list { margin-bottom: 20px; }
+    .det-fuel-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0;
       border-bottom: 1px solid var(--border);
     }
-    .preco-linha:last-child { border-bottom: none; }
-    .pl-label { font-size: 14px; font-weight: 600; color: var(--t2); }
-    .pl-valor { font-size: 15px; font-weight: 800; color: var(--t1); }
+    .det-fuel-row:last-child { border-bottom: none; }
+    .det-fuel-nome { font-size: 14px; color: var(--gray-dark); font-weight: 500; }
+    .det-fuel-price { font-size: 14px; font-weight: 700; color: var(--black); }
 
-    /* Botões de ação detalhes */
-    .det-actions {
-      display: flex; gap: 10px;
-      margin-bottom: 16px;
+    /* Botões ação */
+    .det-btns {
+      display: flex; gap: 10px; margin-bottom: 28px;
     }
-    .btn-outline {
-      flex: 1; height: 48px;
-      background: transparent;
-      border: 2px solid var(--laranja);
-      border-radius: 14px;
-      color: var(--laranja);
-      font-family: 'Raleway', sans-serif;
-      font-size: 14px; font-weight: 800;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      transition: all 0.15s;
+    .btn-como-chegar {
+      flex: 1; padding: 14px;
+      background: var(--white); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px; font-weight: 700; color: var(--black);
+      cursor: pointer; transition: background 0.15s;
     }
-    .btn-outline:active { background: rgba(255,109,0,0.1); transform: scale(0.97); }
-    .btn-solid {
-      flex: 1; height: 48px;
-      background: var(--laranja);
-      border: none; border-radius: 14px;
-      color: white;
-      font-family: 'Raleway', sans-serif;
-      font-size: 14px; font-weight: 800;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      transition: all 0.15s;
+    .btn-como-chegar:active { background: var(--gray-bg); }
+    .btn-ir-la {
+      flex: 1; padding: 14px;
+      background: var(--orange); border: none;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px; font-weight: 700; color: var(--white);
+      cursor: pointer; transition: opacity 0.2s;
     }
-    .btn-solid:active { transform: scale(0.97); }
+    .btn-ir-la:active { opacity: 0.85; }
 
-    /* Review */
-    .reviews-section { }
-    .sec-title {
-      font-size: 16px; font-weight: 800; color: var(--t1);
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 12px;
+    /* Avaliações */
+    .det-section-title {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px;
     }
-    .sec-link { font-size: 13px; font-weight: 700; color: var(--laranja); cursor: pointer; }
+    .det-section-title h3 { font-size: 16px; font-weight: 800; color: var(--black); }
+    .link-ver-todas { font-size: 13px; font-weight: 600; color: var(--orange); background: none; border: none; cursor: pointer; }
+
     .review-card {
-      background: var(--card);
-      border: 1px solid var(--border);
+      background: var(--gray-card);
       border-radius: var(--radius-sm);
       padding: 14px;
     }
-    .rv-header {
+    .review-header {
       display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
     }
-    .rv-avatar {
-      width: 38px; height: 38px;
-      background: linear-gradient(135deg, var(--laranja), var(--laranja2));
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px; font-weight: 900; color: white; flex-shrink: 0;
+    .review-avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      object-fit: cover; flex-shrink: 0;
+      background: #DDD;
     }
-    .rv-nome { font-size: 14px; font-weight: 800; color: var(--t1); }
-    .rv-data { font-size: 12px; font-weight: 500; color: var(--t2); }
-    .rv-stars { margin-left: auto; color: #FBBF24; display: flex; gap: 2px; }
-    .rv-stars i { font-size: 13px; }
-    .rv-texto { font-size: 13px; font-weight: 500; color: var(--t2); line-height: 1.5; }
+    .review-name { font-size: 14px; font-weight: 700; color: var(--black); }
+    .review-date { font-size: 12px; color: var(--gray); }
+    .review-stars { color: #FFC107; font-size: 14px; margin-bottom: 6px; }
+    .review-text { font-size: 13px; color: var(--gray-dark); line-height: 1.5; }
 
-    /* ══════════════════════════════════════════════════
+    /* ══════════════════════════════════════════════
        TELA 10: PLANEJAR ROTA
-    ══════════════════════════════════════════════════ */
-    #view-planejar { overflow: hidden; }
+    ══════════════════════════════════════════════ */
+    #view-planejar {
+      background: var(--white);
+      overflow-y: auto;
+    }
 
-    .planejar-header {
-      padding-top: var(--pt);
-      padding: calc(var(--pt)) 16px 14px;
-      background: var(--bg);
-      flex-shrink: 0;
+    #plan-header {
+      display: flex; align-items: center; gap: 14px;
+      padding: calc(var(--sat) + 16px) 20px 16px;
       border-bottom: 1px solid var(--border);
     }
-    .ph-row {
-      display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+    #plan-title {
+      font-size: 18px; font-weight: 800; color: var(--black);
     }
-    .ph-title { font-size: 18px; font-weight: 800; color: var(--t1); }
+    .btn-back-plan {
+      width: 38px; height: 38px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--black);
+    }
 
-    /* Inputs de origem/destino */
-    .rota-form { display: flex; flex-direction: column; gap: 8px; }
-    .rota-row { display: flex; align-items: center; gap: 12px; }
-    .rota-dot {
-      width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+    #plan-body { padding: 20px; }
+
+    /* Campos de rota */
+    .route-fields {
+      background: var(--gray-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden; margin-bottom: 16px;
     }
-    .rota-dot.origin { background: #4ADE80; }
-    .rota-dot.dest { background: #EF4444; }
-    .rota-linha-v {
-      width: 2px; height: 18px; background: var(--border2);
-      margin: 0 5px; flex-shrink: 0;
+    .route-field {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
     }
-    .rota-input {
-      flex: 1; height: 44px;
-      background: var(--card);
-      border: 1.5px solid var(--border);
-      border-radius: 12px;
-      padding: 0 14px;
-      color: var(--t1);
-      font-family: 'Raleway', sans-serif;
-      font-size: 14px; font-weight: 500; outline: none;
+    .route-field + .route-field {
+      border-top: 1px solid var(--border);
     }
-    .rota-input::placeholder { color: var(--t2); }
-    .rota-input:focus { border-color: var(--laranja); }
+    .route-dot-origin {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #1565C0; flex-shrink: 0;
+    }
+    .route-dot-dest {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--red); flex-shrink: 0;
+    }
+    .route-field-content { flex: 1; }
+    .route-field-label { font-size: 11px; color: var(--gray); font-weight: 500; }
+    .route-field-val { font-size: 14px; font-weight: 600; color: var(--black); }
+    .btn-target {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--gray);
+    }
+
+    /* Badge melhor rota */
+    .route-stats-badge {
+      background: var(--gray-bg);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      margin-bottom: 16px;
+    }
+    .route-stats-label { font-size: 11px; color: var(--gray); font-weight: 500; margin-bottom: 6px; }
+    .route-stats-vals {
+      display: flex; align-items: center; gap: 16px;
+    }
+    .route-stat {
+      font-size: 20px; font-weight: 800; color: var(--black);
+    }
+    .route-stat-sep { width: 1px; height: 24px; background: var(--border); }
 
     /* Mapa da rota */
-    #rota-map-wrap {
-      flex: 1; position: relative; overflow: hidden; min-height: 0;
+    #plan-map {
+      height: 240px; border-radius: var(--radius-sm);
+      overflow: hidden; margin-bottom: 16px;
+      border: 1px solid var(--border);
     }
-    #rota-map { position: absolute; inset: 0; background: #1a2535; }
 
-    /* Card resumo rota */
-    .rota-resumo {
-      position: absolute;
-      top: 14px; left: 14px; right: 14px;
-      background: var(--card);
-      border: 1px solid var(--border2);
+    /* Card posto destino */
+    .plan-posto-card {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--gray-card);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      padding: 14px;
-      display: none; gap: 20px; align-items: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.45);
-      z-index: 50;
+      padding: 14px 16px;
+      margin-bottom: 20px;
     }
-    .rota-resumo.show { display: flex; }
-    .rr-stat { text-align: center; }
-    .rr-val { font-size: 22px; font-weight: 900; color: var(--t1); }
-    .rr-label { font-size: 11px; font-weight: 700; color: var(--t2); margin-top: 2px; }
-    .rr-div { width: 1px; height: 34px; background: var(--border2); }
+    .plan-posto-logo {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .plan-posto-info { flex: 1; }
+    .plan-posto-nome { font-size: 14px; font-weight: 700; color: var(--black); margin-bottom: 2px; }
+    .plan-posto-end { font-size: 12px; color: var(--gray); }
+    .plan-posto-preco { font-size: 15px; font-weight: 800; color: var(--black); }
+    .plan-preco-unit { font-size: 11px; color: var(--gray); font-weight: 500; }
 
-    /* Botão iniciar navegação */
-    .btn-nav {
-      position: absolute;
-      bottom: 16px; left: 14px; right: 14px;
-      height: 54px;
-      background: var(--laranja);
-      border: none; border-radius: 16px;
-      color: white; font-family: 'Raleway', sans-serif;
-      font-size: 16px; font-weight: 800;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      cursor: pointer;
-      box-shadow: 0 6px 20px rgba(255,109,0,0.4);
-      z-index: 50;
-      transition: all 0.15s;
+    .btn-iniciar-nav {
+      width: 100%; padding: 17px;
+      background: var(--orange); border: none; border-radius: 14px;
+      color: var(--white); font-family: 'Inter', sans-serif;
+      font-size: 17px; font-weight: 700;
+      cursor: pointer; transition: opacity 0.2s;
     }
-    .btn-nav:active { transform: scale(0.97); box-shadow: none; }
+    .btn-iniciar-nav:active { opacity: 0.85; }
 
-    /* ══════════════════════════════════════════════════
-       TELA 11: RELATÓRIOS / PERFIL
-    ══════════════════════════════════════════════════ */
-    #view-perfil { }
-    #perfil-scroll {
-      flex: 1;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
-      padding: 12px 16px 16px;
+    /* ══════════════════════════════════════════════
+       TELA 11: RELATÓRIOS
+    ══════════════════════════════════════════════ */
+    #view-relatorios {
+      overflow-y: auto; background: var(--white);
     }
-    #perfil-scroll::-webkit-scrollbar { display: none; }
+
+    #rel-header {
+      padding: calc(var(--sat) + 20px) 20px 0;
+      text-align: center;
+    }
+    #rel-title {
+      font-size: 20px; font-weight: 800; color: var(--black);
+      margin-bottom: 16px;
+    }
 
     /* Tabs período */
     .period-tabs {
-      display: flex;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 4px; margin-bottom: 18px;
+      display: flex; background: var(--gray-bg);
+      border-radius: 10px; padding: 3px;
+      margin-bottom: 20px;
     }
     .period-tab {
-      flex: 1; height: 36px;
-      background: transparent; border: none; border-radius: 9px;
-      color: var(--t2); font-family: 'Raleway', sans-serif;
-      font-size: 13px; font-weight: 700; cursor: pointer;
-      transition: all 0.2s;
+      flex: 1; padding: 8px;
+      border: none; border-radius: 8px;
+      background: none; font-family: 'Inter', sans-serif;
+      font-size: 14px; font-weight: 600; color: var(--gray);
+      cursor: pointer; transition: all 0.2s; text-align: center;
     }
     .period-tab.active {
-      background: var(--card3); color: var(--t1);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      background: var(--white); color: var(--black);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
     }
 
     /* Navegação mês */
-    .month-row {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 14px;
+    .month-nav {
+      display: flex; align-items: center; justify-content: center; gap: 20px;
+      margin-bottom: 24px;
     }
-    .month-btn {
-      width: 34px; height: 34px;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--t2); font-size: 14px;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s;
+    .btn-month {
+      width: 32px; height: 32px;
+      background: none; border: none; cursor: pointer;
+      color: var(--gray-dark); font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
     }
-    .month-btn:active { background: var(--card2); }
-    .month-label { font-size: 14px; font-weight: 700; color: var(--t2); }
+    .month-label { font-size: 15px; font-weight: 600; color: var(--black); }
 
-    /* Card economia */
-    .eco-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 22px 16px;
-      text-align: center;
-      margin-bottom: 14px;
+    /* Valor total economizado */
+    #rel-total {
+      text-align: center; margin-bottom: 20px;
     }
-    .eco-label { font-size: 11px; font-weight: 800; color: var(--t2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
-    .eco-valor { font-size: 42px; font-weight: 900; color: var(--verde); line-height: 1; margin-bottom: 6px; }
-    .eco-sub { font-size: 12px; font-weight: 500; color: var(--t2); }
+    .rel-total-val {
+      font-size: 42px; font-weight: 900; color: var(--green);
+      line-height: 1; margin-bottom: 4px;
+    }
+    .rel-total-label { font-size: 14px; color: var(--gray); font-weight: 500; }
 
-    /* Grid stats */
-    .stats-grid {
+    /* Cards de stats */
+    .rel-cards-grid {
       display: grid; grid-template-columns: 1fr 1fr;
-      gap: 10px; margin-bottom: 14px;
+      gap: 10px; padding: 0 20px; margin-bottom: 10px;
     }
-    .stat-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 16px;
+    .rel-stat-card {
+      background: var(--gray-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px;
     }
-    .sc-label { font-size: 11px; font-weight: 700; color: var(--t2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .sc-val { font-size: 26px; font-weight: 900; color: var(--t1); }
+    .rel-stat-label { font-size: 12px; color: var(--gray); font-weight: 500; margin-bottom: 6px; }
+    .rel-stat-val { font-size: 22px; font-weight: 800; color: var(--black); }
 
-    /* Eco litro */
-    .eco-litro-row {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
+    .rel-econ-litro {
+      margin: 0 20px 24px;
+      background: var(--gray-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px 16px;
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 14px;
     }
-    .el-label { font-size: 14px; font-weight: 600; color: var(--t2); }
-    .el-val { font-size: 22px; font-weight: 900; color: var(--verde); display: flex; align-items: center; gap: 6px; }
+    .rel-econ-label { font-size: 12px; color: var(--gray); font-weight: 500; margin-bottom: 4px; }
+    .rel-econ-val { font-size: 18px; font-weight: 800; color: var(--black); }
 
-    /* Ranking */
-    .ranking-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden; margin-bottom: 14px;
-    }
-    .ranking-title {
-      padding: 14px 16px 10px;
-      font-size: 14px; font-weight: 800; color: var(--t1);
-      border-bottom: 1px solid var(--border);
-    }
-    .ranking-row {
+    /* Postos mais abastecidos */
+    .rel-section { padding: 0 20px; }
+    .rel-section-title { font-size: 15px; font-weight: 800; color: var(--black); margin-bottom: 14px; }
+
+    .rel-posto-row {
       display: flex; align-items: center; gap: 12px;
-      padding: 12px 16px;
+      padding: 12px 0;
       border-bottom: 1px solid var(--border);
     }
-    .ranking-row:last-child { border-bottom: none; }
-    .rk-logo {
-      width: 36px; height: 36px; border-radius: 50%; background: white;
-      display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
-    }
-    .rk-nome { flex: 1; font-size: 14px; font-weight: 700; color: var(--t1); }
-    .rk-vez { font-size: 13px; font-weight: 600; color: var(--t2); }
-
-    /* Card perfil usuário */
-    .user-card {
-      background: var(--card);
+    .rel-posto-row:last-child { border-bottom: none; }
+    .rel-posto-logo {
+      width: 38px; height: 38px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 22px 16px;
-      text-align: center; margin-bottom: 14px;
     }
-    .user-avatar {
-      width: 70px; height: 70px;
-      background: linear-gradient(135deg, var(--laranja), var(--laranja2));
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 26px; font-weight: 900; color: white;
-      margin: 0 auto 12px;
-    }
-    .user-nome { font-size: 18px; font-weight: 900; color: var(--t1); margin-bottom: 4px; }
-    .user-email { font-size: 13px; font-weight: 500; color: var(--t2); margin-bottom: 14px; }
-    .user-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: rgba(255,109,0,0.12);
-      border: 1px solid rgba(255,109,0,0.25);
-      color: var(--laranja);
-      font-size: 12px; font-weight: 800;
-      padding: 5px 14px; border-radius: 100px;
-      text-transform: uppercase;
-    }
-    .btn-sair {
-      width: 100%; height: 48px;
-      background: transparent;
-      border: 1.5px solid rgba(239,68,68,0.3);
-      border-radius: 14px;
-      color: #EF4444;
-      font-family: 'Raleway', sans-serif;
-      font-size: 14px; font-weight: 800;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      transition: all 0.15s;
-    }
-    .btn-sair:active { background: rgba(239,68,68,0.08); }
+    .rel-posto-nome { flex: 1; font-size: 14px; font-weight: 600; color: var(--black); }
+    .rel-posto-vezes { font-size: 13px; color: var(--gray); font-weight: 500; }
 
-    /* ══════════════════════════════════════════════════
-       TOAST NATIVO
-    ══════════════════════════════════════════════════ */
-    #toast {
-      position: fixed;
-      bottom: calc(var(--nav-h) + 20px);
-      left: 16px; right: 16px;
-      background: rgba(20,30,48,0.96);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      color: var(--t1);
-      padding: 13px 18px;
-      border-radius: 14px;
-      border: 1px solid var(--border2);
-      font-size: 14px; font-weight: 600;
-      text-align: center;
-      z-index: 9999;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      transform: translateY(20px);
-      opacity: 0;
-      transition: transform 0.25s ease, opacity 0.25s ease;
-      pointer-events: none;
-    }
-    #toast.show {
-      transform: translateY(0);
-      opacity: 1;
+    /* ══════════════════════════════════════════════
+       TELA 12: PERFIL / MENU
+    ══════════════════════════════════════════════ */
+    #view-perfil {
+      overflow-y: auto;
+      background: var(--gray-bg);
     }
 
-    /* ══════════════════════════════════════════════════
-       LOADING SPLASH
-    ══════════════════════════════════════════════════ */
-    #loading {
-      position: fixed; inset: 0;
-      background: var(--bg);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 24px; z-index: 9000;
-      transition: opacity 0.4s;
+    /* Header dark perfil */
+    #perfil-header {
+      background: #1A1A2E;
+      padding: calc(var(--sat) + 28px) 20px 28px;
+      display: flex; align-items: center; gap: 16px;
     }
-    #loading.fade { opacity: 0; pointer-events: none; }
-    .loading-logo {
-      display: flex; align-items: center; gap: 10px;
+
+    #perfil-avatar {
+      width: 72px; height: 72px; border-radius: 50%;
+      object-fit: cover; flex-shrink: 0;
+      background: #333;
+      border: 3px solid rgba(255,255,255,0.2);
     }
-    .loading-icon {
-      width: 50px; height: 50px;
-      background: linear-gradient(135deg, var(--laranja), var(--laranja2));
-      border-radius: 15px;
+
+    #perfil-info { flex: 1; }
+    #perfil-ola {
+      font-size: 20px; font-weight: 800; color: var(--white);
+      margin-bottom: 6px;
+    }
+    .badge-premium {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 100px;
+      background: rgba(255,193,7,0.2); color: #FFC107;
+      font-size: 12px; font-weight: 700; margin-bottom: 4px;
+    }
+    #perfil-validade { font-size: 12px; color: rgba(255,255,255,0.55); }
+
+    /* Lista de menu */
+    #perfil-menu-list {
+      background: var(--white);
+      margin: 0; border-radius: 0;
+    }
+
+    .menu-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 17px 20px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer; background: var(--white);
+      transition: background 0.15s;
+    }
+    .menu-item:active { background: var(--gray-bg); }
+    .menu-item:last-child { border-bottom: none; }
+
+    .menu-item-icon {
+      width: 22px; height: 22px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 26px;
-      box-shadow: 0 8px 24px rgba(255,109,0,0.4);
+      color: var(--gray); flex-shrink: 0;
     }
-    .loading-logo-text { font-size: 30px; font-weight: 900; color: var(--t1); }
-    .loading-logo-text span { color: var(--laranja); }
-    .loading-spinner {
-      width: 36px; height: 36px;
-      border: 3px solid var(--border2);
-      border-top-color: var(--laranja);
+    .menu-item-icon svg { width: 20px; height: 20px; }
+    .menu-item-label { flex: 1; font-size: 15px; font-weight: 500; color: var(--black); }
+    .menu-item-arrow { color: var(--gray-light); }
+    .menu-item-arrow svg { width: 16px; height: 16px; }
+
+    /* Sair */
+    .menu-item-sair .menu-item-icon { color: var(--red); }
+    .menu-item-sair .menu-item-label { color: var(--red); }
+
+    /* ══════════════════════════════════════════════
+       BOTTOM NAV
+    ══════════════════════════════════════════════ */
+    #bottom-nav {
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: stretch;
+      padding-bottom: var(--sab);
+      height: calc(var(--nav-h) + var(--sab));
+      position: relative; z-index: 300;
+      flex-shrink: 0;
+    }
+
+    .nav-item {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px;
+      padding: 8px 4px;
+      background: none; border: none; cursor: pointer;
+      color: var(--gray-light); font-family: 'Inter', sans-serif;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.2px;
+      transition: color 0.2s;
+    }
+    .nav-item svg { width: 22px; height: 22px; }
+    .nav-item.active { color: var(--orange); }
+
+    /* ══════════════════════════════════════════════
+       UTILITÁRIOS
+    ══════════════════════════════════════════════ */
+    #app-toast {
+      position: fixed; bottom: calc(var(--sab) + var(--nav-h) + 14px);
+      left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #333; color: white;
+      padding: 10px 20px; border-radius: 100px;
+      font-size: 13px; font-weight: 600;
+      opacity: 0; transition: opacity 0.3s, transform 0.3s;
+      z-index: 9999; pointer-events: none; white-space: nowrap;
+    }
+    #app-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    #app-loading {
+      position: fixed; inset: 0; background: rgba(255,255,255,0.9);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: 14px; z-index: 9999;
+    }
+    #app-loading.show { display: flex; }
+    .app-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(255,109,0,0.2);
+      border-top-color: var(--orange);
       border-radius: 50%;
-      animation: spin 0.7s linear infinite;
+      animation: spin 0.8s linear infinite;
     }
-    .loading-txt { font-size: 13px; font-weight: 600; color: var(--t2); }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ══════════════════════════════════════════════════
-       LEAFLET DARK OVERRIDES
-    ══════════════════════════════════════════════════ */
-    .leaflet-container { background: #1A2535 !important; font-family: 'Raleway', sans-serif !important; }
-    .leaflet-tile-pane { filter: brightness(0.88) saturate(0.75); }
-    .leaflet-control-zoom { border: 1px solid var(--border2) !important; border-radius: 12px !important; overflow: hidden; }
-    .leaflet-control-zoom a { background: var(--card) !important; color: var(--t1) !important; border: none !important; width: 34px !important; height: 34px !important; line-height: 34px !important; font-size: 18px !important; }
-    .leaflet-control-zoom a:hover { background: var(--card2) !important; }
-    .leaflet-control-attribution { display: none !important; }
-    .leaflet-popup-content-wrapper { background: var(--card) !important; border: 1px solid var(--border2) !important; border-radius: 12px !important; box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important; color: var(--t1) !important; }
-    .leaflet-popup-tip { background: var(--card) !important; }
+    .empty-state {
+      padding: 60px 30px; text-align: center;
+    }
+    .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state h3 { font-size: 18px; font-weight: 800; color: var(--black); margin-bottom: 8px; }
+    .empty-state p { font-size: 14px; color: var(--gray); line-height: 1.6; }
 
-    /* Pin de preço */
-    .price-pin {
-      background: var(--laranja);
-      color: white; font-size: 12px; font-weight: 900;
-      padding: 5px 10px; border-radius: 20px;
-      white-space: nowrap;
-      box-shadow: 0 3px 12px rgba(255,109,0,0.55);
-      border: 2px solid rgba(255,255,255,0.2);
-      cursor: pointer; position: relative;
-    }
-    .price-pin::after {
-      content: ''; position: absolute;
-      bottom: -6px; left: 50%; transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-top: 6px solid var(--laranja);
-    }
-    .price-pin.best { background: var(--verde); box-shadow: 0 3px 12px rgba(34,197,94,0.55); }
-    .price-pin.best::after { border-top-color: var(--verde); }
+    /* Leaflet overrides */
+    .leaflet-control-attribution { display: none !important; }
+    .leaflet-container { font-family: 'Inter', sans-serif !important; }
   </style>
 </head>
 <body>
-
-<!-- ══════════════════ LOADING ══════════════════ -->
-<div id="loading">
-  <div class="loading-logo">
-    <div class="loading-icon">⛽</div>
-    <div class="loading-logo-text">Rota<span>Posto</span></div>
-  </div>
-  <div class="loading-spinner"></div>
-  <div class="loading-txt">Localizando postos próximos...</div>
-</div>
-
-<!-- ══════════════════ APP ROOT ══════════════════ -->
 <div id="app-root">
 
-  <!-- ────── ÁREA DE CONTEÚDO ────── -->
+  <!-- ══════════════════════════════════
+       HEADER (visível em Mapa e Lista)
+  ══════════════════════════════════ -->
+  <div id="app-header" style="display:none">
+    <div class="header-row-1">
+      <button class="btn-menu" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="header-logo"><span class="rota">Rota</span><span class="posto">Posto</span></div>
+      <button class="btn-bell" onclick="showToast('Nenhuma notificação')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <div class="bell-dot"></div>
+      </button>
+    </div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" id="search-input" placeholder="Buscar cidade ou endereço" oninput="onSearchInput(this.value)" onkeydown="if(event.key==='Enter') doSearch()"/>
+      </div>
+      <button class="btn-filter" onclick="showToast('Filtros em breve')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="chips-row" id="chips-row">
+      <button class="chip-fuel active" onclick="selectFuel('gasolina',this)">Gasolina</button>
+      <button class="chip-fuel" onclick="selectFuel('etanol',this)">Etanol</button>
+      <button class="chip-fuel" onclick="selectFuel('diesel',this)">Diesel</button>
+      <button class="chip-fuel" onclick="selectFuel('gnv',this)">GNV</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       CONTEÚDO
+  ══════════════════════════════════ -->
   <div id="app-content">
 
-    <!-- ════════════════════════════════════════
-         TELA 7: MAPA
-    ════════════════════════════════════════ -->
-    <section class="view active" id="view-mapa">
-      <!-- Header -->
-      <div class="app-header">
-        <button class="icon-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
-        <div class="logo-text">Rota<span>Posto</span></div>
-        <button class="icon-btn" onclick="abrirNotifs()">
-          <i class="fas fa-bell"></i>
-        </button>
-      </div>
-
-      <!-- Mapa -->
-      <div id="map-wrap">
-        <div id="leaflet-map"></div>
-
-        <!-- Busca flutuante -->
-        <div class="map-search-bar">
-          <div class="map-search-inner">
-            <i class="fas fa-search"></i>
-            <input type="text" id="mapa-busca" placeholder="Buscar cidade ou endereço" oninput="debounceBusca(this.value)"/>
-          </div>
-        </div>
-
-        <!-- Localizar -->
-        <button id="btn-locate" onclick="centralizarMapa()">
-          <i class="fas fa-location-arrow"></i>
-        </button>
-
-        <!-- Card melhor posto -->
-        <div id="card-melhor">
-          <div class="card-label"><i class="fas fa-star"></i> Melhor posto próximo</div>
-          <div class="card-body">
-            <div class="posto-emoji" id="cm-emoji">🐚</div>
-            <div style="flex:1;min-width:0">
-              <div class="card-nome" id="cm-nome">Posto Shell</div>
-              <div class="card-meta" id="cm-meta">1,2 km · 3 min · ★ 4,6</div>
-            </div>
-            <div class="card-preco" id="cm-preco">R$ 5,67</div>
-          </div>
-          <button class="btn-laranja" onclick="irAteMapa()">
-            <i class="fas fa-route"></i> Ir até lá
+    <!-- TELA 7: MAPA -->
+    <div id="view-mapa" class="view active">
+      <div id="map-leaflet"></div>
+      <div id="map-card">
+        <div class="map-card-label">
+          Melhor posto próximo
+          <button class="btn-close-card" onclick="document.getElementById('map-card').style.display='none'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         TELA 8: LISTA DE POSTOS
-    ════════════════════════════════════════ -->
-    <section class="view" id="view-lista">
-      <!-- Header -->
-      <div class="app-header">
-        <div style="width:38px"></div>
-        <div class="logo-text">Rota<span>Posto</span></div>
-        <button class="icon-btn" onclick="abrirNotifs()"><i class="fas fa-bell"></i></button>
-      </div>
-
-      <!-- Busca -->
-      <div class="list-search">
-        <div class="list-search-inner">
-          <i class="fas fa-search"></i>
-          <input type="text" placeholder="Buscar nesta área" oninput="filtrarLista(this.value)"/>
-        </div>
-      </div>
-
-      <!-- Chips combustível -->
-      <div class="fuel-row" id="fuel-tabs">
-        <button class="fuel-chip active" onclick="setFuel('gasolina',this)">Gasolina</button>
-        <button class="fuel-chip" onclick="setFuel('etanol',this)">Etanol</button>
-        <button class="fuel-chip" onclick="setFuel('diesel',this)">Diesel</button>
-        <button class="fuel-chip" onclick="setFuel('gnv',this)">GNV</button>
-      </div>
-
-      <!-- Lista -->
-      <div id="lista-scroll">
-        <div style="text-align:center;padding:60px 0;color:var(--t2)">
-          <i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:14px;display:block"></i>
-          Buscando postos...
-        </div>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         TELA 9: DETALHES DO POSTO
-    ════════════════════════════════════════ -->
-    <section class="view" id="view-detalhes">
-      <div id="det-scroll">
-        <!-- Capa -->
-        <div class="det-capa">
-          <div class="det-capa-icon">
-            <i class="fas fa-gas-pump"></i>
+        <div class="map-posto-row">
+          <div class="posto-logo-circle" id="map-card-logo">🐚</div>
+          <div class="map-posto-info">
+            <div class="map-posto-nome" id="map-card-nome">Posto Shell</div>
+            <div class="map-posto-preco" id="map-card-preco">R$ 5,67 /L</div>
+            <div class="map-posto-dist" id="map-card-dist">1,2 km • 3 min</div>
           </div>
-          <div class="det-capa-overlay"></div>
-          <button class="det-back" onclick="voltarLista()"><i class="fas fa-arrow-left"></i></button>
-          <div class="det-logo" id="det-logo">🐚</div>
+          <button class="btn-ir-ata-la" onclick="irAteLa()">Ir até lá</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TELA 8: LISTA -->
+    <div id="view-lista" class="view">
+      <div id="lista-container">
+        <div class="empty-state" id="lista-empty" style="display:none">
+          <div class="empty-state-icon">⛽</div>
+          <h3>Nenhum posto encontrado</h3>
+          <p>Tente uma área diferente ou mude o combustível</p>
+        </div>
+        <div id="lista-postos"></div>
+      </div>
+    </div>
+
+    <!-- TELA 9: DETALHES -->
+    <div id="view-detalhes" class="view">
+      <div id="det-header">
+        <img id="det-hero-img" src="https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&q=70" alt="Posto"/>
+        <div class="det-overlay-btns">
+          <button class="det-btn-icon" onclick="goToView('lista')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div class="det-btn-group">
+            <button class="det-btn-icon" onclick="shareStation()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </button>
+            <button class="det-btn-icon" onclick="toggleFavorite()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="det-logo-badge">🐚</div>
+      </div>
+
+      <div id="det-body">
+        <h1 id="det-nome">Posto Shell</h1>
+        <p id="det-endereco">Av. Rebouças, 1234 – Pinheiros<br/>São Paulo – SP</p>
+
+        <div id="det-info-row">
+          <div class="det-stars" id="det-stars">
+            <span class="det-star">★</span><span class="det-star">★</span>
+            <span class="det-star">★</span><span class="det-star">★</span>
+            <span class="det-star">★</span>
+          </div>
+          <span class="det-rating-count" id="det-rating-count">4,6 (128 avaliações)</span>
+          <span class="badge-aberto">Aberto 24h</span>
         </div>
 
-        <!-- Body -->
-        <div class="det-body">
-          <div class="det-nome" id="det-nome">Posto Shell</div>
-          <div class="det-end" id="det-end">Av. Rebouças, 1234 – Pinheiros, SP</div>
-          <div class="det-rating-row">
-            <div class="stars-row">
-              <i class="fas fa-star"></i>
-              <span id="det-rating">4,6</span>
-            </div>
-            <span class="avl-count" id="det-avl">(128 avaliações)</span>
-            <span class="badge-aberto">Aberto agora</span>
+        <!-- Preço destaque -->
+        <div id="det-preco-destaque">
+          <div>
+            <div class="det-comb-nome" id="det-comb-nome">Gasolina Comum</div>
+            <div class="det-comb-preco" id="det-comb-preco">R$ 5,67 /L</div>
           </div>
+          <div class="det-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
 
-          <!-- Preço destaque -->
-          <div class="preco-card-principal">
+        <!-- Lista combustíveis -->
+        <div class="det-fuel-list" id="det-fuel-list">
+          <div class="det-fuel-row">
+            <span class="det-fuel-nome">Etanol</span>
+            <span class="det-fuel-price">R$ 3,89</span>
+          </div>
+          <div class="det-fuel-row">
+            <span class="det-fuel-nome">Diesel S10</span>
+            <span class="det-fuel-price">R$ 6,19</span>
+          </div>
+          <div class="det-fuel-row">
+            <span class="det-fuel-nome">GNV</span>
+            <span class="det-fuel-price">R$ 4,49</span>
+          </div>
+        </div>
+
+        <!-- Botões -->
+        <div class="det-btns">
+          <button class="btn-como-chegar" onclick="openMaps()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Como chegar
+          </button>
+          <button class="btn-ir-la" onclick="irAteLa()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Ir até lá
+          </button>
+        </div>
+
+        <!-- Avaliações -->
+        <div class="det-section-title">
+          <h3>Avaliações</h3>
+          <button class="link-ver-todas" onclick="showToast('Ver todas em breve')">Ver todas</button>
+        </div>
+        <div class="review-card">
+          <div class="review-header">
+            <img src="https://i.pravatar.cc/80?u=joao" class="review-avatar" alt="João M."/>
             <div>
-              <div class="pcp-label" id="det-comb">Gasolina Comum</div>
-              <div class="pcp-valor" id="det-preco">R$ 5,67 <span class="pcp-unit">/L</span></div>
-            </div>
-            <i class="fas fa-chevron-right pcp-arrow"></i>
-          </div>
-
-          <!-- Outros combustíveis -->
-          <div class="outros-precos">
-            <div class="preco-linha">
-              <span class="pl-label">Etanol</span>
-              <span class="pl-valor" id="det-etanol">R$ 3,89</span>
-            </div>
-            <div class="preco-linha">
-              <span class="pl-label">Diesel S10</span>
-              <span class="pl-valor" id="det-diesel">R$ 6,19</span>
-            </div>
-            <div class="preco-linha">
-              <span class="pl-label">GNV</span>
-              <span class="pl-valor" id="det-gnv">R$ 4,49</span>
+              <div class="review-name">João M.</div>
+              <div class="review-date">Hoje</div>
             </div>
           </div>
-
-          <!-- Ações -->
-          <div class="det-actions">
-            <button class="btn-outline" onclick="comoChegar()">
-              <i class="fas fa-map-marker-alt"></i> Como chegar
-            </button>
-            <button class="btn-solid" onclick="irAtePosto()">
-              <i class="fas fa-route"></i> Ir até lá
-            </button>
-          </div>
-
-          <!-- Reviews -->
-          <div class="reviews-section">
-            <div class="sec-title">
-              Avaliações
-              <span class="sec-link">Ver todas</span>
-            </div>
-            <div class="review-card">
-              <div class="rv-header">
-                <div class="rv-avatar">J</div>
-                <div>
-                  <div class="rv-nome">João M.</div>
-                  <div class="rv-data">Hoje</div>
-                </div>
-                <div class="rv-stars">
-                  <i class="fas fa-star"></i><i class="fas fa-star"></i>
-                  <i class="fas fa-star"></i><i class="fas fa-star"></i>
-                  <i class="fas fa-star"></i>
-                </div>
-              </div>
-              <div class="rv-texto">Ótimo atendimento e preço justo!</div>
-            </div>
-          </div>
+          <div class="review-stars">★★★★★</div>
+          <div class="review-text">Ótimo atendimento e preço justo!</div>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- ════════════════════════════════════════
-         TELA 10: PLANEJAR ROTA
-    ════════════════════════════════════════ -->
-    <section class="view" id="view-planejar">
-      <div class="planejar-header">
-        <div class="ph-row">
-          <button class="icon-btn" onclick="irPara('view-mapa')"><i class="fas fa-arrow-left"></i></button>
-          <div class="ph-title">Planejar rota</div>
-        </div>
-        <div class="rota-form">
-          <div class="rota-row">
-            <div class="rota-dot origin"></div>
-            <input class="rota-input" id="r-origem" placeholder="De: Minha localização" value="Minha localização"/>
-          </div>
-          <div style="padding-left:5px"><div class="rota-linha-v"></div></div>
-          <div class="rota-row">
-            <div class="rota-dot dest"></div>
-            <input class="rota-input" id="r-destino" placeholder="Para: Posto Shell"/>
-          </div>
-        </div>
-      </div>
-
-      <div id="rota-map-wrap">
-        <div id="rota-map"></div>
-        <div class="rota-resumo" id="rota-resumo">
-          <div class="rr-stat">
-            <div class="rr-val" id="r-dist">–</div>
-            <div class="rr-label">Distância</div>
-          </div>
-          <div class="rr-div"></div>
-          <div class="rr-stat">
-            <div class="rr-val" id="r-tempo">–</div>
-            <div class="rr-label">Tempo</div>
-          </div>
-        </div>
-        <button class="btn-nav" onclick="iniciarNav()">
-          <i class="fas fa-play"></i> Iniciar navegação
+    <!-- TELA 10: PLANEJAR ROTA -->
+    <div id="view-planejar" class="view">
+      <div id="plan-header">
+        <button class="btn-back-plan" onclick="goToView('mapa')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         TELA 11: RELATÓRIOS / PERFIL
-    ════════════════════════════════════════ -->
-    <section class="view" id="view-perfil">
-      <div class="app-header">
-        <div style="width:38px"></div>
-        <div class="header-title">Meus relatórios</div>
-        <button class="icon-btn"><i class="fas fa-ellipsis-v"></i></button>
+        <h2 id="plan-title">Planejar rota</h2>
       </div>
 
-      <div id="perfil-scroll">
-        <!-- Period tabs -->
-        <div class="period-tabs">
-          <button class="period-tab" onclick="setPeriodo('semana',this)">Semana</button>
-          <button class="period-tab active" onclick="setPeriodo('mes',this)">Mês</button>
-          <button class="period-tab" onclick="setPeriodo('ano',this)">Ano</button>
-        </div>
-
-        <!-- Mês -->
-        <div class="month-row">
-          <button class="month-btn" onclick="mesAnterior()"><i class="fas fa-chevron-left"></i></button>
-          <span class="month-label" id="mes-label">Maio 2024</span>
-          <button class="month-btn" onclick="mesSeguinte()"><i class="fas fa-chevron-right"></i></button>
-        </div>
-
-        <!-- Economia -->
-        <div class="eco-card">
-          <div class="eco-label">Total economizado</div>
-          <div class="eco-valor" id="eco-val">R$ 289,60</div>
-          <div class="eco-sub">comparado ao preço médio da região</div>
+      <div id="plan-body">
+        <!-- Campos de rota -->
+        <div class="route-fields">
+          <div class="route-field">
+            <div class="route-dot-origin"></div>
+            <div class="route-field-content">
+              <div class="route-field-label">De</div>
+              <div class="route-field-val" id="plan-origin">Minha localização</div>
+            </div>
+            <button class="btn-target" onclick="showToast('Usar localização atual')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="1"/><line x1="12" y1="23" x2="12" y2="21"/><line x1="3" y1="12" x2="1" y2="12"/><line x1="23" y1="12" x2="21" y2="12"/></svg>
+            </button>
+          </div>
+          <div class="route-field">
+            <div class="route-dot-dest"></div>
+            <div class="route-field-content">
+              <div class="route-field-label">Para</div>
+              <div class="route-field-val" id="plan-dest">Posto Shell</div>
+            </div>
+            <button class="btn-target" onclick="showToast('Alterar destino')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="1"/><line x1="12" y1="23" x2="12" y2="21"/><line x1="3" y1="12" x2="1" y2="12"/><line x1="23" y1="12" x2="21" y2="12"/></svg>
+            </button>
+          </div>
         </div>
 
         <!-- Stats -->
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="sc-label">Abastecimentos</div>
-            <div class="sc-val" id="stat-abast">8</div>
-          </div>
-          <div class="stat-card">
-            <div class="sc-label">Gasto total</div>
-            <div class="sc-val" id="stat-gasto">R$ 412,30</div>
+        <div class="route-stats-badge">
+          <div class="route-stats-label">Melhor rota</div>
+          <div class="route-stats-vals">
+            <div class="route-stat" id="plan-dist">1,2 km</div>
+            <div class="route-stat-sep"></div>
+            <div class="route-stat" id="plan-time">3 min</div>
           </div>
         </div>
 
-        <!-- Eco litro -->
-        <div class="eco-litro-row">
-          <div class="el-label">Economia por litro</div>
-          <div class="el-val">
-            R$ <span id="eco-litro">0,36</span>
-            <i class="fas fa-chevron-right" style="font-size:14px;color:var(--t2)"></i>
+        <!-- Mapa rota -->
+        <div id="plan-map"></div>
+
+        <!-- Card posto -->
+        <div class="plan-posto-card">
+          <div class="plan-posto-logo" id="plan-logo">🐚</div>
+          <div class="plan-posto-info">
+            <div class="plan-posto-nome" id="plan-nome">Posto Shell</div>
+            <div class="plan-posto-end" id="plan-end">Av. Rebouças, 1234 – Pinheiros</div>
+          </div>
+          <div>
+            <div class="plan-posto-preco" id="plan-preco">R$ 5,67<span class="plan-preco-unit">/L</span></div>
           </div>
         </div>
 
-        <!-- Ranking postos -->
-        <div class="ranking-card">
-          <div class="ranking-title">Postos mais abastecidos</div>
-          <div class="ranking-row">
-            <div class="rk-logo">🐚</div>
-            <div class="rk-nome">Posto Shell</div>
-            <div class="rk-vez">3 vezes</div>
-          </div>
-          <div class="ranking-row">
-            <div class="rk-logo">🟡</div>
-            <div class="rk-nome">Posto Ipiranga</div>
-            <div class="rk-vez">2 vezes</div>
-          </div>
-          <div class="ranking-row">
-            <div class="rk-logo">🔵</div>
-            <div class="rk-nome">Posto BR</div>
-            <div class="rk-vez">2 vezes</div>
-          </div>
-          <div class="ranking-row">
-            <div class="rk-logo">⚪</div>
-            <div class="rk-nome">Outros</div>
-            <div class="rk-vez">1 vez</div>
-          </div>
-        </div>
-
-        <!-- Perfil -->
-        <div class="user-card">
-          <div class="user-avatar" id="u-avatar">U</div>
-          <div class="user-nome" id="u-nome">Usuário</div>
-          <div class="user-email" id="u-email">usuario@email.com</div>
-          <div class="user-badge"><i class="fas fa-star"></i> Plano Gratuito</div>
-        </div>
-
-        <button class="btn-sair" onclick="sair()">
-          <i class="fas fa-sign-out-alt"></i> Sair da conta
-        </button>
+        <button class="btn-iniciar-nav" onclick="iniciarNavegacao()">Iniciar navegação</button>
       </div>
-    </section>
+    </div>
 
-  </div><!-- /app-content -->
+    <!-- TELA 11: RELATÓRIOS -->
+    <div id="view-relatorios" class="view">
+      <div id="rel-header">
+        <h2 id="rel-title">Meus relatórios</h2>
+        <div class="period-tabs">
+          <button class="period-tab" onclick="selectPeriod('semana',this)">Semana</button>
+          <button class="period-tab active" onclick="selectPeriod('mes',this)">Mês</button>
+          <button class="period-tab" onclick="selectPeriod('ano',this)">Ano</button>
+        </div>
+        <div class="month-nav">
+          <button class="btn-month" onclick="changeMonth(-1)">‹</button>
+          <span class="month-label" id="month-label">Maio 2024</span>
+          <button class="btn-month" onclick="changeMonth(1)">›</button>
+        </div>
+        <div id="rel-total">
+          <div class="rel-total-val" id="rel-total-val">R$ 289,60</div>
+          <div class="rel-total-label">Total economizado</div>
+        </div>
+      </div>
 
-  <!-- ────── BOTTOM NAV ────── -->
+      <div class="rel-cards-grid">
+        <div class="rel-stat-card">
+          <div class="rel-stat-label">Abastecimentos</div>
+          <div class="rel-stat-val">8</div>
+        </div>
+        <div class="rel-stat-card">
+          <div class="rel-stat-label">Gasto total</div>
+          <div class="rel-stat-val" style="font-size:18px">R$ 412,30</div>
+        </div>
+      </div>
+
+      <div class="rel-econ-litro">
+        <div>
+          <div class="rel-econ-label">Economia por litro</div>
+          <div class="rel-econ-val">R$ 0,36</div>
+        </div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#BBB" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+
+      <div class="rel-section">
+        <div class="rel-section-title">Postos mais abastecidos</div>
+        <div class="rel-posto-row">
+          <div class="rel-posto-logo">🐚</div>
+          <div class="rel-posto-nome">Posto Shell</div>
+          <div class="rel-posto-vezes">3 vezes</div>
+        </div>
+        <div class="rel-posto-row">
+          <div class="rel-posto-logo" style="background:#FFF8E1">🔵</div>
+          <div class="rel-posto-nome">Posto Ipiranga</div>
+          <div class="rel-posto-vezes">2 vezes</div>
+        </div>
+        <div class="rel-posto-row">
+          <div class="rel-posto-logo" style="background:#E8F5E9">🟢</div>
+          <div class="rel-posto-nome">Posto BR</div>
+          <div class="rel-posto-vezes">2 vezes</div>
+        </div>
+        <div class="rel-posto-row">
+          <div class="rel-posto-logo" style="background:#F5F5F5">⚪</div>
+          <div class="rel-posto-nome">Outros</div>
+          <div class="rel-posto-vezes">1 vez</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TELA 12: PERFIL -->
+    <div id="view-perfil" class="view">
+      <div id="perfil-header">
+        <img id="perfil-avatar" src="https://i.pravatar.cc/150?u=joao" alt="Foto perfil"/>
+        <div id="perfil-info">
+          <div id="perfil-ola">Olá, <span id="perfil-nome">João</span>!</div>
+          <div class="badge-premium">👑 Premium</div>
+          <div id="perfil-validade">Válido até 20/06/2024</div>
+        </div>
+      </div>
+
+      <div id="perfil-menu-list">
+        ${buildMenuItem('person', 'Minha conta', "showToast('Minha conta')")}
+        ${buildMenuItem('car', 'Meus veículos', "goToVehicle()")}
+        ${buildMenuItem('card', 'Assinatura', "goToAssinatura()")}
+        ${buildMenuItem('creditcard', 'Formas de pagamento', "showToast('Formas de pagamento')")}
+        ${buildMenuItem('bell', 'Notificações', "showToast('Notificações')")}
+        ${buildMenuItem('gift', 'Indique e ganhe', "showToast('Indique e ganhe')")}
+        ${buildMenuItem('help', 'Ajuda e suporte', "showToast('Ajuda e suporte')")}
+        ${buildMenuItem('settings', 'Configurações', "showToast('Configurações')")}
+        <div class="menu-item menu-item-sair" onclick="doLogout()">
+          <div class="menu-item-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </div>
+          <span class="menu-item-label">Sair</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- #app-content -->
+
+  <!-- ══════════════════════════════════
+       BOTTOM NAV
+  ══════════════════════════════════ -->
   <nav id="bottom-nav">
-    <button class="nav-btn active" id="nb-melhor" onclick="irPara('view-mapa')">
-      <i class="fas fa-star"></i>
-      <span>Melhor★</span>
+    <button class="nav-item" id="nav-melhor" onclick="goToView('mapa')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+      Melhor
     </button>
-    <button class="nav-btn" id="nb-lista" onclick="irPara('view-lista')">
-      <i class="fas fa-list"></i>
-      <span>Lista</span>
+    <button class="nav-item" id="nav-lista" onclick="goToView('lista')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Lista
     </button>
-    <button class="nav-btn" id="nb-mapa" onclick="irPara('view-mapa')">
-      <i class="fas fa-map-marker-alt"></i>
-      <span>Mapa</span>
+    <button class="nav-item" id="nav-mapa" onclick="goToView('mapa')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Mapa
     </button>
-    <button class="nav-btn" id="nb-planejar" onclick="irPara('view-planejar')">
-      <i class="fas fa-route"></i>
-      <span>Planejar</span>
+    <button class="nav-item" id="nav-planejar" onclick="goToView('planejar')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Planejar
     </button>
-    <button class="nav-btn" id="nb-perfil" onclick="irPara('view-perfil')">
-      <i class="fas fa-user"></i>
-      <span>Perfil</span>
+    <button class="nav-item" id="nav-perfil" onclick="goToView('perfil')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Perfil
     </button>
   </nav>
 
-</div><!-- /app-root -->
+  <!-- Utilitários -->
+  <div id="app-toast"></div>
+  <div id="app-loading"><div class="app-spinner"></div></div>
 
-<!-- TOAST -->
-<div id="toast"></div>
+</div><!-- #app-root -->
 
 <script>
-'use strict';
+  // ══════════════════════════════════════════════════════
+  //  ESTADO
+  // ══════════════════════════════════════════════════════
+  let currentView = 'mapa';
+  let mapMain = null, mapPlan = null;
+  let userLat = -23.5505, userLng = -46.6333;
+  let postosData = [];
+  let selectedFuel = 'gasolina';
+  let selectedPosto = null;
+  let currentMonthIdx = 4; // Maio 2024
+  const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const MONTHS_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-// ══════════════════════════════════════════════════
-// ESTADO
-// ══════════════════════════════════════════════════
-const S = {
-  postos: [],
-  postoAtual: null,
-  combustivel: 'gasolina',
-  userLat: null,
-  userLng: null,
-  mapa: null,
-  rotaMapa: null,
-  markersLayer: null,
-  rotaLayer: null,
-  userMarker: null,
-  mesAtual: 4,
-  anoAtual: 2024,
-};
+  // ── Usuário logado ──
+  const userStr = localStorage.getItem('rp_user');
+  let currentUser = null;
+  try { currentUser = userStr ? JSON.parse(userStr) : null; } catch {}
 
-const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-               'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  // ══════════════════════════════════════════════════════
+  //  NAVEGAÇÃO
+  // ══════════════════════════════════════════════════════
+  function goToView(viewId) {
+    // Ocultar tudo
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
 
-// ══════════════════════════════════════════════════
-// NAVEGAÇÃO
-// ══════════════════════════════════════════════════
-const NAV_MAP = {
-  'view-mapa':     ['nb-melhor','nb-mapa'],
-  'view-lista':    ['nb-lista'],
-  'view-detalhes': ['nb-lista'],
-  'view-planejar': ['nb-planejar'],
-  'view-perfil':   ['nb-perfil'],
-};
+    // Mostrar view
+    const view = document.getElementById('view-' + viewId);
+    if (view) view.classList.add('active');
 
-function irPara(id, fromDetail) {
-  const prev = document.querySelector('.view.active');
-  if(prev && prev.id !== id) prev.classList.add('slide-left');
-  setTimeout(() => {
-    document.querySelectorAll('.view').forEach(v => {
-      v.classList.remove('active','slide-left');
+    // Header: visível só em mapa e lista
+    const header = document.getElementById('app-header');
+    if (viewId === 'mapa' || viewId === 'lista') {
+      header.style.display = 'block';
+    } else {
+      header.style.display = 'none';
+    }
+
+    // Bottom nav: atualizar ativo
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    const navMap = { mapa: 'mapa', lista: 'lista', planejar: 'planejar', relatorios: 'perfil', perfil: 'perfil', detalhes: 'lista' };
+    const navId = navMap[viewId] || viewId;
+    const navBtn = document.getElementById('nav-' + navId);
+    if (navBtn) navBtn.classList.add('active');
+
+    // Melhor → mapa com nav melhor
+    if (viewId === 'mapa') {
+      document.getElementById('nav-melhor').classList.add('active');
+      document.getElementById('nav-mapa').classList.remove('active');
+    }
+
+    currentView = viewId;
+
+    // Init mapa quando necessário
+    if (viewId === 'mapa' && !mapMain) initMapMain();
+    if (viewId === 'planejar' && !mapPlan) initMapPlan();
+    if (viewId === 'lista') renderLista();
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  MAPA PRINCIPAL (Tela 7)
+  // ══════════════════════════════════════════════════════
+  function initMapMain() {
+    mapMain = L.map('map-leaflet', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView([userLat, userLng], 14);
+
+    // Tiles claros (padrão)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(mapMain);
+
+    // Ponto do usuário
+    const userIcon = L.divIcon({
+      className: '',
+      html: '<div style="width:16px;height:16px;border-radius:50%;background:#1565C0;border:3px solid white;box-shadow:0 0 0 6px rgba(21,101,192,0.2)"></div>',
+      iconSize: [16, 16], iconAnchor: [8, 8]
     });
-    const next = document.getElementById(id);
-    if(next) next.classList.add('active');
-  }, fromDetail ? 0 : 10);
+    L.marker([userLat, userLng], { icon: userIcon }).addTo(mapMain);
 
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  (NAV_MAP[id] || []).forEach(nb => {
-    const el = document.getElementById(nb);
-    if(el) el.classList.add('active');
-  });
-
-  if(id === 'view-mapa' && !S.mapa) setTimeout(initMapa, 120);
-  if(id === 'view-planejar' && !S.rotaMapa) setTimeout(initRotaMapa, 120);
-}
-
-function voltarLista() {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active','slide-left'));
-  document.getElementById('view-lista').classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('nb-lista').classList.add('active');
-}
-
-// ══════════════════════════════════════════════════
-// TOAST
-// ══════════════════════════════════════════════════
-let _toastTimer;
-function toast(msg, dur=3000) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => t.classList.remove('show'), dur);
-}
-
-// ══════════════════════════════════════════════════
-// LOADING
-// ══════════════════════════════════════════════════
-function hideLoading() {
-  const l = document.getElementById('loading');
-  l.classList.add('fade');
-  setTimeout(() => l.remove(), 450);
-}
-
-// ══════════════════════════════════════════════════
-// MAPA (Tela 7)
-// ══════════════════════════════════════════════════
-function initMapa() {
-  if(S.mapa) return;
-  S.mapa = L.map('leaflet-map', {
-    center: [-23.5505, -46.6333],
-    zoom: 14,
-    zoomControl: false,
-    attributionControl: false,
-    tap: true, tapTolerance: 15,
-  });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19, subdomains: 'abcd'
-  }).addTo(S.mapa);
-  L.control.zoom({ position: 'bottomright' }).addTo(S.mapa);
-  S.markersLayer = L.layerGroup().addTo(S.mapa);
-  obterLocalizacao();
-}
-
-function obterLocalizacao() {
-  if(!navigator.geolocation) { usarFallback(); return; }
-  navigator.geolocation.getCurrentPosition(
-    p => {
-      S.userLat = p.coords.latitude;
-      S.userLng = p.coords.longitude;
-      S.mapa.setView([S.userLat, S.userLng], 15);
-      addUserMarker(S.userLat, S.userLng);
-      carregarPostos(S.userLat, S.userLng);
-    },
-    () => usarFallback(),
-    { enableHighAccuracy: true, timeout: 8000 }
-  );
-}
-
-function usarFallback() {
-  S.userLat = -23.5505; S.userLng = -46.6333;
-  if(S.mapa) {
-    S.mapa.setView([S.userLat, S.userLng], 14);
-    addUserMarker(S.userLat, S.userLng);
+    // Carregar postos
+    loadPostos();
   }
-  carregarPostos(S.userLat, S.userLng);
-}
 
-function addUserMarker(lat, lng) {
-  if(S.userMarker) S.userMarker.remove();
-  const icon = L.divIcon({
-    html: '<div style="width:16px;height:16px;background:#3B82F6;border-radius:50%;border:3px solid white;box-shadow:0 0 0 8px rgba(59,130,246,0.18)"></div>',
-    className:'', iconAnchor:[8,8]
-  });
-  S.userMarker = L.marker([lat, lng], { icon }).addTo(S.mapa);
-}
-
-function centralizarMapa() {
-  if(S.mapa && S.userLat) {
-    S.mapa.setView([S.userLat, S.userLng], 15);
-  } else {
-    toast('Localizando...');
-    if(!S.mapa) initMapa(); else obterLocalizacao();
-  }
-}
-
-async function carregarPostos(lat, lng) {
-  try {
-    const r = await fetch('/api/postos?lat='+lat+'&lng='+lng+'&raio=3000');
-    const d = await r.json();
-    S.postos = (d.postos || []).length > 0 ? d.postos : mockPostos(lat, lng);
-  } catch {
-    S.postos = mockPostos(lat, lng);
-  }
-  renderMapMarkers();
-  renderLista();
-  hideLoading();
-  if(S.postos.length) mostrarCardMelhor(S.postos[0]);
-}
-
-function mockPostos(lat, lng) {
-  return [
-    { id:'s1', nome:'Posto Shell',    emoji:'🐚', lat:lat+0.005, lng:lng+0.008, distancia:'1,2', tempo:3,  rating:'4,6', avaliacoes:128, precos:{gasolina:'5,67',etanol:'3,89',diesel:'6,19',gnv:'4,49'}, endereco:'Av. Rebouças, 1234 – Pinheiros, SP' },
-    { id:'i2', nome:'Posto Ipiranga', emoji:'🟡', lat:lat-0.004, lng:lng+0.012, distancia:'1,4', tempo:4,  rating:'4,4', avaliacoes: 87, precos:{gasolina:'5,74',etanol:'3,95',diesel:'6,25',gnv:'4,55'}, endereco:'Rua da Consolação, 567 – Consolação, SP' },
-    { id:'b3', nome:'Posto BR',       emoji:'🔵', lat:lat+0.010, lng:lng-0.007, distancia:'1,6', tempo:5,  rating:'4,2', avaliacoes: 63, precos:{gasolina:'5,79',etanol:'3,98',diesel:'6,29',gnv:'4,60'}, endereco:'Al. Santos, 890 – Jardins, SP' },
-    { id:'a4', nome:'Posto Ale',      emoji:'🔴', lat:lat-0.009, lng:lng-0.010, distancia:'2,1', tempo:6,  rating:'4,1', avaliacoes: 45, precos:{gasolina:'5,89',etanol:'4,05',diesel:'6,35',gnv:'4,68'}, endereco:'R. Haddock Lobo, 200 – Jardim Paulista, SP' },
-    { id:'r5', nome:'Posto Raízen',   emoji:'🟢', lat:lat+0.015, lng:lng+0.003, distancia:'2,8', tempo:8,  rating:'4,0', avaliacoes: 32, precos:{gasolina:'5,92',etanol:'4,08',diesel:'6,38',gnv:'4,72'}, endereco:'Av. Faria Lima, 3000 – Itaim Bibi, SP' },
-  ];
-}
-
-function renderMapMarkers() {
-  if(!S.mapa || !S.markersLayer) return;
-  S.markersLayer.clearLayers();
-  S.postos.forEach((p, i) => {
-    const preco = p.precos?.[S.combustivel] || '–';
-    const best = i === 0;
-    const icon = L.divIcon({
-      html: '<div class="price-pin '+(best?'best':'')+'" data-id="'+p.id+'">R$ '+preco+'</div>',
-      className:'', iconAnchor:[36,38]
-    });
-    const m = L.marker([p.lat, p.lng], { icon }).addTo(S.markersLayer);
-    m.on('click', () => { S.postoAtual = p; abrirDetalhes(p.id); });
-  });
-}
-
-function mostrarCardMelhor(p) {
-  document.getElementById('cm-emoji').textContent = p.emoji || '⛽';
-  document.getElementById('cm-nome').textContent  = p.nome;
-  document.getElementById('cm-meta').textContent  = p.distancia+' km · '+p.tempo+' min · ★ '+p.rating;
-  document.getElementById('cm-preco').textContent = 'R$ '+(p.precos?.[S.combustivel]||'–');
-  document.getElementById('card-melhor').classList.add('show');
-  S.postoAtual = p;
-}
-
-function irAteMapa() {
-  if(S.postoAtual) abrirRota(S.postoAtual);
-}
-
-// ══════════════════════════════════════════════════
-// LISTA (Tela 8)
-// ══════════════════════════════════════════════════
-function renderLista(query) {
-  const container = document.getElementById('lista-scroll');
-  let lista = [...S.postos];
-  if(query) lista = lista.filter(p =>
-    p.nome.toLowerCase().includes(query.toLowerCase()) ||
-    (p.endereco||'').toLowerCase().includes(query.toLowerCase())
-  );
-  lista.sort((a,b) =>
-    parseFloat((a.precos?.[S.combustivel]||'9').replace(',','.')) -
-    parseFloat((b.precos?.[S.combustivel]||'9').replace(',','.'))
-  );
-  if(!lista.length) {
-    container.innerHTML='<div style="text-align:center;padding:60px 0;color:var(--t2)"><i class="fas fa-gas-pump" style="font-size:32px;margin-bottom:14px;display:block;opacity:0.3"></i>Nenhum posto encontrado</div>';
-    return;
-  }
-  container.innerHTML = lista.map((p,i) => {
-    const preco = p.precos?.[S.combustivel]||'–';
-    const best = i===0;
-    return \`<div class="posto-card" onclick="abrirDetalhes('\${p.id}')">
-      <div class="posto-logo">\${p.emoji||'⛽'}</div>
-      <div class="posto-info">
-        <div class="posto-nome">\${p.nome}</div>
-        <div class="posto-sub">
-          <span class="posto-stars">★ \${p.rating}</span>
-          <span class="posto-dist">\${p.distancia} km · \${p.tempo} min</span>
-        </div>
-        \${best?'<div class="badge-best">✓ Melhor preço</div>':''}
-      </div>
-      <div class="posto-preco-wrap">
-        <div class="posto-preco \${best?'best':''}">R$ \${preco}</div>
-        <div class="posto-time">\${p.distancia} km · \${p.tempo} min</div>
-      </div>
-    </div>\`;
-  }).join('');
-}
-
-function setFuel(f, btn) {
-  S.combustivel = f;
-  document.querySelectorAll('.fuel-chip').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  renderLista();
-  renderMapMarkers();
-  if(S.postoAtual) mostrarCardMelhor(S.postos[0]||S.postoAtual);
-}
-
-function filtrarLista(q) { renderLista(q||''); }
-
-// ══════════════════════════════════════════════════
-// DETALHES (Tela 9)
-// ══════════════════════════════════════════════════
-function abrirDetalhes(id) {
-  const p = S.postos.find(x=>x.id===id);
-  if(!p) return;
-  S.postoAtual = p;
-
-  document.getElementById('det-logo').textContent = p.emoji||'⛽';
-  document.getElementById('det-nome').textContent  = p.nome;
-  document.getElementById('det-end').textContent   = p.endereco||'Endereço não disponível';
-  document.getElementById('det-rating').textContent= p.rating;
-  document.getElementById('det-avl').textContent   = '('+p.avaliacoes+' avaliações)';
-
-  const pr = p.precos||{};
-  document.getElementById('det-preco').innerHTML   = 'R$ '+(pr.gasolina||'–')+' <span class="pcp-unit">/L</span>';
-  document.getElementById('det-etanol').textContent= pr.etanol ? 'R$ '+pr.etanol : '–';
-  document.getElementById('det-diesel').textContent= pr.diesel ? 'R$ '+pr.diesel : '–';
-  document.getElementById('det-gnv').textContent   = pr.gnv    ? 'R$ '+pr.gnv    : '–';
-
-  document.getElementById('det-scroll').scrollTop = 0;
-  irPara('view-detalhes');
-}
-
-function irAtePosto() { if(S.postoAtual) abrirRota(S.postoAtual); }
-function comoChegar() {
-  if(S.postoAtual) window.open('https://maps.google.com/?q='+S.postoAtual.lat+','+S.postoAtual.lng,'_blank');
-}
-
-// ══════════════════════════════════════════════════
-// PLANEJAR ROTA (Tela 10)
-// ══════════════════════════════════════════════════
-function initRotaMapa() {
-  if(S.rotaMapa) return;
-  S.rotaMapa = L.map('rota-map',{
-    center: [-23.5505,-46.6333], zoom:14,
-    zoomControl:false, attributionControl:false
-  });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(S.rotaMapa);
-}
-
-function abrirRota(p) {
-  S.postoAtual = p;
-  document.getElementById('r-destino').value = p.nome;
-  document.getElementById('r-dist').textContent  = p.distancia+' km';
-  document.getElementById('r-tempo').textContent = p.tempo+' min';
-  document.getElementById('rota-resumo').classList.add('show');
-  irPara('view-planejar');
-
-  setTimeout(() => {
-    if(!S.rotaMapa) initRotaMapa();
-    if(S.userLat) {
-      const mid = [(S.userLat+p.lat)/2, (S.userLng+p.lng)/2];
-      S.rotaMapa.setView(mid, 14);
-      if(S.rotaLayer) S.rotaLayer.remove();
-      S.rotaLayer = L.layerGroup().addTo(S.rotaMapa);
-      L.polyline([[S.userLat,S.userLng],[p.lat,p.lng]],{
-        color:'#3B82F6', weight:5, opacity:0.9, dashArray:'12,7'
-      }).addTo(S.rotaLayer);
-      const mkO = L.divIcon({ html:'<div style="width:14px;height:14px;background:#4ADE80;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>', className:'', iconAnchor:[7,7]});
-      const mkD = L.divIcon({ html:'<div style="width:14px;height:14px;background:#EF4444;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>', className:'', iconAnchor:[7,7]});
-      L.marker([S.userLat,S.userLng],{icon:mkO}).addTo(S.rotaLayer);
-      L.marker([p.lat,p.lng],{icon:mkD}).addTo(S.rotaLayer);
-    }
-  }, 350);
-}
-
-function iniciarNav() {
-  if(S.postoAtual) window.open('https://maps.google.com/maps?daddr='+S.postoAtual.lat+','+S.postoAtual.lng,'_blank');
-  else toast('Selecione um posto primeiro.');
-}
-
-// ══════════════════════════════════════════════════
-// RELATÓRIOS (Tela 11)
-// ══════════════════════════════════════════════════
-function setPeriodo(p, btn) {
-  document.querySelectorAll('.period-tab').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-}
-function mesAnterior() {
-  if(S.mesAtual===0){S.mesAtual=11;S.anoAtual--;}else S.mesAtual--;
-  document.getElementById('mes-label').textContent = MESES[S.mesAtual]+' '+S.anoAtual;
-}
-function mesSeguinte() {
-  if(S.mesAtual===11){S.mesAtual=0;S.anoAtual++;}else S.mesAtual++;
-  document.getElementById('mes-label').textContent = MESES[S.mesAtual]+' '+S.anoAtual;
-}
-
-// ══════════════════════════════════════════════════
-// BUSCA
-// ══════════════════════════════════════════════════
-let _bt;
-function debounceBusca(q) {
-  clearTimeout(_bt);
-  if(!q) return;
-  _bt = setTimeout(()=>buscarGeo(q), 700);
-}
-async function buscarGeo(q) {
-  try {
-    const r = await fetch('/api/geocode?q='+encodeURIComponent(q));
-    const d = await r.json();
-    if(d.lat && S.mapa) {
-      S.mapa.setView([d.lat,d.lng],14);
-      carregarPostos(d.lat,d.lng);
-    }
-  } catch {}
-}
-
-// ══════════════════════════════════════════════════
-// PERFIL / AUTH
-// ══════════════════════════════════════════════════
-function carregarPerfil() {
-  try {
-    const u = JSON.parse(localStorage.getItem('rp_user')||'{}');
-    if(u.nome) {
-      document.getElementById('u-avatar').textContent = (u.nome||'U')[0].toUpperCase();
-      document.getElementById('u-nome').textContent   = u.nome;
-      document.getElementById('u-email').textContent  = u.email||'';
-    }
-  } catch {}
-}
-
-function sair() {
-  localStorage.removeItem('rp_user');
-  localStorage.removeItem('rp_veiculo');
-  if(window._fbSignOut && window._appAuth) {
-    window._fbSignOut(window._appAuth).catch(()=>{});
-  }
-  window.location.href = '/onboarding';
-}
-
-function toggleMenu()   { toast('Menu em breve!'); }
-function abrirNotifs()  { toast('Sem novas notificações.'); }
-
-// ══════════════════════════════════════════════════
-// FIREBASE
-// ══════════════════════════════════════════════════
-let _appAuth = null;
-
-function initFirebase() {
-  if(!window._fbGetAuth || !window._fbFirebaseApp) return;
-  try {
-    _appAuth = window._fbGetAuth(window._fbFirebaseApp);
-    window._appAuth = _appAuth;
-    window._fbOnAuthStateChanged(_appAuth, user => {
-      if(!user) {
-        const stored = localStorage.getItem('rp_user');
-        if(!stored) { window.location.href='/onboarding'; return; }
+  async function loadPostos() {
+    try {
+      const url = '/api/postos?lat='+userLat+'&lng='+userLng+'&raio=5&combustivel='+selectedFuel+'&litros=50&consumo=12';
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if (data.postos && data.postos.length > 0) {
+        postosData = data.postos;
+        addMapMarkers();
+        updateMapCard(data.postos[0]);
       }
-      boot();
-    });
-  } catch {
-    boot();
+    } catch(e) {
+      // Dados demo
+      postosData = getDemoPostos();
+      addMapMarkers();
+      updateMapCard(postosData[0]);
+    }
   }
-}
 
-function boot() {
-  carregarPerfil();
-  initMapa();
-}
+  function addMapMarkers() {
+    if (!mapMain) return;
+    // Limpar marcadores antigos
+    mapMain.eachLayer(layer => {
+      if (layer._isBalloon) mapMain.removeLayer(layer);
+    });
 
-// ══════════════════════════════════════════════════
-// SERVICE WORKER
-// ══════════════════════════════════════════════════
-if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').then(reg=>{
-    reg.update();
-    reg.addEventListener('updatefound',()=>{
-      const sw = reg.installing;
-      sw?.addEventListener('statechange',()=>{
-        if(sw.state==='installed'&&navigator.serviceWorker.controller)
-          sw.postMessage({type:'SKIP_WAITING'});
+    postosData.slice(0, 8).forEach((p, i) => {
+      const preco = p.preco || p.precos?.[selectedFuel];
+      if (!preco) return;
+
+      const precoFmt = 'R$ ' + preco.toFixed(2).replace('.', ',');
+      const cor = i === 0 ? '#00A651' : (preco > 6.5 ? '#E53935' : '#FF6D00');
+
+      const icon = L.divIcon({
+        className: '',
+        html: '<div style="padding:5px 10px;border-radius:6px;background:'+cor+';color:white;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.25);white-space:nowrap;font-family:Inter,sans-serif">'+precoFmt+'</div>',
+        iconSize: [80, 30], iconAnchor: [40, 30]
+      });
+
+      const marker = L.marker([p.lat, p.lng], { icon }).addTo(mapMain);
+      marker._isBalloon = true;
+      marker.on('click', () => {
+        updateMapCard(p);
+        selectedPosto = p;
       });
     });
-  }).catch(()=>{});
-  navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload());
-}
+  }
 
-// ══════════════════════════════════════════════════
-// BOOT
-// ══════════════════════════════════════════════════
-let _tries=0;
-(function tryFb(){
-  if(window._fbGetAuth&&window._fbFirebaseApp) initFirebase();
-  else if(_tries++<25) setTimeout(tryFb,250);
-  else boot();
-})();
+  function updateMapCard(p) {
+    selectedPosto = p;
+    const preco = p.preco || p.precos?.[selectedFuel];
+    const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '–';
+    const dist = p.distancia ? p.distancia.toFixed(1) + ' km' : '–';
+    const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '–';
 
+    document.getElementById('map-card-logo').textContent = getEmoji(p.bandeira || p.nome);
+    document.getElementById('map-card-nome').textContent = p.nome;
+    document.getElementById('map-card-preco').textContent = precoFmt;
+    document.getElementById('map-card-dist').textContent = dist + ' • ' + tempo;
+    document.getElementById('map-card').style.display = 'block';
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  MAPA PLANEJAR (Tela 10)
+  // ══════════════════════════════════════════════════════
+  function initMapPlan() {
+    const dest = selectedPosto || (postosData[0] || null);
+    const destLat = dest?.lat || (userLat - 0.01);
+    const destLng = dest?.lng || (userLng + 0.01);
+
+    mapPlan = L.map('plan-map', {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false, scrollWheelZoom: false, touchZoom: false
+    }).setView([(userLat + destLat) / 2, (userLng + destLng) / 2], 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapPlan);
+
+    // Marcador origem (vermelho)
+    const originIcon = L.divIcon({
+      className: '',
+      html: '<svg width="28" height="36" viewBox="0 0 28 36" fill="none"><path d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z" fill="#E53935"/><circle cx="14" cy="14" r="6" fill="white"/></svg>',
+      iconSize: [28, 36], iconAnchor: [14, 36]
+    });
+    L.marker([userLat, userLng], { icon: originIcon }).addTo(mapPlan);
+
+    // Marcador destino (verde)
+    const destIcon = L.divIcon({
+      className: '',
+      html: '<svg width="28" height="36" viewBox="0 0 28 36" fill="none"><path d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z" fill="#00A651"/><circle cx="14" cy="14" r="6" fill="white"/></svg>',
+      iconSize: [28, 36], iconAnchor: [14, 36]
+    });
+    L.marker([destLat, destLng], { icon: destIcon }).addTo(mapPlan);
+
+    // Linha de rota azul
+    const routeLine = L.polyline([[userLat, userLng], [destLat, destLng]], {
+      color: '#1565C0', weight: 4, dashArray: '8, 4', opacity: 0.8
+    }).addTo(mapPlan);
+
+    mapPlan.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+
+    // Atualizar info do card
+    if (dest) {
+      const preco = dest.preco || dest.precos?.[selectedFuel];
+      document.getElementById('plan-logo').textContent = getEmoji(dest.bandeira || dest.nome);
+      document.getElementById('plan-nome').textContent = dest.nome;
+      document.getElementById('plan-end').textContent = dest.endereco || dest.nome;
+      document.getElementById('plan-preco').innerHTML = preco
+        ? 'R$ ' + preco.toFixed(2).replace('.', ',') + '<span class="plan-preco-unit">/L</span>'
+        : '–';
+      const dist = dest.distancia ? dest.distancia.toFixed(1) : '1,2';
+      const tempo = dest.distancia ? Math.round(dest.distancia * 3) : 3;
+      document.getElementById('plan-dist').textContent = dist.replace('.',',') + ' km';
+      document.getElementById('plan-time').textContent = tempo + ' min';
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  LISTA DE POSTOS (Tela 8)
+  // ══════════════════════════════════════════════════════
+  function renderLista() {
+    const container = document.getElementById('lista-postos');
+    const empty = document.getElementById('lista-empty');
+    const postos = postosData.length > 0 ? postosData : getDemoPostos();
+
+    if (postos.length === 0) { empty.style.display = 'block'; container.innerHTML = ''; return; }
+    empty.style.display = 'none';
+
+    container.innerHTML = postos.slice(0, 15).map((p, i) => {
+      const preco = p.preco || p.precos?.[selectedFuel];
+      const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') : '–';
+      const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '–';
+      const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '–';
+      const rating = (4.0 + Math.random() * 0.9).toFixed(1);
+      const emoji = getEmoji(p.bandeira || p.nome);
+      const isBest = i === 0;
+
+      return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
+        + '<div class="posto-brand-logo">' + emoji + '</div>'
+        + '<div class="posto-item-info">'
+        +   '<div class="posto-item-nome">' + p.nome + '</div>'
+        +   '<div class="posto-item-rating">'
+        +     '<span class="star-icon">★</span>'
+        +     '<span class="rating-val">' + rating + '</span>'
+        +     (isBest ? '<div class="green-dot"></div>' : '')
+        +   '</div>'
+        + '</div>'
+        + '<div class="posto-item-preco">'
+        +   '<div class="preco-val">' + precoFmt + '<span class="preco-unit">/L</span></div>'
+        +   '<div class="dist-txt">' + dist + ' • ' + tempo + '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function openDetalhes(idx) {
+    const p = postosData[idx] || getDemoPostos()[idx];
+    if (!p) return;
+    selectedPosto = p;
+
+    const preco = p.preco || p.precos?.[selectedFuel];
+
+    document.getElementById('det-logo-badge').textContent = getEmoji(p.bandeira || p.nome);
+    document.getElementById('det-nome').textContent = p.nome;
+    document.getElementById('det-endereco').textContent = (p.endereco || '') + (p.bairro ? ' – ' + p.bairro : '') + '\n' + (p.cidade || '') + (p.estado ? ' – ' + p.estado : '');
+    document.getElementById('det-comb-preco').textContent = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '–';
+
+    // Combustíveis
+    const list = document.getElementById('det-fuel-list');
+    const fuels = [
+      ['Etanol', p.precos?.etanol],
+      ['Diesel S10', p.precos?.dieselS10 || p.precos?.diesel],
+      ['GNV', p.precos?.gnv],
+      ['Gasolina Aditivada', p.precos?.gasolinaAditivada],
+    ].filter(f => f[1]);
+    list.innerHTML = fuels.map(f =>
+      '<div class="det-fuel-row"><span class="det-fuel-nome">'+f[0]+'</span><span class="det-fuel-price">R$ '+f[1].toFixed(2).replace('.',',')+'</span></div>'
+    ).join('') || '<div class="det-fuel-row"><span class="det-fuel-nome" style="color:var(--gray)">Preços não disponíveis</span></div>';
+
+    // Planejar: atualizar dest
+    document.getElementById('plan-dest').textContent = p.nome;
+    if (mapPlan) { mapPlan.remove(); mapPlan = null; }
+
+    goToView('detalhes');
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  HELPERS
+  // ══════════════════════════════════════════════════════
+  function getEmoji(nome) {
+    if (!nome) return '⛽';
+    const n = nome.toUpperCase();
+    if (n.includes('SHELL')) return '🐚';
+    if (n.includes('IPIRANGA')) return '🔵';
+    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR') return '🟢';
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN')) return '🟣';
+    if (n.includes('ALE') || n.includes('ALÉ')) return '🔴';
+    if (n.includes('TEXACO')) return '⭐';
+    if (n.includes('ESSO')) return '🔷';
+    if (n.includes('BANDEIRANTE')) return '🏁';
+    return '⛽';
+  }
+
+  function getDemoPostos() {
+    return [
+      { id:'1', nome:'Posto Shell', bandeira:'Shell', endereco:'Av. Rebouças, 1234', bairro:'Pinheiros', cidade:'São Paulo', estado:'SP', lat:-23.5538, lng:-46.6662, preco:5.67, distancia:1.2, precos:{ gasolina:5.67, etanol:3.89, diesel:6.19, dieselS10:6.19, gnv:4.49 } },
+      { id:'2', nome:'Posto Ipiranga', bandeira:'Ipiranga', endereco:'Av. Paulista, 900', bairro:'Bela Vista', cidade:'São Paulo', estado:'SP', lat:-23.5615, lng:-46.6542, preco:5.74, distancia:1.4, precos:{ gasolina:5.74, etanol:3.95, diesel:6.25 } },
+      { id:'3', nome:'Posto BR Petrobras', bandeira:'BR', endereco:'Rua Augusta, 2100', bairro:'Consolação', cidade:'São Paulo', estado:'SP', lat:-23.5580, lng:-46.6610, preco:5.79, distancia:1.6, precos:{ gasolina:5.79, etanol:4.01 } },
+      { id:'4', nome:'Posto Ale', bandeira:'Ale', endereco:'Al. Santos, 1500', bairro:'Jardins', cidade:'São Paulo', estado:'SP', lat:-23.5640, lng:-46.6490, preco:5.89, distancia:2.1, precos:{ gasolina:5.89, etanol:4.05 } },
+      { id:'5', nome:'Posto Raizen', bandeira:'Raizen', endereco:'Rua Oscar Freire, 800', bairro:'Cerqueira César', cidade:'São Paulo', estado:'SP', lat:-23.5610, lng:-46.6680, preco:5.92, distancia:2.3, precos:{ gasolina:5.92, etanol:4.10 } },
+    ];
+  }
+
+  function selectFuel(fuel, btn) {
+    selectedFuel = fuel;
+    document.querySelectorAll('.chip-fuel').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    if (mapMain) {
+      loadPostos();
+    }
+    renderLista();
+  }
+
+  function selectPeriod(p, btn) {
+    document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const vals = { semana: 'R$ 72,40', mes: 'R$ 289,60', ano: 'R$ 3.475,20' };
+    document.getElementById('rel-total-val').textContent = vals[p] || 'R$ 289,60';
+  }
+
+  function changeMonth(dir) {
+    currentMonthIdx = (currentMonthIdx + dir + 12) % 12;
+    document.getElementById('month-label').textContent = MONTHS_FULL[currentMonthIdx] + ' 2024';
+  }
+
+  function irAteLa() {
+    if (!selectedPosto) { showToast('Selecione um posto'); return; }
+    const url = 'https://www.google.com/maps/dir/?api=1&destination=' + selectedPosto.lat + ',' + selectedPosto.lng;
+    window.open(url, '_blank');
+  }
+
+  function openMaps() { irAteLa(); }
+  function shareStation() {
+    if (navigator.share && selectedPosto) {
+      navigator.share({ title: selectedPosto.nome, text: 'Confira esse posto no RotaPosto!', url: window.location.href }).catch(()=>{});
+    } else showToast('Link copiado!');
+  }
+  function toggleFavorite() { showToast('Adicionado aos favoritos ❤️'); }
+
+  function iniciarNavegacao() {
+    const dest = selectedPosto || getDemoPostos()[0];
+    window.open('https://www.google.com/maps/dir/?api=1&destination=' + dest.lat + ',' + dest.lng + '&travelmode=driving', '_blank');
+  }
+
+  async function onSearchInput(val) {
+    if (val.length < 3) return;
+  }
+
+  async function doSearch() {
+    const val = document.getElementById('search-input').value.trim();
+    if (!val) return;
+    showLoading(true);
+    try {
+      const res = await fetch('/api/geocode?q=' + encodeURIComponent(val));
+      const data = await res.json();
+      showLoading(false);
+      if (data && data.length > 0) {
+        userLat = data[0].lat; userLng = data[0].lng;
+        if (mapMain) {
+          mapMain.setView([userLat, userLng], 14);
+          loadPostos();
+        }
+        showToast('Buscando postos em ' + (data[0].nome || val) + '...');
+      } else showToast('Local não encontrado');
+    } catch { showLoading(false); showToast('Erro na busca'); }
+  }
+
+  function toggleMenu() { goToView('perfil'); }
+
+  function goToVehicle() { showToast('Meus veículos em breve'); }
+
+  function goToAssinatura() {
+    const pixUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=00020126330014BR.GOV.BCB.PIX0111000000000005204000053039865406009905802BR5913ROTAPOSTO6009SAOPAULO6207050310304PREM63041234';
+    showToast('PIX Premium: R$ 9,90/mês');
+  }
+
+  function doLogout() {
+    localStorage.removeItem('rp_user');
+    localStorage.removeItem('rp_vehicle');
+    window.location.href = '/';
+  }
+
+  function showToast(msg, dur = 2500) {
+    const t = document.getElementById('app-toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), dur);
+  }
+
+  function showLoading(show) {
+    document.getElementById('app-loading').classList.toggle('show', show);
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  INIT
+  // ══════════════════════════════════════════════════════
+  (function init() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(()=>{});
+    }
+
+    // Atualizar nome do usuário no perfil
+    if (currentUser) {
+      const nome = currentUser.name || currentUser.email?.split('@')[0] || 'Usuário';
+      document.getElementById('perfil-nome').textContent = nome;
+      if (currentUser.photo) {
+        document.getElementById('perfil-avatar').src = currentUser.photo;
+      }
+    }
+
+    // Iniciar na view mapa (com header)
+    goToView('mapa');
+
+    // Obter localização
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        if (mapMain) {
+          mapMain.setView([userLat, userLng], 14);
+          loadPostos();
+        }
+      }, null, { timeout: 8000 });
+    }
+  })();
 </script>
 </body>
 </html>`;
+}
+
+// Helper para gerar itens do menu com ícones SVG
+function buildMenuItem(icon: string, label: string, onclick: string): string {
+  const icons: Record<string, string> = {
+    person: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    car: '<rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+    card: '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
+    creditcard: '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
+    bell: '<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>',
+    gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>',
+    help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>',
+  };
+
+  const svgPath = icons[icon] || icons.person;
+
+  return `<div class="menu-item" onclick="${onclick}">
+  <div class="menu-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svgPath}</svg></div>
+  <span class="menu-item-label">${label}</span>
+  <div class="menu-item-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+</div>`;
 }
