@@ -109,6 +109,56 @@ function normalizarProduto(produto: string): keyof PostoReal['precos'] | null {
 // Estrutura: { gasolina: {media,min,max,postos}, ... }
 import { PRECOS_ANP_POR_UF, getPrecoANPPorMunicipio, ANP_SEMANA } from './brasil'
 import { getPrecosPorCNPJ, expandirPrecos, ANP_SEMANA_POSTOS } from './precos_anp_posto'
+import { carregarPrecoKV, type ANPSyncResult } from './anp_sync'
+
+// Cache em memória dos dados KV (evita re-ler KV a cada requisição)
+let _kvCache: ANPSyncResult | null = null
+let _kvCacheTs = 0
+const KV_CACHE_TTL = 10 * 60 * 1000 // 10 minutos
+
+/** Retorna dados KV frescos (cache em memória por 10min) */
+async function getKVData(kv: KVNamespace | undefined): Promise<ANPSyncResult | null> {
+  if (!kv) return null
+  const now = Date.now()
+  if (_kvCache && (now - _kvCacheTs) < KV_CACHE_TTL) return _kvCache
+  try {
+    const data = await carregarPrecoKV(kv)
+    if (data) { _kvCache = data; _kvCacheTs = now }
+    return data
+  } catch { return null }
+}
+
+/** Busca preço de um CNPJ: KV (semanal fresco) → bundle estático → null */
+async function getPrecoParaCNPJ(
+  cnpj: string,
+  kvData: ANPSyncResult | null
+): Promise<{ precos: Record<string, number>; semana: string; fonte: 'kv' | 'bundle' } | null> {
+  if (!cnpj) return null
+
+  // Tier 1: dados KV (mais frescos — semana atual)
+  if (kvData?.postos?.[cnpj]) {
+    const p = kvData.postos[cnpj]
+    const precos: Record<string, number> = {}
+    if (p.g)  precos.gasolina = p.g
+    if (p.ga) precos.gasolinaAditivada = p.ga
+    if (p.e)  precos.etanol = p.e
+    if (p.d)  precos.diesel = p.d
+    if (p.ds) precos.dieselS10 = p.ds
+    if (p.n)  precos.gnv = p.n
+    if (p.l)  precos.glp = p.l
+    if (Object.keys(precos).length > 0) {
+      return { precos, semana: kvData.semana, fonte: 'kv' }
+    }
+  }
+
+  // Tier 2: bundle estático compilado (semana do build)
+  const bundled = getPrecosPorCNPJ(cnpj)
+  if (bundled && (bundled.g || bundled.e || bundled.d || bundled.ds)) {
+    return { precos: expandirPrecos(bundled) as Record<string, number>, semana: ANP_SEMANA_POSTOS, fonte: 'bundle' }
+  }
+
+  return null
+}
 
 /**
  * Retorna preços reais ANP para a UF do posto.
@@ -157,7 +207,7 @@ export function estimarPrecosPorMunicipio(uf: string, municipio: string): PostoR
 }
 
 // ─── 1. API ANP – Postos Cadastrados ─────────────────────────────────────────
-export async function buscarPostosANP(uf: string, municipio: string, pagina = 1): Promise<PostoReal[]> {
+export async function buscarPostosANP(uf: string, municipio: string, pagina = 1, kv?: KVNamespace): Promise<PostoReal[]> {
   try {
     const url = `https://revendedoresapi.anp.gov.br/v1/combustivel?uf=${encodeURIComponent(uf)}&municipio=${encodeURIComponent(municipio)}&numeropagina=${pagina}`
     const res = await fetch(url, {
@@ -169,32 +219,38 @@ export async function buscarPostosANP(uf: string, municipio: string, pagina = 1)
 
     if (!json.succeeded || !Array.isArray(json.data)) return []
 
-    return json.data
+    // Pré-carrega dados KV uma vez para toda a lista de postos
+    const kvData = await getKVData(kv)
+    const semanaKV = kvData?.semana || null
+
+    return (await Promise.all(json.data
       .filter((p: any) => p.latitude && p.longitude && parseFloat(p.latitude) !== 0)
-      .map((p: any): PostoReal => {
+      .map(async (p: any): Promise<PostoReal> => {
         const bandeira = normalizarBandeira(p.distribuidora || '')
         const produtos: string[] = (p.produtos || []).map((pr: any) => pr.produto)
         const ufPosto = (p.uf || uf).toUpperCase()
         const munPosto = p.municipio || municipio
 
-        // ── Prioridade 1: preço real individual por CNPJ (amostra semanal ANP) ──
+        // ── Prioridade 1 & 2: KV (semana atual) → bundle (semana do build) ──
         const cnpjNorm = (p.cnpj || '').replace(/[^0-9]/g, '').padStart(14, '0')
-        const precoReal = cnpjNorm ? getPrecosPorCNPJ(cnpjNorm) : null
+        const real = await getPrecoParaCNPJ(cnpjNorm, kvData)
 
         let precos: PostoReal['precos']
         let fontePreco: PostoReal['fontePreco']
         let atualizadoEm: string
 
-        if (precoReal && (precoReal.g || precoReal.e || precoReal.d || precoReal.ds)) {
-          // Temos preço real do posto desta semana!
-          precos = expandirPrecos(precoReal) as PostoReal['precos']
+        if (real) {
+          precos = real.precos as PostoReal['precos']
           fontePreco = 'anp'
-          atualizadoEm = ANP_SEMANA_POSTOS
+          // Indica a semana: KV = semana atual, bundle = semana do build
+          atualizadoEm = real.fonte === 'kv'
+            ? `📡 ${semanaKV} (KV)`
+            : ANP_SEMANA_POSTOS
         } else {
-          // Fallback: média municipal ANP (todos os postos da cidade terão igual)
+          // Prioridade 3: Média municipal ANP (estimado — todos os postos da cidade)
           const precosMun = estimarPrecosPorMunicipio(ufPosto, munPosto)
           precos = precosMun
-          fontePreco = (precosMun as any)._fonte === 'anp_municipio' ? 'estimado' : 'estimado'
+          fontePreco = 'estimado'
           atualizadoEm = new Date().toISOString().split('T')[0]
         }
 
@@ -219,7 +275,7 @@ export async function buscarPostosANP(uf: string, municipio: string, pagina = 1)
           fontePreco,
           confirmacoesPreco: 0
         }
-      })
+      }))) as PostoReal[]
   } catch (e) {
     console.error('Erro ANP:', e)
     return []

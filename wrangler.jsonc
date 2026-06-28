@@ -11,5 +11,9 @@
       "binding": "ROTAPOSTO_KV",
       "id": "9875387ed3434643838b38cf945eccde"
     }
-  ]
+  ],
+  // Cron: toda sábado ao meio-dia (UTC) — sincroniza preços ANP da semana
+  "triggers": {
+    "crons": ["0 12 * * 6"]
+  }
 }

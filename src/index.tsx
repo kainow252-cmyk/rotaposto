@@ -4,6 +4,14 @@ import { getLandingHTML } from './landing'
 import { getLandingOnboardingHTML } from './onboarding'
 import { getAppHTML } from './app'
 import {
+  getAnpXlsxUrlCandidates,
+  processarXlsxAnp,
+  salvarPrecoKV,
+  carregarPrecoKV,
+  getSemanaANPAtual,
+  type ANPSyncResult
+} from './anp_sync'
+import {
   buscarPostosANP,
   buscarPostosOSM,
   geocodeReverso,
@@ -49,7 +57,10 @@ const PRECOS_MEDIOS_UF = Object.fromEntries(
 // ─── Bindings do Cloudflare ─────────────────────────────────────────────────
 // KV removido: plataforma hospedada usa fallback estático para preços ANP
 // Assets estáticos servidos automaticamente pelo binding ASSETS
-type Bindings = Record<string, unknown>
+type Bindings = {
+  ROTAPOSTO_KV: KVNamespace
+  [key: string]: unknown
+}
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -143,9 +154,10 @@ app.get('/api/postos', async (c) => {
     let postosBase = getCached(cacheKey)
 
     if (!postosBase) {
-      // 3. Buscar em paralelo: ANP + OSM
+      // 3. Buscar em paralelo: ANP + OSM (passa KV para preços frescos)
+      const kv = getKV(c.env) || undefined
       const [anpPostos, osmPostos] = await Promise.allSettled([
-        buscarPostosANP(uf, municipio),
+        buscarPostosANP(uf, municipio, 1, kv),
         buscarPostosOSM(lat, lng, Math.min(raio * 1000, 8000))
       ])
 
@@ -5679,4 +5691,126 @@ setInterval(() => { if (currentSection === 'dashboard') carregarDashboard(); }, 
   return c.html(html)
 })
 
-export default app
+// ─── POST /api/admin/sync-anp ─────────────────────────────────────────────────
+// Baixa o XLSX mais recente da ANP, processa e salva no KV.
+// Pode ser chamado manualmente pelo admin ou pelo cron automático.
+app.post('/api/admin/sync-anp', async (c) => {
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ erro: 'KV não disponível — verifique binding ROTAPOSTO_KV' }, 500)
+
+  const candidates = getAnpXlsxUrlCandidates(4)
+  const erros: string[] = []
+
+  for (const { url, semana } of candidates) {
+    try {
+      console.log(`[ANP Sync] Tentando: ${url}`)
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'RotaPosto/1.0' },
+        signal: AbortSignal.timeout(45000)
+      })
+      if (!res.ok) {
+        erros.push(`${semana}: HTTP ${res.status}`)
+        continue
+      }
+      const buf = await res.arrayBuffer()
+      if (buf.byteLength < 10000) {
+        erros.push(`${semana}: arquivo muito pequeno (${buf.byteLength} bytes)`)
+        continue
+      }
+      const result = await processarXlsxAnp(buf, semana)
+      result.url = url
+      await salvarPrecoKV(kv, result)
+      console.log(`[ANP Sync] ✅ ${semana} → ${result.totalPostos} postos salvos`)
+      return c.json({
+        ok: true,
+        semana,
+        totalPostos: result.totalPostos,
+        url,
+        ts: result.ts
+      })
+    } catch (e: any) {
+      const msg = e?.message || String(e)
+      console.error(`[ANP Sync] Erro ${semana}:`, msg)
+      erros.push(`${semana}: ${msg}`)
+    }
+  }
+
+  return c.json({ erro: 'Nenhum arquivo ANP acessível', detalhes: erros }, 404)
+})
+
+// ─── GET /api/admin/sync-anp/status ───────────────────────────────────────────
+// Retorna info sobre o último sync realizado (metadados do KV).
+app.get('/api/admin/sync-anp/status', async (c) => {
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+
+  try {
+    const metaRaw = await kv.get('precos:meta', 'text')
+    const semanaAtual = getSemanaANPAtual()
+
+    if (!metaRaw) {
+      return c.json({
+        status: 'sem_dados',
+        semanaAtual: semanaAtual.semana,
+        urlAtual: semanaAtual.url,
+        mensagem: 'Nenhum sync realizado ainda. Chame POST /api/admin/sync-anp'
+      })
+    }
+
+    const meta = JSON.parse(metaRaw)
+    return c.json({
+      status: 'ok',
+      semanaKV: meta.semana,
+      totalPostos: meta.totalPostos,
+      atualizadoEm: meta.updatedAt,
+      semanaAtual: semanaAtual.semana,
+      urlAtual: semanaAtual.url,
+      dadosAtuais: meta.semana === semanaAtual.semana
+    })
+  } catch (e: any) {
+    return c.json({ erro: 'Erro ao ler metadados', detalhe: e?.message }, 500)
+  }
+})
+
+// ─── Cron handler: todo sábado ao meio-dia sincroniza ANP automaticamente ─────
+async function syncAnpScheduled(kv: KVNamespace | undefined): Promise<void> {
+  if (!kv) {
+    console.error('[ANP Cron] KV não disponível')
+    return
+  }
+
+  const candidates = getAnpXlsxUrlCandidates(2)
+  for (const { url, semana } of candidates) {
+    try {
+      console.log(`[ANP Cron] Baixando: ${url}`)
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'RotaPosto/1.0' },
+        signal: AbortSignal.timeout(60000)
+      })
+      if (!res.ok) {
+        console.warn(`[ANP Cron] HTTP ${res.status} para ${url}`)
+        continue
+      }
+      const buf = await res.arrayBuffer()
+      if (buf.byteLength < 10000) continue
+      const result = await processarXlsxAnp(buf, semana)
+      result.url = url
+      await salvarPrecoKV(kv, result)
+      console.log(`[ANP Cron] ✅ Sync OK: ${semana} — ${result.totalPostos} postos`)
+      return
+    } catch (e) {
+      console.error(`[ANP Cron] Erro tentando ${url}:`, e)
+    }
+  }
+  console.error('[ANP Cron] ❌ Falhou para todas as URLs candidatas')
+}
+
+// ─── Export: fetch handler + scheduled (cron) ─────────────────────────────────
+export default {
+  fetch: app.fetch,
+  async scheduled(event: { cron: string; scheduledTime: number }, env: Record<string, unknown>, ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<void> {
+    console.log(`[ANP Cron] Disparado: ${event.cron} às ${new Date(event.scheduledTime).toISOString()}`)
+    const kv = (env?.ROTAPOSTO_KV as KVNamespace | undefined)
+    ctx.waitUntil(syncAnpScheduled(kv))
+  }
+}
