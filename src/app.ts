@@ -1286,9 +1286,9 @@ export function getAppHTML(firebaseScripts: string): string {
   function updateMapCard(p) {
     selectedPosto = p;
     const preco = p.preco || p.precos?.[selectedFuel];
-    const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '–';
-    const dist = p.distancia ? p.distancia.toFixed(1) + ' km' : '–';
-    const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '–';
+    const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '-';
+    const dist = p.distancia ? p.distancia.toFixed(1) + ' km' : '-';
+    const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '-';
 
     document.getElementById('map-card-logo').textContent = getEmoji(p.bandeira || p.nome);
     document.getElementById('map-card-nome').textContent = p.nome;
@@ -1344,7 +1344,7 @@ export function getAppHTML(firebaseScripts: string): string {
       document.getElementById('plan-end').textContent = dest.endereco || dest.nome;
       document.getElementById('plan-preco').innerHTML = preco
         ? 'R$ ' + preco.toFixed(2).replace('.', ',') + '<span class="plan-preco-unit">/L</span>'
-        : '–';
+        : '-';
       const dist = dest.distancia ? dest.distancia.toFixed(1) : '1,2';
       const tempo = dest.distancia ? Math.round(dest.distancia * 3) : 3;
       document.getElementById('plan-dist').textContent = dist.replace('.',',') + ' km';
@@ -1365,9 +1365,9 @@ export function getAppHTML(firebaseScripts: string): string {
 
     container.innerHTML = postos.slice(0, 15).map((p, i) => {
       const preco = p.preco || p.precos?.[selectedFuel];
-      const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') : '–';
-      const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '–';
-      const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '–';
+      const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') : '-';
+      const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '-';
+      const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '-';
       const rating = (4.0 + Math.random() * 0.9).toFixed(1);
       const emoji = getEmoji(p.bandeira || p.nome);
       const isBest = i === 0;
@@ -1399,8 +1399,8 @@ export function getAppHTML(firebaseScripts: string): string {
 
     document.getElementById('det-logo-badge').textContent = getEmoji(p.bandeira || p.nome);
     document.getElementById('det-nome').textContent = p.nome;
-    document.getElementById('det-endereco').textContent = (p.endereco || '') + (p.bairro ? ' – ' + p.bairro : '') + '\n' + (p.cidade || '') + (p.estado ? ' – ' + p.estado : '');
-    document.getElementById('det-comb-preco').textContent = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '–';
+    document.getElementById('det-endereco').textContent = (p.endereco || '') + (p.bairro ? ' - ' + p.bairro : '') + ', ' + (p.cidade || '') + (p.estado ? ' - ' + p.estado : '');
+    document.getElementById('det-comb-preco').textContent = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '-';
 
     // Combustíveis
     const list = document.getElementById('det-fuel-list');
