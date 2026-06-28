@@ -1367,6 +1367,46 @@ app.get('/app', (c) => {
     .stat-box .stat-val { font-size: 16px; font-weight: 800; color: var(--branco); margin-top: 2px; }
     .stat-box .stat-val.verde { color: #69F0AE; }
     .stat-box .stat-val.laranja { color: var(--amarelo); }
+    /* Barra de economia real — ocupa linha inteira */
+    .economia-real-bar {
+      background: rgba(105,240,174,0.12);
+      border: 1px solid rgba(105,240,174,0.25);
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      position: relative; z-index: 1;
+    }
+    .economia-real-bar .er-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.5px; }
+    .economia-real-bar .er-val { font-size: 15px; font-weight: 900; color: #69F0AE; }
+    .economia-real-bar .er-detalhe { font-size: 10px; color: rgba(255,255,255,0.35); font-weight: 500; }
+    /* Card com score de economia */
+    .card-posto .economia-score {
+      font-size: 10px; font-weight: 700;
+      color: #69F0AE;
+      margin-top: 2px;
+    }
+    .card-posto .economia-score.neutro { color: rgba(0,0,0,0.35); }
+    /* Configuração de consumo */
+    .consumo-config {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.55);
+      margin-bottom: 4px;
+    }
+    .consumo-select {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 6px;
+      cursor: pointer;
+      outline: none;
+    }
 
     .btn-ir {
       width: 100%;
@@ -2160,22 +2200,51 @@ app.get('/app', (c) => {
         <span class="valor" id="banner-valor">–,–</span>
         <span class="cents" id="banner-cents"></span>
       </div>
+      <!-- Configuração rápida de consumo -->
+      <div class="consumo-config" id="consumo-config-bar">
+        <i class="fas fa-tachometer-alt" style="color:rgba(255,255,255,0.4)"></i>
+        <span>Consumo:</span>
+        <select class="consumo-select" id="select-consumo" onchange="atualizarConsumo(this.value)">
+          <option value="8">8 km/L (SUV)</option>
+          <option value="10">10 km/L (Pickup)</option>
+          <option value="12" selected>12 km/L (Sedan)</option>
+          <option value="14">14 km/L (Hatch)</option>
+          <option value="16">16 km/L (Flex)</option>
+          <option value="18">18 km/L (Econômico)</option>
+        </select>
+        <span style="margin-left:auto;font-size:10px;opacity:0.4">Tanque:</span>
+        <select class="consumo-select" id="select-tanque" onchange="atualizarConsumo()">
+          <option value="35">35L</option>
+          <option value="40">40L</option>
+          <option value="50" selected>50L</option>
+          <option value="60">60L</option>
+          <option value="70">70L</option>
+        </select>
+      </div>
+      <!-- Barra de economia real (vs segundo melhor) -->
+      <div class="economia-real-bar" id="economia-real-bar" style="display:none">
+        <div>
+          <div class="er-label">🧠 Economia real (com deslocamento)</div>
+          <div class="er-detalhe" id="stat-custo-desloc">Calculando custo de ir até o posto...</div>
+        </div>
+        <div class="er-val" id="stat-economia-real">–</div>
+      </div>
       <div class="stats-grid" id="banner-stats">
         <div class="stat-box">
           <div class="stat-label">📍 Distância</div>
           <div class="stat-val laranja" id="stat-dist">–</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">💰 Você economiza</div>
+          <div class="stat-label">⛽ Preço/litro</div>
+          <div class="stat-val" id="stat-preco-litro">–</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">💰 Economia/litro</div>
           <div class="stat-val verde" id="stat-eco-litro">–</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">🛢️ Economia no tanque</div>
+          <div class="stat-label">🛢️ Economia tanque</div>
           <div class="stat-val verde" id="stat-eco-tanque">–</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">📊 Postos encontrados</div>
-          <div class="stat-val" id="stat-total">–</div>
         </div>
       </div>
       <button class="btn-ir" id="btn-ir-melhor" onclick="irAoMelhorPosto()">
@@ -2194,6 +2263,9 @@ app.get('/app', (c) => {
       </button>
       <button class="sort-tab" id="sort-dist" onclick="ordenarPor('distancia')">
         📍 Mais Próximo
+      </button>
+      <button class="sort-tab" id="sort-score" onclick="ordenarPor('score')">
+        🧠 Maior Economia
       </button>
     </div>
     <div id="lista-destaque"></div>
@@ -2434,7 +2506,9 @@ function buscarPorInput() {
 async function buscarPostos() {
   mostrarLoading('Buscando postos...');
   try {
-    const url = \`/api/postos?lat=\${state.lat}&lng=\${state.lng}&combustivel=\${state.combustivel}&raio=15\`;
+    const consumo = state.consumoKmL || 12;
+    const tanque  = state.litrosTanque || 50;
+    const url = \`/api/postos?lat=\${state.lat}&lng=\${state.lng}&combustivel=\${state.combustivel}&raio=15&consumo=\${consumo}&litros=\${tanque}\`;
     const res = await fetch(url);
     const data = await res.json();
     state.postos = data.postos || [];
@@ -2473,11 +2547,12 @@ function renderizarDestaque() {
 
   const melhor = postos[0];
   const segundo = postos.find((p, i) => i > 0);
-  const mediaPreco = state.estatisticas.mediaPreco || melhor.preco;
+  const mediaPreco = state.estatisticas?.mediaPreco || melhor.preco;
+  const consumoAtual = parseFloat((document.getElementById('select-consumo') as HTMLSelectElement)?.value || '12');
+  const tanqueAtual  = parseFloat((document.getElementById('select-tanque')  as HTMLSelectElement)?.value || '50');
 
   // Banner
   document.getElementById('banner-nome').textContent = melhor.nome;
-  document.getElementById('banner-end').textContent = (melhor.endereco || melhor.bairro || '') + ' · ' + melhor.cidade;
 
   const precoStr = melhor.preco.toFixed(2);
   const [int, dec] = precoStr.split('.');
@@ -2489,25 +2564,65 @@ function renderizarDestaque() {
     : melhor.distancia.toFixed(1) + 'km';
   document.getElementById('stat-dist').textContent = dist;
 
+  // Preço/litro direto
+  const elPrecoLitro = document.getElementById('stat-preco-litro');
+  if (elPrecoLitro) elPrecoLitro.textContent = 'R$ ' + melhor.preco.toFixed(2) + '/L';
+
+  // Economia vs segundo colocado
   const econLitro = segundo ? Math.max(0, segundo.preco - melhor.preco) : Math.max(0, mediaPreco - melhor.preco);
-  const ecoTanque = (econLitro * 50).toFixed(2);
-  document.getElementById('stat-eco-litro').textContent = 'R$ ' + econLitro.toFixed(2) + '/L';
-  document.getElementById('stat-eco-tanque').textContent = 'R$ ' + ecoTanque;
+  const ecoTanque  = (econLitro * tanqueAtual).toFixed(2);
+  document.getElementById('stat-eco-litro').textContent  = econLitro > 0 ? 'R$ ' + econLitro.toFixed(2) + '/L' : '✓ Melhor preço';
+  document.getElementById('stat-eco-tanque').textContent = econLitro > 0 ? 'R$ ' + ecoTanque : '–';
   document.getElementById('stat-total').textContent = postos.length + ' postos';
 
-  // Badge de fonte
+  // ── Economia REAL (custo total: tanque + deslocamento) ───────────────────────
+  const barraReal = document.getElementById('economia-real-bar');
+  const elEcoReal = document.getElementById('stat-economia-real');
+  const elCustoDesloc = document.getElementById('stat-custo-desloc');
+
+  if (melhor.custoDeslocamento !== undefined && barraReal && elEcoReal) {
+    const custoDesloc = melhor.custoDeslocamento || 0;
+    const ecoTotalReal = melhor.economiaTotalReal || 0;
+
+    barraReal.style.display = 'flex';
+
+    if (elCustoDesloc) {
+      elCustoDesloc.textContent =
+        custoDesloc > 0
+          ? 'Custo de ir ao posto: ~R$ ' + custoDesloc.toFixed(2) + ' (' + dist + ' x 2, ' + consumoAtual + 'km/L)'
+          : 'Posto mais proximo - deslocamento minimo';
+    }
+
+    if (ecoTotalReal > 0) {
+      elEcoReal.textContent = 'Economiza R$ ' + ecoTotalReal.toFixed(2);
+      elEcoReal.style.color = '#69F0AE';
+    } else {
+      elEcoReal.textContent = '✓ Melhor custo total';
+      elEcoReal.style.color = '#69F0AE';
+    }
+  } else if (barraReal) {
+    // Calcular na UI mesmo sem score do backend
+    const litrosIdaVolta = (melhor.distancia * 2) / consumoAtual;
+    const custoDesloc = litrosIdaVolta * melhor.preco;
+    barraReal.style.display = 'flex';
+    if (elCustoDesloc) {
+      elCustoDesloc.textContent = 'Custo de ir ao posto: ~R$ ' + custoDesloc.toFixed(2) + ' (' + dist + ' x 2, ' + consumoAtual + 'km/L)';
+    }
+    if (elEcoReal) { elEcoReal.textContent = '✓ Melhor custo total'; elEcoReal.style.color = '#69F0AE'; }
+  }
+
+  // Endereço + fonte
   const fonte = state.estatisticas?.fonte || 'anp+osm';
   const fonteTxt = fonte.includes('anp') ? '🏛 ANP + OSM' : '🗺 OpenStreetMap';
   const city = state.estatisticas?.cidade || '';
   document.getElementById('banner-end').textContent =
     (melhor.endereco || melhor.bairro || city) + ' · ' + melhor.cidade;
 
-  // Info fonte (insere depois do banner)
   const fonteEl = document.getElementById('fonte-info');
   if (fonteEl) {
-    fonteEl.innerHTML = \`<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.55)">
-      \${fonteTxt} · \${postos.length} postos · \${city}
-    </span>\`;
+    fonteEl.innerHTML = '<span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.55)">' +
+      fonteTxt + ' · ' + postos.length + ' postos · ' + city +
+      '</span>';
   }
 
   // Lista ranking (top 5)
@@ -2536,7 +2651,8 @@ function gerarCardPosto(p, i, menorPreco) {
     : p.distancia.toFixed(1) + 'km';
 
   const economiaPorLitro = (p.preco - menorPreco).toFixed(2);
-  const isMelhor = i === 0 && state.ordenacao === 'preco';
+  const isMelhor = i === 0 && (state.ordenacao === 'preco' || state.ordenacao === 'score');
+  const isMelhorScore = i === 0 && state.ordenacao === 'score';
 
   // Badge de fonte de dados
   const fonteBadge = p.fonte === 'anp'
@@ -2545,10 +2661,21 @@ function gerarCardPosto(p, i, menorPreco) {
       ? '<span class="badge badge-osm">🗺 OSM</span>'
       : '<span class="badge badge-ia">👥 Colab</span>';
 
-  // Score IA se disponível
-  const scoreBadge = p.score
-    ? \`<span class="badge badge-ia" title="Score IA de economia">🤖 \${p.score.toFixed(0)}</span>\`
-    : '';
+  // Badge score de economia real
+  let econScoreHtml = '';
+  if (p.economiaTotalReal !== undefined) {
+    if (isMelhorScore) {
+      econScoreHtml = '<div class="economia-score">\ud83e\udde0 Melhor custo total</div>';
+    } else if (p.economiaTotalReal > 0) {
+      econScoreHtml = '<div class="economia-score neutro">+R$ ' + p.economiaTotalReal.toFixed(2) + ' a mais no total</div>';
+    }
+  }
+
+  // Linha de custo deslocamento (só no tab score)
+  let deslocHtml = '';
+  if (state.ordenacao === 'score' && p.custoDeslocamento !== undefined) {
+    deslocHtml = '<div style="font-size:9px;color:rgba(0,0,0,0.35);margin-top:1px">Desloc: ~R$ ' + p.custoDeslocamento.toFixed(2) + '</div>';
+  }
 
   return \`
   <div class="card-posto \${isMelhor ? 'melhor-posto' : ''}" onclick="abrirModalPosto('\${p.id}')" style="animation-delay:\${i * 0.05}s">
@@ -2561,13 +2688,18 @@ function gerarCardPosto(p, i, menorPreco) {
       <div class="posto-end">\${p.endereco || p.bairro || p.cidade}</div>
       <div class="posto-tags">
         <span class="badge badge-dist"><i class="fas fa-map-pin"></i> \${dist}</span>
-        \${isMelhor ? '<span class="badge badge-melhor">⭐ Mais barato</span>' : ''}
+        \${isMelhor && state.ordenacao !== 'score' ? '<span class="badge badge-melhor">⭐ Mais barato</span>' : ''}
+        \${isMelhorScore ? '<span class="badge badge-melhor">🧠 Maior economia</span>' : ''}
         \${fonteBadge}
       </div>
     </div>
     <div class="posto-preco-col">
       <div class="preco \${isMelhor ? 'melhor' : ''}">R$ \${p.preco.toFixed(2)}</div>
-      \${!isMelhor ? \`<div class="economia-txt">+R$ \${economiaPorLitro}/L</div>\` : '<div class="economia-txt verde">✓ Melhor preço</div>'}
+      \${!isMelhor
+        ? '<div class="economia-txt">+R$ ' + economiaPorLitro + '/L</div>'
+        : '<div class="economia-txt verde">✓ Melhor preco</div>'}
+      \${econScoreHtml}
+      \${deslocHtml}
     </div>
   </div>\`;
 }
@@ -2848,15 +2980,32 @@ function mudarCombustivelLista(comb, btn) {
 // ═══ ORDENAÇÃO ════════════════════════════════════════════════════════════════
 function ordenarPostos(postos) {
   if (!postos) return [];
-  return [...postos].sort((a, b) =>
-    state.ordenacao === 'preco' ? a.preco - b.preco : a.distancia - b.distancia
-  );
+  return [...postos].sort((a, b) => {
+    if (state.ordenacao === 'preco')     return a.preco - b.preco;
+    if (state.ordenacao === 'score')     return (a.score || 9999) - (b.score || 9999);
+    return a.distancia - b.distancia; // distancia
+  });
 }
 
 function ordenarPor(tipo) {
   state.ordenacao = tipo;
   document.getElementById('sort-preco').classList.toggle('active', tipo === 'preco');
-  document.getElementById('sort-dist').classList.toggle('active', tipo === 'distancia');
+  document.getElementById('sort-dist').classList.toggle('active',  tipo === 'distancia');
+  const sortScore = document.getElementById('sort-score');
+  if (sortScore) sortScore.classList.toggle('active', tipo === 'score');
+  renderizarDestaque();
+  renderizarLista();
+}
+
+// Atualizar consumo e reprocessar resultados
+function atualizarConsumo(val?) {
+  // Re-buscar postos com novo consumo/tanque
+  const consumo = parseFloat((document.getElementById('select-consumo') as HTMLSelectElement)?.value || '12');
+  const tanque  = parseFloat((document.getElementById('select-tanque')  as HTMLSelectElement)?.value || '50');
+  // Atualizar parâmetros de busca para próxima requisição
+  state.consumoKmL = consumo;
+  state.litrosTanque = tanque;
+  // Re-renderizar com os dados atuais (score é recalculado pelo backend na próxima busca)
   renderizarDestaque();
   renderizarLista();
 }
