@@ -55,6 +55,14 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('*', cors())
 
+// ─── Headers COOP/COEP: necessário para signInWithPopup do Firebase funcionar ─
+// sem isso, o Cloudflare Pages aplica COOP: same-origin que bloqueia popups OAuth
+app.use('*', async (c, next) => {
+  await next()
+  c.res.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+  c.res.headers.set('Cross-Origin-Embedder-Policy', 'unsafe-none')
+})
+
 // ─── Cache em memória (válido por 10 min por cidade) ─────────────────────────
 interface CacheEntry {
   postos: PostoReal[]
