@@ -1,24 +1,32 @@
 // ═══════════════════════════════════════════════════════════════════════
 //  RotaPosto – Módulo de Autenticação Firebase
-//  Google Sign-In · Facebook Login · Email/Password
-//  Firebase config extraída do projeto ShareWallet (mesmo owner)
+//  Projeto: rotaposto-32e33 (projeto oficial RotaPosto)
+//  Google Sign-In · Email/Password · Facebook Login
 // ═══════════════════════════════════════════════════════════════════════
 
-// Config Firebase do projeto affiliate-wallet-75853 (ShareWallet → RotaPosto)
+// ═══════════════════════════════════════════════════════════════════════
+//  RotaPosto – Módulo de Autenticação Firebase
+//  Projeto: rotaposto-32e33 (projeto oficial RotaPosto)
+//  Google Sign-In · Email/Password · Facebook Login
+// ═══════════════════════════════════════════════════════════════════════
+
+// Config Firebase do projeto rotaposto-32e33 (projeto oficial)
 export const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAapUKRo74zDOzrjjtZnAjodjptUnnHrCM",
-  authDomain: "affiliate-wallet-75853.firebaseapp.com",
-  projectId: "affiliate-wallet-75853",
-  storageBucket: "affiliate-wallet-75853.firebasestorage.app",
-  messagingSenderId: "470218127330",
-  appId: "1:470218127330:web:310f8672bbdefe2f4aabbb"
+  apiKey: "AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8",
+  authDomain: "rotaposto-32e33.firebaseapp.com",
+  projectId: "rotaposto-32e33",
+  storageBucket: "rotaposto-32e33.firebasestorage.app",
+  messagingSenderId: "1078426960222",
+  appId: "1:1078426960222:web:0e206f74445fd456b84fcf",
+  measurementId: "G-13NYT80VQG"
 }
 
-// Google OAuth Client ID (para Sign-In with Google)
-export const GOOGLE_CLIENT_ID = "470218127330-d1tr5j60i6db3ui56jgdqhar039dilvh.apps.googleusercontent.com"
+// Google OAuth Client ID — gerado no Console do Google Cloud para rotaposto-32e33
+// Nota: atualize com o Client ID específico do projeto rotaposto-32e33 se necessário
+export const GOOGLE_CLIENT_ID = "1078426960222-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
 
-// Google API Key (Maps + Places)
-export const GOOGLE_API_KEY = "AIzaSyAapUKRo74zDOzrjjtZnAjodjptUnnHrCM"
+// Google API Key do projeto rotaposto-32e33
+export const GOOGLE_API_KEY = "AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8"
 
 // HTML do Firebase Auth (injetado no <head> das páginas)
 // Expõe no window as funções necessárias para o app funcionar:
@@ -79,6 +87,6 @@ export function getFirebaseAuthScripts(): string {
 
     // ─── Notificar app que Firebase está pronto ───────────────────────────
     window.dispatchEvent(new CustomEvent('firebase-ready', { detail: { auth } }));
-    console.log('[RotaPosto] Firebase Auth v10 inicializado ✓');
+    console.log('[RotaPosto] Firebase Auth v10 inicializado ✓ (projeto: rotaposto-32e33)');
   </script>`
 }
