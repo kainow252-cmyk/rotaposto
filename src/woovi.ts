@@ -221,11 +221,13 @@ export async function criarAssinaturaPIX(
     const globalID = `rp-sub-${cpfLimpo.slice(-6)}-${Date.now()}`
     const diaCobranca = new Date().getDate() // cobra todo dia X do mês
 
+    // IMPORTANTE: Woovi Subscriptions API espera taxID como string simples
+    // (não objeto {taxID, type} — esse formato é só para /charge e /customer)
     const subBody: any = {
       customer: {
         name: nome,
         email,
-        taxID: { taxID: cpfLimpo, type: 'BR:CPF' }
+        taxID: cpfLimpo        // string simples: "12345678909"
       },
       value: planoInfo.valor,
       globalID,
@@ -237,7 +239,7 @@ export async function criarAssinaturaPIX(
       ]
     }
 
-    // Se temos correlationID do customer, usar
+    // Se temos correlationID do customer, incluir
     if (custResult.correlationID) {
       subBody.customer.correlationID = custResult.correlationID
     }
@@ -398,47 +400,58 @@ export async function listarAssinaturas(
 
 // ═══════════════════════════════════════════════════════════════════════
 //  7. Parsear webhook Woovi
-//  Eventos relevantes:
-//  - OPENPIX:CHARGE_COMPLETED        → pagamento único concluído
-//  - OPENPIX:SUBSCRIPTION_PAYMENT_CREATED → assinatura criada
-//  - OPENPIX:SUBSCRIPTION_PAYMENT_SUCCEED → pagamento recorrente OK
-//  - OPENPIX:SUBSCRIPTION_CANCELED   → assinatura cancelada
+//
+//  Eventos que a Woovi realmente envia (confirmado pela API):
+//  - OPENPIX:CHARGE_COMPLETED         → 1º pagamento (e recorrentes)
+//  - OPENPIX:TRANSACTION_RECEIVED     → PIX recebido (imediato)
+//  - OPENPIX:CHARGE_EXPIRED           → cobrança expirou sem pagamento
+//
+//  Para assinaturas recorrentes, a Woovi gera uma nova CHARGE a cada
+//  ciclo e dispara OPENPIX:CHARGE_COMPLETED quando paga.
+//  O campo charge.subscription (ou charge.additionalInfo) indica
+//  qual assinatura originou a cobrança.
 // ═══════════════════════════════════════════════════════════════════════
 
 export interface WebhookPayload {
   event: string
-  charge?: WooviCharge
-  subscription?: WooviSubscription
-  pixTransaction?: { correlationID: string }
+  charge?: WooviCharge & { subscription?: { globalID: string } }
+  pixTransaction?: { correlationID: string; charge?: { correlationID: string } }
 }
 
 export function parsearWebhook(body: any): {
   evento: string
   correlationID: string
   subscriptionId: string
-  status: 'PAGO' | 'CANCELADO' | 'DESCONHECIDO'
+  status: 'PAGO' | 'EXPIRADO' | 'DESCONHECIDO'
 } {
   const evento = body?.event || ''
-  const charge = body?.charge || body?.pixTransaction || {}
-  const sub = body?.subscription || {}
+  const charge = body?.charge || {}
+  const pixTransaction = body?.pixTransaction || {}
 
-  const correlationID = charge.correlationID || sub.globalID || ''
-  const subscriptionId = sub.globalID || charge.correlationID || ''
+  // correlationID da cobrança (identifica qual charge foi paga)
+  const correlationID = charge.correlationID
+    || pixTransaction?.charge?.correlationID
+    || pixTransaction.correlationID
+    || ''
 
-  let status: 'PAGO' | 'CANCELADO' | 'DESCONHECIDO' = 'DESCONHECIDO'
+  // subscriptionId: Woovi inclui no charge quando é cobrança de assinatura
+  const subscriptionId = charge?.subscription?.globalID
+    || charge?.globalID
+    || ''
+
+  let status: 'PAGO' | 'EXPIRADO' | 'DESCONHECIDO' = 'DESCONHECIDO'
 
   if (
     evento === 'OPENPIX:CHARGE_COMPLETED' ||
-    evento === 'OPENPIX:SUBSCRIPTION_PAYMENT_CREATED' ||
-    evento === 'OPENPIX:SUBSCRIPTION_PAYMENT_SUCCEED' ||
+    evento === 'OPENPIX:TRANSACTION_RECEIVED' ||
     charge?.status === 'COMPLETED'
   ) {
     status = 'PAGO'
   } else if (
-    evento === 'OPENPIX:SUBSCRIPTION_CANCELED' ||
-    sub?.status === 'CANCELED'
+    evento === 'OPENPIX:CHARGE_EXPIRED' ||
+    charge?.status === 'EXPIRED'
   ) {
-    status = 'CANCELADO'
+    status = 'EXPIRADO'
   }
 
   return { evento, correlationID, subscriptionId, status }

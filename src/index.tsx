@@ -1221,8 +1221,10 @@ app.post('/api/assinatura/cancelar', async (c) => {
 })
 
 // ─── API: Webhook Woovi ──────────────────────────────────────────────────────
-// Registrar URL no painel Woovi: https://rotaposto.com.br/api/pix/webhook
-// Eventos: OPENPIX:CHARGE_COMPLETED, OPENPIX:SUBSCRIPTION_PAYMENT_SUCCEED, etc.
+// Webhooks registrados na Woovi (via API em 2026-06-28):
+//   OPENPIX:CHARGE_COMPLETED     → pagamento do 1º e de ciclos seguintes
+//   OPENPIX:TRANSACTION_RECEIVED → PIX recebido (redundância)
+// Authorization header: "rp-webhook-2026"
 app.post('/api/pix/webhook', async (c) => {
   try {
     const body = await c.req.json() as any
@@ -1273,14 +1275,16 @@ app.post('/api/pix/webhook', async (c) => {
       await kvSetAssinatura(kv, assin)
       console.log(`[Woovi] ✅ Assinatura ATIVA para ${userId} - pagamento #${assin.pagamentos}, expira em ${new Date(assin.expiraEm).toISOString()}`)
 
-    } else if (status === 'CANCELADO') {
-      const userId = await kvGetUserBySubId(kv, subscriptionId)
+    } else if (status === 'EXPIRADO') {
+      // Cobrança expirou sem pagamento — marcar como EXPIRED no KV
+      const userId = await kvGetUserBySubId(kv, subscriptionId) ||
+                     await kvGetUserBySubId(kv, correlationID)
       if (userId) {
         const assin = await kvGetAssinatura(kv, userId)
-        if (assin) {
-          assin.status = 'CANCELLED'
+        if (assin && assin.status === 'PENDING') {
+          assin.status = 'EXPIRED'
           await kvSetAssinatura(kv, assin)
-          console.log('[Woovi] Assinatura CANCELADA para:', userId)
+          console.log('[Woovi] Cobrança EXPIRADA para:', userId)
         }
       }
     }
