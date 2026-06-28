@@ -1260,13 +1260,18 @@ app.get('/api/auth/config', (c) => {
 })
 
 // ─── Frontend Principal ───────────────────────────────────────────────────────
-// Rota raiz → nova landing onboarding profissional (igual ShareWallet)
+// Rota raiz → landing page profissional de marketing
 app.get('/', (c) => {
+  return c.html(getLandingHTML())
+})
+
+// /onboarding → onboarding flow com Firebase Auth
+app.get('/onboarding', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
   return c.html(getLandingOnboardingHTML(firebaseScripts))
 })
 
-// /landing → mantém a landing page de marketing com planos (mantida como alias)
+// /landing → alias da landing page de marketing
 
 app.get('/app', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
