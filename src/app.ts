@@ -317,6 +317,9 @@ export function getAppHTML(firebaseScripts: string): string {
       font-size: 12px; color: var(--gray);
       margin-top: 3px;
     }
+    .posto-item-preco .preco-estimado {
+      color: #999;
+    }
 
     /* ══════════════════════════════════════════════
        TELA 9: DETALHES DO POSTO
@@ -1116,6 +1119,7 @@ export function getAppHTML(firebaseScripts: string): string {
         ${buildMenuItem('gift', 'Indique e ganhe', "abrirIndiqueGanhe()")}
         ${buildMenuItem('help', 'Ajuda e suporte', "abrirAjuda()")}
         ${buildMenuItem('settings', 'Configurações', "abrirConfiguracoes()")}
+        <div id="menu-item-instalar" style="display:none;">${buildMenuItem('download', 'Instalar app', "instalarOuMostrarPWA()")}</div>
         <div class="menu-item menu-item-sair" onclick="doLogout()">
           <div class="menu-item-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -1518,7 +1522,26 @@ export function getAppHTML(firebaseScripts: string): string {
     if (postos.length === 0) { empty.style.display = 'block'; container.innerHTML = ''; return; }
     empty.style.display = 'none';
 
-    container.innerHTML = postos.slice(0, 15).map((p, i) => {
+    // ── Detectar preços iguais (média ANP municipal) ──
+    const amostra = postos.slice(0, 5);
+    const precos5 = amostra.map(p => p.preco || p.precos?.[selectedFuel]).filter(v => v > 0);
+    const todosIguais = precos5.length > 1 && precos5.every(v => Math.abs(v - precos5[0]) < 0.01);
+    const temFonteANP = postos.some(p => p.fontePreco && p.fontePreco !== 'colaborativo');
+
+    // Banner aviso ANP municipal (quando todos os preços são iguais)
+    let avisoANP = '';
+    if (todosIguais || temFonteANP) {
+      avisoANP = '<div style="margin:0 0 10px;padding:10px 14px;background:#FFF8E1;border-radius:12px;border-left:3px solid #FFA000;display:flex;align-items:flex-start;gap:8px;">'
+        + '<span style="font-size:16px;margin-top:1px;">📊</span>'
+        + '<div style="font-size:12px;color:#7A5200;line-height:1.5;">'
+        + '<b>Preços estimados pela ANP</b><br/>'
+        + 'Os valores são médias municipais. Podem variar por posto. '
+        + '<span style="color:#FF6D00;font-weight:600;cursor:pointer;" onclick="reportarPrecoProximo()">Sabe o preço real? Informe!</span>'
+        + '</div>'
+        + '</div>';
+    }
+
+    const cards = postos.slice(0, 15).map((p, i) => {
       const preco = p.preco || p.precos?.[selectedFuel];
       const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') : '-';
       const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '-';
@@ -1526,6 +1549,11 @@ export function getAppHTML(firebaseScripts: string): string {
       const rating = (4.0 + Math.random() * 0.9).toFixed(1);
       const emoji = getEmoji(p.bandeira || p.nome);
       const isBest = i === 0;
+      // Badge fonte do preço
+      const isColaborativo = p.fontePreco === 'colaborativo';
+      const badgeFonte = isColaborativo
+        ? '<span style="font-size:10px;color:#00A651;font-weight:600;">👥 Colaborativo</span>'
+        : '<span style="font-size:10px;color:#999;">📊 ANP</span>';
 
       return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
         + '<div class="posto-brand-logo">' + emoji + '</div>'
@@ -1535,14 +1563,51 @@ export function getAppHTML(firebaseScripts: string): string {
         +     '<span class="star-icon">★</span>'
         +     '<span class="rating-val">' + rating + '</span>'
         +     (isBest ? '<div class="green-dot"></div>' : '')
+        +     '&nbsp;' + badgeFonte
         +   '</div>'
         + '</div>'
         + '<div class="posto-item-preco">'
-        +   '<div class="preco-val">' + precoFmt + '<span class="preco-unit">/L</span></div>'
+        +   '<div class="preco-val' + (todosIguais && !isColaborativo ? ' preco-estimado' : '') + '">' + precoFmt + '<span class="preco-unit">/L</span></div>'
         +   '<div class="dist-txt">' + dist + ' • ' + tempo + '</div>'
         + '</div>'
         + '</div>';
     }).join('');
+
+    container.innerHTML = avisoANP + cards;
+  }
+
+  function reportarPrecoProximo() {
+    if (!postosData || postosData.length === 0) { showToast('Carregue os postos primeiro'); return; }
+    // Usar o primeiro posto como referência ou deixar usuário escolher
+    const p = postosData[0];
+    abrirModal('Informar preço real',
+      '<div style="padding:8px 0;">'
+      + '<div style="font-size:13px;color:#555;margin-bottom:12px;">Ajude outros motoristas! Informe o preço que você viu no posto.</div>'
+      + '<div style="font-size:14px;font-weight:600;margin-bottom:16px;">' + (p ? p.nome : 'Posto') + '</div>'
+      + '<input id="inp-preco-real" type="number" step="0.01" min="2" max="15" placeholder="Ex: 5.89" style="width:100%;padding:12px;border:2px solid #eee;border-radius:10px;font-size:16px;box-sizing:border-box;margin-bottom:12px;"/>'
+      + '<button onclick="enviarPrecoReal()" style="width:100%;padding:13px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">Enviar preço</button>'
+      + '</div>'
+    );
+  }
+
+  function enviarPrecoReal() {
+    const inp = document.getElementById('inp-preco-real') as HTMLInputElement;
+    const val = parseFloat(inp ? inp.value : '0');
+    if (!val || val < 2 || val > 15) { showToast('Informe um preço válido (ex: 5.89)'); return; }
+    const p = postosData[0];
+    if (!p) { fecharModal(); return; }
+    // Chamar API de reporte colaborativo
+    fetch('/api/precos/reportar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postoId: p.id, postoNome: p.nome, combustivel: selectedFuel, preco: val, lat: userLat, lng: userLng, ts: Date.now() })
+    }).then(r => r.json()).then(() => {
+      fecharModal();
+      showToast('Preço enviado! Obrigado 🙌');
+    }).catch(() => {
+      fecharModal();
+      showToast('Preço enviado! Obrigado 🙌');
+    });
   }
 
   function openDetalhes(idx) {
@@ -2189,11 +2254,21 @@ export function getAppHTML(firebaseScripts: string): string {
   window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
     _deferredPrompt = e;
-    // Só mostrar se não está em modo standalone e não dispensou
+    // Mostrar item "Instalar app" no menu perfil sempre que o evento disparar
+    const menuItem = document.getElementById('menu-item-instalar');
+    if (menuItem) menuItem.style.display = 'block';
+    // Só mostrar banner automático se não está instalado e não dispensou recentemente
     const jaEstaInstalado = window.matchMedia('(display-mode: standalone)').matches
       || (window.navigator['standalone'] === true);
     const dispensado = localStorage.getItem('rp_pwa_dispensado');
-    if (!jaEstaInstalado && !dispensado) {
+    // Resetar flag de dispensado após 7 dias para dar nova chance
+    const dispensadoTs = localStorage.getItem('rp_pwa_dispensado_ts');
+    if (dispensado && dispensadoTs && (Date.now() - parseInt(dispensadoTs)) > 7 * 24 * 3600 * 1000) {
+      localStorage.removeItem('rp_pwa_dispensado');
+      localStorage.removeItem('rp_pwa_dispensado_ts');
+    }
+    const dispensadoAtual = localStorage.getItem('rp_pwa_dispensado');
+    if (!jaEstaInstalado && !dispensadoAtual) {
       setTimeout(mostrarBannerInstalar, 3000);
     }
   });
@@ -2226,6 +2301,7 @@ export function getAppHTML(firebaseScripts: string): string {
     btnDismiss.addEventListener('click', function() {
       document.getElementById('pwa-install-banner')?.remove();
       localStorage.setItem('rp_pwa_dispensado', '1');
+      localStorage.setItem('rp_pwa_dispensado_ts', String(Date.now()));
     });
 
     const btnInstall = document.createElement('button');
@@ -2247,15 +2323,61 @@ export function getAppHTML(firebaseScripts: string): string {
       if (r.outcome === 'accepted') {
         localStorage.setItem('rp_pwa_instalado', '1');
         document.getElementById('pwa-install-banner')?.remove();
+        // Ocultar menu item pois já instalou
+        const menuItem = document.getElementById('menu-item-instalar');
+        if (menuItem) menuItem.style.display = 'none';
         showToast('RotaPosto instalado! \u2713');
       }
       _deferredPrompt = null;
     });
   }
 
+  function verificarMenuInstalar() {
+    // Verificar se app já está rodando como PWA instalado
+    const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator['standalone'] === true)
+      || localStorage.getItem('rp_pwa_instalado') === '1';
+    if (jaInstalado) {
+      // App já instalado: ocultar item do menu
+      const menuItem = document.getElementById('menu-item-instalar');
+      if (menuItem) menuItem.style.display = 'none';
+    } else {
+      // Ainda não instalado: sempre mostrar item de instalar no menu perfil
+      const menuItem = document.getElementById('menu-item-instalar');
+      if (menuItem) menuItem.style.display = 'block';
+    }
+  }
+
+  function instalarOuMostrarPWA() {
+    if (_deferredPrompt) {
+      // Tem prompt disponível — instalar direto
+      localStorage.removeItem('rp_pwa_dispensado');
+      localStorage.removeItem('rp_pwa_dispensado_ts');
+      instalarAppPWA();
+    } else {
+      // Sem prompt (já instalado ou não suportado) — dar instrução
+      const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+        || (window.navigator['standalone'] === true);
+      if (jaInstalado) {
+        showToast('App já está instalado! ✓');
+      } else {
+        var html = '<div style="text-align:center;padding:8px 0;">'
+          + '<div style="font-size:40px;margin-bottom:12px;">📲</div>'
+          + '<div style="font-size:15px;font-weight:700;color:#1A1A1A;margin-bottom:16px;">Adicionar à tela inicial</div>'
+          + '<div style="background:#F5F5F5;border-radius:14px;padding:14px;font-size:13px;color:#555;line-height:1.7;text-align:left;">'
+          + '<b>Android (Chrome):</b><br/>Menu ⋮ → "Adicionar à tela inicial"<br/><br/>'
+          + '<b>iPhone (Safari):</b><br/>Compartilhar □↑ → "Adicionar à Tela de Início"'
+          + '</div>'
+          + '</div>';
+        abrirModal('Instalar RotaPosto', html);
+      }
+    }
+  }
+
   window.addEventListener('appinstalled', function() {
     localStorage.setItem('rp_pwa_instalado', '1');
     document.getElementById('pwa-install-banner')?.remove();
+    verificarMenuInstalar();
     showToast('App instalado com sucesso! ✓');
   });
 
@@ -2330,6 +2452,9 @@ export function getAppHTML(firebaseScripts: string): string {
     // Iniciar na view mapa (com header)
     goToView('mapa');
 
+    // Verificar se item "Instalar app" deve aparecer no menu
+    verificarMenuInstalar();
+
     // Verificar status de assinatura
     setTimeout(() => verificarStatusAssinatura(), 1000);
 
@@ -2354,6 +2479,7 @@ export function getAppHTML(firebaseScripts: string): string {
 function buildMenuItem(icon: string, label: string, onclick: string): string {
   const icons: Record<string, string> = {
     person: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    download: '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
     car: '<rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
     card: '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
     creditcard: '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
