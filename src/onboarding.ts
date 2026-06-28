@@ -488,7 +488,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   <div class="ob-cta">
     <button class="btn-primary" id="btn-comecar" onclick="abrirLogin('comecar')">
       <i class="fas fa-rocket"></i>
-      Cadastre-se agora — é grátis
+      Cadastre-se agora
     </button>
     <button class="btn-secondary" id="btn-ja-tenho" onclick="abrirLogin('entrar')">
       <i class="fas fa-user"></i>
