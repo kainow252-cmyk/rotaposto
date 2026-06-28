@@ -1,30 +1,32 @@
 // ═══════════════════════════════════════════════════════════════════════
 //  RotaPosto – Módulo de Autenticação Firebase
-//  Projeto: affiliate-wallet-75853 (ShareWallet — Google + Facebook ativos)
-//  Login: Google Sign-In · Facebook Login (signInWithPopup — sem redirect URI)
+//  Projeto: rotaposto-32e33 (projeto oficial RotaPosto)
+//  Login: Google Sign-In · Facebook Login (signInWithPopup)
+//  authDomain: rotaposto-32e33.firebaseapp.com
 // ═══════════════════════════════════════════════════════════════════════
 
-// Config Firebase do projeto affiliate-wallet-75853 (ShareWallet → RotaPosto)
+// Config Firebase do projeto rotaposto-32e33
 export const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAapUKRo74zDOzrjjtZnAjodjptUnnHrCM",
-  authDomain: "affiliate-wallet-75853.firebaseapp.com",
-  projectId: "affiliate-wallet-75853",
-  storageBucket: "affiliate-wallet-75853.firebasestorage.app",
-  messagingSenderId: "470218127330",
-  appId: "1:470218127330:web:310f8672bbdefe2f4aabbb"
+  apiKey: "AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8",
+  authDomain: "rotaposto-32e33.firebaseapp.com",
+  projectId: "rotaposto-32e33",
+  storageBucket: "rotaposto-32e33.firebasestorage.app",
+  messagingSenderId: "1078426960222",
+  appId: "1:1078426960222:web:0e206f74445fd456b84fcf",
+  measurementId: "G-13NYT80VQG"
 }
 
-// Google OAuth Client ID (para Sign-In with Google)
-export const GOOGLE_CLIENT_ID = "470218127330-d1tr5j60i6db3ui56jgdqhar039dilvh.apps.googleusercontent.com"
+// Google OAuth Client ID do projeto rotaposto-32e33
+// project number = 1078426960222
+export const GOOGLE_CLIENT_ID = "1078426960222-web.apps.googleusercontent.com"
 
-// Google API Key (Maps + Places)
-export const GOOGLE_API_KEY = "AIzaSyAapUKRo74zDOzrjjtZnAjodjptUnnHrCM"
+// Google API Key
+export const GOOGLE_API_KEY = "AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8"
 
 // ─── HTML do Firebase Auth ────────────────────────────────────────────────────
-// Usa signInWithPopup — funciona em qualquer domínio sem precisar configurar
-// redirect URIs no Google Cloud Console. Sem erro redirect_uri_mismatch.
-// Domínio rotaposto.com.br deve estar em Firebase Console → Authentication →
-// Settings → Authorized domains (para o popup não ser bloqueado).
+// signInWithPopup — sem redirect_uri_mismatch
+// Domínio rotaposto.com.br deve estar em:
+// Firebase Console → rotaposto-32e33 → Authentication → Settings → Authorized domains
 export function getFirebaseAuthScripts(): string {
   const configJson = JSON.stringify(FIREBASE_CONFIG)
   return `
@@ -74,6 +76,6 @@ export function getFirebaseAuthScripts(): string {
 
     // ─── Notificar app que Firebase está pronto ───────────────────────────
     window.dispatchEvent(new CustomEvent('firebase-ready', { detail: { auth } }));
-    console.log('[RotaPosto] Firebase Auth v10 OK (Google + Facebook) - Popup mode');
+    console.log('[RotaPosto] Firebase Auth v10 OK - projeto rotaposto-32e33');
   </script>`
 }
