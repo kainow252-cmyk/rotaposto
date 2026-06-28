@@ -4,12 +4,6 @@
 //  Google Sign-In · Email/Password · Facebook Login
 // ═══════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════
-//  RotaPosto – Módulo de Autenticação Firebase
-//  Projeto: rotaposto-32e33 (projeto oficial RotaPosto)
-//  Google Sign-In · Email/Password · Facebook Login
-// ═══════════════════════════════════════════════════════════════════════
-
 // Config Firebase do projeto rotaposto-32e33 (projeto oficial)
 export const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8",
@@ -21,28 +15,29 @@ export const FIREBASE_CONFIG = {
   measurementId: "G-13NYT80VQG"
 }
 
-// Google OAuth Client ID — gerado no Console do Google Cloud para rotaposto-32e33
-// Nota: atualize com o Client ID específico do projeto rotaposto-32e33 se necessário
-export const GOOGLE_CLIENT_ID = "1078426960222-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
-
 // Google API Key do projeto rotaposto-32e33
 export const GOOGLE_API_KEY = "AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8"
 
+// Google OAuth Client ID — atualizar com o Client ID real do Console GCP
+// Acesse: console.cloud.google.com → APIs & Services → Credentials → OAuth 2.0 Client IDs
+export const GOOGLE_CLIENT_ID = "1078426960222-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
+
 // HTML do Firebase Auth (injetado no <head> das páginas)
 // Expõe no window as funções necessárias para o app funcionar:
-//   window._fbAuth         → instância do Auth
-//   window._fbGoogleProvider  → GoogleAuthProvider configurado
-//   window._fbFacebookProvider → FacebookAuthProvider configurado
-//   window._fbSignInWithPopup  → função signInWithPopup
-//   window._fbSignInWithEmailAndPassword
-//   window._fbCreateUserWithEmailAndPassword
-//   window._fbSignOut
-//   window._fbOnAuthStateChanged
-//   window._firebaseReady  → true após inicialização
+//   window._fbAuth                          → instância do Auth
+//   window._fbGoogleProvider                → GoogleAuthProvider configurado
+//   window._fbFacebookProvider              → FacebookAuthProvider configurado
+//   window._fbSignInWithPopup               → função signInWithPopup
+//   window._fbSignInWithEmailAndPassword    → login email/senha
+//   window._fbCreateUserWithEmailAndPassword → cadastro email/senha
+//   window._fbSignOut                       → logout
+//   window._fbOnAuthStateChanged            → listener de estado
+//   window._fbUpdateProfile                 → atualizar perfil
+//   window._firebaseReady                   → true após inicialização
 export function getFirebaseAuthScripts(): string {
   const configJson = JSON.stringify(FIREBASE_CONFIG)
   return `
-  <!-- Firebase SDK v10 (modular via CDN) -->
+  <!-- Firebase SDK v10 (modular via CDN) — projeto rotaposto-32e33 -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
     import {
@@ -87,6 +82,6 @@ export function getFirebaseAuthScripts(): string {
 
     // ─── Notificar app que Firebase está pronto ───────────────────────────
     window.dispatchEvent(new CustomEvent('firebase-ready', { detail: { auth } }));
-    console.log('[RotaPosto] Firebase Auth v10 inicializado ✓ (projeto: rotaposto-32e33)');
+    console.log('[RotaPosto] Firebase Auth v10 ✓ (rotaposto-32e33)');
   </script>`
 }
