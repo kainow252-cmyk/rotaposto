@@ -104,21 +104,55 @@ function normalizarProduto(produto: string): keyof PostoReal['precos'] | null {
   return null
 }
 
-// ─── Preços Mock por Distribuidora (estimativa ANP) ──────────────────────────
-// Baseado em levantamentos ANP reais (jun/2025 - São Paulo)
-const PRECOS_ESTIMADOS: Record<string, PostoReal['precos']> = {
-  'BR':          { gasolina: 5.99, etanol: 4.19, diesel: 5.89, dieselS10: 5.99, gnv: 4.19 },
-  'Ipiranga':    { gasolina: 6.09, etanol: 4.25, diesel: 5.95, dieselS10: 6.05 },
-  'Shell':       { gasolina: 5.89, etanol: 4.09, diesel: 5.79, dieselS10: 5.89 },
-  'Raízen':      { gasolina: 5.95, etanol: 4.15, diesel: 5.85, dieselS10: 5.95 },
-  'Ale':         { gasolina: 5.79, etanol: 4.05, diesel: 5.69, dieselS10: 5.79 },
-  'Esso':        { gasolina: 5.99, etanol: 4.19, diesel: 5.89 },
-  'Independente':{ gasolina: 5.69, etanol: 3.99, diesel: 5.59, gnv: 3.89 },
-  'default':     { gasolina: 5.85, etanol: 4.10, diesel: 5.75 }
+// ─── Preços reais ANP por UF — semana 21-27/06/2026 ─────────────────────────
+// Dados extraídos da planilha semanal oficial gov.br/anp
+// Estrutura: { gasolina: {media,min,max,postos}, ... }
+import { PRECOS_ANP_POR_UF, getPrecoANPPorMunicipio, ANP_SEMANA } from './brasil'
+
+/**
+ * Retorna preços reais ANP para a UF do posto.
+ * Usa media por UF como estimativa quando não há dados por município.
+ * Marca a fonte como 'anp_media_uf' para distinguir de dados crowdsourced.
+ */
+function estimarPrecosPorUF(uf: string): PostoReal['precos'] {
+  const dados = PRECOS_ANP_POR_UF[uf.toUpperCase()]
+  if (!dados) {
+    // Fallback: média nacional aproximada
+    return { gasolina: 6.81, gasolinaAditivada: 6.97, etanol: 4.82, diesel: 7.02, dieselS10: 7.14 }
+  }
+  return {
+    gasolina: dados.gasolina?.media,
+    gasolinaAditivada: dados.gasolinaAditivada?.media,
+    etanol: dados.etanol?.media,
+    diesel: dados.diesel?.media,
+    dieselS10: dados.dieselS10?.media,
+    gnv: dados.gnv?.media,
+    glp: dados.glp?.media,
+  }
 }
 
-function estimarPrecos(bandeira: string): PostoReal['precos'] {
-  return PRECOS_ESTIMADOS[bandeira] || PRECOS_ESTIMADOS['default']
+/**
+ * Retorna preços ANP por município quando disponível, cai na média UF.
+ * @param uf - sigla do estado (ex: 'SP')
+ * @param municipio - nome do município (ex: 'São Paulo')
+ */
+export function estimarPrecosPorMunicipio(uf: string, municipio: string): PostoReal['precos'] & { _semana?: string; _fonte?: string } {
+  const dadosMun = getPrecoANPPorMunicipio(uf, municipio)
+  if (dadosMun && Object.keys(dadosMun).length > 0) {
+    return {
+      gasolina: dadosMun.gasolina?.media,
+      gasolinaAditivada: dadosMun.gasolinaAditivada?.media,
+      etanol: dadosMun.etanol?.media,
+      diesel: dadosMun.diesel?.media,
+      dieselS10: dadosMun.dieselS10?.media,
+      gnv: dadosMun.gnv?.media,
+      glp: dadosMun.glp?.media,
+      _semana: `${ANP_SEMANA.inicio} a ${ANP_SEMANA.fim}`,
+      _fonte: 'anp_municipio',
+    }
+  }
+  // Fallback: média por UF
+  return { ...estimarPrecosPorUF(uf), _semana: `${ANP_SEMANA.inicio} a ${ANP_SEMANA.fim}`, _fonte: 'anp_media_uf' }
 }
 
 // ─── 1. API ANP – Postos Cadastrados ─────────────────────────────────────────
@@ -139,7 +173,10 @@ export async function buscarPostosANP(uf: string, municipio: string, pagina = 1)
       .map((p: any): PostoReal => {
         const bandeira = normalizarBandeira(p.distribuidora || '')
         const produtos: string[] = (p.produtos || []).map((pr: any) => pr.produto)
-        const precos = estimarPrecos(bandeira)
+        const ufPosto = (p.uf || uf).toUpperCase()
+        const munPosto = p.municipio || municipio
+        // Preços reais ANP — por município quando disponível, senão média da UF
+        const precos = estimarPrecosPorMunicipio(ufPosto, munPosto)
 
         return {
           id: `anp-${p.codigoSIMP || p.cnpj}`,
@@ -151,15 +188,15 @@ export async function buscarPostosANP(uf: string, municipio: string, pagina = 1)
           distribuidora: p.distribuidora,
           endereco: p.endereco || '',
           bairro: p.bairro,
-          cidade: p.municipio || municipio,
-          estado: p.uf || uf,
+          cidade: munPosto,
+          estado: ufPosto,
           cep: p.cep,
           lat: parseFloat(p.latitude),
           lng: parseFloat(p.longitude),
           precos,
           produtos,
           atualizadoEm: new Date().toISOString().split('T')[0],
-          fontePreco: 'estimado',
+          fontePreco: (precos as any)._fonte || 'anp_media_uf',
           confirmacoesPreco: 0
         }
       })
@@ -225,7 +262,13 @@ export async function buscarPostosOSM(lat: number, lng: number, raioMetros = 500
     return (json.elements || []).map((el: any): PostoReal => {
       const tags = el.tags || {}
       const bandeira = normalizarBandeira(tags.brand || tags.operator || tags.name || '')
-      const precos = estimarPrecos(bandeira)
+      // Preços reais ANP por município (OSM pode ter addr:city e addr:state)
+      // tags OSM: addr:state = 'SP', addr:city = 'São Paulo'
+      const ufOsm = (tags['addr:state'] || '').toUpperCase()
+      const munOsm = tags['addr:city'] || tags['addr:suburb'] || ''
+      // Se a UF estiver disponível no OSM → preços reais ANP
+      // Se não → deixa sem preços (usuário pode reportar via crowdsourcing)
+      const precos = ufOsm ? estimarPrecosPorMunicipio(ufOsm, munOsm) : {}
 
       // Extrair preços específicos do OSM quando disponíveis
       if (tags['fuel:octane_95'] === 'yes' || tags['fuel:octane_87'] === 'yes') {

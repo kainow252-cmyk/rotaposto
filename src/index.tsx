@@ -17,7 +17,26 @@ import {
 } from './apis'
 import { FIREBASE_CONFIG, GOOGLE_CLIENT_ID, GOOGLE_API_KEY, getFirebaseAuthScripts } from './auth'
 import { criarAssinaturaPIX, verificarPagamento, PLANOS } from './woovi'
-import { buscarTodosPostosANP, getMapaBrasilHTML, getEstatisticasNacionais, PRECOS_MEDIOS_UF } from './brasil'
+import {
+  buscarTodosPostosANP,
+  getMapaBrasilHTML,
+  getEstatisticasNacionaisANP,
+  PRECOS_ANP_POR_UF,
+  PRECOS_ANP_POR_MUNICIPIO,
+  getPrecoANPPorUF,
+  getPrecoANPPorMunicipio,
+  getMunicipiosDisponiveis,
+  ANP_SEMANA,
+} from './brasil'
+
+// Alias de compatibilidade — mantido para endpoints legados
+const getEstatisticasNacionais = getEstatisticasNacionaisANP
+const PRECOS_MEDIOS_UF = Object.fromEntries(
+  Object.entries(PRECOS_ANP_POR_UF).map(([uf, p]) => [
+    uf,
+    Object.fromEntries(Object.entries(p).map(([k, v]) => [k, v.media]))
+  ])
+)
 
 // ─── Bindings do Cloudflare ─────────────────────────────────────────────────
 // KV removido: plataforma hospedada usa fallback estático para preços ANP
@@ -627,51 +646,80 @@ app.get('/api/postos/brasil', async (c) => {
   }
 })
 
-// ─── API: Preços por município (do KV) ───────────────────────────────────────
+// ─── API: Preços por município — dados reais ANP embutidos ───────────────────
 // GET /api/precos/municipio?uf=SP&municipio=SAO+PAULO
-app.get('/api/precos/municipio', async (c) => {
+// GET /api/precos/municipio?uf=SP  (retorna todos municípios da UF)
+app.get('/api/precos/municipio', (c) => {
   const uf = (c.req.query('uf') || '').toUpperCase()
-  const municipio = (c.req.query('municipio') || '').toUpperCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9 ]/g, '').trim()
+  const municipioQuery = (c.req.query('municipio') || '')
+    .toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9 ]/g, ' ').trim()
 
-  const kv = (c.env as any)?.PRECOS_ANP as KVNamespace | undefined
-  const kvMun = await kvGetCached(kv, 'precos:municipios')
+  if (!uf) {
+    return c.json({ error: 'Parâmetro uf é obrigatório. Ex: ?uf=SP' }, 400)
+  }
 
-  if (!kvMun?.m) {
-    // Fallback para dados estáticos
-    const precos = uf ? PRECOS_MEDIOS_UF[uf] : null
+  const semana = `${ANP_SEMANA.inicio} a ${ANP_SEMANA.fim}`
+
+  // Sem município → retorna todos da UF
+  if (!municipioQuery) {
+    const dadosUF = PRECOS_ANP_POR_MUNICIPIO[uf] || {}
+    const municipios = getMunicipiosDisponiveis(uf)
     return c.json({
-      uf, municipio,
-      precos: precos || null,
-      fonte: 'fallback-estatico',
-      semana: '21-27/06/2026'
+      uf,
+      semana,
+      fonte: 'anp-embutido',
+      municipiosDisponiveis: municipios.length,
+      municipios: dadosUF,
+      precosMediosUF: getPrecoANPPorUF(uf),
     })
   }
 
-  // Buscar município exato ou por UF
-  let precos: any = null
-  let found_mun = ''
-  const chaveExata = `${uf}:${municipio}`
+  // Com município → busca exata ou parcial
+  const dadosUF = PRECOS_ANP_POR_MUNICIPIO[uf] || {}
 
-  if (kvMun.m[chaveExata]) {
-    precos = kvMun.m[chaveExata]
-    found_mun = chaveExata
-  } else {
-    // Busca parcial: primeiro município da UF que contém o texto
-    for (const [k, v] of Object.entries(kvMun.m)) {
-      if (k.startsWith(uf + ':') && k.includes(municipio)) {
-        precos = v
-        found_mun = k
-        break
-      }
-    }
+  // 1. Busca exata
+  if (dadosUF[municipioQuery]) {
+    return c.json({
+      uf, municipio: municipioQuery,
+      precos: dadosUF[municipioQuery],
+      precosUF: getPrecoANPPorUF(uf),
+      fonte: 'anp-municipio',
+      semana,
+      disponivel: true,
+    })
   }
 
+  // 2. Busca parcial (o município pesquisado é prefixo ou subconjunto)
+  const chaves = Object.keys(dadosUF)
+  const match = chaves.find(k =>
+    k.startsWith(municipioQuery.slice(0, 6)) || // primeiras 6 letras
+    k.includes(municipioQuery) ||
+    municipioQuery.includes(k)
+  )
+
+  if (match) {
+    return c.json({
+      uf, municipio: match,
+      precos: dadosUF[match],
+      precosUF: getPrecoANPPorUF(uf),
+      fonte: 'anp-municipio-parcial',
+      semana,
+      disponivel: true,
+      municipioOriginal: municipioQuery,
+    })
+  }
+
+  // 3. Fallback: retorna média da UF
   return c.json({
-    uf, municipio: found_mun || municipio,
-    precos,
-    fonte: 'anp-kv',
-    semana: kvMun.s || '21-27/06/2026'
+    uf, municipio: municipioQuery,
+    precos: null,
+    precosUF: getPrecoANPPorUF(uf),
+    fonte: 'anp-media-uf',
+    semana,
+    disponivel: false,
+    municipiosDisponiveisNaUF: getMunicipiosDisponiveis(uf).length,
+    mensagem: `Município ${municipioQuery}/${uf} não pesquisado nesta semana. Use precosUF como referência.`,
   })
 })
 
