@@ -1416,6 +1416,77 @@ app.get('/api/auth/config', (c) => {
   })
 })
 
+// ─── API: Sessão Única por Usuário ────────────────────────────────────────────
+// Garante que apenas 1 dispositivo por vez pode estar logado.
+// Ao logar em novo celular, o token anterior é invalidado → outro celular é deslogado.
+
+// POST /api/auth/session → registra/substitui sessão do usuário
+// Body: { uid, deviceId }
+// Retorna: { sessionToken }
+app.post('/api/auth/session', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ error: 'KV indisponível' }, 503)
+
+  const body = await c.req.json() as any
+  const { uid, deviceId } = body
+  if (!uid || !deviceId) return c.json({ error: 'uid e deviceId são obrigatórios' }, 400)
+
+  // Gerar token único para esta sessão
+  const sessionToken = crypto.randomUUID()
+  const sessionData = {
+    token: sessionToken,
+    deviceId,
+    uid,
+    createdAt: Date.now()
+  }
+
+  // Armazenar no KV com TTL de 30 dias
+  // Chave: session:{uid} — sobrescreve qualquer sessão anterior
+  await kv.put(`session:${uid}`, JSON.stringify(sessionData), { expirationTtl: 60 * 60 * 24 * 30 })
+
+  return c.json({ sessionToken, expiresIn: 60 * 60 * 24 * 30 })
+})
+
+// GET /api/auth/session/verify?uid=...&token=...&deviceId=...
+// Retorna: { valid: true/false, reason? }
+app.get('/api/auth/session/verify', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ valid: false, reason: 'kv_unavailable' })
+
+  const uid = c.req.query('uid')
+  const token = c.req.query('token')
+  const deviceId = c.req.query('deviceId')
+
+  if (!uid || !token || !deviceId) return c.json({ valid: false, reason: 'params_missing' })
+
+  const raw = await kv.get(`session:${uid}`)
+  if (!raw) return c.json({ valid: false, reason: 'session_not_found' })
+
+  let session: any
+  try { session = JSON.parse(raw) } catch { return c.json({ valid: false, reason: 'session_corrupt' }) }
+
+  // Token diferente = outro dispositivo logou depois
+  if (session.token !== token) return c.json({ valid: false, reason: 'session_replaced' })
+  // DeviceId diferente (extra check)
+  if (session.deviceId !== deviceId) return c.json({ valid: false, reason: 'device_mismatch' })
+
+  return c.json({ valid: true })
+})
+
+// DELETE /api/auth/session → logout (remove sessão do KV)
+// Body: { uid }
+app.delete('/api/auth/session', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false })
+
+  const body = await c.req.json() as any
+  const { uid } = body
+  if (!uid) return c.json({ ok: false })
+
+  await kv.delete(`session:${uid}`)
+  return c.json({ ok: true })
+})
+
 // ─── Frontend Principal ───────────────────────────────────────────────────────
 // Rota raiz → onboarding (splash + login) como app nativo
 app.get('/', (c) => {

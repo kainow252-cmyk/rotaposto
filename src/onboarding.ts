@@ -836,8 +836,41 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   // ══════════════════════════════════════════════════════
 
   // Helper: salvar usuário e ir pro app
+  // ── Gerar ou recuperar deviceId permanente deste dispositivo ──
+  function getDeviceId() {
+    var id = localStorage.getItem('rp_device_id');
+    if (!id) {
+      // Gerar ID único para este dispositivo (persiste mesmo após logout)
+      id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+      localStorage.setItem('rp_device_id', id);
+    }
+    return id;
+  }
+
+  // ── Registrar sessão única no backend ──
+  function registrarSessao(uid, callback) {
+    var deviceId = getDeviceId();
+    fetch('/api/auth/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: uid, deviceId: deviceId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.sessionToken) {
+        localStorage.setItem('rp_session_token', data.sessionToken);
+        localStorage.setItem('rp_session_uid', uid);
+      }
+      callback();
+    })
+    .catch(function() {
+      // Falha na rede: permitir acesso mesmo assim (não bloquear usuário)
+      callback();
+    });
+  }
+
   function onLoginSuccess(user) {
-    const userData = {
+    var userData = {
       uid: user.uid,
       name: user.displayName || user.email?.split('@')[0] || 'Usuário',
       email: user.email || '',
@@ -846,14 +879,18 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     };
     localStorage.setItem('rp_user', JSON.stringify(userData));
     showToast('Bem-vindo, ' + userData.name.split(' ')[0] + '! 👋');
-    setTimeout(() => {
-      const vehicle = localStorage.getItem('rp_vehicle');
-      if (vehicle) {
-        window.location.href = '/app';
-      } else {
-        goToScreen('vehicle');
-      }
-    }, 600);
+
+    // Registrar sessão única no servidor antes de redirecionar
+    registrarSessao(user.uid, function() {
+      setTimeout(function() {
+        var vehicle = localStorage.getItem('rp_vehicle');
+        if (vehicle) {
+          window.location.href = '/app';
+        } else {
+          goToScreen('vehicle');
+        }
+      }, 600);
+    });
   }
 
   // ── Helper: aguardar Firebase estar pronto (retry até 5s) ──

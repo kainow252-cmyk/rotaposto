@@ -1887,8 +1887,21 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function doLogout() {
+    // Invalidar sessão no servidor antes de limpar dados locais
+    var uid = localStorage.getItem('rp_session_uid');
+    if (uid) {
+      fetch('/api/auth/session', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: uid })
+      }).catch(function() {}); // fire-and-forget
+    }
+
+    // Limpar dados locais (manter rp_device_id para identificar o aparelho)
     localStorage.removeItem('rp_user');
     localStorage.removeItem('rp_vehicle');
+    localStorage.removeItem('rp_session_token');
+    localStorage.removeItem('rp_session_uid');
     window.location.href = '/';
   }
 
@@ -2007,6 +2020,40 @@ export function getAppHTML(firebaseScripts: string): string {
         window.location.reload();
       });
     }
+
+    // ── Verificação de sessão única ──────────────────────────────────────
+    // Checa no servidor se este dispositivo ainda tem a sessão ativa.
+    // Se outro celular tiver logado depois, o token é diferente → logout forçado.
+    function verificarSessaoUnica() {
+      var uid = localStorage.getItem('rp_session_uid');
+      var token = localStorage.getItem('rp_session_token');
+      var deviceId = localStorage.getItem('rp_device_id');
+      if (!uid || !token || !deviceId) return; // usuário não logou com sessão gerenciada
+
+      fetch('/api/auth/session/verify?uid=' + encodeURIComponent(uid) +
+            '&token=' + encodeURIComponent(token) +
+            '&deviceId=' + encodeURIComponent(deviceId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.valid) {
+            // Sessão inválida: outro dispositivo logou
+            console.warn('[RotaPosto] Sessão encerrada em outro dispositivo. Deslogando...');
+            // Limpar dados locais
+            localStorage.removeItem('rp_user');
+            localStorage.removeItem('rp_session_token');
+            localStorage.removeItem('rp_session_uid');
+            // Mostrar aviso e redirecionar
+            alert('Sua conta foi acessada em outro dispositivo. Por segurança, você foi desconectado.');
+            window.location.href = '/';
+          }
+        })
+        .catch(function() { /* falha de rede: manter sessão local */ });
+    }
+
+    // Verificar imediatamente ao abrir o app
+    setTimeout(verificarSessaoUnica, 3000);
+    // Verificar a cada 2 minutos enquanto o app estiver aberto
+    setInterval(verificarSessaoUnica, 2 * 60 * 1000);
 
     // Atualizar nome do usuário no perfil
     if (currentUser) {
