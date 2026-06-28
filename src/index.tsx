@@ -157,7 +157,10 @@ app.get('/api/postos', async (c) => {
     if (!postosBase) {
       // 3. Buscar em paralelo: ANP + Google Places + OSM
       const kv = getKV(c.env) || undefined
-      const googleKey = GOOGLE_API_KEY || ''
+      // Chave Places para servidor: secret GOOGLE_PLACES_KEY tem prioridade
+      // (sem restrição de referenciador HTTP — própria para chamadas server-side)
+      // Fallback: GOOGLE_API_KEY hardcoded (restrita a referenciadores HTTP, pode falhar)
+      const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
       const raioGoogle = Math.min(raio * 1000, 20000) // máx 20km para Google
       const raioOSM = Math.min(raio * 1000, 8000)
 
