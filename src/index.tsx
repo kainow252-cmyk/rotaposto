@@ -1605,6 +1605,99 @@ app.get('/privacidade', (c) => {
 </html>`)
 })
 
+// ══════════════════════════════════════════════════════
+//  Página de Termos de Uso
+// ══════════════════════════════════════════════════════
+app.get('/termos', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Termos de Uso – RotaPosto</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9f9f9;color:#222;line-height:1.7}
+    .container{max-width:720px;margin:0 auto;padding:32px 24px 64px}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #FF6D00}
+    .logo{font-size:22px;font-weight:900}.logo .rota{color:#222}.logo .posto{color:#FF6D00}
+    h1{font-size:26px;font-weight:800;color:#1A1A1A;margin-bottom:8px}
+    .subtitle{font-size:14px;color:#888;margin-bottom:32px}
+    h2{font-size:17px;font-weight:700;color:#FF6D00;margin:28px 0 10px;padding-left:12px;border-left:3px solid #FF6D00}
+    p{font-size:15px;color:#444;margin-bottom:12px}
+    ul{margin:0 0 12px 20px}
+    li{font-size:15px;color:#444;margin-bottom:6px}
+    a{color:#FF6D00;text-decoration:none}
+    footer{margin-top:40px;padding-top:20px;border-top:1px solid #eee;font-size:13px;color:#aaa;text-align:center}
+    .back-btn{display:inline-flex;align-items:center;gap:6px;color:#FF6D00;font-weight:600;font-size:14px;margin-bottom:24px;text-decoration:none}
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo"><span class="rota">Rota</span><span class="posto">Posto</span></div>
+  </header>
+
+  <a href="/" class="back-btn">← Voltar</a>
+
+  <h1>Termos de Uso</h1>
+  <p class="subtitle">Última atualização: junho de 2025</p>
+
+  <p>Bem-vindo ao <strong>RotaPosto</strong>. Ao usar nosso aplicativo, você concorda com os termos descritos abaixo. Leia com atenção antes de utilizar o serviço.</p>
+
+  <h2>1. Aceitação dos Termos</h2>
+  <p>Ao acessar ou usar o RotaPosto, você concorda em cumprir estes Termos de Uso e todas as leis e regulamentos aplicáveis. Se você não concordar com algum destes termos, está proibido de usar ou acessar este serviço.</p>
+
+  <h2>2. Descrição do Serviço</h2>
+  <p>O RotaPosto é um aplicativo que auxilia motoristas a localizar postos de combustível próximos com os melhores preços, utilizando dados públicos da ANP (Agência Nacional do Petróleo, Gás Natural e Biocombustíveis) e informações reportadas pela comunidade de usuários.</p>
+
+  <h2>3. Cadastro e Conta</h2>
+  <ul>
+    <li>O acesso ao serviço requer autenticação via Google ou Facebook.</li>
+    <li>Você é responsável por manter a segurança da sua conta.</li>
+    <li>É permitida apenas uma sessão ativa por usuário. Ao fazer login em um novo dispositivo, a sessão anterior será encerrada.</li>
+    <li>Você deve ter ao menos 18 anos para usar o serviço.</li>
+  </ul>
+
+  <h2>4. Uso Aceitável</h2>
+  <p>Você concorda em usar o RotaPosto apenas para fins lícitos. É proibido:</p>
+  <ul>
+    <li>Inserir preços falsos ou informações incorretas sobre postos.</li>
+    <li>Usar o serviço para fins comerciais sem autorização prévia.</li>
+    <li>Tentar acessar dados de outros usuários.</li>
+    <li>Realizar ataques de força bruta, scraping ou qualquer abuso da API.</li>
+    <li>Criar contas falsas ou múltiplas contas para um mesmo usuário.</li>
+  </ul>
+
+  <h2>5. Precisão das Informações</h2>
+  <p>Os preços exibidos são baseados em dados da ANP e reportes da comunidade. O RotaPosto não garante a atualização em tempo real dos preços. Sempre confirme o preço no posto antes de abastecer.</p>
+
+  <h2>6. Dados e Privacidade</h2>
+  <p>O uso dos seus dados é regido pela nossa <a href="/privacidade">Política de Privacidade</a>, que é parte integrante destes Termos. Coletamos apenas os dados necessários para o funcionamento do serviço.</p>
+
+  <h2>7. Propriedade Intelectual</h2>
+  <p>Todo o conteúdo do RotaPosto — incluindo design, logotipo, código e textos — é propriedade do RotaPosto e protegido por leis de direitos autorais. É proibida a reprodução sem autorização.</p>
+
+  <h2>8. Limitação de Responsabilidade</h2>
+  <p>O RotaPosto não se responsabiliza por danos decorrentes de informações imprecisas de preços, falhas de conectividade, ou decisões tomadas com base nos dados exibidos no aplicativo.</p>
+
+  <h2>9. Alterações nos Termos</h2>
+  <p>Reservamo-nos o direito de modificar estes termos a qualquer momento. As alterações entram em vigor imediatamente após a publicação. O uso continuado do serviço após as alterações constitui aceitação dos novos termos.</p>
+
+  <h2>10. Encerramento</h2>
+  <p>Podemos suspender ou encerrar sua conta a qualquer momento em caso de violação destes termos, sem aviso prévio.</p>
+
+  <h2>11. Contato</h2>
+  <p>Para dúvidas sobre estes Termos de Uso:<br/>
+  📧 <a href="mailto:contato@rotaposto.com.br">contato@rotaposto.com.br</a><br/>
+  🌐 <a href="https://rotaposto.com.br">rotaposto.com.br</a></p>
+
+  <footer>© 2025 RotaPosto. Todos os direitos reservados.</footer>
+</div>
+</body>
+</html>`)
+})
+
 app.get('/app_old', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
   const html = `<!DOCTYPE html>

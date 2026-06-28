@@ -701,8 +701,8 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     <!-- Termos -->
     <p style="font-size:11px;color:#9E9E9E;text-align:center;margin-top:16px;line-height:1.5;">
       Ao entrar, você concorda com nossos<br/>
-      <a href="#" style="color:#FF6D00;text-decoration:none;">Termos de Uso</a> e
-      <a href="#" style="color:#FF6D00;text-decoration:none;">Política de Privacidade</a>
+      <a href="/termos" target="_blank" style="color:#FF6D00;text-decoration:none;">Termos de Uso</a> e
+      <a href="/privacidade" target="_blank" style="color:#FF6D00;text-decoration:none;">Política de Privacidade</a>
     </p>
   </div>
 
