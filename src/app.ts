@@ -1591,8 +1591,8 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function enviarPrecoReal() {
-    const inp = document.getElementById('inp-preco-real') as HTMLInputElement;
-    const val = parseFloat(inp ? inp.value : '0');
+    var inp = document.getElementById('inp-preco-real');
+    var val = parseFloat(inp ? inp['value'] : '0');
     if (!val || val < 2 || val > 15) { showToast('Informe um preço válido (ex: 5.89)'); return; }
     const p = postosData[0];
     if (!p) { fecharModal(); return; }
@@ -2230,6 +2230,14 @@ export function getAppHTML(firebaseScripts: string): string {
     localStorage.removeItem('rp_vehicle');
     localStorage.removeItem('rp_session_token');
     localStorage.removeItem('rp_session_uid');
+
+    // Fazer logout no Firebase Auth para evitar re-login automático
+    try {
+      if (window['_fbSignOut'] && window['_fbAuth']) {
+        window['_fbSignOut'](window['_fbAuth']).catch(function() {});
+      }
+    } catch(e) {}
+
     window.location.href = '/';
   }
 

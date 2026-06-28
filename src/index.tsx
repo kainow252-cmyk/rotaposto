@@ -4311,7 +4311,7 @@ function abrirUploadFoto() {
           mostrarToast('❌ Erro ao enviar foto');
         }
       };
-      img.src = e.target.result as string;
+      img.src = e.target['result'];
     };
     reader.readAsDataURL(file);
   });
