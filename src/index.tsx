@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getLandingHTML } from './landing'
 import { getLandingOnboardingHTML } from './onboarding'
+import { getAppHTML } from './app'
 import {
   buscarPostosANP,
   buscarPostosOSM,
@@ -1274,6 +1275,11 @@ app.get('/onboarding', (c) => {
 // /landing → alias da landing page de marketing
 
 app.get('/app', (c) => {
+  const firebaseScripts = getFirebaseAuthScripts()
+  return c.html(getAppHTML(firebaseScripts))
+})
+
+app.get('/app_old', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
