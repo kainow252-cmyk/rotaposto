@@ -1,49 +1,62 @@
-// RotaPosto Service Worker v4.0
+// RotaPosto Service Worker v5.0
 // Cache inteligente + Auto-update no PWA
+// v5: Fix cache - páginas HTML sempre network-first (landing atualizada)
 
-const CACHE_NAME = 'rotaposto-v4';
-const STATIC_CACHE = 'rotaposto-static-v4';
-const API_CACHE = 'rotaposto-api-v4';
+const CACHE_NAME = 'rotaposto-v5';
+const STATIC_CACHE = 'rotaposto-static-v5';
+const API_CACHE = 'rotaposto-api-v5';
 
-// Assets estáticos para cache
+// SOMENTE assets verdadeiramente estáticos (não-HTML) no pré-cache
 const STATIC_ASSETS = [
-  '/app',
-  '/landing',
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/logo-rotaposto.png'
 ];
 
-// Install: pré-cache assets estáticos + skipWaiting imediato
+// Rotas HTML que NUNCA devem ser cacheadas
+// (landing muda com frequência, app precisa de auth fresh)
+const NO_CACHE_ROUTES = ['/', '/onboarding', '/landing', '/app', '/login'];
+
+// Install: pré-cache apenas assets estáticos + skipWaiting imediato
 self.addEventListener('install', event => {
-  console.log('[SW] Installing RotaPosto v4...');
+  console.log('[SW] Installing RotaPosto v5...');
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(cache => cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: 'reload' }))))
       .then(() => {
-        console.log('[SW] v4 instalado — skipWaiting imediato');
+        console.log('[SW] v5 instalado — skipWaiting imediato');
         return self.skipWaiting(); // Auto-ativar sem esperar
       })
       .catch(err => console.warn('[SW] Cache install error:', err))
   );
 });
 
-// Activate: limpar caches antigos + claim imediato (auto-update)
+// Activate: limpar TODOS os caches antigos + claim imediato
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating RotaPosto v4...');
+  console.log('[SW] Activating RotaPosto v5 — limpando caches antigos...');
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(
-        keys
-          .filter(key => key !== STATIC_CACHE && key !== API_CACHE)
-          .map(key => { console.log('[SW] Removendo cache antigo:', key); return caches.delete(key); })
-      ))
+      .then(keys => {
+        console.log('[SW] Caches existentes:', keys);
+        return Promise.all(
+          keys
+            .filter(key => key !== STATIC_CACHE && key !== API_CACHE)
+            .map(key => {
+              console.log('[SW] Deletando cache antigo:', key);
+              return caches.delete(key);
+            })
+        );
+      })
       .then(() => self.clients.claim()) // Tomar controle imediato de todas as abas
       .then(() => {
         // Notificar todas as abas que o SW foi atualizado
-        self.clients.matchAll({ type: 'window' }).then(clients => {
-          clients.forEach(client => client.postMessage({ type: 'SW_UPDATED', version: 'v4' }));
+        return self.clients.matchAll({ type: 'window' }).then(clients => {
+          clients.forEach(client => {
+            client.postMessage({ type: 'SW_UPDATED', version: 'v5' });
+            // Forçar reload nas abas abertas para carregar a nova landing
+            client.navigate(client.url);
+          });
         });
       })
   );
@@ -57,26 +70,49 @@ self.addEventListener('message', event => {
   }
 });
 
-// Fetch: estratégia inteligente por tipo de recurso
+// Fetch: estratégia por tipo de recurso
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Ignorar extensões do browser e outros domínios não-relevantes
-  if (!url.origin.includes('rotaposto') && !url.pathname.startsWith('/api') && !url.pathname.startsWith('/app') && !url.pathname.startsWith('/landing') && !url.pathname.startsWith('/icons') && !url.pathname.startsWith('/static')) {
+  // Só lidar com GET
+  if (request.method !== 'GET') return;
+
+  // Ignorar outros domínios (Firebase, CDNs externas, etc.)
+  if (!url.origin.includes('rotaposto') && !url.hostname.includes('localhost')) {
     return;
   }
 
-  // APIs de postos: Network First com cache fallback (5min TTL)
-  if (url.pathname.startsWith('/api/postos') || url.pathname.startsWith('/api/precos')) {
+  const pathname = url.pathname;
+
+  // ─── PÁGINAS HTML: SEMPRE Network First (nunca cache) ───────────────────
+  // Isso garante que / sempre serve a landing atualizada
+  if (
+    pathname === '/' ||
+    NO_CACHE_ROUTES.some(route => pathname === route || pathname.startsWith(route + '?'))
+  ) {
+    event.respondWith(
+      fetch(request, { cache: 'no-store' })
+        .catch(() => {
+          // Fallback offline: só se não conseguir rede
+          return new Response(
+            '<html><body style="font-family:sans-serif;text-align:center;padding:40px">' +
+            '<h2>⛽ RotaPosto</h2><p>Sem conexão. Tente novamente.</p></body></html>',
+            { headers: { 'Content-Type': 'text/html' } }
+          );
+        })
+    );
+    return;
+  }
+
+  // ─── APIs de postos/preços: Network First com cache fallback (5min TTL) ──
+  if (pathname.startsWith('/api/postos') || pathname.startsWith('/api/precos')) {
     event.respondWith(
       fetch(request)
         .then(response => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(API_CACHE).then(cache => {
-              cache.put(request, clone);
-            });
+            caches.open(API_CACHE).then(cache => cache.put(request, clone));
           }
           return response;
         })
@@ -85,7 +121,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Outros recursos: Cache First
+  // ─── Outros recursos estáticos: Cache First ───────────────────────────────
   event.respondWith(
     caches.match(request)
       .then(cached => {
@@ -99,9 +135,13 @@ self.addEventListener('fetch', event => {
         });
       })
       .catch(() => {
-        // Offline fallback para páginas
+        // Offline fallback para documentos
         if (request.destination === 'document') {
-          return caches.match('/app');
+          return new Response(
+            '<html><body style="font-family:sans-serif;text-align:center;padding:40px">' +
+            '<h2>⛽ RotaPosto</h2><p>Sem conexão. Tente novamente.</p></body></html>',
+            { headers: { 'Content-Type': 'text/html' } }
+          );
         }
       })
   );
