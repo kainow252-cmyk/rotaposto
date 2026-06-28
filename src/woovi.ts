@@ -184,10 +184,15 @@ export async function criarOuBuscarCustomer(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  2. Criar Assinatura PIX Recorrente (Subscription)
-//     Woovi docs: POST /api/v1/subscriptions
-//     → retorna QR Code do PRIMEIRO pagamento
-//     → Woovi cobra automaticamente os seguintes
+//  2. Criar Assinatura PIX Recorrente
+//
+//  FLUXO CORRETO WOOVI:
+//  a) POST /charge  → gera QR Code do 1º pagamento (com brCode + qrCodeImage)
+//  b) POST /subscriptions → cria recorrência (Woovi cobra automaticamente os seguintes)
+//  c) Webhook OPENPIX:CHARGE_COMPLETED notifica cada pagamento
+//
+//  NOTA: A API /subscriptions NÃO retorna QR Code — só cria a recorrência.
+//  O QR Code vem do /charge individual para o 1º pagamento.
 // ═══════════════════════════════════════════════════════════════════════
 
 export async function criarAssinaturaPIX(
@@ -207,80 +212,81 @@ export async function criarAssinaturaPIX(
 
   const planoInfo = PLANOS[plano] || PLANOS.premium
   const cpfLimpo = cpf.replace(/\D/g, '')
+  const ts = Date.now()
 
   try {
-    // 1. Garantir que o customer existe
-    const custResult = await criarOuBuscarCustomer(WOOVI_TOKEN, nome, email, cpfLimpo, telefone)
-    if (custResult.error && !custResult.correlationID) {
-      // Tentar prosseguir sem correlationID explícito
-      console.warn('[Woovi] Customer sem correlationID, prosseguindo...')
-    }
-
-    // 2. Criar Subscription (assinatura recorrente)
-    // A Woovi gera automaticamente os pagamentos subsequentes
-    const globalID = `rp-sub-${cpfLimpo.slice(-6)}-${Date.now()}`
-    const diaCobranca = new Date().getDate() // cobra todo dia X do mês
-
-    // IMPORTANTE: Woovi Subscriptions API espera taxID como string simples
-    // (não objeto {taxID, type} — esse formato é só para /charge e /customer)
-    const subBody: any = {
+    // ── PASSO 1: Criar charge para o 1º pagamento (retorna QR Code real) ──
+    const chargeID = `rp-charge-${cpfLimpo.slice(-6)}-${ts}`
+    const chargeBody = {
+      correlationID: chargeID,
+      value: planoInfo.valor,
+      comment: `${planoInfo.nome} - 1o pagamento`,
       customer: {
         name: nome,
         email,
-        taxID: cpfLimpo        // string simples: "12345678909"
+        taxID: cpfLimpo   // string simples
       },
-      value: planoInfo.valor,
-      globalID,
-      dayGenerateCharge: diaCobranca,
       additionalInfo: [
         { key: 'plano', value: planoInfo.id },
-        { key: 'app', value: 'RotaPosto' },
-        { key: 'ciclo', value: planoInfo.ciclo }
+        { key: 'app', value: 'RotaPosto' }
       ]
     }
 
-    // Se temos correlationID do customer, incluir
-    if (custResult.correlationID) {
-      subBody.customer.correlationID = custResult.correlationID
-    }
-
-    const res = await fetch(`${WOOVI_BASE}/subscriptions`, {
+    const chargeRes = await fetch(`${WOOVI_BASE}/charge`, {
       method: 'POST',
       headers: wooviHeaders(WOOVI_TOKEN),
-      body: JSON.stringify(subBody),
+      body: JSON.stringify(chargeBody),
       signal: AbortSignal.timeout(15000)
     })
+    const chargeData = await chargeRes.json() as any
+    console.log('[Woovi] Charge response status:', chargeRes.status)
 
-    const data = await res.json() as any
-    console.log('[Woovi] Subscription response:', JSON.stringify(data).slice(0, 500))
+    const brcode = chargeData?.brCode || chargeData?.charge?.brCode || ''
+    // Woovi retorna qrCodeImage direto — melhor que gerar via api.qrserver
+    const qrCodeImage = chargeData?.charge?.qrCodeImage
+      || chargeData?.charge?.paymentMethods?.pix?.qrCodeImage
+      || ''
 
-    if (data?.subscription) {
-      const sub: WooviSubscription = data.subscription
-      const brcode = sub.pixQrCode?.brCode || ''
-
-      return {
-        sucesso: true,
-        subscriptionId: sub.globalID || globalID,
-        qrCode: brcode ? qrImageUrl(brcode) : '',
-        brcode,
-        demo: false
-      }
+    if (!brcode) {
+      console.error('[Woovi] Charge sem brCode:', JSON.stringify(chargeData).slice(0, 300))
+      return { sucesso: false, error: chargeData?.error || 'Erro ao gerar QR Code PIX' }
     }
 
-    // Woovi pode retornar erro mas com brCode de qualquer forma
-    const brcode = data?.pixQrCode?.brCode || data?.charge?.brCode || ''
-    if (brcode) {
-      return {
-        sucesso: true,
-        subscriptionId: data?.globalID || globalID,
-        qrCode: qrImageUrl(brcode),
-        brcode,
-        demo: false
-      }
-    }
+    // ── PASSO 2: Criar subscription para recorrência automática ──
+    // (em background — não bloqueia se falhar)
+    const subGlobalID = `rp-sub-${cpfLimpo.slice(-6)}-${ts}`
+    const diaCobranca = new Date().getDate()
 
-    console.error('[Woovi] Erro subscription:', JSON.stringify(data))
-    return { sucesso: false, error: data?.error || data?.message || 'Erro ao criar assinatura PIX' }
+    fetch(`${WOOVI_BASE}/subscriptions`, {
+      method: 'POST',
+      headers: wooviHeaders(WOOVI_TOKEN),
+      body: JSON.stringify({
+        customer: { name: nome, email, taxID: cpfLimpo },
+        value: planoInfo.valor,
+        globalID: subGlobalID,
+        dayGenerateCharge: diaCobranca,
+        additionalInfo: [
+          { key: 'plano', value: planoInfo.id },
+          { key: 'chargeInicial', value: chargeID },
+          { key: 'app', value: 'RotaPosto' }
+        ]
+      }),
+      signal: AbortSignal.timeout(10000)
+    }).then(r => r.json()).then(d => {
+      console.log('[Woovi] Subscription criada:', d?.subscription?.globalID || d?.error || 'ok')
+    }).catch(e => {
+      console.warn('[Woovi] Subscription background error:', e.message)
+    })
+
+    // Retornar QR Code do charge imediatamente
+    return {
+      sucesso: true,
+      subscriptionId: subGlobalID,
+      chargeId: chargeID,
+      qrCode: qrCodeImage || qrImageUrl(brcode),
+      brcode,
+      demo: false
+    }
 
   } catch (e: any) {
     console.error('[Woovi] criarAssinatura exception:', e.message)
