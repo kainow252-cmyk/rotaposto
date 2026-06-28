@@ -1,9 +1,9 @@
-// RotaPosto Service Worker v2.0
+// RotaPosto Service Worker v3.0
 // Cache inteligente para funcionamento offline
 
-const CACHE_NAME = 'rotaposto-v2';
-const STATIC_CACHE = 'rotaposto-static-v2';
-const API_CACHE = 'rotaposto-api-v2';
+const CACHE_NAME = 'rotaposto-v3';
+const STATIC_CACHE = 'rotaposto-static-v3';
+const API_CACHE = 'rotaposto-api-v3';
 
 // Assets estáticos para cache
 const STATIC_ASSETS = [
@@ -17,7 +17,7 @@ const STATIC_ASSETS = [
 
 // Install: pré-cache assets estáticos
 self.addEventListener('install', event => {
-  console.log('[SW] Installing RotaPosto v2...');
+  console.log('[SW] Installing RotaPosto v3...');
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(cache => cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: 'reload' }))))
@@ -28,7 +28,7 @@ self.addEventListener('install', event => {
 
 // Activate: limpar caches antigos
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating RotaPosto v2...');
+  console.log('[SW] Activating RotaPosto v3...');
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
