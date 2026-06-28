@@ -52,6 +52,39 @@ function setCached(key: string, postos: PostoReal[]): void {
   }
 }
 
+// ─── Cache CombustívelAPI (preços Petrobras) — TTL 2h ────────────────────────
+interface CombustivelCacheEntry { data: any; ts: number }
+let combustivelCache: CombustivelCacheEntry | null = null
+const COMBUSTIVEL_TTL = 2 * 60 * 60 * 1000 // 2 horas
+
+async function fetchPrecosDistribuidora(): Promise<any | null> {
+  if (combustivelCache && Date.now() - combustivelCache.ts < COMBUSTIVEL_TTL) {
+    return combustivelCache.data
+  }
+  try {
+    const res = await fetch('https://combustivelapi.com.br/api/precos/', {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000)
+    })
+    if (!res.ok) return combustivelCache?.data ?? null
+    const json = await res.json() as any
+    if (!json?.error && json?.precos) {
+      combustivelCache = { data: json, ts: Date.now() }
+      return json
+    }
+    return combustivelCache?.data ?? null
+  } catch {
+    return combustivelCache?.data ?? null
+  }
+}
+
+// Converter preço string "6,46" -> número 6.46
+function parsePrecoPetrobras(s: string): number | null {
+  if (!s) return null
+  const n = parseFloat(s.replace(',', '.'))
+  return isNaN(n) ? null : n
+}
+
 // ─── API: Postos próximos (ANP + OSM + IA de Economia) ───────────────────────
 app.get('/api/postos', async (c) => {
   const lat = parseFloat(c.req.query('lat') || '-23.5505')
@@ -627,6 +660,9 @@ app.get('/api/brasil/stats', async (c) => {
   const meta = await kvGetCached(kv, 'precos:meta')
   const stats = getEstatisticasNacionais()
 
+  // Buscar preços ao vivo da Petrobras (CombustívelAPI) em paralelo
+  const petrobras = await fetchPrecosDistribuidora()
+
   return c.json({
     ...stats,
     ...(meta ? {
@@ -638,7 +674,92 @@ app.get('/api/brasil/stats', async (c) => {
       fonte: 'anp-kv'
     } : {
       fonte: 'anp-estatico'
+    }),
+    // Preços Petrobras ao vivo (distribuidora)
+    ...(petrobras ? {
+      petrobras: {
+        dataColeta: petrobras.data_coleta,
+        precos: petrobras.precos,
+        analise: petrobras.analise,
+        fonte: 'petrobras-distribuidora'
+      }
+    } : {})
+  })
+})
+
+// ─── API: Preços Petrobras ao vivo (CombustívelAPI proxy) ─────────────────────
+app.get('/api/combustivel', async (c) => {
+  const uf = (c.req.query('uf') || '').toLowerCase()
+  const data = await fetchPrecosDistribuidora()
+
+  if (!data) {
+    return c.json({ error: true, mensagem: 'Serviço temporariamente indisponível' }, 503)
+  }
+
+  // Se pediu UF específica
+  if (uf && uf !== 'br') {
+    const gasolina = parsePrecoPetrobras(data.precos?.gasolina?.[uf])
+    const diesel = parsePrecoPetrobras(data.precos?.diesel?.[uf])
+
+    if (!gasolina && !diesel) {
+      return c.json({ error: true, mensagem: `UF '${uf.toUpperCase()}' sem dados disponíveis` }, 404)
+    }
+
+    return c.json({
+      uf: uf.toUpperCase(),
+      dataColeta: data.data_coleta,
+      precos: {
+        gasolina: gasolina ?? null,
+        diesel: diesel ?? null
+      },
+      fonte: 'petrobras-distribuidora',
+      icone: data.icones?.[uf] ?? null
     })
+  }
+
+  // Retornar todos os estados com preços formatados como números
+  const precosPorUF: Record<string, { gasolina?: number; diesel?: number }> = {}
+  const siglas = new Set([
+    ...Object.keys(data.precos?.gasolina ?? {}),
+    ...Object.keys(data.precos?.diesel ?? {})
+  ])
+  for (const sigla of siglas) {
+    if (sigla === 'br') continue
+    precosPorUF[sigla.toUpperCase()] = {
+      gasolina: parsePrecoPetrobras(data.precos?.gasolina?.[sigla]) ?? undefined,
+      diesel: parsePrecoPetrobras(data.precos?.diesel?.[sigla]) ?? undefined
+    }
+  }
+
+  return c.json({
+    dataColeta: data.data_coleta,
+    nacional: {
+      gasolina: parsePrecoPetrobras(data.precos?.gasolina?.['br']),
+      diesel: parsePrecoPetrobras(data.precos?.diesel?.['br'])
+    },
+    precosPorUF,
+    analise: {
+      gasolinaMaisBarata: {
+        uf: (data.analise?.estado_mais_barato_gasolina?.sigla ?? '').toUpperCase(),
+        preco: parsePrecoPetrobras(data.analise?.estado_mais_barato_gasolina?.preco)
+      },
+      gasolinaMaisCara: {
+        uf: (data.analise?.estado_mais_caro_gasolina?.sigla ?? '').toUpperCase(),
+        preco: parsePrecoPetrobras(data.analise?.estado_mais_caro_gasolina?.preco)
+      },
+      dieselMaisBarato: {
+        uf: (data.analise?.estado_mais_barato_diesel?.sigla ?? '').toUpperCase(),
+        preco: parsePrecoPetrobras(data.analise?.estado_mais_barato_diesel?.preco)
+      },
+      dieselMaisCaro: {
+        uf: (data.analise?.estado_mais_caro_diesel?.sigla ?? '').toUpperCase(),
+        preco: parsePrecoPetrobras(data.analise?.estado_mais_caro_diesel?.preco)
+      },
+      variacaoGasolina: data.analise?.variacao_percentual_gasolina,
+      variacaoDiesel: data.analise?.variacao_percentual_diesel
+    },
+    fonte: 'petrobras-distribuidora',
+    cacheTTL: '2h'
   })
 })
 
@@ -3343,27 +3464,94 @@ function snavSetActive(id) {
 async function carregarPainelDesktop() {
   if (window.innerWidth < 768) return;
   try {
-    const res = await fetch('/api/brasil/stats');
-    const d = await res.json();
-    const elP = document.getElementById('dp-postos');
-    const elM = document.getElementById('dp-municipios');
-    const elU = document.getElementById('dp-ufs');
-    if (elP) elP.textContent = (d.totalPostos||0).toLocaleString('pt-BR');
-    if (elM) elM.textContent = (d.municipios||0).toLocaleString('pt-BR');
-    if (elU) elU.textContent = (d.ufs||0);
-  } catch {}
-  // Preencher médias UF (top 6 mais populosos)
-  const medias = [
-    {uf:'SP',v:'R$ 5.69'},{uf:'RJ',v:'R$ 5.79'},{uf:'MG',v:'R$ 5.71'},
-    {uf:'PR',v:'R$ 5.64'},{uf:'RS',v:'R$ 5.66'},{uf:'BA',v:'R$ 5.74'}
-  ];
-  const el = document.getElementById('dp-precos-uf');
-  if (el) el.innerHTML = medias.map(m =>
-    \`<div style="display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12px;color:rgba(255,255,255,0.55);font-weight:600">\${m.uf}</span>
-      <span style="font-size:13px;font-weight:800;color:#fff">\${m.v}/L</span>
-    </div>\`
-  ).join('');
+    // Buscar stats ANP e preços Petrobras em paralelo
+    const [resStats, resCombustivel] = await Promise.allSettled([
+      fetch('/api/brasil/stats'),
+      fetch('/api/combustivel')
+    ]);
+
+    // Stats ANP
+    if (resStats.status === 'fulfilled' && resStats.value.ok) {
+      const d = await resStats.value.json();
+      const elP = document.getElementById('dp-postos');
+      const elM = document.getElementById('dp-municipios');
+      const elU = document.getElementById('dp-ufs');
+      const elSemana = document.getElementById('dp-semana');
+      if (elP) elP.textContent = (d.totalPostos||0).toLocaleString('pt-BR');
+      if (elM) elM.textContent = (d.totalMunicipios||0).toLocaleString('pt-BR');
+      if (elU) elU.textContent = d.ufsComDados ? d.ufsComDados.length : (d.ufs||27);
+      if (elSemana && d.semanaReferencia) elSemana.textContent = d.semanaReferencia;
+    }
+
+    // Preços Petrobras ao vivo
+    if (resCombustivel.status === 'fulfilled' && resCombustivel.value.ok) {
+      const cb = await resCombustivel.value.json();
+      const el = document.getElementById('dp-precos-uf');
+      const elColeta = document.getElementById('dp-coleta');
+      const elNac = document.getElementById('dp-nacional');
+      const elAnalise = document.getElementById('dp-analise');
+
+      // Data de coleta
+      if (elColeta && cb.dataColeta) {
+        const dt = new Date(cb.dataColeta.replace(' ', 'T'));
+        elColeta.textContent = dt.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      }
+
+      // Preço nacional
+      if (elNac && cb.nacional) {
+        elNac.innerHTML = \`
+          <span style="color:rgba(255,255,255,0.5);font-size:12px">Gasolina BR</span>
+          <span style="font-weight:900;color:#FFC107;font-size:16px">R$ \${cb.nacional.gasolina?.toFixed(2)}</span>
+          <span style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px">Diesel BR</span>
+          <span style="font-weight:900;color:#42A5F5;font-size:16px">R$ \${cb.nacional.diesel?.toFixed(2)}</span>
+        \`;
+      }
+
+      // Top UFs com gasolina mais barata (Petrobras distribuidora)
+      if (el && cb.precosPorUF) {
+        const ufList = Object.entries(cb.precosPorUF)
+          .filter(([,v]) => v.gasolina)
+          .sort((a,b) => (a[1].gasolina||99) - (b[1].gasolina||99))
+          .slice(0, 8);
+        el.innerHTML = ufList.map(([uf, v]) => {
+          const preco = v.gasolina;
+          const nacional = cb.nacional?.gasolina || 6.62;
+          const diff = preco - nacional;
+          const cor = diff < 0 ? '#69F0AE' : diff > 0.1 ? '#FF6D00' : '#FFC107';
+          const seta = diff < -0.05 ? '▼' : diff > 0.05 ? '▲' : '–';
+          return \`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+            <span style="font-size:11px;color:rgba(255,255,255,0.55);font-weight:700;width:28px">\${uf}</span>
+            <span style="font-size:13px;font-weight:900;color:#fff">R$ \${preco.toFixed(2)}</span>
+            <span style="font-size:10px;font-weight:800;color:\${cor}">\${seta} \${Math.abs(diff).toFixed(2)}</span>
+          </div>\`;
+        }).join('');
+      }
+
+      // Análise: melhor/pior UF
+      if (elAnalise && cb.analise) {
+        const a = cb.analise;
+        elAnalise.innerHTML = \`
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:100px;background:rgba(105,240,174,0.1);border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:9px;color:rgba(255,255,255,0.4);font-weight:700;text-transform:uppercase">Mais barata</div>
+              <div style="font-size:18px;font-weight:900;color:#69F0AE;margin:4px 0">\${a.gasolinaMaisBarata.uf}</div>
+              <div style="font-size:12px;font-weight:800;color:#fff">R$ \${a.gasolinaMaisBarata.preco?.toFixed(2)}</div>
+            </div>
+            <div style="flex:1;min-width:100px;background:rgba(255,109,0,0.1);border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:9px;color:rgba(255,255,255,0.4);font-weight:700;text-transform:uppercase">Mais cara</div>
+              <div style="font-size:18px;font-weight:900;color:#FF6D00;margin:4px 0">\${a.gasolinaMaisCara.uf}</div>
+              <div style="font-size:12px;font-weight:800;color:#fff">R$ \${a.gasolinaMaisCara.preco?.toFixed(2)}</div>
+            </div>
+          </div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.35);text-align:center;margin-top:8px">
+            Variacao: \${a.variacaoGasolina} entre estados
+          </div>
+        \`;
+      }
+    }
+  } catch(e) {
+    console.warn('[Painel] Erro ao carregar dados:', e);
+  }
 }
 
 // ── Sidebar: atualizar usuário ─────────────────────────────────────────────────
@@ -3398,37 +3586,75 @@ window.addEventListener('resize', () => {
 
 <!-- ═══ PAINEL DIREITO DESKTOP ════════════════════════════════════════════ -->
 <aside id="desktop-panel">
-  <h2><i class="fas fa-bolt" style="color:var(--laranja);margin-right:6px"></i>Informações Rápidas</h2>
+  <h2><i class="fas fa-bolt" style="color:var(--laranja);margin-right:6px"></i>Combustível ao Vivo</h2>
 
+  <!-- Preço nacional Petrobras -->
   <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📊 Dados ANP Semana</div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-      <span style="font-size:12px;color:rgba(255,255,255,0.55)">Postos monitorados</span>
-      <span style="font-size:14px;font-weight:800;color:#fff" id="dp-postos">–</span>
+    <div style="font-size:10px;font-weight:800;color:#FFC107;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+      <i class="fas fa-fire" style="margin-right:5px"></i>Petrobras Distribuidora
     </div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-      <span style="font-size:12px;color:rgba(255,255,255,0.55)">Municípios cobertos</span>
-      <span style="font-size:14px;font-weight:800;color:#fff" id="dp-municipios">–</span>
+    <div id="dp-nacional" style="display:flex;flex-direction:column;gap:4px">
+      <span style="color:rgba(255,255,255,0.4);font-size:12px">Carregando...</span>
     </div>
-    <div style="display:flex;justify-content:space-between">
-      <span style="font-size:12px;color:rgba(255,255,255,0.55)">UFs com dados</span>
-      <span style="font-size:14px;font-weight:800;color:#69F0AE" id="dp-ufs">–</span>
+    <div style="font-size:9px;color:rgba(255,255,255,0.25);margin-top:10px">
+      Coleta: <span id="dp-coleta">–</span>
     </div>
   </div>
 
+  <!-- Análise melhor/pior UF -->
   <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📍 Busca Atual</div>
+    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+      <i class="fas fa-chart-bar" style="margin-right:5px"></i>Gasolina por Estado
+    </div>
+    <div id="dp-analise">
+      <div style="color:rgba(255,255,255,0.3);font-size:12px;text-align:center;padding:8px">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- Tabela de preços por UF -->
+  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+      <i class="fas fa-map-marker-alt" style="margin-right:5px"></i>Gasolina por UF
+    </div>
+    <div id="dp-precos-uf" style="display:flex;flex-direction:column;gap:2px">
+      <div style="color:rgba(255,255,255,0.3);font-size:12px;text-align:center;padding:8px">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- Dados ANP -->
+  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+    <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+      <i class="fas fa-database" style="margin-right:5px"></i>Base ANP
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;color:rgba(255,255,255,0.45)">Postos</span>
+      <span style="font-size:12px;font-weight:800;color:#fff" id="dp-postos">–</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;color:rgba(255,255,255,0.45)">Municípios</span>
+      <span style="font-size:12px;font-weight:800;color:#fff" id="dp-municipios">–</span>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <span style="font-size:11px;color:rgba(255,255,255,0.45)">UFs com dados</span>
+      <span style="font-size:12px;font-weight:800;color:#69F0AE" id="dp-ufs">–</span>
+    </div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.2);margin-top:8px" id="dp-semana">–</div>
+  </div>
+
+  <!-- Localização atual -->
+  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">
+      <i class="fas fa-location-arrow" style="margin-right:5px"></i>Busca Atual
+    </div>
     <div style="font-size:13px;font-weight:700;color:#fff" id="dp-cidade">–</div>
     <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px" id="dp-coords">Aguardando localização...</div>
   </div>
 
-  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📈 Média Gasolina por UF</div>
-    <div id="dp-precos-uf" style="display:flex;flex-direction:column;gap:8px"></div>
-  </div>
-
+  <!-- Links -->
   <div style="background:#1B3A5C;border-radius:14px;padding:18px">
-    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">🔗 Links</div>
+    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+      <i class="fas fa-link" style="margin-right:5px"></i>Links
+    </div>
     <a href="/mapa-brasil" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.65);text-decoration:none;font-size:12px;font-weight:700">
       <i class="fas fa-globe-americas" style="color:#00C853;width:16px"></i> Mapa Brasil 46K Postos
     </a>
