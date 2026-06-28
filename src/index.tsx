@@ -17,7 +17,14 @@ import {
   type EconomiaPosto
 } from './apis'
 import { FIREBASE_CONFIG, GOOGLE_CLIENT_ID, GOOGLE_API_KEY, getFirebaseAuthScripts } from './auth'
-import { criarAssinaturaPIX, verificarPagamento, PLANOS } from './woovi'
+import {
+  criarAssinaturaPIX,
+  verificarPagamento,
+  verificarAssinatura,
+  cancelarAssinatura,
+  parsearWebhook,
+  PLANOS
+} from './woovi'
 import {
   buscarTodosPostosANP,
   getMapaBrasilHTML,
@@ -926,159 +933,135 @@ app.get('/api/combustivel', async (c) => {
   })
 })
 
-// ─── API: Pagamento / Assinatura MercadoPago ─────────────────────────────────
-app.post('/api/pagamento/assinar', async (c) => {
-  try {
-    const body = await c.req.json()
-    const { plano, nome, email, cpf, cartao } = body
+// ═══════════════════════════════════════════════════════════════════════
+//  ASSINATURAS – Persistência via Cloudflare KV
+//  KV key: "assin:{userId}"  → JSON com dados da assinatura
+//  KV key: "sub:{subscriptionId}" → userId (para lookup via webhook)
+// ═══════════════════════════════════════════════════════════════════════
 
-    if (!nome || !email || !cpf || !cartao?.numero) {
-      return c.json({ sucesso: false, mensagem: 'Dados incompletos' }, 400)
-    }
-
-    // MP Access Token (produção: use wrangler secret)
-    const MP_ACCESS_TOKEN = (c.env as any)?.MP_ACCESS_TOKEN || 'TEST-access-token'
-
-    // 1. Criar customer no MP
-    let customerId: string | null = null
-    try {
-      const custRes = await fetch('https://api.mercadopago.com/v1/customers/search?email=' + encodeURIComponent(email), {
-        headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` }
-      })
-      const custData = await custRes.json() as any
-      if (custData?.results?.length > 0) {
-        customerId = custData.results[0].id
-      } else {
-        const newCust = await fetch('https://api.mercadopago.com/v1/customers', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, first_name: nome.split(' ')[0], last_name: nome.split(' ').slice(1).join(' '), identification: { type: 'CPF', number: cpf } })
-        })
-        const custJson = await newCust.json() as any
-        customerId = custJson?.id || null
-      }
-    } catch {}
-
-    // 2. Tokenizar cartão
-    const valores: Record<string, number> = { premium: 9.90, anual: 89.00 }
-    const valor = valores[plano] || 9.90
-
-    // 3. Criar preferência de pagamento
-    const prefPayload = {
-      items: [{
-        id: `rp-${plano}`,
-        title: plano === 'anual' ? 'RotaPosto Anual' : 'RotaPosto Premium',
-        description: plano === 'anual' ? 'Assinatura anual RotaPosto' : 'Assinatura mensal RotaPosto Premium',
-        quantity: 1,
-        unit_price: valor,
-        currency_id: 'BRL'
-      }],
-      payer: {
-        name: nome,
-        email,
-        identification: { type: 'CPF', number: cpf }
-      },
-      auto_return: 'approved',
-      back_urls: {
-        success: 'https://rotaposto.com.br/obrigado',
-        failure: 'https://rotaposto.com.br/erro',
-        pending: 'https://rotaposto.com.br/pendente'
-      },
-      statement_descriptor: 'ROTAPOSTO',
-      external_reference: `rp-${plano}-${Date.now()}`,
-      metadata: { plano, customer_id: customerId }
-    }
-
-    const prefRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json',
-        'X-Idempotency-Key': `rp-${cpf}-${Date.now()}`
-      },
-      body: JSON.stringify(prefPayload)
-    })
-    const prefData = await prefRes.json() as any
-
-    if (prefData?.id) {
-      return c.json({
-        sucesso: true,
-        preferencia_id: prefData.id,
-        checkout_url: prefData.init_point,
-        mensagem: 'Assinatura criada com sucesso!'
-      })
-    }
-
-    // Fallback: simular aprovação em sandbox/dev
-    if (!MP_ACCESS_TOKEN || MP_ACCESS_TOKEN === 'TEST-access-token') {
-      return c.json({
-        sucesso: true,
-        preferencia_id: `mock-${Date.now()}`,
-        mensagem: 'Assinatura confirmada (modo demo)!',
-        demo: true
-      })
-    }
-
-    return c.json({ sucesso: false, mensagem: prefData?.message || 'Erro ao criar assinatura' }, 500)
-  } catch (e: any) {
-    return c.json({ sucesso: false, mensagem: 'Erro interno. Tente novamente.' }, 500)
-  }
-})
-
-// ─── API: Webhook MercadoPago ─────────────────────────────────────────────────
-app.post('/api/pagamento/webhook', async (c) => {
-  const body = await c.req.json() as any
-  console.log('MP Webhook:', JSON.stringify(body))
-  return c.json({ status: 'ok' })
-})
-
-// ─── Store de assinaturas em memória (produção: usar D1/KV) ──────────────────
 interface AssinaturaUsuario {
   userId: string
+  nome: string
   email: string
+  cpf?: string
   plano: string
   status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED'
   subscriptionId?: string
-  txidPendente?: string
-  qrCodePendente?: string
-  brcodePendente?: string
+  qrCode?: string
+  brcode?: string
   ativadaEm?: number
   expiraEm?: number
-  ultimaVerificacao?: number
+  criadaEm: number
+  pagamentos?: number   // contador de pagamentos recebidos
+  proximoPagamento?: number  // timestamp do próximo pagamento
 }
-const ASSINATURAS = new Map<string, AssinaturaUsuario>()
 
-// ─── API: PIX Recorrente (Woovi/OpenPix) ─────────────────────────────────────
+// Helper: ler assinatura do KV
+async function kvGetAssinatura(kv: KVNamespace, userId: string): Promise<AssinaturaUsuario | null> {
+  try {
+    const raw = await kv.get(`assin:${userId}`)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+// Helper: salvar assinatura no KV (TTL de 2 anos)
+async function kvSetAssinatura(kv: KVNamespace, assin: AssinaturaUsuario): Promise<void> {
+  await kv.put(`assin:${assin.userId}`, JSON.stringify(assin), {
+    expirationTtl: 2 * 365 * 24 * 3600  // 2 anos
+  })
+  // Index reverso: subscriptionId → userId (para webhook)
+  if (assin.subscriptionId) {
+    await kv.put(`sub:${assin.subscriptionId}`, assin.userId, {
+      expirationTtl: 2 * 365 * 24 * 3600
+    })
+  }
+}
+
+// Helper: buscar userId por subscriptionId (webhook)
+async function kvGetUserBySubId(kv: KVNamespace, subscriptionId: string): Promise<string | null> {
+  try {
+    return await kv.get(`sub:${subscriptionId}`)
+  } catch { return null }
+}
+
+// Helper: obter KV do env
+function getKV(env: any): KVNamespace | null {
+  return (env as any)?.ROTAPOSTO_KV || null
+}
+
+// ─── API: PIX Recorrente – Criar Assinatura ──────────────────────────────────
 app.post('/api/pix/assinar', async (c) => {
   try {
     const body = await c.req.json()
-    const { nome, email, cpf, plano, userId } = body
+    const { nome, email, cpf, plano, userId } = body as any
 
-    if (!nome || !email) {
-      return c.json({ sucesso: false, mensagem: 'Nome e email são obrigatórios' }, 400)
+    if (!nome || !email || !userId) {
+      return c.json({ sucesso: false, mensagem: 'Nome, email e userId são obrigatórios' }, 400)
     }
 
     const planoValido = plano in PLANOS ? plano : 'premium'
     const cpfLimpo = (cpf || '').replace(/\D/g, '')
-    const resultado = await criarAssinaturaPIX(c.env as any, nome, email, cpfLimpo, planoValido)
+    const kv = getKV(c.env)
 
-    if (resultado.error) {
-      return c.json({ sucesso: false, mensagem: resultado.error }, 500)
+    // Verificar se já tem assinatura ativa no KV
+    if (kv) {
+      const existente = await kvGetAssinatura(kv, userId)
+      if (existente?.status === 'ACTIVE') {
+        return c.json({
+          sucesso: true,
+          jaAssinante: true,
+          status: 'ACTIVE',
+          plano: existente.plano,
+          valor: PLANOS[existente.plano]?.valor / 100,
+          expiraEm: existente.expiraEm,
+          mensagem: 'Voce ja tem uma assinatura ativa!'
+        })
+      }
+      // Se pendente, retornar QR existente em vez de criar novo
+      if (existente?.status === 'PENDING' && existente.qrCode) {
+        return c.json({
+          sucesso: true,
+          jaPendente: true,
+          plano: planoValido,
+          valor: PLANOS[planoValido].valor / 100,
+          subscriptionId: existente.subscriptionId,
+          qrCode: existente.qrCode,
+          brcode: existente.brcode,
+          mensagem: 'QR Code ja gerado! Escaneie para pagar.',
+          instrucoes: [
+            '1. Abra seu app de banco',
+            '2. Escaneie o QR Code PIX ou copie o codigo',
+            '3. Confirme o pagamento de R$ ' + (PLANOS[planoValido].valor / 100).toFixed(2).replace('.', ','),
+            '4. Seu plano Premium sera ativado automaticamente!'
+          ]
+        })
+      }
     }
 
-    // Salvar assinatura pendente
-    if (userId) {
-      ASSINATURAS.set(userId, {
-        userId,
-        email,
-        plano: planoValido,
-        status: 'PENDING',
-        subscriptionId: resultado.subscriptionId,
-        txidPendente: resultado.subscriptionId,
-        qrCodePendente: resultado.qrCode,
-        brcodePendente: resultado.brcode,
-        ultimaVerificacao: Date.now()
-      })
+    // Criar nova assinatura na Woovi
+    const resultado = await criarAssinaturaPIX(c.env as any, nome, email, cpfLimpo, planoValido)
+
+    if (!resultado.sucesso) {
+      return c.json({ sucesso: false, mensagem: resultado.error || 'Erro ao gerar PIX' }, 500)
+    }
+
+    // Salvar no KV
+    const assinatura: AssinaturaUsuario = {
+      userId,
+      nome,
+      email,
+      cpf: cpfLimpo,
+      plano: planoValido,
+      status: 'PENDING',
+      subscriptionId: resultado.subscriptionId,
+      qrCode: resultado.qrCode,
+      brcode: resultado.brcode,
+      criadaEm: Date.now(),
+      pagamentos: 0
+    }
+
+    if (kv) {
+      await kvSetAssinatura(kv, assinatura)
     }
 
     return c.json({
@@ -1088,54 +1071,62 @@ app.post('/api/pix/assinar', async (c) => {
       subscriptionId: resultado.subscriptionId,
       qrCode: resultado.qrCode,
       brcode: resultado.brcode,
+      demo: resultado.demo || false,
       mensagem: 'QR Code PIX gerado! Escaneie para ativar o plano Premium.',
       instrucoes: [
         '1. Abra seu app de banco',
-        '2. Escaneie o QR Code ou copie o código PIX',
-        '3. Confirme o pagamento',
-        '4. Seu plano sera ativado automaticamente em ate 1 minuto'
+        '2. Escaneie o QR Code PIX ou copie o codigo',
+        '3. Confirme o pagamento de R$ ' + (PLANOS[planoValido].valor / 100).toFixed(2).replace('.', ','),
+        '4. Seu plano Premium sera ativado automaticamente!',
+        '5. As proximas cobranças serao automaticas todo mes'
       ]
     })
   } catch (e: any) {
+    console.error('[PIX assinar]', e)
     return c.json({ sucesso: false, mensagem: 'Erro ao gerar PIX. Tente novamente.' }, 500)
   }
 })
 
-// ─── API: Verificar Pagamento PIX ─────────────────────────────────────────────
-app.get('/api/pix/verificar/:txid', async (c) => {
-  const txid = c.req.param('txid')
-  const pago = await verificarPagamento(c.env as any, txid)
-  return c.json({ pago, txid })
-})
-
-// ─── API: Status de assinatura do usuário ─────────────────────────────────────
+// ─── API: Verificar status de assinatura do usuário ─────────────────────────
 app.get('/api/assinatura/status/:userId', async (c) => {
   const userId = c.req.param('userId')
-  const assinatura = ASSINATURAS.get(userId)
+  const kv = getKV(c.env)
+
+  if (!kv) {
+    return c.json({ status: 'FREE', plano: null, ativa: false, semKV: true })
+  }
+
+  const assinatura = await kvGetAssinatura(kv, userId)
 
   if (!assinatura) {
     return c.json({ status: 'FREE', plano: null, ativa: false })
   }
 
-  // Se pendente, verificar se foi pago
-  if (assinatura.status === 'PENDING' && assinatura.txidPendente) {
-    const pago = await verificarPagamento(c.env as any, assinatura.txidPendente)
-    if (pago) {
-      // Ativar assinatura por 30 dias
+  // Se pendente: verificar se foi pago via Woovi
+  if (assinatura.status === 'PENDING' && assinatura.subscriptionId) {
+    const { ativa } = await verificarAssinatura(c.env as any, assinatura.subscriptionId)
+    if (ativa) {
       assinatura.status = 'ACTIVE'
       assinatura.ativadaEm = Date.now()
-      assinatura.expiraEm = Date.now() + 30 * 24 * 3600 * 1000
-      assinatura.txidPendente = undefined
-      assinatura.qrCodePendente = undefined
-      assinatura.brcodePendente = undefined
-      ASSINATURAS.set(userId, assinatura)
+      assinatura.expiraEm = assinatura.plano === 'anual'
+        ? Date.now() + 365 * 24 * 3600 * 1000
+        : Date.now() + 30 * 24 * 3600 * 1000
+      assinatura.pagamentos = (assinatura.pagamentos || 0) + 1
+      assinatura.qrCode = undefined
+      assinatura.brcode = undefined
+      await kvSetAssinatura(kv, assinatura)
     }
   }
 
   // Checar expiração
   if (assinatura.status === 'ACTIVE' && assinatura.expiraEm && Date.now() > assinatura.expiraEm) {
-    assinatura.status = 'EXPIRED'
-    ASSINATURAS.set(userId, assinatura)
+    // Na assinatura recorrente Woovi, a Woovi renova automaticamente
+    // Dar 3 dias de grace period antes de marcar como expirado
+    const gracePeriod = 3 * 24 * 3600 * 1000
+    if (Date.now() > assinatura.expiraEm + gracePeriod) {
+      assinatura.status = 'EXPIRED'
+      await kvSetAssinatura(kv, assinatura)
+    }
   }
 
   return c.json({
@@ -1143,37 +1134,43 @@ app.get('/api/assinatura/status/:userId', async (c) => {
     plano: assinatura.plano,
     ativa: assinatura.status === 'ACTIVE',
     expiraEm: assinatura.expiraEm,
-    // Se pendente, retornar QR code para o usuário pagar
-    qrCodePendente: assinatura.status === 'PENDING' ? assinatura.qrCodePendente : null,
-    brcodePendente: assinatura.status === 'PENDING' ? assinatura.brcodePendente : null,
-    txidPendente: assinatura.status === 'PENDING' ? assinatura.txidPendente : null
+    ativadaEm: assinatura.ativadaEm,
+    pagamentos: assinatura.pagamentos || 0,
+    proximoPagamento: assinatura.proximoPagamento,
+    // Se pendente, retornar QR para o usuário pagar
+    qrCode: assinatura.status === 'PENDING' ? assinatura.qrCode : null,
+    brcode: assinatura.status === 'PENDING' ? assinatura.brcode : null,
+    subscriptionId: assinatura.status === 'PENDING' ? assinatura.subscriptionId : null
   })
 })
 
-// ─── API: Gerar QR Code manual (para usuário com pagamento pendente) ──────────
+// ─── API: Gerar novo QR Code (renovar PIX pendente) ─────────────────────────
 app.post('/api/pix/gerar-manual', async (c) => {
   try {
-    const body = await c.req.json()
+    const body = await c.req.json() as any
     const { nome, email, cpf, plano, userId } = body
 
     const planoValido = plano in PLANOS ? plano : 'premium'
     const cpfLimpo = (cpf || '').replace(/\D/g, '')
+    const kv = getKV(c.env)
+
     const resultado = await criarAssinaturaPIX(c.env as any, nome || 'Usuario', email || '', cpfLimpo, planoValido)
 
-    if (resultado.error) {
-      return c.json({ sucesso: false, mensagem: resultado.error }, 500)
+    if (!resultado.sucesso) {
+      return c.json({ sucesso: false, mensagem: resultado.error || 'Erro ao gerar QR' }, 500)
     }
 
-    // Atualizar assinatura com novo QR
-    if (userId) {
-      const assin = ASSINATURAS.get(userId) || {
-        userId, email: email || '', plano: planoValido, status: 'PENDING' as const
+    // Atualizar no KV
+    if (kv && userId) {
+      const assin = await kvGetAssinatura(kv, userId) || {
+        userId, nome: nome || '', email: email || '', cpf: cpfLimpo,
+        plano: planoValido, status: 'PENDING' as const, criadaEm: Date.now(), pagamentos: 0
       }
       assin.status = 'PENDING'
-      assin.txidPendente = resultado.subscriptionId
-      assin.qrCodePendente = resultado.qrCode
-      assin.brcodePendente = resultado.brcode
-      ASSINATURAS.set(userId, assin as AssinaturaUsuario)
+      assin.subscriptionId = resultado.subscriptionId
+      assin.qrCode = resultado.qrCode
+      assin.brcode = resultado.brcode
+      await kvSetAssinatura(kv, assin)
     }
 
     return c.json({
@@ -1182,34 +1179,189 @@ app.post('/api/pix/gerar-manual', async (c) => {
       brcode: resultado.brcode,
       txid: resultado.subscriptionId,
       valor: PLANOS[planoValido].valor / 100,
-      mensagem: 'Novo QR Code gerado com sucesso!'
+      mensagem: 'QR Code gerado! Escaneie para pagar.'
     })
   } catch {
     return c.json({ sucesso: false, mensagem: 'Erro ao gerar QR Code' }, 500)
   }
 })
 
-// ─── API: Webhook Woovi ───────────────────────────────────────────────────────
+// ─── API: Verificar Pagamento PIX ────────────────────────────────────────────
+app.get('/api/pix/verificar/:txid', async (c) => {
+  const txid = c.req.param('txid')
+  const pago = await verificarPagamento(c.env as any, txid)
+  return c.json({ pago, txid })
+})
+
+// ─── API: Cancelar assinatura ────────────────────────────────────────────────
+app.post('/api/assinatura/cancelar', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const { userId } = body
+    if (!userId) return c.json({ sucesso: false, mensagem: 'userId obrigatorio' }, 400)
+
+    const kv = getKV(c.env)
+    if (!kv) return c.json({ sucesso: false, mensagem: 'KV nao disponivel' }, 500)
+
+    const assin = await kvGetAssinatura(kv, userId)
+    if (!assin) return c.json({ sucesso: false, mensagem: 'Assinatura nao encontrada' }, 404)
+
+    // Cancelar na Woovi
+    if (assin.subscriptionId) {
+      await cancelarAssinatura(c.env as any, assin.subscriptionId)
+    }
+
+    assin.status = 'CANCELLED'
+    await kvSetAssinatura(kv, assin)
+
+    return c.json({ sucesso: true, mensagem: 'Assinatura cancelada com sucesso.' })
+  } catch {
+    return c.json({ sucesso: false, mensagem: 'Erro ao cancelar' }, 500)
+  }
+})
+
+// ─── API: Webhook Woovi ──────────────────────────────────────────────────────
+// Registrar URL no painel Woovi: https://rotaposto.com.br/api/pix/webhook
+// Eventos: OPENPIX:CHARGE_COMPLETED, OPENPIX:SUBSCRIPTION_PAYMENT_SUCCEED, etc.
 app.post('/api/pix/webhook', async (c) => {
-  const body = await c.req.json() as any
-  console.log('[Woovi Webhook]', JSON.stringify(body))
-  // Webhook Woovi: charge.status === 'COMPLETED' → ativar assinatura
-  if (body?.charge?.status === 'COMPLETED' || body?.event === 'OPENPIX:CHARGE_COMPLETED') {
-    const correlationID = body?.charge?.correlationID || ''
-    // Ativar todas as assinaturas com esse txid pendente
-    for (const [uid, assin] of ASSINATURAS.entries()) {
-      if (assin.txidPendente === correlationID || assin.subscriptionId === correlationID) {
-        assin.status = 'ACTIVE'
-        assin.ativadaEm = Date.now()
-        assin.expiraEm = Date.now() + 30 * 24 * 3600 * 1000
-        assin.txidPendente = undefined
-        assin.qrCodePendente = undefined
-        ASSINATURAS.set(uid, assin)
-        console.log('[Woovi] Assinatura ativada para:', uid)
-        break
+  try {
+    const body = await c.req.json() as any
+    console.log('[Woovi Webhook] evento:', body?.event, 'correlationID:', body?.charge?.correlationID)
+
+    const { evento, correlationID, subscriptionId, status } = parsearWebhook(body)
+    const kv = getKV(c.env)
+
+    if (!kv) {
+      console.warn('[Woovi] KV nao disponivel no webhook')
+      return c.json({ status: 'ok', aviso: 'sem KV' })
+    }
+
+    if (status === 'PAGO') {
+      // Buscar userId pelo subscriptionId
+      let userId = await kvGetUserBySubId(kv, subscriptionId) ||
+                   await kvGetUserBySubId(kv, correlationID)
+
+      if (!userId) {
+        console.warn('[Woovi] userId nao encontrado para sub:', subscriptionId)
+        return c.json({ status: 'ok', aviso: 'usuario nao encontrado' })
+      }
+
+      const assin = await kvGetAssinatura(kv, userId)
+      if (!assin) {
+        console.warn('[Woovi] assinatura nao encontrada para userId:', userId)
+        return c.json({ status: 'ok' })
+      }
+
+      // Ativar/renovar assinatura
+      const agora = Date.now()
+      assin.status = 'ACTIVE'
+      assin.ativadaEm = assin.ativadaEm || agora
+      assin.pagamentos = (assin.pagamentos || 0) + 1
+      assin.qrCode = undefined
+      assin.brcode = undefined
+
+      // Calcular próxima expiração
+      const cicloMs = assin.plano === 'anual'
+        ? 365 * 24 * 3600 * 1000
+        : 30 * 24 * 3600 * 1000
+
+      // Se já tem expiraEm no futuro, estender a partir dele; senão, a partir de agora
+      const baseExpira = (assin.expiraEm && assin.expiraEm > agora) ? assin.expiraEm : agora
+      assin.expiraEm = baseExpira + cicloMs
+      assin.proximoPagamento = assin.expiraEm
+
+      await kvSetAssinatura(kv, assin)
+      console.log(`[Woovi] ✅ Assinatura ATIVA para ${userId} - pagamento #${assin.pagamentos}, expira em ${new Date(assin.expiraEm).toISOString()}`)
+
+    } else if (status === 'CANCELADO') {
+      const userId = await kvGetUserBySubId(kv, subscriptionId)
+      if (userId) {
+        const assin = await kvGetAssinatura(kv, userId)
+        if (assin) {
+          assin.status = 'CANCELLED'
+          await kvSetAssinatura(kv, assin)
+          console.log('[Woovi] Assinatura CANCELADA para:', userId)
+        }
       }
     }
+
+    return c.json({ status: 'ok', evento, processado: status !== 'DESCONHECIDO' })
+  } catch (e: any) {
+    console.error('[Woovi Webhook] erro:', e.message)
+    return c.json({ status: 'ok' })  // Sempre 200 para Woovi não retentar
   }
+})
+
+// ─── API: Planos disponíveis ─────────────────────────────────────────────────
+app.get('/api/planos', (c) => {
+  return c.json({
+    planos: Object.values(PLANOS).map(p => ({
+      id: p.id,
+      nome: p.nome,
+      valor: p.valor / 100,
+      ciclo: p.ciclo,
+      descricao: p.descricao,
+      features: p.features
+    }))
+  })
+})
+
+// ─── API: Pagamento via cartão (MercadoPago) ─────────────────────────────────
+app.post('/api/pagamento/assinar', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const { plano, nome, email, cpf } = body
+
+    if (!nome || !email || !cpf) {
+      return c.json({ sucesso: false, mensagem: 'Dados incompletos' }, 400)
+    }
+
+    const MP_ACCESS_TOKEN = (c.env as any)?.MP_ACCESS_TOKEN || ''
+    const valores: Record<string, number> = { premium: 9.90, anual: 89.00 }
+    const valor = valores[plano] || 9.90
+
+    if (!MP_ACCESS_TOKEN) {
+      return c.json({
+        sucesso: true,
+        mensagem: 'Modo demo – use PIX para assinar de verdade!',
+        recomendacao: 'PIX e mais facil e rapido. Use /api/pix/assinar',
+        demo: true
+      })
+    }
+
+    // Criar preferencia MP
+    const prefRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        items: [{ id: `rp-${plano}`, title: PLANOS[plano]?.nome || 'RotaPosto Premium',
+          quantity: 1, unit_price: valor, currency_id: 'BRL' }],
+        payer: { name: nome, email },
+        back_urls: {
+          success: 'https://rotaposto.com.br/app',
+          failure: 'https://rotaposto.com.br/app',
+          pending: 'https://rotaposto.com.br/app'
+        },
+        external_reference: `rp-${plano}-${Date.now()}`
+      })
+    })
+    const prefData = await prefRes.json() as any
+
+    if (prefData?.id) {
+      return c.json({ sucesso: true, preferencia_id: prefData.id, checkout_url: prefData.init_point })
+    }
+    return c.json({ sucesso: false, mensagem: 'Erro ao criar preferencia MP' }, 500)
+  } catch {
+    return c.json({ sucesso: false, mensagem: 'Erro interno' }, 500)
+  }
+})
+
+app.post('/api/pagamento/webhook', async (c) => {
+  const body = await c.req.json() as any
+  console.log('MP Webhook:', JSON.stringify(body))
   return c.json({ status: 'ok' })
 })
 

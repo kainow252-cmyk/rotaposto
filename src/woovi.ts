@@ -2,178 +2,444 @@
 //  RotaPosto – Integração Woovi (OpenPix) PIX Recorrente
 //  API: https://api.openpix.com.br/api/v1/
 //  Docs: https://developers.woovi.com/docs/subscriptions/subscriptions-overview
+//
+//  FLUXO PIX RECORRENTE:
+//  1. Criar Customer (cliente)
+//  2. Criar Subscription (assinatura) → retorna QR Code do 1º pagamento
+//  3. Usuário paga → Woovi dispara webhook OPENPIX:SUBSCRIPTION_PAYMENT_CREATED
+//  4. Woovi cobra automaticamente todo ciclo (mensal/anual)
+//  5. Webhook notifica cada pagamento → atualizar status no KV
 // ═══════════════════════════════════════════════════════════════════════
 
 export interface PlanoAssinatura {
+  id: string
   nome: string
-  valor: number
+  valor: number        // em centavos
   ciclo: 'MONTHLY' | 'YEARLY'
   descricao: string
+  features: string[]
 }
 
 export const PLANOS: Record<string, PlanoAssinatura> = {
   premium: {
+    id: 'premium',
     nome: 'RotaPosto Premium',
-    valor: 990,   // centavos = R$9,90
+    valor: 990,          // R$ 9,90/mês
     ciclo: 'MONTHLY',
-    descricao: 'Assinatura mensal RotaPosto Premium'
+    descricao: 'Assinatura mensal RotaPosto Premium',
+    features: [
+      'Todos os postos do Brasil',
+      'Mapa com preços em tempo real',
+      'Rota de menor custo',
+      'Histórico completo',
+      'Sem anúncios',
+      'Suporte prioritário'
+    ]
   },
   anual: {
+    id: 'anual',
     nome: 'RotaPosto Anual',
-    valor: 8900,  // centavos = R$89,00
+    valor: 8900,         // R$ 89,00/ano (2 meses grátis)
     ciclo: 'YEARLY',
-    descricao: 'Assinatura anual RotaPosto (2 meses grátis)'
+    descricao: 'Assinatura anual RotaPosto (economize R$29,80)',
+    features: [
+      'Tudo do Premium',
+      '2 meses grátis',
+      'Relatorios avancados',
+      'Export de dados',
+      'Badge exclusivo'
+    ]
   }
 }
 
-// Criar cobrança PIX única (para primeiro pagamento / teste)
-export async function criarCobrancaPIX(
-  env: any,
+const WOOVI_BASE = 'https://api.openpix.com.br/api/v1'
+
+// ─── Tipos de resposta da Woovi ──────────────────────────────────────────────
+
+export interface WooviCustomer {
+  name: string
+  email: string
+  taxID: { taxID: string; type: 'BR:CPF' | 'BR:CNPJ' }
+  phone?: string
+  correlationID?: string
+}
+
+export interface WooviSubscription {
+  globalID: string
+  status: 'ACTIVE' | 'CANCELED' | 'PENDING'
+  customer: WooviCustomer
+  value: number
+  dayGenerateCharge?: number  // dia do mes para gerar cobranca
+  pixQrCode?: {
+    brCode: string
+    brCodeBase64?: string
+  }
+  nextChargeDate?: string
+  lastChargeDate?: string
+}
+
+export interface WooviCharge {
+  correlationID: string
+  status: 'ACTIVE' | 'COMPLETED' | 'EXPIRED'
+  value: number
+  brCode?: string
+  customer?: WooviCustomer
+  createdAt?: string
+  expiresIn?: number
+}
+
+// ─── Resultado padronizado ────────────────────────────────────────────────────
+
+export interface ResultadoPIX {
+  sucesso: boolean
+  subscriptionId?: string
+  chargeId?: string
+  qrCode?: string          // URL da imagem QR
+  brcode?: string          // código copia-e-cola
+  error?: string
+  demo?: boolean
+}
+
+// ─── Helper: headers Woovi ───────────────────────────────────────────────────
+
+function wooviHeaders(token: string) {
+  return {
+    'Authorization': token,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+}
+
+// ─── Helper: gerar QR Code image URL ─────────────────────────────────────────
+
+function qrImageUrl(brcode: string): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&format=png&data=${encodeURIComponent(brcode)}`
+}
+
+// ─── Helper: gerar demo QR ───────────────────────────────────────────────────
+
+function demoResult(plano: string): ResultadoPIX {
+  const p = PLANOS[plano] || PLANOS.premium
+  const valor = (p.valor / 100).toFixed(2).replace('.', '')
+  const brcode = `00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865406${valor}5802BR5913RotaPosto6009SAOPAULO62070503RP163041234`
+  return {
+    sucesso: true,
+    subscriptionId: `demo-sub-${Date.now()}`,
+    chargeId: `demo-charge-${Date.now()}`,
+    qrCode: qrImageUrl(brcode),
+    brcode,
+    demo: true
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  1. Criar ou buscar Customer na Woovi
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function criarOuBuscarCustomer(
+  token: string,
   nome: string,
   email: string,
   cpf: string,
-  plano: string
-): Promise<{ qrCode?: string; brcode?: string; txid?: string; error?: string }> {
-  const WOOVI_TOKEN = env?.WOOVI_API_KEY || ''
-  if (!WOOVI_TOKEN) {
-    // Modo demo: retornar dados simulados
-    return {
-      qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020126330014BR.GOV.BCB.PIX2566qrcoderotaposto.com.br%2Fdemo5204000053039865406${(PLANOS[plano]?.valor || 990).toString().padStart(7,'0')}5802BR5913ROTAPOSTO6009SAOPAULO6207050310304${plano.toUpperCase().slice(0,4)}`,
-      brcode: `00020126330014BR.GOV.BCB.PIX0111000000000005204000053039865406${(PLANOS[plano]?.valor || 990).toString().padStart(7,'0')}5802BR5913ROTAPOSTO6009SAOPAULO62070503***63041234`,
-      txid: `demo-${Date.now()}`,
-    }
-  }
-
-  const planoInfo = PLANOS[plano] || PLANOS.premium
+  telefone?: string
+): Promise<{ correlationID?: string; error?: string }> {
+  const cpfLimpo = cpf.replace(/\D/g, '')
+  const correlationID = `rp-cust-${cpfLimpo}`
 
   try {
-    // 1. Criar ou buscar customer
-    const custRes = await fetch('https://api.openpix.com.br/api/v1/customer', {
-      method: 'POST',
-      headers: {
-        'Authorization': WOOVI_TOKEN,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: nome,
-        email,
-        taxID: { taxID: cpf.replace(/\D/g, ''), type: 'BR:CPF' }
-      })
-    })
-    const custData = await custRes.json() as any
-    const customerId = custData?.customer?.correlationID || custData?.customer?.taxID?.taxID
+    // Tentar criar (se já existir, a API retorna o existente)
+    const body: any = {
+      name: nome,
+      email,
+      correlationID,
+      taxID: { taxID: cpfLimpo, type: 'BR:CPF' }
+    }
+    if (telefone) body.phone = telefone.replace(/\D/g, '')
 
-    // 2. Criar cobrança PIX
-    const chargeRes = await fetch('https://api.openpix.com.br/api/v1/charge', {
+    const res = await fetch(`${WOOVI_BASE}/customer`, {
       method: 'POST',
-      headers: {
-        'Authorization': WOOVI_TOKEN,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        correlationID: `rp-${cpf.replace(/\D/g, '').slice(-6)}-${Date.now()}`,
-        value: planoInfo.valor,
-        comment: planoInfo.descricao,
-        customer: { name: nome, email, taxID: { taxID: cpf.replace(/\D/g, ''), type: 'BR:CPF' } },
-        additionalInfo: [
-          { key: 'Plano', value: plano },
-          { key: 'App', value: 'RotaPosto' }
-        ]
-      })
+      headers: wooviHeaders(token),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000)
     })
-    const chargeData = await chargeRes.json() as any
 
-    if (chargeData?.charge?.brCode) {
-      const brcode = chargeData.charge.brCode
-      // Gerar QR Code via serviço público
-      const qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(brcode)}`
-      return {
-        qrCode,
-        brcode,
-        txid: chargeData.charge.correlationID
-      }
+    const data = await res.json() as any
+
+    // Woovi pode retornar customer existente ou recém-criado
+    const cust = data?.customer || data
+    if (cust?.correlationID || cust?.taxID) {
+      return { correlationID: cust.correlationID || correlationID }
     }
 
-    return { error: chargeData?.error || 'Erro ao criar cobrança PIX' }
+    // Se erro de duplicata, o correlationID já existe - usar mesmo assim
+    if (data?.error?.includes('already') || res.status === 400) {
+      return { correlationID }
+    }
+
+    return { error: data?.error || 'Erro ao criar cliente' }
   } catch (e: any) {
-    console.error('[Woovi] Erro:', e)
-    return { error: 'Serviço PIX temporariamente indisponível' }
+    console.error('[Woovi] criarCustomer error:', e.message)
+    return { error: 'Timeout ao criar cliente' }
   }
 }
 
-// Criar assinatura PIX recorrente
+// ═══════════════════════════════════════════════════════════════════════
+//  2. Criar Assinatura PIX Recorrente (Subscription)
+//     Woovi docs: POST /api/v1/subscriptions
+//     → retorna QR Code do PRIMEIRO pagamento
+//     → Woovi cobra automaticamente os seguintes
+// ═══════════════════════════════════════════════════════════════════════
+
 export async function criarAssinaturaPIX(
   env: any,
   nome: string,
   email: string,
   cpf: string,
-  plano: string
-): Promise<{ subscriptionId?: string; qrCode?: string; brcode?: string; error?: string }> {
-  const WOOVI_TOKEN = env?.WOOVI_API_KEY || ''
+  plano: string,
+  telefone?: string
+): Promise<ResultadoPIX> {
+  const WOOVI_TOKEN = (env?.WOOVI_API_KEY as string) || ''
+
   if (!WOOVI_TOKEN) {
-    // Demo mode
-    return {
-      subscriptionId: `demo-sub-${Date.now()}`,
-      qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=ROTAPOSTO-DEMO-PIX-${plano.toUpperCase()}`,
-      brcode: 'demo-brcode',
-    }
+    console.log('[Woovi] Modo DEMO - sem WOOVI_API_KEY')
+    return demoResult(plano)
   }
 
   const planoInfo = PLANOS[plano] || PLANOS.premium
+  const cpfLimpo = cpf.replace(/\D/g, '')
 
   try {
-    const res = await fetch('https://api.openpix.com.br/api/v1/subscriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': WOOVI_TOKEN,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        customer: {
-          name: nome,
-          email,
-          taxID: { taxID: cpf.replace(/\D/g, ''), type: 'BR:CPF' }
-        },
-        value: planoInfo.valor,
-        globalID: `rp-sub-${cpf.replace(/\D/g, '').slice(-6)}-${Date.now()}`,
-        additionalInfo: [
-          { key: 'plano', value: plano },
-          { key: 'app', value: 'RotaPosto' }
-        ]
-      })
-    })
-    const data = await res.json() as any
+    // 1. Garantir que o customer existe
+    const custResult = await criarOuBuscarCustomer(WOOVI_TOKEN, nome, email, cpfLimpo, telefone)
+    if (custResult.error && !custResult.correlationID) {
+      // Tentar prosseguir sem correlationID explícito
+      console.warn('[Woovi] Customer sem correlationID, prosseguindo...')
+    }
 
-    if (data?.subscription?.globalID) {
-      const brcode = data.subscription?.pixQrCode?.brCode || ''
-      const qrCode = brcode
-        ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(brcode)}`
-        : ''
+    // 2. Criar Subscription (assinatura recorrente)
+    // A Woovi gera automaticamente os pagamentos subsequentes
+    const globalID = `rp-sub-${cpfLimpo.slice(-6)}-${Date.now()}`
+    const diaCobranca = new Date().getDate() // cobra todo dia X do mês
+
+    const subBody: any = {
+      customer: {
+        name: nome,
+        email,
+        taxID: { taxID: cpfLimpo, type: 'BR:CPF' }
+      },
+      value: planoInfo.valor,
+      globalID,
+      dayGenerateCharge: diaCobranca,
+      additionalInfo: [
+        { key: 'plano', value: planoInfo.id },
+        { key: 'app', value: 'RotaPosto' },
+        { key: 'ciclo', value: planoInfo.ciclo }
+      ]
+    }
+
+    // Se temos correlationID do customer, usar
+    if (custResult.correlationID) {
+      subBody.customer.correlationID = custResult.correlationID
+    }
+
+    const res = await fetch(`${WOOVI_BASE}/subscriptions`, {
+      method: 'POST',
+      headers: wooviHeaders(WOOVI_TOKEN),
+      body: JSON.stringify(subBody),
+      signal: AbortSignal.timeout(15000)
+    })
+
+    const data = await res.json() as any
+    console.log('[Woovi] Subscription response:', JSON.stringify(data).slice(0, 500))
+
+    if (data?.subscription) {
+      const sub: WooviSubscription = data.subscription
+      const brcode = sub.pixQrCode?.brCode || ''
+
       return {
-        subscriptionId: data.subscription.globalID,
-        qrCode,
-        brcode
+        sucesso: true,
+        subscriptionId: sub.globalID || globalID,
+        qrCode: brcode ? qrImageUrl(brcode) : '',
+        brcode,
+        demo: false
       }
     }
 
-    return { error: data?.error || 'Erro ao criar assinatura' }
+    // Woovi pode retornar erro mas com brCode de qualquer forma
+    const brcode = data?.pixQrCode?.brCode || data?.charge?.brCode || ''
+    if (brcode) {
+      return {
+        sucesso: true,
+        subscriptionId: data?.globalID || globalID,
+        qrCode: qrImageUrl(brcode),
+        brcode,
+        demo: false
+      }
+    }
+
+    console.error('[Woovi] Erro subscription:', JSON.stringify(data))
+    return { sucesso: false, error: data?.error || data?.message || 'Erro ao criar assinatura PIX' }
+
   } catch (e: any) {
-    return { error: 'Serviço indisponível. Tente novamente.' }
+    console.error('[Woovi] criarAssinatura exception:', e.message)
+    return { sucesso: false, error: 'Serviço PIX temporariamente indisponível. Tente novamente.' }
   }
 }
 
-// Verificar status de pagamento
-export async function verificarPagamento(env: any, txid: string): Promise<boolean> {
-  const WOOVI_TOKEN = env?.WOOVI_API_KEY || ''
-  if (!WOOVI_TOKEN || txid.startsWith('demo')) return true // demo sempre aprovado
+// ═══════════════════════════════════════════════════════════════════════
+//  3. Verificar status de uma assinatura
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function verificarAssinatura(
+  env: any,
+  subscriptionId: string
+): Promise<{ status: string; ativa: boolean; nextCharge?: string }> {
+  const WOOVI_TOKEN = (env?.WOOVI_API_KEY as string) || ''
+
+  if (!WOOVI_TOKEN || subscriptionId.startsWith('demo')) {
+    return { status: 'ACTIVE', ativa: true }
+  }
 
   try {
-    const res = await fetch(`https://api.openpix.com.br/api/v1/charge/${txid}`, {
-      headers: { 'Authorization': WOOVI_TOKEN }
+    const res = await fetch(`${WOOVI_BASE}/subscriptions/${subscriptionId}`, {
+      headers: wooviHeaders(WOOVI_TOKEN),
+      signal: AbortSignal.timeout(8000)
     })
     const data = await res.json() as any
-    return data?.charge?.status === 'COMPLETED'
+    const sub = data?.subscription || data
+
+    return {
+      status: sub?.status || 'UNKNOWN',
+      ativa: sub?.status === 'ACTIVE',
+      nextCharge: sub?.nextChargeDate
+    }
+  } catch {
+    return { status: 'UNKNOWN', ativa: false }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  4. Verificar status de uma cobrança avulsa (charge)
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function verificarPagamento(env: any, txid: string): Promise<boolean> {
+  const WOOVI_TOKEN = (env?.WOOVI_API_KEY as string) || ''
+
+  if (!WOOVI_TOKEN || txid.startsWith('demo')) return true
+
+  try {
+    const res = await fetch(`${WOOVI_BASE}/charge/${txid}`, {
+      headers: wooviHeaders(WOOVI_TOKEN),
+      signal: AbortSignal.timeout(8000)
+    })
+    const data = await res.json() as any
+    const charge = data?.charge || data
+    return charge?.status === 'COMPLETED'
   } catch {
     return false
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  5. Cancelar assinatura
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function cancelarAssinatura(
+  env: any,
+  subscriptionId: string
+): Promise<{ sucesso: boolean; error?: string }> {
+  const WOOVI_TOKEN = (env?.WOOVI_API_KEY as string) || ''
+
+  if (!WOOVI_TOKEN || subscriptionId.startsWith('demo')) {
+    return { sucesso: true }
+  }
+
+  try {
+    const res = await fetch(`${WOOVI_BASE}/subscriptions/${subscriptionId}`, {
+      method: 'DELETE',
+      headers: wooviHeaders(WOOVI_TOKEN),
+      signal: AbortSignal.timeout(8000)
+    })
+    const data = await res.json() as any
+
+    if (res.ok || data?.subscription?.status === 'CANCELED') {
+      return { sucesso: true }
+    }
+    return { sucesso: false, error: data?.error || 'Erro ao cancelar' }
+  } catch (e: any) {
+    return { sucesso: false, error: e.message }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  6. Listar assinaturas de um customer
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function listarAssinaturas(
+  env: any,
+  cpf: string
+): Promise<WooviSubscription[]> {
+  const WOOVI_TOKEN = (env?.WOOVI_API_KEY as string) || ''
+
+  if (!WOOVI_TOKEN) return []
+
+  try {
+    const cpfLimpo = cpf.replace(/\D/g, '')
+    const res = await fetch(`${WOOVI_BASE}/subscriptions?customer=${cpfLimpo}`, {
+      headers: wooviHeaders(WOOVI_TOKEN),
+      signal: AbortSignal.timeout(8000)
+    })
+    const data = await res.json() as any
+    return data?.subscriptions || []
+  } catch {
+    return []
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  7. Parsear webhook Woovi
+//  Eventos relevantes:
+//  - OPENPIX:CHARGE_COMPLETED        → pagamento único concluído
+//  - OPENPIX:SUBSCRIPTION_PAYMENT_CREATED → assinatura criada
+//  - OPENPIX:SUBSCRIPTION_PAYMENT_SUCCEED → pagamento recorrente OK
+//  - OPENPIX:SUBSCRIPTION_CANCELED   → assinatura cancelada
+// ═══════════════════════════════════════════════════════════════════════
+
+export interface WebhookPayload {
+  event: string
+  charge?: WooviCharge
+  subscription?: WooviSubscription
+  pixTransaction?: { correlationID: string }
+}
+
+export function parsearWebhook(body: any): {
+  evento: string
+  correlationID: string
+  subscriptionId: string
+  status: 'PAGO' | 'CANCELADO' | 'DESCONHECIDO'
+} {
+  const evento = body?.event || ''
+  const charge = body?.charge || body?.pixTransaction || {}
+  const sub = body?.subscription || {}
+
+  const correlationID = charge.correlationID || sub.globalID || ''
+  const subscriptionId = sub.globalID || charge.correlationID || ''
+
+  let status: 'PAGO' | 'CANCELADO' | 'DESCONHECIDO' = 'DESCONHECIDO'
+
+  if (
+    evento === 'OPENPIX:CHARGE_COMPLETED' ||
+    evento === 'OPENPIX:SUBSCRIPTION_PAYMENT_CREATED' ||
+    evento === 'OPENPIX:SUBSCRIPTION_PAYMENT_SUCCEED' ||
+    charge?.status === 'COMPLETED'
+  ) {
+    status = 'PAGO'
+  } else if (
+    evento === 'OPENPIX:SUBSCRIPTION_CANCELED' ||
+    sub?.status === 'CANCELED'
+  ) {
+    status = 'CANCELADO'
+  }
+
+  return { evento, correlationID, subscriptionId, status }
 }
