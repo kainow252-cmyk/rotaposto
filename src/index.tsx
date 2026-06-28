@@ -1261,18 +1261,22 @@ app.get('/api/auth/config', (c) => {
 })
 
 // ─── Frontend Principal ───────────────────────────────────────────────────────
-// Rota raiz → landing page profissional de marketing
+// Rota raiz → onboarding (splash + login) como app nativo
 app.get('/', (c) => {
-  return c.html(getLandingHTML())
+  const firebaseScripts = getFirebaseAuthScripts()
+  return c.html(getLandingOnboardingHTML(firebaseScripts))
 })
 
-// /onboarding → onboarding flow com Firebase Auth
+// /onboarding → mesmo flow
 app.get('/onboarding', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
   return c.html(getLandingOnboardingHTML(firebaseScripts))
 })
 
-// /landing → alias da landing page de marketing
+// /landing → landing page de marketing (só quem quiser)
+app.get('/landing', (c) => {
+  return c.html(getLandingHTML())
+})
 
 app.get('/app', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
