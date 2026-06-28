@@ -32,9 +32,14 @@ export interface PostoReal {
   atualizadoEm: string
   fontePreco?: 'anp' | 'colaborativo' | 'estimado'
   confirmacoesPreco?: number
+  rating?: number
   avaliacao?: number
   totalAvaliacoes?: number
   osmId?: number
+  googlePlaceId?: string
+  aberto?: boolean
+  businessStatus?: string
+  fotoUrl?: string
   tags?: Record<string, string>
 }
 
@@ -379,6 +384,160 @@ export async function buscarPostosOSM(lat: number, lng: number, raioMetros = 500
   }
 }
 
+// ─── 3b. Google Places API v1 (Nearby Search) ────────────────────────────────
+// Usa a nova API v1 do Google Places para buscar postos com dados ricos:
+// nome real, endereço formatado, avaliação, telefone, horário, foto
+// Docs: https://developers.google.com/maps/documentation/places/web-service/reference/rest/v1/places
+//
+// CAMPOS retornados por campo mask (economizando cota):
+//   displayName, formattedAddress, location, rating, userRatingCount,
+//   internationalPhoneNumber, currentOpeningHours, businessStatus,
+//   photos (referência), addressComponents, types
+export async function buscarPostosGooglePlaces(
+  lat: number,
+  lng: number,
+  raioMetros: number,
+  apiKey: string,
+  kvData?: ANPSyncResult | null
+): Promise<PostoReal[]> {
+  if (!apiKey) return []
+
+  try {
+    // Google Places API v1 — Nearby Search (POST)
+    const url = 'https://places.googleapis.com/v1/places:searchNearby'
+
+    const body = {
+      includedTypes: ['gas_station'],
+      maxResultCount: 20,
+      locationRestriction: {
+        circle: {
+          center: { latitude: lat, longitude: lng },
+          radius: Math.min(raioMetros, 50000) // máx 50km pela API
+        }
+      },
+      // Ordenar por distância ao centro
+      rankPreference: 'DISTANCE'
+    }
+
+    const fieldMask = [
+      'places.id',
+      'places.displayName',
+      'places.formattedAddress',
+      'places.location',
+      'places.rating',
+      'places.userRatingCount',
+      'places.internationalPhoneNumber',
+      'places.currentOpeningHours',
+      'places.businessStatus',
+      'places.addressComponents',
+      'places.types',
+      'places.photos'
+    ].join(',')
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': fieldMask,
+        'Accept-Language': 'pt-BR'
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000)
+    })
+
+    if (!res.ok) {
+      console.warn(`[Google Places] HTTP ${res.status}`)
+      return []
+    }
+
+    const json = await res.json() as any
+    const places: any[] = json.places || []
+
+    if (places.length === 0) return []
+
+    return places.map((place: any): PostoReal => {
+      // Extrair componentes de endereço
+      const components: any[] = place.addressComponents || []
+      const getComp = (type: string) =>
+        components.find((c: any) => c.types?.includes(type))?.longText || ''
+      const getCompShort = (type: string) =>
+        components.find((c: any) => c.types?.includes(type))?.shortText || ''
+
+      const rua = getComp('route')
+      const numero = getComp('street_number')
+      const bairro = getComp('sublocality_level_1') || getComp('sublocality') || getComp('neighborhood')
+      const cidade = getComp('administrative_area_level_2') || getComp('locality')
+      const estado = getComp('administrative_area_level_1')
+      const ufSigla = getCompShort('administrative_area_level_1')
+      const cep = getComp('postal_code')
+
+      const endereco = [rua, numero].filter(Boolean).join(', ') || place.formattedAddress || ''
+
+      const nome = place.displayName?.text || 'Posto de Combustível'
+      const bandeira = normalizarBandeira(nome)
+
+      // Normalizar UF para 2 letras
+      const ufMap: Record<string, string> = {
+        'Acre': 'AC', 'Alagoas': 'AL', 'Amapá': 'AP', 'Amazonas': 'AM', 'Bahia': 'BA',
+        'Ceará': 'CE', 'Distrito Federal': 'DF', 'Espírito Santo': 'ES', 'Goiás': 'GO',
+        'Maranhão': 'MA', 'Mato Grosso': 'MT', 'Mato Grosso do Sul': 'MS',
+        'Minas Gerais': 'MG', 'Pará': 'PA', 'Paraíba': 'PB', 'Paraná': 'PR',
+        'Pernambuco': 'PE', 'Piauí': 'PI', 'Rio de Janeiro': 'RJ', 'Rio Grande do Norte': 'RN',
+        'Rio Grande do Sul': 'RS', 'Rondônia': 'RO', 'Roraima': 'RR', 'Santa Catarina': 'SC',
+        'São Paulo': 'SP', 'Sergipe': 'SE', 'Tocantins': 'TO'
+      }
+      const uf = (ufSigla.length === 2 ? ufSigla : ufMap[estado] || 'SP').toUpperCase()
+      const cidadeNorm = cidade.toUpperCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+      // Tentar preço real via KV pelo nome/localização (não há CNPJ no Places)
+      // Usar preço municipal estimado + classificar como estimado
+      const precos = estimarPrecosPorMunicipio(uf, cidadeNorm)
+
+      // Foto de referência (URL via Photos API v1)
+      let fotoUrl: string | undefined
+      if (place.photos?.length > 0) {
+        const photoRef = place.photos[0].name
+        fotoUrl = `https://places.googleapis.com/v1/${photoRef}/media?key=${apiKey}&maxWidthPx=400`
+      }
+
+      // Status de funcionamento
+      const aberto = place.currentOpeningHours?.openNow
+      const businessStatus = place.businessStatus
+
+      return {
+        id: `google-${place.id}`,
+        fonte: 'osm', // Tratado como fonte externa sem CNPJ
+        googlePlaceId: place.id,
+        nome,
+        bandeira,
+        endereco,
+        bairro: bairro || undefined,
+        cidade,
+        estado: uf,
+        cep: cep || undefined,
+        lat: place.location?.latitude || lat,
+        lng: place.location?.longitude || lng,
+        precos,
+        atualizadoEm: new Date().toISOString().split('T')[0],
+        fontePreco: 'estimado',
+        confirmacoesPreco: 0,
+        // Dados extras do Google
+        rating: place.rating,
+        totalAvaliacoes: place.userRatingCount,
+        telefone: place.internationalPhoneNumber,
+        aberto: aberto !== undefined ? aberto : undefined,
+        businessStatus: businessStatus || undefined,
+        fotoUrl
+      }
+    })
+  } catch (e) {
+    console.error('[Google Places] Erro:', e)
+    return []
+  }
+}
+
 // ─── 4. Geocode Nominatim ────────────────────────────────────────────────────
 export async function geocodeNominatim(q: string): Promise<Array<{ nome: string; lat: number; lng: number; estado?: string; cidade?: string }>> {
   try {
@@ -537,23 +696,55 @@ export function rankearPostosPorIA(
   }))
 }
 
-// ─── 8. Merge de fontes (ANP + OSM) ──────────────────────────────────────────
-export function mergePostos(anp: PostoReal[], osm: PostoReal[], raioDeduplicacao = 0.08): PostoReal[] {
+// ─── 8. Merge de fontes (ANP + Google Places + OSM) ──────────────────────────
+// Estratégia de merge:
+//   1. ANP é a fonte principal (tem CNPJ + preços reais)
+//   2. Google Places enriquece com dados ricos (rating, foto, telefone, horário)
+//      ou adiciona postos novos que a ANP não retornou
+//   3. OSM adiciona postos restantes fora do raio das fontes primárias
+// Deduplicação por distância (~80m padrão, 50m para Google que é mais preciso)
+export function mergePostos(
+  anp: PostoReal[],
+  osm: PostoReal[],
+  raioDeduplicacao = 0.08,
+  google: PostoReal[] = []
+): PostoReal[] {
+  // Começar com ANP (maior confiabilidade de dados fiscais/preços)
   const todos: PostoReal[] = [...anp]
-  const usados = new Set<number>()
 
+  // Enriquecer postos ANP com dados do Google Places (rating, foto, aberto, telefone)
+  for (const gPosto of google) {
+    let encontrado = false
+    for (let i = 0; i < todos.length; i++) {
+      const dist = haversine(gPosto.lat, gPosto.lng, todos[i].lat, todos[i].lng)
+      if (dist < 0.05) { // 50m — Google tem coordenadas mais precisas
+        encontrado = true
+        // Enriquecer posto existente com dados do Google (sem sobrescrever preços ANP)
+        if (!todos[i].googlePlaceId) todos[i].googlePlaceId = gPosto.googlePlaceId
+        if (!todos[i].rating && gPosto.rating) todos[i].rating = gPosto.rating
+        if (!todos[i].totalAvaliacoes && gPosto.totalAvaliacoes) todos[i].totalAvaliacoes = gPosto.totalAvaliacoes
+        if (!todos[i].telefone && gPosto.telefone) todos[i].telefone = gPosto.telefone
+        if (gPosto.aberto !== undefined) todos[i].aberto = gPosto.aberto
+        if (!todos[i].fotoUrl && gPosto.fotoUrl) todos[i].fotoUrl = gPosto.fotoUrl
+        // Se o Google tem endereço mais completo e o ANP não tem bairro
+        if (!todos[i].bairro && gPosto.bairro) todos[i].bairro = gPosto.bairro
+        break
+      }
+    }
+    // Posto do Google não encontrado na ANP → adicionar como novo
+    if (!encontrado) todos.push(gPosto)
+  }
+
+  // Por último: OSM preenche postos ainda não cobertos
   for (const osmPosto of osm) {
     let duplicado = false
-    for (let i = 0; i < anp.length; i++) {
-      const dist = haversine(osmPosto.lat, osmPosto.lng, anp[i].lat, anp[i].lng)
+    for (let i = 0; i < todos.length; i++) {
+      const dist = haversine(osmPosto.lat, osmPosto.lng, todos[i].lat, todos[i].lng)
       if (dist < raioDeduplicacao) {
         duplicado = true
-        // Enriquecer o posto ANP com dados OSM
-        if (!anp[i].osmId) {
-          anp[i].osmId = osmPosto.osmId
-          anp[i].tags = osmPosto.tags
-          if (!anp[i].bairro && osmPosto.bairro) anp[i].bairro = osmPosto.bairro
-        }
+        if (!todos[i].osmId) todos[i].osmId = osmPosto.osmId
+        if (!todos[i].tags) todos[i].tags = osmPosto.tags
+        if (!todos[i].bairro && osmPosto.bairro) todos[i].bairro = osmPosto.bairro
         break
       }
     }

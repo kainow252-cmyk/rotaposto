@@ -1573,6 +1573,12 @@ export function getAppHTML(firebaseScripts: string): string {
       const corPreco = isBest ? '#00A651' : (isEstimado ? '#999' : '#1A1A1A');
       const fonteSufixo = isEstimado ? '~' : '';
 
+      // Badge aberto/fechado do Google
+      const abertoStr = p.aberto === true ? '<span style="font-size:10px;color:#2E7D32;font-weight:700;"> 🟢</span>'
+        : p.aberto === false ? '<span style="font-size:10px;color:#C62828;font-weight:700;"> 🔴</span>' : '';
+      // Rating Google compacto
+      const ratingStr = p.rating ? '<span style="font-size:10px;color:#F59E0B;margin-left:3px;">★' + p.rating.toFixed(1) + '</span>' : '';
+
       return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
         + '<div class="posto-brand-logo">' + emoji + '</div>'
         + '<div class="posto-item-info">'
@@ -1580,6 +1586,8 @@ export function getAppHTML(firebaseScripts: string): string {
         +   '<div style="display:flex;align-items:center;gap:2px;margin-top:2px;">'
         +     (isBest ? '<span style="font-size:10px;background:#E8F5E9;color:#00A651;font-weight:700;padding:1px 5px;border-radius:4px;">MELHOR PREÇO</span>' : '')
         +     badgeFonte
+        +     abertoStr
+        +     ratingStr
         +   '</div>'
         + '</div>'
         + '<div class="posto-item-preco">'
@@ -1629,21 +1637,21 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function openDetalhes(idx) {
-    const p = postosData[idx] || getDemoPostos()[idx];
+    var p = postosData[idx] || getDemoPostos()[idx];
     if (!p) return;
     selectedPosto = p;
 
-    const preco = p.preco || p.precos?.[selectedFuel];
-    const isReal = p.fontePreco === 'anp';
-    const isColab = p.fontePreco === 'colaborativo';
-    const isEstimado = !isReal && !isColab;
+    var preco = p.preco || (p.precos && p.precos[selectedFuel]);
+    var isReal = p.fontePreco === 'anp';
+    var isColab = p.fontePreco === 'colaborativo';
+    var isEstimado = !isReal && !isColab;
 
     document.getElementById('det-logo-badge').textContent = getEmoji(p.bandeira || p.nome);
     document.getElementById('det-nome').textContent = p.nome;
     document.getElementById('det-endereco').textContent = (p.endereco || '') + (p.bairro ? ' - ' + p.bairro : '') + ', ' + (p.cidade || '') + (p.estado ? ' - ' + p.estado : '');
 
     // Preço com indicador de fonte
-    const precoEl = document.getElementById('det-comb-preco');
+    var precoEl = document.getElementById('det-comb-preco');
     if (preco) {
       precoEl.innerHTML = 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L'
         + (isEstimado ? ' <span style="font-size:11px;color:#FFA000;font-weight:600;">~ estimado</span>' : '')
@@ -1653,31 +1661,66 @@ export function getAppHTML(firebaseScripts: string): string {
       precoEl.textContent = '-';
     }
 
-    // Combustíveis — mostrar todos com fonte
-    const list = document.getElementById('det-fuel-list');
-    const fuels = [
-      ['Gasolina', p.precos?.gasolina],
-      ['Gasolina Aditivada', p.precos?.gasolinaAditivada],
-      ['Etanol', p.precos?.etanol],
-      ['Diesel S10', p.precos?.dieselS10],
-      ['Diesel', p.precos?.diesel && !p.precos?.dieselS10 ? p.precos.diesel : null],
-      ['GNV', p.precos?.gnv],
-      ['GLP', p.precos?.glp],
-    ].filter(f => f[1]);
+    // Combustíveis
+    var list = document.getElementById('det-fuel-list');
+    var fuels = [
+      ['Gasolina', p.precos && p.precos.gasolina],
+      ['Gasolina Aditivada', p.precos && p.precos.gasolinaAditivada],
+      ['Etanol', p.precos && p.precos.etanol],
+      ['Diesel S10', p.precos && p.precos.dieselS10],
+      ['Diesel', p.precos && p.precos.diesel && !p.precos.dieselS10 ? p.precos.diesel : null],
+      ['GNV', p.precos && p.precos.gnv],
+      ['GLP', p.precos && p.precos.glp],
+    ].filter(function(f) { return f[1]; });
 
-    const fonteLabel = isReal
+    var fonteLabel = isReal
       ? '<div style="font-size:10px;color:#1565C0;margin-top:8px;">✓ Preços coletados pela ANP · semana 21-27/jun/2026</div>'
       : isColab
         ? '<div style="font-size:10px;color:#00A651;margin-top:8px;">👥 Preço informado por usuário</div>'
         : '<div style="font-size:10px;color:#FFA000;margin-top:8px;">~ Média municipal ANP · pode variar</div>';
 
-    list.innerHTML = (fuels.map(f =>
-      '<div class="det-fuel-row"><span class="det-fuel-nome">'+f[0]+'</span><span class="det-fuel-price">R$ '+f[1].toFixed(2).replace('.',',')+'</span></div>'
-    ).join('') || '<div class="det-fuel-row"><span class="det-fuel-nome" style="color:var(--gray)">Preços não disponíveis</span></div>')
-    + fonteLabel
-    + '<div style="margin-top:8px;">'
-    + '<span style="font-size:11px;color:#FF6D00;cursor:pointer;font-weight:600;" onclick="abrirReportarPreco('+idx+')">'
-    + '📝 Preços diferentes? Informe o valor real</span></div>';
+    // Badge aberto/fechado (Google Places)
+    var statusBadge = '';
+    if (p.aberto === true) {
+      statusBadge = '<span style="display:inline-block;background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-bottom:6px;">🟢 Aberto agora</span> ';
+    } else if (p.aberto === false) {
+      statusBadge = '<span style="display:inline-block;background:#FFEBEE;color:#C62828;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-bottom:6px;">🔴 Fechado agora</span> ';
+    }
+
+    // Rating Google
+    var ratingHtml = '';
+    if (p.rating) {
+      var starsStr = '';
+      var rt = Math.round(p.rating * 2) / 2;
+      for (var si = 1; si <= 5; si++) {
+        starsStr += (si <= rt) ? '★' : '☆';
+      }
+      ratingHtml = '<div style="font-size:13px;color:#F59E0B;margin-bottom:4px;">'
+        + starsStr + ' <span style="color:#555;">' + p.rating.toFixed(1) + '</span>'
+        + (p.totalAvaliacoes ? ' <span style="color:#aaa;font-size:11px;">(' + p.totalAvaliacoes.toLocaleString('pt-BR') + ' av.)</span>' : '')
+        + '</div>';
+    }
+
+    // Foto Google Places
+    var fotoHtml = '';
+    if (p.fotoUrl) {
+      fotoHtml = '<img src="' + p.fotoUrl + '" style="width:100%;height:130px;object-fit:cover;border-radius:12px;margin-bottom:8px;" onerror="this.style.display=\'none\'" loading="lazy" alt="Foto do posto"/>';
+    }
+
+    // Telefone
+    var telefoneHtml = '';
+    if (p.telefone) {
+      telefoneHtml = '<div style="font-size:12px;color:#555;margin-bottom:6px;">📞 <a href="tel:' + p.telefone + '" style="color:#FF6D00;text-decoration:none;">' + p.telefone + '</a></div>';
+    }
+
+    list.innerHTML = fotoHtml + statusBadge + ratingHtml + telefoneHtml
+      + (fuels.map(function(f) {
+          return '<div class="det-fuel-row"><span class="det-fuel-nome">'+f[0]+'</span><span class="det-fuel-price">R$ '+f[1].toFixed(2).replace('.',',')+'</span></div>';
+        }).join('') || '<div class="det-fuel-row"><span class="det-fuel-nome" style="color:var(--gray)">Preços não disponíveis</span></div>')
+      + fonteLabel
+      + '<div style="margin-top:8px;">'
+      + '<span style="font-size:11px;color:#FF6D00;cursor:pointer;font-weight:600;" onclick="abrirReportarPreco('+idx+')">'
+      + '📝 Preços diferentes? Informe o valor real</span></div>';
 
     // Planejar: atualizar dest
     document.getElementById('plan-dest').textContent = p.nome;

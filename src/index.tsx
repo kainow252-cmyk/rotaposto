@@ -14,6 +14,7 @@ import {
 import {
   buscarPostosANP,
   buscarPostosOSM,
+  buscarPostosGooglePlaces,
   geocodeReverso,
   geocodeNominatim,
   calcularRotaOSRM,
@@ -154,18 +155,26 @@ app.get('/api/postos', async (c) => {
     let postosBase = getCached(cacheKey)
 
     if (!postosBase) {
-      // 3. Buscar em paralelo: ANP + OSM (passa KV para preços frescos)
+      // 3. Buscar em paralelo: ANP + Google Places + OSM
       const kv = getKV(c.env) || undefined
-      const [anpPostos, osmPostos] = await Promise.allSettled([
+      const googleKey = GOOGLE_API_KEY || ''
+      const raioGoogle = Math.min(raio * 1000, 20000) // máx 20km para Google
+      const raioOSM = Math.min(raio * 1000, 8000)
+
+      const [anpRes, googleRes, osmRes] = await Promise.allSettled([
         buscarPostosANP(uf, municipio, 1, kv),
-        buscarPostosOSM(lat, lng, Math.min(raio * 1000, 8000))
+        buscarPostosGooglePlaces(lat, lng, raioGoogle, googleKey),
+        buscarPostosOSM(lat, lng, raioOSM)
       ])
 
-      const anp = anpPostos.status === 'fulfilled' ? anpPostos.value : []
-      const osm = osmPostos.status === 'fulfilled' ? osmPostos.value : []
+      const anp = anpRes.status === 'fulfilled' ? anpRes.value : []
+      const google = googleRes.status === 'fulfilled' ? googleRes.value : []
+      const osm = osmRes.status === 'fulfilled' ? osmRes.value : []
 
-      // 4. Merge deduplicado
-      postosBase = mergePostos(anp, osm)
+      console.log(`[Postos] ANP=${anp.length} Google=${google.length} OSM=${osm.length} → ${uf}/${municipio}`)
+
+      // 4. Merge deduplicado: ANP(preços reais) + Google(dados ricos) + OSM(cobertura)
+      postosBase = mergePostos(anp, osm, 0.08, google)
       setCached(cacheKey, postosBase)
     }
 
@@ -189,8 +198,12 @@ app.get('/api/postos', async (c) => {
     }
 
     // 6. Ranking com IA de Economia
+    const fontes = [...new Set(postosBase.map(p => p.fonte))].join('+')
+    const temAnp = postosBase.some(p => p.fonte === 'anp')
+    const temGoogle = postosBase.some(p => p.googlePlaceId)
+    const fonteLabel = temAnp ? (temGoogle ? 'anp+google+osm' : 'anp+osm') : (temGoogle ? 'google+osm' : 'osm')
     const rankeados = rankearPostosPorIA(noRaio, lat, lng, combustivel, litros, consumo)
-    return buildResponse(rankeados, combustivel, postosBase.some(p => p.fonte === 'anp') ? 'anp+osm' : 'osm')
+    return buildResponse(rankeados, combustivel, fonteLabel)
 
     function buildResponse(rankeados: EconomiaPosto[], combustivel: keyof PostoReal['precos'], fonte: string) {
       if (rankeados.length === 0) {
@@ -216,6 +229,13 @@ app.get('/api/postos', async (c) => {
           atualizadoEm: p.atualizadoEm,
           fontePreco: p.fontePreco,
           fonte: p.fonte,
+          // Dados ricos do Google Places
+          rating: p.rating,
+          totalAvaliacoes: p.totalAvaliacoes,
+          telefone: p.telefone,
+          aberto: p.aberto,
+          fotoUrl: p.fotoUrl,
+          googlePlaceId: p.googlePlaceId,
           // Campos calculados
           distancia: Math.round(p.distancia * 100) / 100,
           preco: p.precos[combustivel],
