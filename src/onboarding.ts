@@ -940,11 +940,106 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     setTimeout(() => window.location.href = '/app', 600);
   }
 
+  // ══════════════════════════════════════════════════════
+  //  PWA – Banner de instalação + Auto-update
+  // ══════════════════════════════════════════════════════
+
+  var _deferredInstallPrompt = null;
+
+  // Capturar evento de instalação do browser
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+    // Só mostrar banner se não está instalado e não dispensou antes
+    var dispensado = localStorage.getItem('rp_pwa_dispensado');
+    var jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+    if (!dispensado && !jaInstalado) {
+      setTimeout(function() { mostrarBannerPWA(); }, 2000);
+    }
+  });
+
+  function mostrarBannerPWA() {
+    if (document.getElementById('pwa-banner')) return;
+    var banner = document.createElement('div');
+    banner.id = 'pwa-banner';
+    banner.style.cssText = [
+      'position:fixed', 'bottom:0', 'left:0', 'right:0', 'z-index:99999',
+      'background:#fff', 'border-top:1px solid #eee',
+      'box-shadow:0 -4px 24px rgba(0,0,0,0.12)',
+      'padding:16px 20px', 'display:flex', 'align-items:center',
+      'gap:14px', 'animation:slideUp 0.3s ease'
+    ].join(';');
+    banner.innerHTML = [
+      '<img src="/icons/icon-96x96.png" style="width:48px;height:48px;border-radius:12px;flex-shrink:0" onerror="this.style.display=\'none\'"/>',
+      '<div style="flex:1;min-width:0">',
+        '<div style="font-weight:700;font-size:14px;color:#1A1A1A">Adicionar RotaPosto</div>',
+        '<div style="font-size:12px;color:#888;margin-top:2px">Acesso rápido direto da tela inicial</div>',
+      '</div>',
+      '<button onclick="dispensarBannerPWA()" style="background:none;border:none;padding:8px;cursor:pointer;color:#aaa;font-size:20px;line-height:1;flex-shrink:0">✕</button>',
+      '<button onclick="instalarPWA()" style="background:#FF6D00;color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer;flex-shrink:0;white-space:nowrap">Instalar</button>'
+    ].join('');
+
+    // Animação
+    var style = document.createElement('style');
+    style.textContent = '@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}';
+    document.head.appendChild(style);
+    document.body.appendChild(banner);
+  }
+
+  function instalarPWA() {
+    if (!_deferredInstallPrompt) return;
+    _deferredInstallPrompt.prompt();
+    _deferredInstallPrompt.userChoice.then(function(result) {
+      if (result.outcome === 'accepted') {
+        localStorage.setItem('rp_pwa_instalado', '1');
+        var banner = document.getElementById('pwa-banner');
+        if (banner) banner.remove();
+        showToast('RotaPosto instalado! ✓');
+      }
+      _deferredInstallPrompt = null;
+    });
+  }
+
+  function dispensarBannerPWA() {
+    localStorage.setItem('rp_pwa_dispensado', '1');
+    var banner = document.getElementById('pwa-banner');
+    if (banner) banner.remove();
+  }
+
+  // Quando instalado com sucesso via browser
+  window.addEventListener('appinstalled', function() {
+    localStorage.setItem('rp_pwa_instalado', '1');
+    var banner = document.getElementById('pwa-banner');
+    if (banner) banner.remove();
+    showToast('RotaPosto instalado com sucesso! ✓');
+  });
+
   // ── Init: verificar se já logado / resultado de redirect ──
   (function init() {
-    // Registrar SW
+    // Registrar SW v6 com auto-update
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(function() {});
+      navigator.serviceWorker.register('/sw.js').then(function(reg) {
+        // Checar por atualizações a cada 60 segundos
+        setInterval(function() { reg.update(); }, 60000);
+
+        // Quando novo SW estiver esperando → forçar ativação imediata
+        reg.addEventListener('updatefound', function() {
+          var newSW = reg.installing;
+          if (!newSW) return;
+          newSW.addEventListener('statechange', function() {
+            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+              // Tem atualização disponível — ativar silenciosamente
+              newSW.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+      }).catch(function() {});
+
+      // Quando SW atualizar e recarregar, recarregar página automaticamente
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        window.location.reload();
+      });
     }
 
     // Se já tem usuário logado → vai direto pro app

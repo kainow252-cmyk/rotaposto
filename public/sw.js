@@ -1,189 +1,156 @@
-// RotaPosto Service Worker v5.0
-// Cache inteligente + Auto-update no PWA
-// v5: Fix cache - páginas HTML sempre network-first (landing atualizada)
+// RotaPosto Service Worker v6.0
+// Auto-update silencioso + Cache inteligente + PWA install
+// v6: skipWaiting imediato + reload automático nas abas abertas
 
-const CACHE_NAME = 'rotaposto-v5';
-const STATIC_CACHE = 'rotaposto-static-v5';
-const API_CACHE = 'rotaposto-api-v5';
+const VERSION = 'v6';
+const CACHE_STATIC = 'rp-static-v6';
+const CACHE_API    = 'rp-api-v6';
 
-// SOMENTE assets verdadeiramente estáticos (não-HTML) no pré-cache
-const STATIC_ASSETS = [
+const PRECACHE = [
   '/manifest.json',
   '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  '/logo-rotaposto.png'
+  '/icons/icon-512x512.png'
 ];
 
-// Rotas HTML que NUNCA devem ser cacheadas
-// (landing muda com frequência, app precisa de auth fresh)
-const NO_CACHE_ROUTES = ['/', '/onboarding', '/landing', '/app', '/login'];
-
-// Install: pré-cache apenas assets estáticos + skipWaiting imediato
+// ── INSTALL: pré-cache + ativar imediatamente sem esperar ──────────────────
 self.addEventListener('install', event => {
-  console.log('[SW] Installing RotaPosto v5...');
   event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then(cache => cache.addAll(STATIC_ASSETS.map(url => new Request(url, { cache: 'reload' }))))
-      .then(() => {
-        console.log('[SW] v5 instalado — skipWaiting imediato');
-        return self.skipWaiting(); // Auto-ativar sem esperar
-      })
-      .catch(err => console.warn('[SW] Cache install error:', err))
+    caches.open(CACHE_STATIC)
+      .then(cache => cache.addAll(PRECACHE.map(u => new Request(u, { cache: 'reload' }))))
+      .catch(() => {})  // não falhar se ícone não existir
+      .then(() => self.skipWaiting())  // ativar IMEDIATAMENTE (sem esperar aba fechar)
   );
 });
 
-// Activate: limpar TODOS os caches antigos + claim imediato
+// ── ACTIVATE: limpar caches antigos + assumir controle de TODAS as abas ───
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating RotaPosto v5 — limpando caches antigos...');
   event.waitUntil(
     caches.keys()
-      .then(keys => {
-        console.log('[SW] Caches existentes:', keys);
-        return Promise.all(
-          keys
-            .filter(key => key !== STATIC_CACHE && key !== API_CACHE)
-            .map(key => {
-              console.log('[SW] Deletando cache antigo:', key);
-              return caches.delete(key);
-            })
-        );
-      })
-      .then(() => self.clients.claim()) // Tomar controle imediato de todas as abas
+      .then(keys => Promise.all(
+        keys
+          .filter(k => k !== CACHE_STATIC && k !== CACHE_API)
+          .map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())  // controlar abas abertas imediatamente
       .then(() => {
-        // Notificar todas as abas que o SW foi atualizado
-        return self.clients.matchAll({ type: 'window' }).then(clients => {
-          clients.forEach(client => {
-            client.postMessage({ type: 'SW_UPDATED', version: 'v5' });
-            // Forçar reload nas abas abertas para carregar a nova landing
-            client.navigate(client.url);
-          });
+        // ── Auto-reload silencioso em todas as abas ──────────────────────
+        // Quando novo SW ativa, recarrega todas as páginas automaticamente
+        // para garantir que o usuário sempre veja a versão mais recente
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      })
+      .then(clients => {
+        clients.forEach(client => {
+          // Navegar de volta pra mesma URL (reload silencioso)
+          client.navigate(client.url);
         });
       })
   );
 });
 
-// Escutar mensagem de SKIP_WAITING (chamado pelo app para forçar update)
+// ── MESSAGE: receber comandos do app ──────────────────────────────────────
 self.addEventListener('message', event => {
-  if (event.data === 'SKIP_WAITING' || event.data?.type === 'SKIP_WAITING') {
-    console.log('[SW] SKIP_WAITING recebido — ativando novo SW');
+  if (event.data?.type === 'SKIP_WAITING' || event.data === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+  if (event.data?.type === 'GET_VERSION') {
+    event.ports[0]?.postMessage({ version: VERSION });
+  }
 });
 
-// Fetch: estratégia por tipo de recurso
+// ── FETCH: estratégia por tipo de recurso ─────────────────────────────────
 self.addEventListener('fetch', event => {
-  const { request } = event;
-  const url = new URL(request.url);
+  const req = event.request;
+  const url = new URL(req.url);
 
-  // Só lidar com GET
-  if (request.method !== 'GET') return;
+  // Só GET
+  if (req.method !== 'GET') return;
 
-  // Ignorar outros domínios (Firebase, CDNs externas, etc.)
-  if (!url.origin.includes('rotaposto') && !url.hostname.includes('localhost')) {
-    return;
-  }
+  // Só origem própria (ignora Firebase, Google, CDNs)
+  const isOwn = url.hostname.includes('rotaposto') || url.hostname === 'localhost';
+  if (!isOwn) return;
 
-  const pathname = url.pathname;
+  const path = url.pathname;
 
-  // ─── PÁGINAS HTML: SEMPRE Network First (nunca cache) ───────────────────
-  // Isso garante que / sempre serve a landing atualizada
-  if (
-    pathname === '/' ||
-    NO_CACHE_ROUTES.some(route => pathname === route || pathname.startsWith(route + '?'))
-  ) {
+  // ── PÁGINAS HTML: sempre busca na rede (nunca serve cache desatualizado) ─
+  const isHtmlPage = path === '/' || path === '/app' || path === '/onboarding'
+    || path === '/landing' || path === '/admin' || !path.includes('.');
+
+  if (isHtmlPage) {
     event.respondWith(
-      fetch(request, { cache: 'no-store' })
-        .catch(() => {
-          // Fallback offline: só se não conseguir rede
-          return new Response(
-            '<html><body style="font-family:sans-serif;text-align:center;padding:40px">' +
-            '<h2>⛽ RotaPosto</h2><p>Sem conexão. Tente novamente.</p></body></html>',
-            { headers: { 'Content-Type': 'text/html' } }
-          );
-        })
+      fetch(req, { cache: 'no-store' }).catch(() =>
+        new Response(
+          '<!DOCTYPE html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>' +
+          '<body style="font-family:sans-serif;text-align:center;padding:60px 20px;background:#fff">' +
+          '<div style="font-size:48px">⛽</div>' +
+          '<h2 style="color:#FF6D00;font-weight:800">RotaPosto</h2>' +
+          '<p style="color:#666">Sem conexão com a internet.</p>' +
+          '<p style="color:#999;font-size:14px">Verifique sua conexão e tente novamente.</p>' +
+          '<button onclick="location.reload()" style="margin-top:20px;padding:12px 28px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer">Tentar novamente</button>' +
+          '</body></html>',
+          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+        )
+      )
     );
     return;
   }
 
-  // ─── APIs de postos/preços: Network First com cache fallback (5min TTL) ──
-  if (pathname.startsWith('/api/postos') || pathname.startsWith('/api/precos')) {
+  // ── APIs de postos/preços: network-first com cache de 5 min ──────────────
+  if (path.startsWith('/api/postos') || path.startsWith('/api/precos') || path.startsWith('/api/geocode')) {
     event.respondWith(
-      fetch(request)
-        .then(response => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(API_CACHE).then(cache => cache.put(request, clone));
+      fetch(req)
+        .then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_API).then(c => c.put(req, clone));
           }
-          return response;
+          return res;
         })
-        .catch(() => caches.match(request))
+        .catch(() => caches.match(req))
     );
     return;
   }
 
-  // ─── Outros recursos estáticos: Cache First ───────────────────────────────
+  // ── Assets estáticos (ícones, manifest, imagens): cache-first ────────────
   event.respondWith(
-    caches.match(request)
-      .then(cached => {
-        if (cached) return cached;
-        return fetch(request).then(response => {
-          if (response.ok && request.method === 'GET') {
-            const clone = response.clone();
-            caches.open(STATIC_CACHE).then(cache => cache.put(request, clone));
-          }
-          return response;
-        });
-      })
-      .catch(() => {
-        // Offline fallback para documentos
-        if (request.destination === 'document') {
-          return new Response(
-            '<html><body style="font-family:sans-serif;text-align:center;padding:40px">' +
-            '<h2>⛽ RotaPosto</h2><p>Sem conexão. Tente novamente.</p></body></html>',
-            { headers: { 'Content-Type': 'text/html' } }
-          );
+    caches.match(req).then(cached => {
+      if (cached) return cached;
+      return fetch(req).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_STATIC).then(c => c.put(req, clone));
         }
-      })
+        return res;
+      }).catch(() => new Response('', { status: 404 }));
+    })
   );
 });
 
-// Push notifications
+// ── PUSH: notificações ────────────────────────────────────────────────────
 self.addEventListener('push', event => {
   if (!event.data) return;
-  const data = event.data.json();
-  
-  const options = {
-    body: data.body || 'Novo alerta de preço!',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-96x96.png',
-    vibrate: [200, 100, 200],
-    data: { url: data.url || '/app' },
-    actions: [
-      { action: 'open', title: 'Ver postos', icon: '/icons/icon-96x96.png' },
-      { action: 'dismiss', title: 'Dispensar' }
-    ]
-  };
+  let data = {};
+  try { data = event.data.json(); } catch { data = { title: 'RotaPosto', body: event.data.text() }; }
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'RotaPosto ⛽', options)
+    self.registration.showNotification(data.title || 'RotaPosto ⛽', {
+      body: data.body || 'Novo alerta de preço!',
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-96x96.png',
+      vibrate: [200, 100, 200],
+      data: { url: data.url || '/app' }
+    })
   );
 });
 
-// Clique na notificação
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  if (event.action === 'dismiss') return;
-  
   event.waitUntil(
-    clients.matchAll({ type: 'window' })
-      .then(clientList => {
-        const url = event.notification.data?.url || '/app';
-        for (const client of clientList) {
-          if (client.url.includes('/app') && 'focus' in client) {
-            return client.focus();
-          }
-        }
-        return clients.openWindow(url);
-      })
+    clients.matchAll({ type: 'window' }).then(list => {
+      const url = event.notification.data?.url || '/app';
+      for (const c of list) {
+        if (c.url.includes('/app') && 'focus' in c) return c.focus();
+      }
+      return clients.openWindow(url);
+    })
   );
 });

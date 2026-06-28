@@ -1905,9 +1905,78 @@ export function getAppHTML(firebaseScripts: string): string {
   // ══════════════════════════════════════════════════════
   //  INIT
   // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════
+  //  PWA – Instalar atalho + Auto-update silencioso
+  // ══════════════════════════════════════════════════════
+  let _deferredPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    _deferredPrompt = e;
+    // Só mostrar se não está em modo standalone e não dispensou
+    const jaEstaInstalado = window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator as any).standalone === true;
+    const dispensado = localStorage.getItem('rp_pwa_dispensado');
+    if (!jaEstaInstalado && !dispensado) {
+      setTimeout(mostrarBannerInstalar, 3000);
+    }
+  });
+
+  function mostrarBannerInstalar() {
+    if (document.getElementById('pwa-install-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'pwa-install-banner';
+    banner.style.cssText = 'position:fixed;bottom:80px;left:16px;right:16px;z-index:9999;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:16px;display:flex;align-items:center;gap:12px;animation:slideUp 0.3s ease';
+    banner.innerHTML = '<img src="/icons/icon-96x96.png" style="width:44px;height:44px;border-radius:10px;flex-shrink:0" onerror="this.style.display=\'none\'"/>'
+      + '<div style="flex:1"><div style="font-weight:700;font-size:14px;color:#1A1A1A">Adicionar \u00e0 tela inicial</div>'
+      + '<div style="font-size:12px;color:#888;margin-top:1px">Acesso r\u00e1pido ao RotaPosto</div></div>'
+      + '<button onclick="document.getElementById(\'pwa-install-banner\').remove();localStorage.setItem(\'rp_pwa_dispensado\',\'1\')" style="background:none;border:none;padding:6px;cursor:pointer;color:#bbb;font-size:18px">\u2715</button>'
+      + '<button onclick="instalarAppPWA()" style="background:#FF6D00;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0">Instalar</button>';
+    document.body.appendChild(banner);
+  }
+
+  (window as any).instalarAppPWA = function() {
+    if (!_deferredPrompt) return;
+    _deferredPrompt.prompt();
+    _deferredPrompt.userChoice.then((r: any) => {
+      if (r.outcome === 'accepted') {
+        localStorage.setItem('rp_pwa_instalado', '1');
+        document.getElementById('pwa-install-banner')?.remove();
+        showToast('RotaPosto instalado! ✓');
+      }
+      _deferredPrompt = null;
+    });
+  };
+
+  window.addEventListener('appinstalled', function() {
+    localStorage.setItem('rp_pwa_instalado', '1');
+    document.getElementById('pwa-install-banner')?.remove();
+    showToast('App instalado com sucesso! ✓');
+  });
+
   (function init() {
+    // ── Registrar SW v6 com auto-update silencioso ──
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(()=>{});
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        // Checar updates a cada 60s
+        setInterval(() => reg.update(), 60000);
+
+        // Novo SW disponível → ativar imediatamente
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing;
+          if (!newSW) return;
+          newSW.addEventListener('statechange', () => {
+            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+              newSW.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+      }).catch(() => {});
+
+      // SW trocou → recarregar página silenciosamente
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
     }
 
     // Atualizar nome do usuário no perfil
