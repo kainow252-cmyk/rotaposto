@@ -108,6 +108,7 @@ function normalizarProduto(produto: string): keyof PostoReal['precos'] | null {
 // Dados extraídos da planilha semanal oficial gov.br/anp
 // Estrutura: { gasolina: {media,min,max,postos}, ... }
 import { PRECOS_ANP_POR_UF, getPrecoANPPorMunicipio, ANP_SEMANA } from './brasil'
+import { getPrecosPorCNPJ, expandirPrecos, ANP_SEMANA_POSTOS } from './precos_anp_posto'
 
 /**
  * Retorna preços reais ANP para a UF do posto.
@@ -175,8 +176,27 @@ export async function buscarPostosANP(uf: string, municipio: string, pagina = 1)
         const produtos: string[] = (p.produtos || []).map((pr: any) => pr.produto)
         const ufPosto = (p.uf || uf).toUpperCase()
         const munPosto = p.municipio || municipio
-        // Preços reais ANP — por município quando disponível, senão média da UF
-        const precos = estimarPrecosPorMunicipio(ufPosto, munPosto)
+
+        // ── Prioridade 1: preço real individual por CNPJ (amostra semanal ANP) ──
+        const cnpjNorm = (p.cnpj || '').replace(/[^0-9]/g, '').padStart(14, '0')
+        const precoReal = cnpjNorm ? getPrecosPorCNPJ(cnpjNorm) : null
+
+        let precos: PostoReal['precos']
+        let fontePreco: PostoReal['fontePreco']
+        let atualizadoEm: string
+
+        if (precoReal && (precoReal.g || precoReal.e || precoReal.d || precoReal.ds)) {
+          // Temos preço real do posto desta semana!
+          precos = expandirPrecos(precoReal) as PostoReal['precos']
+          fontePreco = 'anp'
+          atualizadoEm = ANP_SEMANA_POSTOS
+        } else {
+          // Fallback: média municipal ANP (todos os postos da cidade terão igual)
+          const precosMun = estimarPrecosPorMunicipio(ufPosto, munPosto)
+          precos = precosMun
+          fontePreco = (precosMun as any)._fonte === 'anp_municipio' ? 'estimado' : 'estimado'
+          atualizadoEm = new Date().toISOString().split('T')[0]
+        }
 
         return {
           id: `anp-${p.codigoSIMP || p.cnpj}`,
@@ -195,8 +215,8 @@ export async function buscarPostosANP(uf: string, municipio: string, pagina = 1)
           lng: parseFloat(p.longitude),
           precos,
           produtos,
-          atualizadoEm: new Date().toISOString().split('T')[0],
-          fontePreco: (precos as any)._fonte || 'anp_media_uf',
+          atualizadoEm,
+          fontePreco,
           confirmacoesPreco: 0
         }
       })

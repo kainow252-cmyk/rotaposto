@@ -1522,58 +1522,74 @@ export function getAppHTML(firebaseScripts: string): string {
     if (postos.length === 0) { empty.style.display = 'block'; container.innerHTML = ''; return; }
     empty.style.display = 'none';
 
-    // ── Detectar preços iguais (média ANP municipal) ──
-    const amostra = postos.slice(0, 5);
-    const precos5 = amostra.map(p => p.preco || p.precos?.[selectedFuel]).filter(v => v > 0);
-    const todosIguais = precos5.length > 1 && precos5.every(v => Math.abs(v - precos5[0]) < 0.01);
-    const temFonteANP = postos.some(p => p.fontePreco && p.fontePreco !== 'colaborativo');
+    // ── Classificar fontes ──
+    const totalReal = postos.filter(p => p.fontePreco === 'anp' || p.fontePreco === 'colaborativo').length;
+    const totalEstimado = postos.filter(p => p.fontePreco === 'estimado' || !p.fontePreco).length;
+    const temPrecoReal = totalReal > 0;
 
-    // Banner aviso ANP municipal (quando todos os preços são iguais)
-    let avisoANP = '';
-    if (todosIguais || temFonteANP) {
-      avisoANP = '<div style="margin:0 0 10px;padding:10px 14px;background:#FFF8E1;border-radius:12px;border-left:3px solid #FFA000;display:flex;align-items:flex-start;gap:8px;">'
-        + '<span style="font-size:16px;margin-top:1px;">📊</span>'
+    // ── Detectar se todos são iguais (média municipal) ──
+    const precos5 = postos.slice(0, 5).map(p => p.preco || p.precos?.[selectedFuel]).filter(v => v > 0);
+    const todosIguais = precos5.length > 1 && precos5.every(v => Math.abs(v - precos5[0]) < 0.01);
+
+    // Banner de status dos dados
+    let banner = '';
+    if (temPrecoReal) {
+      banner = '<div style="margin:0 0 10px;padding:9px 14px;background:#F0FFF4;border-radius:12px;border-left:3px solid #00A651;display:flex;align-items:center;gap:8px;">'
+        + '<span style="font-size:14px;">✅</span>'
+        + '<div style="font-size:12px;color:#1A6B35;line-height:1.4;">'
+        + '<b>' + totalReal + ' posto' + (totalReal > 1 ? 's' : '') + ' com preço real</b> da coleta ANP (semana 21-27/jun)'
+        + (totalEstimado > 0 ? ' · ' + totalEstimado + ' c/ média municipal' : '')
+        + '</div>'
+        + '</div>';
+    } else if (todosIguais) {
+      banner = '<div style="margin:0 0 10px;padding:9px 14px;background:#FFF8E1;border-radius:12px;border-left:3px solid #FFA000;display:flex;align-items:flex-start;gap:8px;">'
+        + '<span style="font-size:14px;">📊</span>'
         + '<div style="font-size:12px;color:#7A5200;line-height:1.5;">'
-        + '<b>Preços estimados pela ANP</b><br/>'
-        + 'Os valores são médias municipais. Podem variar por posto. '
-        + '<span style="color:#FF6D00;font-weight:600;cursor:pointer;" onclick="reportarPrecoProximo()">Sabe o preço real? Informe!</span>'
+        + '<b>Preços são médias municipais ANP</b> — valores similares por cidade. '
+        + '<span style="color:#FF6D00;font-weight:600;cursor:pointer;" onclick="reportarPrecoProximo()">Sabe o preço real? Informe! 👉</span>'
         + '</div>'
         + '</div>';
     }
 
     const cards = postos.slice(0, 15).map((p, i) => {
       const preco = p.preco || p.precos?.[selectedFuel];
-      const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') : '-';
+      const precoFmt = preco ? 'R$&nbsp;' + preco.toFixed(2).replace('.', ',') : '-';
       const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '-';
       const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '-';
-      const rating = (4.0 + Math.random() * 0.9).toFixed(1);
       const emoji = getEmoji(p.bandeira || p.nome);
       const isBest = i === 0;
-      // Badge fonte do preço
-      const isColaborativo = p.fontePreco === 'colaborativo';
-      const badgeFonte = isColaborativo
-        ? '<span style="font-size:10px;color:#00A651;font-weight:600;">👥 Colaborativo</span>'
-        : '<span style="font-size:10px;color:#999;">📊 ANP</span>';
+
+      // ── Badge de fonte do preço ──
+      const isReal = p.fontePreco === 'anp';
+      const isColab = p.fontePreco === 'colaborativo';
+      const isEstimado = !isReal && !isColab;
+      const badgeFonte = isColab
+        ? '<span style="font-size:10px;color:#00A651;font-weight:700;margin-left:4px;">👥 usuário</span>'
+        : isReal
+          ? '<span style="font-size:10px;color:#1565C0;font-weight:700;margin-left:4px;">✓ ANP real</span>'
+          : '<span style="font-size:10px;color:#BBB;margin-left:4px;">~ média</span>';
+
+      // Preço: verde se melhor, azul se real, cinza se estimado
+      const corPreco = isBest ? '#00A651' : (isEstimado ? '#999' : '#1A1A1A');
+      const fonteSufixo = isEstimado ? '~' : '';
 
       return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
         + '<div class="posto-brand-logo">' + emoji + '</div>'
         + '<div class="posto-item-info">'
         +   '<div class="posto-item-nome">' + p.nome + '</div>'
-        +   '<div class="posto-item-rating">'
-        +     '<span class="star-icon">★</span>'
-        +     '<span class="rating-val">' + rating + '</span>'
-        +     (isBest ? '<div class="green-dot"></div>' : '')
-        +     '&nbsp;' + badgeFonte
+        +   '<div style="display:flex;align-items:center;gap:2px;margin-top:2px;">'
+        +     (isBest ? '<span style="font-size:10px;background:#E8F5E9;color:#00A651;font-weight:700;padding:1px 5px;border-radius:4px;">MELHOR PREÇO</span>' : '')
+        +     badgeFonte
         +   '</div>'
         + '</div>'
         + '<div class="posto-item-preco">'
-        +   '<div class="preco-val' + (todosIguais && !isColaborativo ? ' preco-estimado' : '') + '">' + precoFmt + '<span class="preco-unit">/L</span></div>'
+        +   '<div class="preco-val" style="color:' + corPreco + '">' + fonteSufixo + precoFmt + '<span class="preco-unit">/L</span></div>'
         +   '<div class="dist-txt">' + dist + ' • ' + tempo + '</div>'
         + '</div>'
         + '</div>';
     }).join('');
 
-    container.innerHTML = avisoANP + cards;
+    container.innerHTML = banner + cards;
   }
 
   function reportarPrecoProximo() {
@@ -1590,19 +1606,21 @@ export function getAppHTML(firebaseScripts: string): string {
     );
   }
 
-  function enviarPrecoReal() {
+  function enviarPrecoReal(idx) {
     var inp = document.getElementById('inp-preco-real');
     var val = parseFloat(inp ? inp['value'] : '0');
     if (!val || val < 2 || val > 15) { showToast('Informe um preço válido (ex: 5.89)'); return; }
-    const p = postosData[0];
+    const p = (idx !== undefined ? postosData[idx] : null) || postosData[0];
     if (!p) { fecharModal(); return; }
-    // Chamar API de reporte colaborativo
     fetch('/api/precos/reportar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ postoId: p.id, postoNome: p.nome, combustivel: selectedFuel, preco: val, lat: userLat, lng: userLng, ts: Date.now() })
     }).then(r => r.json()).then(() => {
+      // Atualizar o preço localmente na lista
+      if (p) { p.preco = val; p.fontePreco = 'colaborativo'; if (p.precos) p.precos[selectedFuel] = val; }
       fecharModal();
+      renderLista();
       showToast('Preço enviado! Obrigado 🙌');
     }).catch(() => {
       fecharModal();
@@ -1616,29 +1634,71 @@ export function getAppHTML(firebaseScripts: string): string {
     selectedPosto = p;
 
     const preco = p.preco || p.precos?.[selectedFuel];
+    const isReal = p.fontePreco === 'anp';
+    const isColab = p.fontePreco === 'colaborativo';
+    const isEstimado = !isReal && !isColab;
 
     document.getElementById('det-logo-badge').textContent = getEmoji(p.bandeira || p.nome);
     document.getElementById('det-nome').textContent = p.nome;
     document.getElementById('det-endereco').textContent = (p.endereco || '') + (p.bairro ? ' - ' + p.bairro : '') + ', ' + (p.cidade || '') + (p.estado ? ' - ' + p.estado : '');
-    document.getElementById('det-comb-preco').textContent = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '-';
 
-    // Combustíveis
+    // Preço com indicador de fonte
+    const precoEl = document.getElementById('det-comb-preco');
+    if (preco) {
+      precoEl.innerHTML = 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L'
+        + (isEstimado ? ' <span style="font-size:11px;color:#FFA000;font-weight:600;">~ estimado</span>' : '')
+        + (isReal ? ' <span style="font-size:11px;color:#1565C0;font-weight:600;">✓ ANP</span>' : '')
+        + (isColab ? ' <span style="font-size:11px;color:#00A651;font-weight:600;">👥</span>' : '');
+    } else {
+      precoEl.textContent = '-';
+    }
+
+    // Combustíveis — mostrar todos com fonte
     const list = document.getElementById('det-fuel-list');
     const fuels = [
-      ['Etanol', p.precos?.etanol],
-      ['Diesel S10', p.precos?.dieselS10 || p.precos?.diesel],
-      ['GNV', p.precos?.gnv],
+      ['Gasolina', p.precos?.gasolina],
       ['Gasolina Aditivada', p.precos?.gasolinaAditivada],
+      ['Etanol', p.precos?.etanol],
+      ['Diesel S10', p.precos?.dieselS10],
+      ['Diesel', p.precos?.diesel && !p.precos?.dieselS10 ? p.precos.diesel : null],
+      ['GNV', p.precos?.gnv],
+      ['GLP', p.precos?.glp],
     ].filter(f => f[1]);
-    list.innerHTML = fuels.map(f =>
+
+    const fonteLabel = isReal
+      ? '<div style="font-size:10px;color:#1565C0;margin-top:8px;">✓ Preços coletados pela ANP · semana 21-27/jun/2026</div>'
+      : isColab
+        ? '<div style="font-size:10px;color:#00A651;margin-top:8px;">👥 Preço informado por usuário</div>'
+        : '<div style="font-size:10px;color:#FFA000;margin-top:8px;">~ Média municipal ANP · pode variar</div>';
+
+    list.innerHTML = (fuels.map(f =>
       '<div class="det-fuel-row"><span class="det-fuel-nome">'+f[0]+'</span><span class="det-fuel-price">R$ '+f[1].toFixed(2).replace('.',',')+'</span></div>'
-    ).join('') || '<div class="det-fuel-row"><span class="det-fuel-nome" style="color:var(--gray)">Preços não disponíveis</span></div>';
+    ).join('') || '<div class="det-fuel-row"><span class="det-fuel-nome" style="color:var(--gray)">Preços não disponíveis</span></div>')
+    + fonteLabel
+    + '<div style="margin-top:8px;">'
+    + '<span style="font-size:11px;color:#FF6D00;cursor:pointer;font-weight:600;" onclick="abrirReportarPreco('+idx+')">'
+    + '📝 Preços diferentes? Informe o valor real</span></div>';
 
     // Planejar: atualizar dest
     document.getElementById('plan-dest').textContent = p.nome;
     if (mapPlan) { mapPlan.remove(); mapPlan = null; }
 
     goToView('detalhes');
+  }
+
+  function abrirReportarPreco(idx) {
+    const p = postosData[idx];
+    if (!p) return;
+    abrirModal('Informar preço real',
+      '<div style="padding:8px 0;">'
+      + '<div style="font-size:13px;color:#555;margin-bottom:4px;">Posto:</div>'
+      + '<div style="font-size:14px;font-weight:700;color:#1A1A1A;margin-bottom:12px;">' + p.nome + '</div>'
+      + '<div style="font-size:13px;color:#555;margin-bottom:8px;">Combustível: <b>' + selectedFuel + '</b></div>'
+      + '<input id="inp-preco-real" type="number" step="0.01" min="2" max="15" placeholder="Ex: 5.89" style="width:100%;padding:12px;border:2px solid #eee;border-radius:10px;font-size:18px;box-sizing:border-box;margin-bottom:12px;text-align:center;"/>'
+      + '<button onclick="enviarPrecoReal('+idx+')" style="width:100%;padding:13px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">✓ Confirmar preço</button>'
+      + '<div style="font-size:11px;color:#999;text-align:center;margin-top:8px;">Ajuda motoristas a encontrar o menor preço real</div>'
+      + '</div>'
+    );
   }
 
   // ══════════════════════════════════════════════════════
