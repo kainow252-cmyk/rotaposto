@@ -1671,7 +1671,12 @@ export function getAppHTML(firebaseScripts: string): string {
 
   function goToVehicle() { abrirMeusVeiculos(); }
 
-  // ── Modal helper genérico ──────────────────────────────────────────────────
+  // ── Modal helpers ──────────────────────────────────────────────────────────
+  function fecharModal() {
+    var el = document.getElementById('rp-modal-overlay');
+    if (el) el.remove();
+  }
+
   function abrirModal(titulo, conteudoHTML) {
     var old = document.getElementById('rp-modal-overlay');
     if (old) old.remove();
@@ -1681,7 +1686,7 @@ export function getAppHTML(firebaseScripts: string): string {
     overlay.innerHTML = '<div id="rp-modal" style="background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:24px 24px calc(env(safe-area-inset-bottom,0px) + 24px);max-height:85vh;overflow-y:auto;">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">'
       + '<h2 style="font-size:18px;font-weight:800;color:#1A1A1A;margin:0;">' + titulo + '</h2>'
-      + '<button onclick="document.getElementById(\'rp-modal-overlay\').remove()" style="background:#F5F5F5;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">✕</button>'
+      + '<button onclick="fecharModal()" style="background:#F5F5F5;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">✕</button>'
       + '</div>'
       + conteudoHTML
       + '</div>';
@@ -1705,7 +1710,7 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;"><span style="font-size:14px;color:#888;">Login via</span><span style="font-size:14px;font-weight:600;color:#1A1A1A;">' + provider + '</span></div>'
       + '<div style="display:flex;justify-content:space-between;padding:10px 0;"><span style="font-size:14px;color:#888;">ID da conta</span><span style="font-size:11px;font-weight:500;color:#888;">' + (u.uid || '—').slice(0,16) + '...</span></div>'
       + '</div>'
-      + '<button onclick="doLogout();document.getElementById(\'rp-modal-overlay\').remove();" style="width:100%;padding:14px;background:#FFF0F0;color:#E53935;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Sair da conta</button>';
+      + '<button onclick="doLogout();fecharModal();" style="width:100%;padding:14px;background:#FFF0F0;color:#E53935;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Sair da conta</button>';
     abrirModal('Minha Conta', html);
   }
 
@@ -1725,8 +1730,8 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<div style="display:flex;justify-content:space-between;padding:10px 0;"><span style="font-size:14px;color:#888;">Tanque</span><span style="font-size:14px;font-weight:600;color:#1A1A1A;">' + tanque + '</span></div>'
       + '</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
-      + '<button onclick="editarVeiculo(\'tipo\')" style="padding:14px;background:#F5F5F5;color:#1A1A1A;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">Alterar tipo</button>'
-      + '<button onclick="editarVeiculo(\'consumo\')" style="padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">Editar consumo</button>'
+      + '<button onclick="editarVeiculo(&quot;tipo&quot;)" style="padding:14px;background:#F5F5F5;color:#1A1A1A;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">Alterar tipo</button>'
+      + '<button onclick="editarVeiculo(&quot;consumo&quot;)" style="padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">Editar consumo</button>'
       + '</div>';
     abrirModal('Meus Veículos', html);
   }
@@ -1739,14 +1744,14 @@ export function getAppHTML(firebaseScripts: string): string {
       var opts = tipos.map(function(t) { return '<option' + (veh.type === t ? ' selected' : '') + '>' + t + '</option>'; }).join('');
       var html = '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Tipo de veículo</label>'
         + '<select id="veh-edit-tipo" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;margin-bottom:20px;">' + opts + '</select>'
-        + '<button onclick="salvarVeiculoCampo(\'tipo\')" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Salvar</button>';
+        + '<button onclick="salvarVeiculoCampo(&quot;tipo&quot;)" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Salvar</button>';
       abrirModal('Tipo de Veículo', html);
     } else {
       var html = '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Consumo médio (km/L)</label>'
         + '<input id="veh-edit-consumo" type="number" min="4" max="50" value="' + (veh.consumption || 12) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;margin-bottom:8px;">'
         + '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;margin-top:12px;">Capacidade do tanque (litros)</label>'
         + '<input id="veh-edit-tanque" type="number" min="20" max="200" value="' + (veh.tank || 50) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;margin-bottom:20px;">'
-        + '<button onclick="salvarVeiculoCampo(\'consumo\')" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Salvar</button>';
+        + '<button onclick="salvarVeiculoCampo(&quot;consumo&quot;)" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Salvar</button>';
       abrirModal('Consumo do Veículo', html);
     }
   }
@@ -1784,7 +1789,7 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<div><div style="font-size:14px;font-weight:700;color:#1A1A1A;">Pagamento seguro</div><div style="font-size:12px;color:#888;">Processado via OpenPix/Woovi</div></div>'
       + '</div>'
       + '</div>'
-      + '<button onclick="document.getElementById(\'rp-modal-overlay\').remove();goToAssinatura();" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Ver planos Premium</button>';
+      + '<button onclick="fecharModal();goToAssinatura();" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Ver planos Premium</button>';
     abrirModal('Formas de Pagamento', html);
   }
 
@@ -1827,8 +1832,8 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<div style="font-size:13px;font-weight:600;color:#FF6D00;word-break:break-all;">' + link + '</div>'
       + '</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
-      + '<button onclick="copiarLinkIndicacao(\'' + link + '\')" style="padding:14px;background:#F5F5F5;color:#1A1A1A;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">📋 Copiar link</button>'
-      + '<button onclick="compartilharIndicacao(\'' + link + '\')" style="padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">📤 Compartilhar</button>'
+      + '<button onclick="copiarLinkIndicacao(this.dataset.link)" data-link="' + link + '" style="padding:14px;background:#F5F5F5;color:#1A1A1A;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">📋 Copiar link</button>'
+      + '<button onclick="compartilharIndicacao(this.dataset.link)" data-link="' + link + '" style="padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">📤 Compartilhar</button>'
       + '</div>';
     abrirModal('Indique e Ganhe', html);
   }
@@ -1874,13 +1879,13 @@ export function getAppHTML(firebaseScripts: string): string {
     var html = '<div style="background:#F9F9F9;border-radius:16px;padding:4px;margin-bottom:16px;">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #eee;">'
       + '<div><div style="font-size:14px;font-weight:600;color:#1A1A1A;">Unidade de distância</div><div style="font-size:12px;color:#888;">km ou milhas</div></div>'
-      + '<select id="cfg-unidade" onchange="salvarConfig(\'unidade\',this.value)" style="padding:8px 12px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:14px;">'
+      + '<select id="cfg-unidade" onchange="salvarConfig(&quot;unidade&quot;,this.value)" style="padding:8px 12px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:14px;">'
       + '<option value="km"' + (unidade==='km'?' selected':'') + '>Quilômetros (km)</option>'
       + '<option value="mi"' + (unidade==='mi'?' selected':'') + '>Milhas (mi)</option>'
       + '</select></div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #eee;">'
       + '<div><div style="font-size:14px;font-weight:600;color:#1A1A1A;">Raio de busca padrão</div><div style="font-size:12px;color:#888;">Distância máxima para busca</div></div>'
-      + '<select id="cfg-raio" onchange="salvarConfig(\'raio\',this.value)" style="padding:8px 12px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:14px;">'
+      + '<select id="cfg-raio" onchange="salvarConfig(&quot;raio&quot;,this.value)" style="padding:8px 12px;border:1.5px solid #E0E0E0;border-radius:8px;font-size:14px;">'
       + ['5','10','15','20','30'].map(function(r){ var sel=localStorage.getItem('rp_raio')||'10'; return '<option value="'+r+'"'+(sel===r?' selected':'')+'>'+r+' km</option>'; }).join('')
       + '</select></div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;">'
