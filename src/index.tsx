@@ -1991,32 +1991,44 @@ app.get('/app', (c) => {
     <div class="auth-logo">
       <img src="/icons/icon-192x192.png" alt="RotaPosto"/>
       <h2>RotaPosto</h2>
-      <p>Entre para salvar seus postos favoritos</p>
+      <p id="auth-modal-subtitle">Entre para acessar recursos exclusivos</p>
+    </div>
+
+    <!-- Toggle Entrar / Criar conta -->
+    <div style="display:flex;background:rgba(255,255,255,0.07);border-radius:12px;padding:4px;margin-bottom:18px;gap:4px">
+      <button id="tab-entrar" onclick="setAuthTab('entrar')" style="flex:1;padding:9px;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;transition:all 0.2s;background:var(--azul-escuro);color:white">
+        Entrar
+      </button>
+      <button id="tab-criar" onclick="setAuthTab('criar')" style="flex:1;padding:9px;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;transition:all 0.2s;background:transparent;color:rgba(255,255,255,0.5)">
+        Criar conta
+      </button>
     </div>
 
     <!-- Login Social -->
     <button class="btn-social" id="btn-google-login" onclick="loginGoogle()">
       <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-      Continuar com Google
+      <span id="btn-google-txt">Continuar com Google</span>
     </button>
 
     <button class="btn-social fb" id="btn-fb-login" onclick="loginFacebook()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-      Continuar com Facebook
+      <span id="btn-fb-txt">Continuar com Facebook</span>
     </button>
 
     <div class="auth-divider"><span>ou use seu email</span></div>
 
+    <!-- Campo nome (só no modo criar conta) -->
+    <input type="text" class="auth-input" id="auth-nome" placeholder="Seu nome" style="display:none"/>
     <input type="email" class="auth-input" id="auth-email" placeholder="seu@email.com"/>
-    <input type="password" class="auth-input" id="auth-senha" placeholder="Senha"/>
-    <button class="btn-auth-primary" onclick="loginEmail()">
+    <input type="password" class="auth-input" id="auth-senha" placeholder="Senha (mín. 6 caracteres)"/>
+
+    <button class="btn-auth-primary" id="btn-auth-submit" onclick="submitAuth()">
       <i class="fas fa-sign-in-alt"></i> Entrar
     </button>
 
     <div id="auth-erro" style="color:#FF6D00;font-size:12px;font-weight:600;min-height:18px;margin-top:4px;text-align:center"></div>
 
     <div class="auth-footer">
-      Não tem conta? <a href="#" onclick="registrarEmail()">Criar conta grátis</a><br>
       <a href="#" onclick="fecharLogin()" style="margin-top:8px;display:block;">Continuar sem login</a>
     </div>
   </div>
@@ -3011,12 +3023,21 @@ function _configurarAuth() {
     // Observer de estado de autenticação — atualiza UI sempre que o user muda
     window._fbOnAuthStateChanged(_firebaseAuth, (user) => {
       const eraPrimeiroLogin = !_usuarioLogado && !!user;
+      const eraSessaoAtiva   = !!_usuarioLogado && !user; // logout
       _usuarioLogado = user;
       _atualizarHeaderAuth(user);
       atualizarSidebarUser(user);
+      // Atualizar painel desktop (revelar/ocultar dados)
+      _atualizarPainelAuthState(user);
       if (eraPrimeiroLogin) {
         fecharLogin();
         mostrarToast('👋 Olá, ' + (user.displayName || user.email || 'usuário') + '!');
+        // Carregar dados do painel após login
+        if (window.innerWidth >= 768) carregarPainelDesktop();
+      }
+      if (eraSessaoAtiva) {
+        // Voltou a visitante — mostrar CTA novamente
+        _atualizarPainelAuthState(null);
       }
     });
 
@@ -3114,18 +3135,70 @@ async function fazerLogout() {
 }
 
 // ─── Abrir / Fechar modal de login ────────────────────────────────────────────
-function abrirLogin() {
+function abrirLogin(tab = 'entrar') {
   document.getElementById('auth-modal').classList.add('visible');
+  setAuthTab(tab);
 }
 
 function fecharLogin() {
   document.getElementById('auth-modal').classList.remove('visible');
-  document.getElementById('auth-email').value = '';
-  document.getElementById('auth-senha').value = '';
-  document.getElementById('auth-erro').textContent = '';
+  const emailEl = document.getElementById('auth-email') as HTMLInputElement;
+  const senhaEl = document.getElementById('auth-senha') as HTMLInputElement;
+  const nomeEl  = document.getElementById('auth-nome')  as HTMLInputElement;
+  if (emailEl) emailEl.value = '';
+  if (senhaEl) senhaEl.value = '';
+  if (nomeEl)  nomeEl.value  = '';
+  const erroEl = document.getElementById('auth-erro');
+  if (erroEl) erroEl.textContent = '';
 }
 
 // ─── Login com Google ─────────────────────────────────────────────────────────
+// ─── Toggle Tab Entrar / Criar Conta ─────────────────────────────────────────
+let _authTab = 'entrar';
+function setAuthTab(tab) {
+  _authTab = tab;
+  const tabEntrar = document.getElementById('tab-entrar');
+  const tabCriar  = document.getElementById('tab-criar');
+  const campoNome = document.getElementById('auth-nome');
+  const btnSubmit = document.getElementById('btn-auth-submit');
+  const subtitle  = document.getElementById('auth-modal-subtitle');
+  const btnGoogleTxt = document.getElementById('btn-google-txt');
+  const btnFbTxt  = document.getElementById('btn-fb-txt');
+  const erro      = document.getElementById('auth-erro');
+  if (erro) erro.textContent = '';
+
+  if (tab === 'criar') {
+    tabEntrar.style.background = 'transparent';
+    tabEntrar.style.color = 'rgba(255,255,255,0.5)';
+    tabCriar.style.background = 'var(--laranja)';
+    tabCriar.style.color = 'white';
+    if (campoNome) campoNome.style.display = 'block';
+    if (btnSubmit) { btnSubmit.innerHTML = '<i class="fas fa-rocket"></i> Criar conta grátis'; }
+    if (subtitle)  subtitle.textContent = 'Crie sua conta gratuita agora';
+    if (btnGoogleTxt) btnGoogleTxt.textContent = 'Cadastrar com Google';
+    if (btnFbTxt)     btnFbTxt.textContent     = 'Cadastrar com Facebook';
+  } else {
+    tabEntrar.style.background = 'var(--azul-escuro)';
+    tabEntrar.style.color = 'white';
+    tabCriar.style.background = 'transparent';
+    tabCriar.style.color = 'rgba(255,255,255,0.5)';
+    if (campoNome) campoNome.style.display = 'none';
+    if (btnSubmit) { btnSubmit.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar'; }
+    if (subtitle)  subtitle.textContent = 'Entre para acessar recursos exclusivos';
+    if (btnGoogleTxt) btnGoogleTxt.textContent = 'Continuar com Google';
+    if (btnFbTxt)     btnFbTxt.textContent     = 'Continuar com Facebook';
+  }
+}
+
+// Botão único que age como Entrar ou Criar conta conforme o tab ativo
+async function submitAuth() {
+  if (_authTab === 'criar') {
+    await registrarEmail();
+  } else {
+    await loginEmail();
+  }
+}
+
 async function loginGoogle() {
   if (!window._fbSignInWithPopup || !window._fbGoogleProvider || !_firebaseAuth) {
     mostrarToast('⏳ Carregando Firebase...');
@@ -3173,25 +3246,23 @@ async function loginEmail() {
     mostrarToast('⏳ Carregando Firebase...');
     return;
   }
-  const email = document.getElementById('auth-email').value.trim();
-  const senha = document.getElementById('auth-senha').value;
+  const email = (document.getElementById('auth-email') as HTMLInputElement).value.trim();
+  const senha = (document.getElementById('auth-senha') as HTMLInputElement).value;
 
   if (!email || !senha) {
     _mostrarErroAuth({ code: 'auth/empty-fields' });
     return;
   }
 
-  const btn = document.querySelector('.btn-auth-primary');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div>';
+  const btn = document.getElementById('btn-auth-submit') as HTMLButtonElement;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div>'; }
 
   try {
     await window._fbSignInWithEmailAndPassword(_firebaseAuth, email, senha);
     console.log('[Auth] Login email OK');
   } catch (err) {
     _mostrarErroAuth(err);
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar'; }
   }
 }
 
@@ -3201,8 +3272,9 @@ async function registrarEmail() {
     mostrarToast('⏳ Carregando Firebase...');
     return;
   }
-  const email = document.getElementById('auth-email').value.trim();
-  const senha = document.getElementById('auth-senha').value;
+  const nome  = (document.getElementById('auth-nome') as HTMLInputElement)?.value?.trim() || '';
+  const email = (document.getElementById('auth-email') as HTMLInputElement).value.trim();
+  const senha = (document.getElementById('auth-senha') as HTMLInputElement).value;
 
   if (!email || !senha) {
     _mostrarErroAuth({ code: 'auth/empty-fields' });
@@ -3213,18 +3285,20 @@ async function registrarEmail() {
     return;
   }
 
-  const btn = document.querySelector('.btn-auth-primary');
-  btn.disabled = true;
-  btn.textContent = 'Criando conta...';
+  const btn = document.getElementById('btn-auth-submit') as HTMLButtonElement;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div>'; }
 
   try {
     const result = await window._fbCreateUserWithEmailAndPassword(_firebaseAuth, email, senha);
+    // Atualizar displayName se informado
+    if (nome && window._fbUpdateProfile) {
+      try { await window._fbUpdateProfile(result.user, { displayName: nome }); } catch {}
+    }
     console.log('[Auth] Conta criada:', result.user.uid);
-    mostrarToast('🎉 Conta criada com sucesso!');
+    mostrarToast('🎉 Conta criada! Bem-vindo(a) ao RotaPosto!');
   } catch (err) {
     _mostrarErroAuth(err);
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-rocket"></i> Criar conta grátis'; }
   }
 }
 
@@ -3575,7 +3649,26 @@ function atualizarSidebarUser(user) {
   }
 }
 
+// ── Controle de paywall do painel desktop ─────────────────────────────────────
+function _atualizarPainelAuthState(user) {
+  const painelLock = document.getElementById('dp-paywall-lock');
+  const painelContent = document.getElementById('dp-dados-content');
+  if (!painelLock || !painelContent) return;
+  if (user) {
+    // Logado → mostrar dados, ocultar CTA
+    painelLock.style.display = 'none';
+    painelContent.style.display = 'block';
+  } else {
+    // Visitante → mostrar CTA, ocultar dados
+    painelLock.style.display = 'flex';
+    painelContent.style.display = 'none';
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  // Inicializar painel em estado locked (Firebase ainda não está pronto)
+  _atualizarPainelAuthState(null);
+  // Carregar dados em background (ficam prontos quando usuário logar)
   carregarPainelDesktop();
 });
 window.addEventListener('resize', () => {
@@ -3588,80 +3681,113 @@ window.addEventListener('resize', () => {
 <aside id="desktop-panel">
   <h2><i class="fas fa-bolt" style="color:var(--laranja);margin-right:6px"></i>Combustível ao Vivo</h2>
 
-  <!-- Preço nacional Petrobras -->
-  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:#FFC107;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
-      <i class="fas fa-fire" style="margin-right:5px"></i>Petrobras Distribuidora
+  <!-- ═══ PAYWALL: CTA para visitantes ═══════════════════════════════════════ -->
+  <div id="dp-paywall-lock" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;text-align:center;gap:14px">
+    <div style="width:64px;height:64px;background:rgba(255,109,0,0.12);border-radius:20px;display:flex;align-items:center;justify-content:center;margin-bottom:4px">
+      <i class="fas fa-lock" style="font-size:26px;color:var(--laranja)"></i>
     </div>
-    <div id="dp-nacional" style="display:flex;flex-direction:column;gap:4px">
-      <span style="color:rgba(255,255,255,0.4);font-size:12px">Carregando...</span>
+    <div style="font-size:16px;font-weight:900;color:#fff;line-height:1.3">
+      Preços ao vivo<br>de todo o Brasil
     </div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.25);margin-top:10px">
-      Coleta: <span id="dp-coleta">–</span>
+    <div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.6;max-width:200px">
+      Crie sua conta grátis e acesse preços Petrobras atualizados por estado em tempo real.
+    </div>
+    <button onclick="abrirLogin('criar')" style="
+      width:100%;padding:14px 20px;
+      background:linear-gradient(135deg,#FF6D00,#ff8c00);
+      border:none;border-radius:14px;
+      color:white;font-size:14px;font-weight:900;
+      cursor:pointer;letter-spacing:0.3px;
+      box-shadow:0 4px 18px rgba(255,109,0,0.35);
+      transition:transform 0.15s,box-shadow 0.15s
+    " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+      <i class="fas fa-rocket" style="margin-right:8px"></i>Começar Grátis
+    </button>
+    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:-4px">
+      Sem cartão de crédito · 100% gratuito
+    </div>
+    <div style="width:100%;height:1px;background:rgba(255,255,255,0.07);margin:4px 0"></div>
+    <!-- Preview borrado das features -->
+    <div style="width:100%;background:#1B3A5C;border-radius:12px;padding:14px;filter:blur(3px);pointer-events:none;opacity:0.6">
+      <div style="font-size:10px;font-weight:800;color:#FFC107;margin-bottom:8px">🔥 PETROBRAS DISTRIBUIDORA</div>
+      <div style="color:#fff;font-size:15px;font-weight:900">Gasolina BR  R$ –,––</div>
+      <div style="color:#42A5F5;font-size:15px;font-weight:900;margin-top:4px">Diesel BR  R$ –,––</div>
+    </div>
+    <div style="width:100%;background:#1B3A5C;border-radius:12px;padding:14px;filter:blur(3px);pointer-events:none;opacity:0.5;margin-top:-4px">
+      <div style="display:flex;gap:6px">
+        <div style="flex:1;background:rgba(105,240,174,0.15);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:rgba(255,255,255,0.5)">Mais barata</div>
+          <div style="font-size:18px;font-weight:900;color:#69F0AE">MG</div>
+          <div style="font-size:12px;color:#fff">R$ –,––</div>
+        </div>
+        <div style="flex:1;background:rgba(255,109,0,0.15);border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:rgba(255,255,255,0.5)">Mais cara</div>
+          <div style="font-size:18px;font-weight:900;color:#FF6D00">AM</div>
+          <div style="font-size:12px;color:#fff">R$ –,––</div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Análise melhor/pior UF -->
-  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
-      <i class="fas fa-chart-bar" style="margin-right:5px"></i>Gasolina por Estado
-    </div>
-    <div id="dp-analise">
-      <div style="color:rgba(255,255,255,0.3);font-size:12px;text-align:center;padding:8px">Carregando...</div>
-    </div>
-  </div>
+  <!-- ═══ CONTEÚDO: visível apenas para logados ═══════════════════════════════ -->
+  <div id="dp-dados-content" style="display:none">
 
-  <!-- Tabela de preços por UF -->
-  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
-      <i class="fas fa-map-marker-alt" style="margin-right:5px"></i>Gasolina por UF
+    <!-- Preço nacional Petrobras -->
+    <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;color:#FFC107;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+        <i class="fas fa-fire" style="margin-right:5px"></i>Petrobras Distribuidora
+      </div>
+      <div id="dp-nacional" style="display:flex;flex-direction:column;gap:4px">
+        <span style="color:rgba(255,255,255,0.4);font-size:12px">Carregando...</span>
+      </div>
+      <div style="font-size:9px;color:rgba(255,255,255,0.25);margin-top:10px">
+        Coleta: <span id="dp-coleta">–</span>
+      </div>
     </div>
-    <div id="dp-precos-uf" style="display:flex;flex-direction:column;gap:2px">
-      <div style="color:rgba(255,255,255,0.3);font-size:12px;text-align:center;padding:8px">Carregando...</div>
-    </div>
-  </div>
 
-  <!-- Dados ANP -->
-  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
-      <i class="fas fa-database" style="margin-right:5px"></i>Base ANP
+    <!-- Análise melhor/pior UF -->
+    <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+        <i class="fas fa-chart-bar" style="margin-right:5px"></i>Gasolina por Estado
+      </div>
+      <div id="dp-analise">
+        <div style="color:rgba(255,255,255,0.3);font-size:12px;text-align:center;padding:8px">Carregando...</div>
+      </div>
     </div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-      <span style="font-size:11px;color:rgba(255,255,255,0.45)">Postos</span>
-      <span style="font-size:12px;font-weight:800;color:#fff" id="dp-postos">–</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-      <span style="font-size:11px;color:rgba(255,255,255,0.45)">Municípios</span>
-      <span style="font-size:12px;font-weight:800;color:#fff" id="dp-municipios">–</span>
-    </div>
-    <div style="display:flex;justify-content:space-between">
-      <span style="font-size:11px;color:rgba(255,255,255,0.45)">UFs com dados</span>
-      <span style="font-size:12px;font-weight:800;color:#69F0AE" id="dp-ufs">–</span>
-    </div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.2);margin-top:8px" id="dp-semana">–</div>
-  </div>
 
-  <!-- Localização atual -->
-  <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">
-      <i class="fas fa-location-arrow" style="margin-right:5px"></i>Busca Atual
+    <!-- Tabela de preços por UF -->
+    <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+        <i class="fas fa-map-marker-alt" style="margin-right:5px"></i>Gasolina por UF
+      </div>
+      <div id="dp-precos-uf" style="display:flex;flex-direction:column;gap:2px">
+        <div style="color:rgba(255,255,255,0.3);font-size:12px;text-align:center;padding:8px">Carregando...</div>
+      </div>
     </div>
-    <div style="font-size:13px;font-weight:700;color:#fff" id="dp-cidade">–</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px" id="dp-coords">Aguardando localização...</div>
-  </div>
 
-  <!-- Links -->
-  <div style="background:#1B3A5C;border-radius:14px;padding:18px">
-    <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
-      <i class="fas fa-link" style="margin-right:5px"></i>Links
+    <!-- Localização atual -->
+    <div style="background:#1B3A5C;border-radius:14px;padding:18px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">
+        <i class="fas fa-location-arrow" style="margin-right:5px"></i>Busca Atual
+      </div>
+      <div style="font-size:13px;font-weight:700;color:#fff" id="dp-cidade">–</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px" id="dp-coords">Aguardando localização...</div>
     </div>
-    <a href="/mapa-brasil" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.65);text-decoration:none;font-size:12px;font-weight:700">
-      <i class="fas fa-globe-americas" style="color:#00C853;width:16px"></i> Mapa Brasil 46K Postos
-    </a>
-    <a href="/" style="display:flex;align-items:center;gap:8px;padding:8px 0;color:rgba(255,255,255,0.65);text-decoration:none;font-size:12px;font-weight:700">
-      <i class="fas fa-home" style="color:var(--laranja);width:16px"></i> Página Inicial
-    </a>
-  </div>
+
+    <!-- Links -->
+    <div style="background:#1B3A5C;border-radius:14px;padding:18px">
+      <div style="font-size:10px;font-weight:800;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+        <i class="fas fa-link" style="margin-right:5px"></i>Links
+      </div>
+      <a href="/mapa-brasil" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.65);text-decoration:none;font-size:12px;font-weight:700">
+        <i class="fas fa-globe-americas" style="color:#00C853;width:16px"></i> Mapa Brasil 46K Postos
+      </a>
+      <a href="/" style="display:flex;align-items:center;gap:8px;padding:8px 0;color:rgba(255,255,255,0.65);text-decoration:none;font-size:12px;font-weight:700">
+        <i class="fas fa-home" style="color:var(--laranja);width:16px"></i> Página Inicial
+      </a>
+    </div>
+  </div><!-- /#dp-dados-content -->
+
 </aside>
 
 </body>
