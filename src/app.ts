@@ -1987,7 +1987,15 @@ export function getAppHTML(firebaseScripts: string): string {
 
   async function iniciarPagamentoPIX() {
     if (!currentUser) {
-      showToast('Faca login para assinar!');
+      showToast('Faça login para assinar!');
+      fecharAssinatura();
+      return;
+    }
+
+    // Garantir que userId nunca seja undefined
+    const userId = currentUser.uid || currentUser.id || currentUser.email;
+    if (!userId) {
+      showToast('Erro de sessão. Faça login novamente.');
       fecharAssinatura();
       return;
     }
@@ -1995,11 +2003,11 @@ export function getAppHTML(firebaseScripts: string): string {
     showLoading(true);
     try {
       const body = {
-        nome: currentUser.name || currentUser.email?.split('@')[0] || 'Usuario',
+        nome: currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario',
         email: currentUser.email || '',
         cpf: currentUser.cpf || localStorage.getItem('rp_cpf') || '',
         plano: planoSelecionado,
-        userId: currentUser.uid || currentUser.email
+        userId: userId
       };
 
       const res = await fetch('/api/pix/assinar', {
@@ -2018,10 +2026,13 @@ export function getAppHTML(firebaseScripts: string): string {
         assinaturaSubscriptionId = data.subscriptionId;
         mostrarQRCode(data.qrCode, data.brcode, data.subscriptionId, planoSelecionado);
       } else {
-        showToast(data.mensagem || 'Erro ao gerar PIX. Tente novamente.');
+        const msg = data.mensagem || data.error || 'Erro ao gerar PIX. Tente novamente.';
+        console.error('[PIX] Falha:', JSON.stringify(data));
+        showToast(msg);
       }
     } catch (e) {
-      showToast('Erro de conexao. Verifique sua internet.');
+      console.error('[PIX] Excecao:', e);
+      showToast('Erro de conexão. Verifique sua internet e tente novamente.');
     } finally {
       showLoading(false);
     }
@@ -2032,12 +2043,21 @@ export function getAppHTML(firebaseScripts: string): string {
     document.getElementById('assin-step2').style.display = 'block';
     document.getElementById('assin-step3').style.display = 'none';
 
-    document.getElementById('assin-qr-img').src = qrCode;
+    // Imagem QR Code — com fallback para gerador público se a Woovi falhar
+    const imgEl = document.getElementById('assin-qr-img');
+    imgEl.src = qrCode;
+    imgEl.onerror = function() {
+      // Fallback: gerar QR Code a partir do brcode via API pública
+      if (brcode) {
+        this.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(brcode);
+        this.onerror = null;
+      }
+    };
 
     const valores = { premium: 'R$ 9,90', anual: 'R$ 89,00' };
     const ciclos  = { premium: '/mês (recorrente)', anual: '/ano (recorrente)' };
     document.getElementById('assin-valor-label').textContent = valores[plano] || 'R$ 9,90';
-    document.getElementById('assin-ciclo-label').textContent = ciclos[plano] || '/mes';
+    document.getElementById('assin-ciclo-label').textContent = ciclos[plano] || '/mês';
 
     const brcodeEl = document.getElementById('assin-brcode-txt');
     brcodeEl.textContent = brcode || '';
@@ -2052,7 +2072,8 @@ export function getAppHTML(firebaseScripts: string): string {
   async function verificarPagamentoPIX() {
     if (!currentUser) return;
     try {
-      const userId = currentUser.uid || currentUser.email;
+      const userId = currentUser.uid || currentUser.id || currentUser.email;
+      if (!userId) return;
       const res = await fetch('/api/assinatura/status/' + userId);
       const data = await res.json();
 

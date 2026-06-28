@@ -1003,8 +1003,8 @@ app.post('/api/pix/assinar', async (c) => {
     const body = await c.req.json()
     const { nome, email, cpf, plano, userId } = body as any
 
-    if (!nome || !email || !userId) {
-      return c.json({ sucesso: false, mensagem: 'Nome, email e userId são obrigatórios' }, 400)
+    if (!nome || !userId) {
+      return c.json({ sucesso: false, mensagem: 'É necessário estar logado para assinar.' }, 400)
     }
 
     const planoValido = plano in PLANOS ? plano : 'premium'
