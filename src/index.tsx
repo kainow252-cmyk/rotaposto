@@ -1009,6 +1009,8 @@ app.post('/api/pix/assinar', async (c) => {
 
     const planoValido = plano in PLANOS ? plano : 'premium'
     const cpfLimpo = (cpf || '').replace(/\D/g, '')
+    // Email obrigatório pela Woovi: usar fallback se vazio
+    const emailFinal = (email || '').trim() || `user-${userId.slice(-8)}@rotaposto.app`
     const kv = getKV(c.env)
 
     // Verificar se já tem assinatura ativa no KV
@@ -1047,7 +1049,7 @@ app.post('/api/pix/assinar', async (c) => {
     }
 
     // Criar nova assinatura na Woovi
-    const resultado = await criarAssinaturaPIX(c.env as any, nome, email, cpfLimpo, planoValido)
+    const resultado = await criarAssinaturaPIX(c.env as any, nome, emailFinal, cpfLimpo, planoValido)
 
     if (!resultado.sucesso) {
       return c.json({ sucesso: false, mensagem: resultado.error || 'Erro ao gerar PIX' }, 500)
@@ -1057,7 +1059,7 @@ app.post('/api/pix/assinar', async (c) => {
     const assinatura: AssinaturaUsuario = {
       userId,
       nome,
-      email,
+      email: emailFinal,
       cpf: cpfLimpo,
       plano: planoValido,
       status: 'PENDING',
