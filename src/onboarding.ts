@@ -488,16 +488,13 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   <div class="ob-cta">
     <button class="btn-primary" id="btn-comecar" onclick="abrirLogin('comecar')">
       <i class="fas fa-rocket"></i>
-      Começar agora — é grátis
+      Cadastre-se agora — é grátis
     </button>
     <button class="btn-secondary" id="btn-ja-tenho" onclick="abrirLogin('entrar')">
       <i class="fas fa-user"></i>
       Já tenho uma conta
     </button>
-    <a href="/mapa-brasil" class="btn-secondary" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(0,200,83,0.12);border-color:rgba(0,200,83,0.4);color:#00C853;">
-      <i class="fas fa-globe-americas"></i>
-      Ver mapa com 46.071 postos do Brasil
-    </a>
+    <!-- Botão Ver Mapa ocultado (acesso via menu após login) -->
     <p class="terms-note">Ao criar sua conta você concorda com nossos <a href="#">Termos de Uso</a></p>
   </div>
 
