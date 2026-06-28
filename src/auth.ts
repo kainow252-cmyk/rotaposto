@@ -57,8 +57,10 @@ export function getFirebaseAuthScripts(): string {
     googleProvider.addScope('email');
 
     // ─── Facebook Provider ────────────────────────────────────────────────
+    // NOTA: 'email' é uma *permission* do Facebook (não um OAuth scope).
+    // Solicitar via addScope() causa "Invalid Scopes: email".
+    // O Firebase/Facebook já solicita email automaticamente como permission.
     const facebookProvider = new FacebookAuthProvider();
-    facebookProvider.addScope('email');
     facebookProvider.addScope('public_profile');
 
     // ─── Expor globalmente ────────────────────────────────────────────────
