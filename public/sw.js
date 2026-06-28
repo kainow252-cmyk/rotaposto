@@ -1,10 +1,10 @@
-// RotaPosto Service Worker v6.0
+// RotaPosto Service Worker v7.0
 // Auto-update silencioso + Cache inteligente + PWA install
-// v6: skipWaiting imediato + reload automático nas abas abertas
+// v7: forçar refresh após remoção addScope('email') Facebook
 
-const VERSION = 'v6';
-const CACHE_STATIC = 'rp-static-v6';
-const CACHE_API    = 'rp-api-v6';
+const VERSION = 'v7';
+const CACHE_STATIC = 'rp-static-v7';
+const CACHE_API    = 'rp-api-v7';
 
 const PRECACHE = [
   '/manifest.json',
