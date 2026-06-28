@@ -1510,6 +1510,101 @@ app.get('/app', (c) => {
   return c.html(getAppHTML(firebaseScripts))
 })
 
+// ══════════════════════════════════════════════════════
+//  Página de Privacidade (exigida pelo Facebook e Google)
+// ══════════════════════════════════════════════════════
+app.get('/privacidade', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Política de Privacidade – RotaPosto</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height:1.7}
+    .container{max-width:800px;margin:0 auto;padding:40px 24px}
+    h1{font-size:2rem;font-weight:700;color:#1a1a2e;margin-bottom:8px}
+    .updated{color:#666;font-size:.9rem;margin-bottom:40px}
+    h2{font-size:1.2rem;font-weight:600;color:#1a1a2e;margin:32px 0 12px}
+    p{color:#444;margin-bottom:12px}
+    ul{padding-left:20px;color:#444;margin-bottom:12px}
+    ul li{margin-bottom:6px}
+    a{color:#2563eb;text-decoration:none}
+    a:hover{text-decoration:underline}
+    .header{background:#1a1a2e;padding:16px 24px;display:flex;align-items:center;gap:12px}
+    .header a{color:#fff;font-weight:600;font-size:1.1rem;text-decoration:none}
+    .header span{color:#f59e0b;font-size:1.3rem}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span>⛽</span>
+    <a href="/">RotaPosto</a>
+  </div>
+  <div class="container">
+    <h1>Política de Privacidade</h1>
+    <p class="updated">Última atualização: junho de 2025</p>
+
+    <p>O <strong>RotaPosto</strong> respeita a sua privacidade. Esta política descreve como coletamos, usamos e protegemos suas informações ao utilizar nosso aplicativo.</p>
+
+    <h2>1. Informações que Coletamos</h2>
+    <p>Quando você usa o RotaPosto, podemos coletar:</p>
+    <ul>
+      <li><strong>Dados de conta:</strong> nome, e-mail e foto de perfil (via login com Google ou Facebook)</li>
+      <li><strong>Localização:</strong> sua posição geográfica para encontrar postos próximos (apenas durante o uso)</li>
+      <li><strong>Veículo:</strong> tipo de veículo, consumo e tanque para calcular economia</li>
+      <li><strong>Uso do app:</strong> postos visitados, buscas realizadas e contribuições de preço</li>
+    </ul>
+
+    <h2>2. Como Usamos suas Informações</h2>
+    <ul>
+      <li>Exibir postos de combustível próximos à sua localização</li>
+      <li>Calcular economia e menor preço de abastecimento</li>
+      <li>Personalizar sua experiência no aplicativo</li>
+      <li>Melhorar a precisão dos dados de preços</li>
+    </ul>
+
+    <h2>3. Compartilhamento de Dados</h2>
+    <p>Não vendemos, alugamos nem compartilhamos seus dados pessoais com terceiros, exceto:</p>
+    <ul>
+      <li><strong>Google Firebase:</strong> autenticação e armazenamento seguro de sessão</li>
+      <li><strong>ANP (Agência Nacional do Petróleo):</strong> dados públicos de preços utilizados no app</li>
+      <li>Quando exigido por lei ou ordem judicial</li>
+    </ul>
+
+    <h2>4. Login com Redes Sociais</h2>
+    <p>O RotaPosto permite login via <strong>Google</strong> e <strong>Facebook</strong>. Ao usar esses serviços, você concorda com as políticas de privacidade deles. Coletamos apenas nome, e-mail e foto de perfil.</p>
+
+    <h2>5. Segurança</h2>
+    <p>Utilizamos criptografia e boas práticas de segurança para proteger seus dados. Sessões são gerenciadas com tokens únicos por dispositivo.</p>
+
+    <h2>6. Seus Direitos</h2>
+    <ul>
+      <li>Acessar, corrigir ou excluir seus dados pessoais</li>
+      <li>Solicitar portabilidade dos dados</li>
+      <li>Revogar consentimento a qualquer momento</li>
+    </ul>
+    <p>Para exercer esses direitos, entre em contato: <a href="mailto:contato@rotaposto.com.br">contato@rotaposto.com.br</a></p>
+
+    <h2>7. Cookies e Armazenamento Local</h2>
+    <p>Usamos <em>localStorage</em> e cookies para manter sua sessão ativa e salvar preferências do app. Nenhum dado de rastreamento publicitário é utilizado.</p>
+
+    <h2>8. Menores de Idade</h2>
+    <p>O RotaPosto não é destinado a menores de 18 anos. Não coletamos intencionalmente dados de menores.</p>
+
+    <h2>9. Alterações nesta Política</h2>
+    <p>Podemos atualizar esta política periodicamente. Notificaremos sobre mudanças significativas dentro do aplicativo.</p>
+
+    <h2>10. Contato</h2>
+    <p>Em caso de dúvidas sobre esta política de privacidade:<br/>
+    📧 <a href="mailto:contato@rotaposto.com.br">contato@rotaposto.com.br</a><br/>
+    🌐 <a href="https://rotaposto.com.br">rotaposto.com.br</a></p>
+  </div>
+</body>
+</html>`)
+})
+
 app.get('/app_old', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
   const html = `<!DOCTYPE html>
