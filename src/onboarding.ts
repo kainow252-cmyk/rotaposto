@@ -387,11 +387,6 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       width: 20px; height: 20px; flex-shrink: 0;
     }
 
-    /* Apple logo */
-    .apple-logo {
-      width: 18px; height: 20px; flex-shrink: 0;
-    }
-
     /* Divisor "ou" */
     .divider-ou {
       width: 100%; display: flex; align-items: center;
@@ -448,50 +443,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     }
 
     /* ══════════════════════════════════════════════
-       TELA 5 — CADASTRO RÁPIDO
-    ══════════════════════════════════════════════ */
-    #screen-register {
-      overflow-y: auto;
-    }
-
-    #register-body {
-      flex: 1; padding: 0 28px calc(var(--sab) + 28px);
-      display: flex; flex-direction: column;
-    }
-
-    #register-title {
-      font-size: 26px; font-weight: 800;
-      color: var(--black); text-align: center;
-      line-height: 1.25; margin-bottom: 6px;
-    }
-    #register-sub {
-      font-size: 14px; color: var(--gray);
-      text-align: center; margin-bottom: 28px;
-    }
-
-    /* Checkbox termos */
-    .terms-row {
-      display: flex; align-items: flex-start; gap: 10px;
-      margin-bottom: 24px;
-    }
-    .terms-check {
-      width: 20px; height: 20px; flex-shrink: 0;
-      border: 2px solid var(--orange);
-      border-radius: 5px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--orange); margin-top: 1px;
-    }
-    .terms-check svg { width: 12px; height: 12px; }
-    .terms-text {
-      font-size: 13px; color: var(--gray-dark); line-height: 1.5;
-    }
-    .terms-text .link-orange {
-      color: var(--orange); font-weight: 600;
-      cursor: pointer; text-decoration: none;
-    }
-
-    /* ══════════════════════════════════════════════
-       TELA 6 — PREFERÊNCIAS VEÍCULO
+       TELA 5 — PREFERÊNCIAS VEÍCULO
     ══════════════════════════════════════════════ */
     #screen-vehicle {
       overflow-y: auto;
@@ -735,102 +687,23 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     <p id="login-sub">É rápido, fácil e seguro.</p>
 
     <!-- Google -->
-    <button class="btn-social" onclick="loginGoogle()">
+    <button class="btn-social" id="btn-google-login" onclick="loginGoogle()">
       <svg class="google-g" viewBox="0 0 20 20"><path d="M19.6 10.23c0-.68-.06-1.36-.17-2H10v3.79h5.4a4.61 4.61 0 01-2 3.03v2.51h3.23c1.89-1.74 2.97-4.3 2.97-7.33z" fill="#4285F4"/><path d="M10 20c2.7 0 4.97-.89 6.63-2.44l-3.23-2.51c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.13H1.06v2.6A10 10 0 0010 20z" fill="#34A853"/><path d="M4.39 11.88A6.01 6.01 0 014.1 10c0-.65.11-1.28.29-1.88V5.52H1.06A10 10 0 000 10c0 1.61.39 3.14 1.06 4.48l3.33-2.6z" fill="#FBBC05"/><path d="M10 3.96c1.47 0 2.79.51 3.83 1.5l2.86-2.86C14.96.99 12.7 0 10 0A10 10 0 001.06 5.52l3.33 2.6C5.18 5.72 7.39 3.96 10 3.96z" fill="#EA4335"/></svg>
       Continuar com Google
     </button>
 
-    <!-- Apple -->
-    <button class="btn-social" onclick="showToast('Apple Login em breve!')">
-      <svg class="apple-logo" viewBox="0 0 18 20" fill="#000"><path d="M15.77 10.57c-.02-2.15 1.76-3.19 1.84-3.24-1-1.47-2.56-1.67-3.12-1.69-1.33-.13-2.6.78-3.27.78-.68 0-1.71-.76-2.82-.74-1.44.02-2.77.84-3.51 2.12C3.06 10.47 4.2 14.72 5.98 17.14c.88 1.2 1.93 2.54 3.3 2.49 1.33-.05 1.83-.85 3.44-.85 1.6 0 2.05.85 3.45.83 1.43-.03 2.33-1.22 3.2-2.43.4-.56.7-1.17.92-1.82a5.21 5.21 0 01-3.52-4.79zM13.37 3.86C14.07 2.99 14.55 1.78 14.4.55c-1.07.05-2.36.71-3.12 1.61-.69.8-1.28 2.03-1.11 3.22 1.18.09 2.39-.59 3.2-1.52z"/></svg>
-      Continuar com Apple
+    <!-- Facebook -->
+    <button class="btn-social" id="btn-facebook-login" onclick="loginFacebook()" style="border-color:#1877F2;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      Continuar com Facebook
     </button>
 
-    <!-- Divisor -->
-    <div class="divider-ou">
-      <div class="divider-line"></div>
-      <span class="divider-text">ou</span>
-      <div class="divider-line"></div>
-    </div>
-
-    <!-- Email -->
-    <div class="field-group">
-      <div class="field-wrap">
-        <input type="email" class="field-input" id="login-email" placeholder="E-mail ou telefone" autocomplete="email"/>
-      </div>
-    </div>
-
-    <!-- Senha -->
-    <div class="field-group" style="margin-bottom:6px">
-      <div class="field-wrap">
-        <input type="password" class="field-input" id="login-pass" placeholder="Senha" autocomplete="current-password"/>
-        <button class="field-eye" onclick="togglePass('login-pass',this)" type="button">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <button class="link-forgot" onclick="forgotPassword()">Esqueci minha senha</button>
-
-    <button class="btn-primary" onclick="doLogin()">Entrar</button>
-
-    <div id="login-footer">
-      Não tem uma conta? <button class="link-orange" onclick="goToScreen('register')">Cadastre-se</button>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════
-       TELA 5: CADASTRO RÁPIDO
-  ═══════════════════════════════════════ -->
-  <div id="screen-register" class="screen-white">
-    <div class="ob-header">
-      <button class="btn-back" onclick="goToScreen('login')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-    </div>
-    <div id="register-body">
-      <h2 id="register-title">Vamos criar<br/>sua conta</h2>
-      <p id="register-sub">É rápido e fácil!</p>
-
-      <!-- Nome -->
-      <div class="field-group">
-        <div class="field-wrap">
-          <input type="text" class="field-input" id="reg-name" placeholder="Nome completo" autocomplete="name"/>
-        </div>
-      </div>
-      <!-- Email -->
-      <div class="field-group">
-        <div class="field-wrap">
-          <input type="email" class="field-input" id="reg-email" placeholder="E-mail" autocomplete="email"/>
-        </div>
-      </div>
-      <!-- Telefone -->
-      <div class="field-group">
-        <div class="field-wrap">
-          <input type="tel" class="field-input" id="reg-phone" placeholder="Telefone (opcional)" autocomplete="tel"/>
-        </div>
-      </div>
-      <!-- Senha -->
-      <div class="field-group">
-        <div class="field-wrap">
-          <input type="password" class="field-input" id="reg-pass" placeholder="Senha" autocomplete="new-password"/>
-          <button class="field-eye" onclick="togglePass('reg-pass',this)" type="button">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Termos -->
-      <div class="terms-row">
-        <div class="terms-check" id="terms-check" onclick="toggleTerms()">
-          <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <p class="terms-text">Eu aceito os <span class="link-orange">Termos de Uso</span> e <span class="link-orange">Política de Privacidade</span></p>
-      </div>
-
-      <div class="flex-spacer"></div>
-      <button class="btn-primary" onclick="doRegister()">Criar conta</button>
-    </div>
+    <!-- Termos -->
+    <p style="font-size:11px;color:#9E9E9E;text-align:center;margin-top:16px;line-height:1.5;">
+      Ao entrar, você concorda com nossos<br/>
+      <a href="#" style="color:#FF6D00;text-decoration:none;">Termos de Uso</a> e
+      <a href="#" style="color:#FF6D00;text-decoration:none;">Política de Privacidade</a>
+    </p>
   </div>
 
   <!-- ═══════════════════════════════════════
@@ -838,7 +711,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   ═══════════════════════════════════════ -->
   <div id="screen-vehicle" class="screen-white">
     <div class="ob-header">
-      <button class="btn-back" onclick="goToScreen('register')">
+      <button class="btn-back" onclick="goToScreen('login')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
     </div>
@@ -903,7 +776,6 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
 
 <script>
   // ── Estado ──
-  let termsAccepted = true;
   let currentScreen = 'splash';
 
   // ── Navegação ──
@@ -919,29 +791,6 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       if (el) el.classList.add('active');
     }
     currentScreen = id;
-  }
-
-  // ── Toggle senha ──
-  function togglePass(inputId, btn) {
-    const inp = document.getElementById(inputId);
-    if (inp.type === 'password') {
-      inp.type = 'text';
-      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-    } else {
-      inp.type = 'password';
-      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
-    }
-  }
-
-  // ── Termos ──
-  function toggleTerms() {
-    termsAccepted = !termsAccepted;
-    const el = document.getElementById('terms-check');
-    el.style.background = termsAccepted ? 'var(--orange)' : 'white';
-    el.style.borderColor = termsAccepted ? 'var(--orange)' : 'var(--border)';
-    el.innerHTML = termsAccepted
-      ? '<svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      : '';
   }
 
   // ── Toast ──
@@ -982,108 +831,98 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     );
   }
 
+  // ══════════════════════════════════════════════════════
+  //  AUTH – Google + Facebook (somente social login)
+  // ══════════════════════════════════════════════════════
+
+  // Helper: salvar usuário e ir pro app
+  function onLoginSuccess(user) {
+    const userData = {
+      uid: user.uid,
+      name: user.displayName || user.email?.split('@')[0] || 'Usuário',
+      email: user.email || '',
+      photo: user.photoURL || '',
+      provider: user.providerData?.[0]?.providerId || 'unknown'
+    };
+    localStorage.setItem('rp_user', JSON.stringify(userData));
+    showToast('Bem-vindo, ' + userData.name.split(' ')[0] + '! 👋');
+    setTimeout(() => {
+      const vehicle = localStorage.getItem('rp_vehicle');
+      if (vehicle) {
+        window.location.href = '/app';
+      } else {
+        goToScreen('vehicle');
+      }
+    }, 600);
+  }
+
+  // Helper: aguardar Firebase estar pronto (retry até 3s)
+  function aguardarFirebase(callback, tentativa) {
+    tentativa = tentativa || 0;
+    if (window._fbSignInWithPopup && window._fbAuth) {
+      callback();
+    } else if (tentativa < 15) {
+      setTimeout(() => aguardarFirebase(callback, tentativa + 1), 200);
+    } else {
+      showLoading(false);
+      showToast('Firebase nao carregou. Recarregue a pagina.');
+    }
+  }
+
   // ── Google Login ──
   function loginGoogle() {
-    if (!window._fbSignInWithPopup || !window._fbGoogleProvider) {
-      showToast('Carregando Firebase...');
-      return;
-    }
+    const btn = document.getElementById('btn-google-login');
+    if (btn) btn.disabled = true;
     showLoading(true);
-    window._fbSignInWithPopup(window._fbAuth, window._fbGoogleProvider)
-      .then(result => {
-        showLoading(false);
-        const user = result.user;
-        localStorage.setItem('rp_user', JSON.stringify({ uid: user.uid, name: user.displayName, email: user.email, photo: user.photoURL }));
-        window.location.href = '/app';
-      })
-      .catch(err => {
-        showLoading(false);
-        if (err.code !== 'auth/popup-closed-by-user') showToast('Erro no login: ' + err.message);
-      });
+
+    aguardarFirebase(function() {
+      window._fbSignInWithPopup(window._fbAuth, window._fbGoogleProvider)
+        .then(function(result) {
+          showLoading(false);
+          onLoginSuccess(result.user);
+        })
+        .catch(function(err) {
+          showLoading(false);
+          if (btn) btn.disabled = false;
+          if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+          if (err.code === 'auth/popup-blocked') {
+            showToast('Popup bloqueado! Permita popups para este site.');
+          } else if (err.code === 'auth/unauthorized-domain') {
+            showToast('Dominio nao autorizado no Firebase.');
+          } else {
+            showToast('Erro Google: ' + (err.message || err.code));
+          }
+        });
+    });
   }
 
-  // ── Login email/senha ──
-  async function doLogin() {
-    const email = document.getElementById('login-email').value.trim();
-    const pass = document.getElementById('login-pass').value;
-    if (!email || !pass) { showToast('Preencha email e senha'); return; }
-
+  // ── Facebook Login ──
+  function loginFacebook() {
+    const btn = document.getElementById('btn-facebook-login');
+    if (btn) btn.disabled = true;
     showLoading(true);
-    try {
-      const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + encodeURIComponent('AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass, returnSecureToken: true })
-      });
-      const data = await res.json();
-      showLoading(false);
-      if (data.idToken) {
-        localStorage.setItem('rp_user', JSON.stringify({ uid: data.localId, email: data.email, token: data.idToken }));
-        window.location.href = '/app';
-      } else {
-        const msg = data.error?.message || 'Erro ao entrar';
-        if (msg.includes('EMAIL_NOT_FOUND') || msg.includes('INVALID_LOGIN_CREDENTIALS')) showToast('Email ou senha incorretos');
-        else if (msg.includes('INVALID_PASSWORD')) showToast('Senha incorreta');
-        else showToast(msg);
-      }
-    } catch {
-      showLoading(false);
-      showToast('Erro de conexão. Tente novamente.');
-    }
-  }
 
-  // ── Cadastro ──
-  async function doRegister() {
-    const name = document.getElementById('reg-name').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
-    const pass = document.getElementById('reg-pass').value;
-
-    if (!name || !email || !pass) { showToast('Preencha todos os campos'); return; }
-    if (pass.length < 6) { showToast('Senha precisa ter ao menos 6 caracteres'); return; }
-    if (!termsAccepted) { showToast('Aceite os Termos de Uso'); return; }
-
-    showLoading(true);
-    try {
-      const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + encodeURIComponent('AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass, displayName: name, returnSecureToken: true })
-      });
-      const data = await res.json();
-      showLoading(false);
-      if (data.idToken) {
-        localStorage.setItem('rp_user', JSON.stringify({ uid: data.localId, name, email, token: data.idToken }));
-        showToast('Conta criada com sucesso! 🎉');
-        setTimeout(() => goToScreen('vehicle'), 800);
-      } else {
-        const msg = data.error?.message || 'Erro ao criar conta';
-        if (msg.includes('EMAIL_EXISTS')) showToast('Este email já está cadastrado');
-        else if (msg.includes('WEAK_PASSWORD')) showToast('Senha muito fraca');
-        else showToast(msg);
-      }
-    } catch {
-      showLoading(false);
-      showToast('Erro de conexão. Tente novamente.');
-    }
-  }
-
-  // ── Esqueci senha ──
-  async function forgotPassword() {
-    const email = document.getElementById('login-email').value.trim();
-    if (!email) { showToast('Digite seu email primeiro'); return; }
-    showLoading(true);
-    try {
-      await fetch('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=' + encodeURIComponent('AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestType: 'PASSWORD_RESET', email })
-      });
-      showLoading(false);
-      showToast('Email de recuperação enviado! ✓');
-    } catch {
-      showLoading(false);
-      showToast('Erro ao enviar email');
-    }
+    aguardarFirebase(function() {
+      window._fbSignInWithPopup(window._fbAuth, window._fbFacebookProvider)
+        .then(function(result) {
+          showLoading(false);
+          onLoginSuccess(result.user);
+        })
+        .catch(function(err) {
+          showLoading(false);
+          if (btn) btn.disabled = false;
+          if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+          if (err.code === 'auth/account-exists-with-different-credential') {
+            showToast('Este email ja esta vinculado ao Google. Use o login do Google.');
+          } else if (err.code === 'auth/popup-blocked') {
+            showToast('Popup bloqueado! Permita popups para este site.');
+          } else if (err.code === 'auth/unauthorized-domain') {
+            showToast('Dominio nao autorizado. Configure rotaposto.com.br no Firebase.');
+          } else {
+            showToast('Erro Facebook: ' + (err.message || err.code));
+          }
+        });
+    });
   }
 
   // ── Salvar veículo e ir pro app ──
