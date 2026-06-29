@@ -893,6 +893,15 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     });
   }
 
+  // ── Helper: detectar ambiente que nao suporta popup (WebView, apps sociais) ──
+  function usarRedirect() {
+    var ua = navigator.userAgent || '';
+    var isWebView = /wv|WebView/i.test(ua);
+    var isSocialApp = /FBAN|FBAV|Instagram|Twitter|Line|MicroMessenger/i.test(ua);
+    var isStandalone = window.navigator.standalone === true;
+    return isWebView || isSocialApp || isStandalone;
+  }
+
   // ── Helper: aguardar Firebase estar pronto (retry até 5s) ──
   function aguardarFirebase(callback, tentativa) {
     tentativa = tentativa || 0;
@@ -906,18 +915,32 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     }
   }
 
-  // ── Helper: tratar erros de auth ──
-  function tratarErroAuth(err, provedor) {
-    showLoading(false);
-    var code = err.code || '';
-    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
-    if (code === 'auth/unauthorized-domain') {
-      // Fallback: tentar redirect
-      showToast('Redirecionando para login...');
+  // ── Helper: login via redirect (mobile/webview) ──
+  function loginComRedirect(provider) {
+    if (!window._fbSignInWithRedirect || !window._fbAuth) {
+      showToast('Firebase nao carregou. Tente novamente.');
+      showLoading(false);
       return;
     }
-    if (code === 'auth/popup-blocked') {
-      showToast('Popup bloqueado. Usando redirecionamento...');
+    window._fbSignInWithRedirect(window._fbAuth, provider)
+      .catch(function(err) {
+        showLoading(false);
+        console.error('[Auth] Erro redirect:', err.code, err.message);
+        showToast('Erro ao redirecionar. Tente novamente.');
+      });
+  }
+
+  // ── Helper: tratar erros de auth ──
+  function tratarErroAuth(err, provedor, provider) {
+    showLoading(false);
+    var code = err.code || '';
+    var msg = err.message || '';
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+    // Popup invalido ou bloqueado -> tentar redirect automaticamente
+    if (code === 'auth/popup-blocked' || code === 'auth/unauthorized-domain' ||
+        msg.indexOf('invalid') !== -1 || msg.indexOf('Invalid') !== -1) {
+      showToast('Redirecionando para login...');
+      setTimeout(function() { if (provider) loginComRedirect(provider); }, 800);
       return;
     }
     if (code === 'auth/account-exists-with-different-credential') {
@@ -928,9 +951,27 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       showToast('Sem conexao. Verifique sua internet.');
       return;
     }
-    console.error('[Auth] Erro ' + provedor + ':', code, err.message);
+    console.error('[Auth] Erro ' + provedor + ':', code, msg);
     showToast('Erro ao entrar. Tente novamente.');
   }
+
+  // ── Verificar resultado de redirect ao carregar a pagina ──
+  function verificarRedirectResult() {
+    if (!window._fbGetRedirectResult || !window._fbAuth) return;
+    window._fbGetRedirectResult(window._fbAuth)
+      .then(function(result) {
+        if (result && result.user) {
+          showLoading(false);
+          onLoginSuccess(result.user);
+        }
+      })
+      .catch(function(err) {
+        if (err && err.code && err.code !== 'auth/no-current-user') {
+          console.error('[Auth] Redirect result err:', err.code);
+        }
+      });
+  }
+  aguardarFirebase(function() { verificarRedirectResult(); });
 
   // ── Google Login ──
   function loginGoogle() {
@@ -939,17 +980,18 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     showLoading(true);
 
     aguardarFirebase(function() {
+      if (usarRedirect()) {
+        loginComRedirect(window._fbGoogleProvider);
+        return;
+      }
       window._fbSignInWithPopup(window._fbAuth, window._fbGoogleProvider)
         .then(function(result) {
           showLoading(false);
-          if (result && result.user) {
-            onLoginSuccess(result.user);
-          }
+          if (result && result.user) { onLoginSuccess(result.user); }
         })
         .catch(function(err) {
           if (btn) btn.disabled = false;
-          showLoading(false);
-          tratarErroAuth(err, 'Google');
+          tratarErroAuth(err, 'Google', window._fbGoogleProvider);
         });
     });
   }
@@ -961,17 +1003,18 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     showLoading(true);
 
     aguardarFirebase(function() {
+      if (usarRedirect()) {
+        loginComRedirect(window._fbFacebookProvider);
+        return;
+      }
       window._fbSignInWithPopup(window._fbAuth, window._fbFacebookProvider)
         .then(function(result) {
           showLoading(false);
-          if (result && result.user) {
-            onLoginSuccess(result.user);
-          }
+          if (result && result.user) { onLoginSuccess(result.user); }
         })
         .catch(function(err) {
           if (btn) btn.disabled = false;
-          showLoading(false);
-          tratarErroAuth(err, 'Facebook');
+          tratarErroAuth(err, 'Facebook', window._fbFacebookProvider);
         });
     });
   }

@@ -39,6 +39,8 @@ export function getFirebaseAuthScripts(): string {
     import {
       getAuth,
       signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
       signInWithEmailAndPassword,
       createUserWithEmailAndPassword,
       signOut,
@@ -78,6 +80,8 @@ export function getFirebaseAuthScripts(): string {
     window._fbGoogleProvider = googleProvider;
     window._fbFacebookProvider = facebookProvider;
     window._fbSignInWithPopup = signInWithPopup;
+    window._fbSignInWithRedirect = signInWithRedirect;
+    window._fbGetRedirectResult = getRedirectResult;
     window._fbSignInWithEmailAndPassword = signInWithEmailAndPassword;
     window._fbCreateUserWithEmailAndPassword = createUserWithEmailAndPassword;
     window._fbSignOut = signOut;
