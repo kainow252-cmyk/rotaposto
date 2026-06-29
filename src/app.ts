@@ -682,12 +682,55 @@ export function getAppHTML(firebaseScripts: string): string {
       display: flex; align-items: center; gap: 16px;
     }
 
+    /* ── Avatar de perfil com botão câmera ── */
+    #perfil-avatar-wrap {
+      position: relative; flex-shrink: 0;
+      width: 72px; height: 72px;
+      cursor: pointer;
+    }
     #perfil-avatar {
       width: 72px; height: 72px; border-radius: 50%;
-      object-fit: cover; flex-shrink: 0;
+      object-fit: cover;
       background: #333;
       border: 3px solid rgba(255,255,255,0.2);
+      display: block;
     }
+    #perfil-avatar-inicial {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--orange);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px; font-weight: 800; color: #fff;
+      border: 3px solid rgba(255,255,255,0.2);
+      flex-shrink: 0;
+    }
+    #perfil-avatar-cam {
+      position: absolute; bottom: 0; right: 0;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--orange);
+      border: 2px solid #1A1A2E;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    #perfil-avatar-cam svg { width: 13px; height: 13px; fill: #fff; }
+
+    /* Spinner de upload */
+    #perfil-upload-spinner {
+      display: none;
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.45);
+      align-items: center; justify-content: center;
+    }
+    #perfil-upload-spinner.ativo { display: flex; }
+    #perfil-upload-spinner::after {
+      content: '';
+      width: 24px; height: 24px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin360 0.8s linear infinite;
+    }
+    @keyframes spin360 { to { transform: rotate(360deg); } }
 
     #perfil-info { flex: 1; }
     #perfil-ola {
@@ -1102,11 +1145,31 @@ export function getAppHTML(firebaseScripts: string): string {
     <!-- TELA 12: PERFIL -->
     <div id="view-perfil" class="view">
       <div id="perfil-header">
-        <img id="perfil-avatar" src="https://i.pravatar.cc/150?u=joao" alt="Foto perfil"/>
+
+        <!-- Avatar clicável com ícone de câmera -->
+        <div id="perfil-avatar-wrap" onclick="document.getElementById('input-foto-perfil').click()" title="Alterar foto de perfil">
+          <img id="perfil-avatar" src="" alt="Foto perfil" style="display:none;"/>
+          <div id="perfil-avatar-inicial">G</div>
+          <div id="perfil-avatar-cam">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+          <div id="perfil-upload-spinner"></div>
+        </div>
+
+        <!-- Input file oculto — abre galeria/câmera no mobile -->
+        <input type="file" id="input-foto-perfil"
+               accept="image/*"
+               style="display:none;"
+               onchange="uploadFotoPerfil(this)"/>
+
         <div id="perfil-info">
           <div id="perfil-ola">Olá, <span id="perfil-nome">João</span>!</div>
           <div id="perfil-badge-premium" class="badge-premium" style="display:none;">👑 Premium</div>
           <div id="perfil-plano-status" style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px;">Conta gratuita</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:4px;">Toque na foto para alterar</div>
         </div>
       </div>
 
@@ -1882,6 +1945,115 @@ export function getAppHTML(firebaseScripts: string): string {
     abrirModal('Minha Conta', html);
   }
 
+  // ── Upload de Foto de Perfil ──────────────────────────────────────────────
+  function atualizarAvatarUI(fotoUrl) {
+    var img = document.getElementById('perfil-avatar');
+    var inicial = document.getElementById('perfil-avatar-inicial');
+    if (fotoUrl) {
+      if (img) { img.src = fotoUrl; img.style.display = 'block'; }
+      if (inicial) inicial.style.display = 'none';
+    } else {
+      if (img) img.style.display = 'none';
+      var nome = (currentUser && (currentUser.name || currentUser.email)) || 'U';
+      if (inicial) {
+        inicial.style.display = 'flex';
+        inicial.textContent = nome.charAt(0).toUpperCase();
+      }
+    }
+  }
+
+  function uploadFotoPerfil(input) {
+    var file = input && input.files && input.files[0];
+    if (!file) return;
+
+    // Verificar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      showToast('Selecione uma imagem válida.');
+      return;
+    }
+
+    // Mostrar spinner
+    var spinner = document.getElementById('perfil-upload-spinner');
+    if (spinner) spinner.classList.add('ativo');
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var dataUrl = e.target.result;
+      // Redimensionar para max 400x400 via canvas (economiza ~85% de tamanho)
+      var img = new Image();
+      img.onload = function() {
+        var maxSide = 400;
+        var w = img.width, h = img.height;
+        if (w > maxSide || h > maxSide) {
+          var ratio = Math.min(maxSide / w, maxSide / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        var compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        var base64 = compressedDataUrl.split(',')[1];
+
+        // Verificar tamanho após compressão
+        if (base64.length > 1.8 * 1024 * 1024) {
+          if (spinner) spinner.classList.remove('ativo');
+          showToast('Foto muito grande. Tente uma imagem menor.');
+          return;
+        }
+
+        var uid = currentUser && currentUser.uid;
+        if (!uid) {
+          if (spinner) spinner.classList.remove('ativo');
+          showToast('Faça login para alterar a foto.');
+          return;
+        }
+
+        // Atualizar avatar na UI imediatamente (feedback visual)
+        atualizarAvatarUI(compressedDataUrl);
+
+        // Enviar para o servidor
+        fetch('/api/perfil/foto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: uid, fotoBase64: base64, mimeType: 'image/jpeg' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (spinner) spinner.classList.remove('ativo');
+          if (data.sucesso) {
+            var fotoUrl = data.fotoUrl;
+            // Salvar no localStorage para persistência entre sessões
+            localStorage.setItem('rp_foto_perfil_' + uid, fotoUrl);
+            // Atualizar Firebase profile (photoURL)
+            if (window._fbUpdateProfile && window._fbAuth && window._fbAuth.currentUser) {
+              window._fbUpdateProfile(window._fbAuth.currentUser, { photoURL: fotoUrl })
+                .catch(function() { /* não crítico */ });
+            }
+            showToast('Foto de perfil atualizada! ✓');
+          } else {
+            showToast(data.mensagem || 'Erro ao salvar foto.');
+          }
+        })
+        .catch(function() {
+          if (spinner) spinner.classList.remove('ativo');
+          // Manter foto na UI mesmo offline (localStorage já salvo)
+          var uid2 = currentUser && currentUser.uid;
+          if (uid2) {
+            localStorage.setItem('rp_foto_perfil_' + uid2, compressedDataUrl);
+          }
+          showToast('Foto salva localmente ✓ (sem conexão)');
+        });
+
+        // Limpar input para permitir selecionar mesma foto novamente
+        input.value = '';
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  }
+
   // ── Meus Veículos ─────────────────────────────────────────────────────────
   function abrirMeusVeiculos() {
     var veh = null;
@@ -2551,13 +2723,20 @@ export function getAppHTML(firebaseScripts: string): string {
     // Verificar a cada 2 minutos enquanto o app estiver aberto
     setInterval(verificarSessaoUnica, 2 * 60 * 1000);
 
-    // Atualizar nome do usuário no perfil
+    // Atualizar nome e foto do usuário no perfil
     if (currentUser) {
       const nome = currentUser.name || currentUser.email?.split('@')[0] || 'Usuário';
-      document.getElementById('perfil-nome').textContent = nome;
-      if (currentUser.photo) {
-        document.getElementById('perfil-avatar').src = currentUser.photo;
-      }
+      const nomeEl = document.getElementById('perfil-nome');
+      if (nomeEl) nomeEl.textContent = nome;
+
+      // Prioridade: localStorage → Firebase photo → inicial do nome
+      const fotoLocal = localStorage.getItem('rp_foto_perfil_' + currentUser.uid);
+      const fotoFinal = fotoLocal || currentUser.photo || '';
+      atualizarAvatarUI(fotoFinal);
+
+      // Atualizar também o div da inicial com a letra correta
+      const inicialEl = document.getElementById('perfil-avatar-inicial');
+      if (inicialEl) inicialEl.textContent = nome.charAt(0).toUpperCase();
     }
 
     // Iniciar na view mapa (com header)
