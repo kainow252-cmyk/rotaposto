@@ -1275,27 +1275,28 @@ app.post('/api/sos/servicos', async (c) => {
       }
     }
 
-    // ── Mapa tipo → includedTypes Google Places ──────────────────────────────
-    const tipoMap: Record<string, string[]> = {
-      guincho:     ['towing_service'],
-      borracheiro: ['tire_repair', 'auto_repair'],
-      mecanica:    ['auto_repair', 'car_repair'],
-      todos:       ['towing_service', 'tire_repair', 'auto_repair'],
+    // ── Mapa tipo → query texto + emoji (Places API New só suporta car_repair via nearby)
+    // Usamos searchText que retorna resultados muito mais relevantes para guinchos/borracheiros
+    const tipoQueryMap: Record<string, { query: string, emoji: string }> = {
+      guincho:     { query: 'guincho reboque 24h',         emoji: '🚛' },
+      borracheiro: { query: 'borracheiro pneu 24h',        emoji: '🔧' },
+      mecanica:    { query: 'mecânica auto elétrica',      emoji: '🔩' },
+      todos:       { query: 'guincho reboque borracheiro',  emoji: '🛠️' },
     }
-    const includedTypes = tipoMap[tipo] || tipoMap['todos']
+    const tipoInfo = tipoQueryMap[tipo] || tipoQueryMap['todos']
 
-    // ── Chamada Google Places Nearby Search ──────────────────────────────────
-    const url = 'https://places.googleapis.com/v1/places:searchNearby'
+    // ── Chamada Google Places Text Search ────────────────────────────────────
+    const url = 'https://places.googleapis.com/v1/places:searchText'
     const reqBody = {
-      includedTypes,
+      textQuery: tipoInfo.query,
       maxResultCount: 20,
-      locationRestriction: {
+      locationBias: {
         circle: {
           center: { latitude: lat, longitude: lng },
           radius: 10000 // 10 km
         }
       },
-      rankPreference: 'DISTANCE'
+      languageCode: 'pt-BR'
     }
     const fieldMask = [
       'places.id',
@@ -1326,7 +1327,7 @@ app.post('/api/sos/servicos', async (c) => {
     if (!gRes.ok) {
       const errText = await gRes.text()
       console.warn('[SOS] Google Places erro:', gRes.status, errText.slice(0, 200))
-      return c.json({ erro: 'Erro na busca. Tente novamente.' }, 502)
+      return c.json({ erro: 'Erro na busca. Tente novamente.' }, 500)
     }
 
     const gJson = await gRes.json() as any
@@ -1350,12 +1351,12 @@ app.post('/api/sos/servicos', async (c) => {
       const aberto = p.currentOpeningHours?.openNow
       const tel = p.internationalPhoneNumber || p.nationalPhoneNumber || null
 
-      // Emoji por tipo
-      const tipos: string[] = p.types || []
-      const emoji = tipos.includes('towing_service') ? '🚛'
-        : tipos.includes('tire_repair') ? '🔧'
-        : tipos.includes('auto_repair') ? '🔩'
-        : '🛠️'
+      // Emoji baseado no nome (mais preciso que types no searchText)
+      const nome = (p.displayName?.text || '').toLowerCase()
+      const emoji = nome.includes('guincho') || nome.includes('reboque') ? '🚛'
+        : nome.includes('borracheiro') || nome.includes('pneu') ? '🔧'
+        : nome.includes('mecân') || nome.includes('auto') ? '🔩'
+        : tipoInfo.emoji
 
       return {
         id: p.id,
