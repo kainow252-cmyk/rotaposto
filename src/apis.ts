@@ -211,76 +211,94 @@ export function estimarPrecosPorMunicipio(uf: string, municipio: string): PostoR
   return { ...estimarPrecosPorUF(uf), _semana: `${ANP_SEMANA.inicio} a ${ANP_SEMANA.fim}`, _fonte: 'anp_media_uf' }
 }
 
-// ─── 1. API ANP – Postos Cadastrados ─────────────────────────────────────────
+// ─── 1. API ANP – Postos Cadastrados (multi-página) ──────────────────────────
+// Busca até 3 páginas em paralelo (≤210 postos) para cobrir cidades grandes
 export async function buscarPostosANP(uf: string, municipio: string, pagina = 1, kv?: KVNamespace): Promise<PostoReal[]> {
   try {
-    const url = `https://revendedoresapi.anp.gov.br/v1/combustivel?uf=${encodeURIComponent(uf)}&municipio=${encodeURIComponent(municipio)}&numeropagina=${pagina}`
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'RotaPosto/1.0', 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(8000)
-    })
-    if (!res.ok) return []
-    const json = await res.json() as any
-
-    if (!json.succeeded || !Array.isArray(json.data)) return []
-
-    // Pré-carrega dados KV uma vez para toda a lista de postos
+    // Pré-carrega dados KV uma vez para toda a lista
     const kvData = await getKVData(kv)
     const semanaKV = kvData?.semana || null
 
-    return (await Promise.all(json.data
-      .filter((p: any) => p.latitude && p.longitude && parseFloat(p.latitude) !== 0)
-      .map(async (p: any): Promise<PostoReal> => {
-        const bandeira = normalizarBandeira(p.distribuidora || '')
-        const produtos: string[] = (p.produtos || []).map((pr: any) => pr.produto)
-        const ufPosto = (p.uf || uf).toUpperCase()
-        const munPosto = p.municipio || municipio
+    // Buscar página 1 primeiro para saber se há mais páginas
+    const fetchPagina = async (pag: number) => {
+      const url = `https://revendedoresapi.anp.gov.br/v1/combustivel?uf=${encodeURIComponent(uf)}&municipio=${encodeURIComponent(municipio)}&numeropagina=${pag}`
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'RotaPosto/1.0', 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000)
+      })
+      if (!res.ok) return []
+      const json = await res.json() as any
+      if (!json.succeeded || !Array.isArray(json.data)) return []
+      return json.data
+    }
 
-        // ── Prioridade 1 & 2: KV (semana atual) → bundle (semana do build) ──
-        const cnpjNorm = (p.cnpj || '').replace(/[^0-9]/g, '').padStart(14, '0')
-        const real = await getPrecoParaCNPJ(cnpjNorm, kvData)
+    // Sempre busca pág 1; se retornar 70 (página cheia), busca pág 2 e 3 em paralelo
+    const pag1 = await fetchPagina(pagina)
+    let todosRaw = [...pag1]
 
-        let precos: PostoReal['precos']
-        let fontePreco: PostoReal['fontePreco']
-        let atualizadoEm: string
+    if (pag1.length >= 70) {
+      // Cidade grande: buscar mais páginas em paralelo (máx pág 3)
+      const [pag2, pag3] = await Promise.all([
+        fetchPagina(pagina + 1).catch(() => [] as any[]),
+        fetchPagina(pagina + 2).catch(() => [] as any[])
+      ])
+      todosRaw = [...pag1, ...pag2, ...pag3]
+    }
 
-        if (real) {
-          precos = real.precos as PostoReal['precos']
-          fontePreco = 'anp'
-          // Indica a semana: KV = semana atual, bundle = semana do build
-          atualizadoEm = real.fonte === 'kv'
-            ? `📡 ${semanaKV} (KV)`
-            : ANP_SEMANA_POSTOS
-        } else {
-          // Prioridade 3: Média municipal ANP (estimado — todos os postos da cidade)
-          const precosMun = estimarPrecosPorMunicipio(ufPosto, munPosto)
-          precos = precosMun
-          fontePreco = 'estimado'
-          atualizadoEm = new Date().toISOString().split('T')[0]
-        }
+    const postosValidos = todosRaw.filter((p: any) =>
+      p.latitude && p.longitude && parseFloat(p.latitude) !== 0
+    )
 
-        return {
-          id: `anp-${p.codigoSIMP || p.cnpj}`,
-          fonte: 'anp',
-          cnpj: p.cnpj,
-          codigoSIMP: p.codigoSIMP,
-          nome: p.razaoSocial || 'Posto ' + bandeira,
-          bandeira,
-          distribuidora: p.distribuidora,
-          endereco: p.endereco || '',
-          bairro: p.bairro,
-          cidade: munPosto,
-          estado: ufPosto,
-          cep: p.cep,
-          lat: parseFloat(p.latitude),
-          lng: parseFloat(p.longitude),
-          precos,
-          produtos,
-          atualizadoEm,
-          fontePreco,
-          confirmacoesPreco: 0
-        }
-      }))) as PostoReal[]
+    return (await Promise.all(postosValidos.map(async (p: any): Promise<PostoReal> => {
+      const bandeira  = normalizarBandeira(p.distribuidora || '')
+      const produtos: string[] = (p.produtos || []).map((pr: any) => pr.produto)
+      const ufPosto   = (p.uf || uf).toUpperCase()
+      const munPosto  = p.municipio || municipio
+
+      // ── Tier 1 & 2: preço real por CNPJ (KV semana atual → bundle semana build) ──
+      const cnpjNorm = (p.cnpj || '').replace(/[^0-9]/g, '').padStart(14, '0')
+      const real = await getPrecoParaCNPJ(cnpjNorm, kvData)
+
+      let precos: PostoReal['precos']
+      let fontePreco: PostoReal['fontePreco']
+      let atualizadoEm: string
+
+      if (real) {
+        precos      = real.precos as PostoReal['precos']
+        fontePreco  = 'anp'
+        atualizadoEm = real.fonte === 'kv'
+          ? `📡 ${semanaKV} (tempo real)`
+          : `📋 ${ANP_SEMANA_POSTOS} (histórico)`
+      } else {
+        // ── Tier 3: média municipal (estimativa precisa por cidade) ──
+        const precosMun = estimarPrecosPorMunicipio(ufPosto, munPosto)
+        precos      = precosMun
+        fontePreco  = 'estimado'
+        atualizadoEm = `📊 Média ${ANP_SEMANA.inicio} a ${ANP_SEMANA.fim}`
+      }
+
+      return {
+        id:           `anp-${p.codigoSIMP || p.cnpj}`,
+        fonte:        'anp',
+        cnpj:         p.cnpj,
+        codigoSIMP:   p.codigoSIMP,
+        nome:         p.razaoSocial || 'Posto ' + bandeira,
+        bandeira,
+        distribuidora: p.distribuidora,
+        endereco:     p.endereco || '',
+        bairro:       p.bairro,
+        cidade:       munPosto,
+        estado:       ufPosto,
+        cep:          p.cep,
+        lat:          parseFloat(p.latitude),
+        lng:          parseFloat(p.longitude),
+        precos,
+        produtos,
+        atualizadoEm,
+        fontePreco,
+        confirmacoesPreco: 0
+      }
+    }))) as PostoReal[]
   } catch (e) {
     console.error('Erro ANP:', e)
     return []
