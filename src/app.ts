@@ -1728,7 +1728,7 @@ export function getAppHTML(firebaseScripts: string): string {
     body.innerHTML = '<div class="sos-loading"><div class="sos-loading-spinner"></div>Buscando serviços num raio de 10 km…</div>';
 
     try {
-      const payload: any = { lat, lng, tipo };
+      const payload = { lat, lng, tipo };
       if (currentUser?.uid) payload.userId = currentUser.uid;
 
       const res = await fetch('/api/sos/servicos', {
