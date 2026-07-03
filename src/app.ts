@@ -732,6 +732,86 @@ export function getAppHTML(firebaseScripts: string): string {
     }
     @keyframes spin360 { to { transform: rotate(360deg); } }
 
+    /* ══════════════════════════════════════════════
+       SUB-TELA CHEIA (substitui modais do menu)
+    ══════════════════════════════════════════════ */
+    #rp-subtela {
+      position: fixed; inset: 0; z-index: 9000;
+      background: var(--gray-bg);
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+    }
+    #rp-subtela.aberta { transform: translateX(0); }
+
+    #rp-subtela-header {
+      background: var(--orange);
+      padding: calc(var(--sat) + 16px) 16px 16px;
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0;
+    }
+    #rp-subtela-back {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    #rp-subtela-back svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
+    #rp-subtela-titulo {
+      font-size: 18px; font-weight: 800; color: #fff; flex: 1;
+    }
+    #rp-subtela-body {
+      flex: 1; overflow-y: auto;
+      padding: 20px 16px calc(var(--sab) + 24px);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Cards internos da subtela */
+    .st-card {
+      background: var(--white); border-radius: 16px;
+      padding: 16px; margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+    .st-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 0; border-bottom: 1px solid var(--border);
+    }
+    .st-row:last-child { border-bottom: none; }
+    .st-label { font-size: 14px; color: var(--gray); }
+    .st-value { font-size: 14px; font-weight: 600; color: var(--black); }
+    .st-btn {
+      width: 100%; padding: 15px;
+      background: var(--orange); color: #fff;
+      border: none; border-radius: 14px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      margin-top: 8px; transition: background .15s;
+    }
+    .st-btn:active { background: var(--orange-dark); }
+    .st-btn-ghost {
+      background: var(--gray-bg); color: var(--black);
+    }
+    .st-btn-danger {
+      background: var(--red-bg); color: var(--red);
+    }
+    .st-section-title {
+      font-size: 12px; font-weight: 700; color: var(--gray);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin: 0 0 10px;
+    }
+    .st-faq details {
+      border: 1.5px solid var(--border); border-radius: 14px;
+      margin-bottom: 8px; overflow: hidden; background: #fff;
+    }
+    .st-faq summary {
+      padding: 14px 16px; font-size: 14px; font-weight: 600;
+      color: var(--black); cursor: pointer; list-style: none;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .st-faq summary::-webkit-details-marker { display: none; }
+    .st-faq details[open] summary { color: var(--orange); }
+    .st-faq .st-faq-body { padding: 0 16px 14px; font-size: 14px; color: var(--gray-dark); line-height: 1.65; }
+
     #perfil-info { flex: 1; }
     #perfil-ola {
       font-size: 20px; font-weight: 800; color: var(--white);
@@ -1223,6 +1303,17 @@ export function getAppHTML(firebaseScripts: string): string {
   <!-- Utilitários -->
   <div id="app-toast"></div>
   <div id="app-loading"><div class="app-spinner"></div></div>
+
+  <!-- ══ SUB-TELA CHEIA (menu perfil) ══ -->
+  <div id="rp-subtela">
+    <div id="rp-subtela-header">
+      <button id="rp-subtela-back" onclick="fecharTela()">
+        <svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="rp-subtela-titulo">Título</div>
+    </div>
+    <div id="rp-subtela-body"></div>
+  </div>
 
   <!-- ══ MODAL ASSINATURA PIX ══ -->
   <div id="modal-assinatura" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);overflow-y:auto;">
@@ -1903,46 +1994,45 @@ export function getAppHTML(firebaseScripts: string): string {
   function goToVehicle() { abrirMeusVeiculos(); }
 
   // ── Modal helpers ──────────────────────────────────────────────────────────
-  function fecharModal() {
-    var el = document.getElementById('rp-modal-overlay');
-    if (el) el.remove();
+  function fecharTela() {
+    var el = document.getElementById('rp-subtela');
+    if (el) el.classList.remove('aberta');
   }
 
-  function abrirModal(titulo, conteudoHTML) {
-    var old = document.getElementById('rp-modal-overlay');
-    if (old) old.remove();
-    var overlay = document.createElement('div');
-    overlay.id = 'rp-modal-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s';
-    overlay.innerHTML = '<div id="rp-modal" style="background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:24px 24px calc(env(safe-area-inset-bottom,0px) + 24px);max-height:85vh;overflow-y:auto;">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">'
-      + '<h2 style="font-size:18px;font-weight:800;color:#1A1A1A;margin:0;">' + titulo + '</h2>'
-      + '<button onclick="fecharModal()" style="background:#F5F5F5;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">✕</button>'
-      + '</div>'
-      + conteudoHTML
-      + '</div>';
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
+  function fecharModal() { fecharTela(); }  // compatibilidade
+
+  function abrirTela(titulo, conteudoHTML) {
+    var el = document.getElementById('rp-subtela');
+    var tit = document.getElementById('rp-subtela-titulo');
+    var body = document.getElementById('rp-subtela-body');
+    if (!el || !tit || !body) return;
+    tit.textContent = titulo;
+    body.innerHTML = conteudoHTML;
+    el.classList.add('aberta');
+    body.scrollTop = 0;
   }
+
+  function abrirModal(titulo, conteudoHTML) { abrirTela(titulo, conteudoHTML); }
 
   // ── Minha Conta ───────────────────────────────────────────────────────────
   function abrirMinhaConta() {
     var u = currentUser || {};
     var nome = u.name || 'Usuário';
     var email = u.email || '—';
-    var foto = u.photo || '';
+    var foto = u.photo || localStorage.getItem('rp_foto_perfil_' + u.uid) || '';
     var provider = u.provider === 'google.com' ? 'Google' : u.provider === 'facebook.com' ? 'Facebook' : 'E-mail';
-    var html = '<div style="text-align:center;margin-bottom:24px;">'
-      + (foto ? '<img src="' + foto + '" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;border:3px solid #FF6D00;">' : '<div style="width:72px;height:72px;border-radius:50%;background:#FF6D00;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;color:#fff;font-weight:700;">' + nome.charAt(0).toUpperCase() + '</div>')
-      + '<div style="font-size:18px;font-weight:700;color:#1A1A1A;">' + nome + '</div>'
-      + '<div style="font-size:13px;color:#888;margin-top:4px;">' + email + '</div>'
+    var html = '<div style="text-align:center;margin-bottom:20px;padding:20px 0;">'
+      + (foto ? '<img src="' + foto + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:12px;border:3px solid #FF6D00;">'
+               : '<div style="width:80px;height:80px;border-radius:50%;background:#FF6D00;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:32px;color:#fff;font-weight:800;">' + nome.charAt(0).toUpperCase() + '</div>')
+      + '<div style="font-size:20px;font-weight:800;color:#1A1A1A;">' + nome + '</div>'
+      + '<div style="font-size:14px;color:#888;margin-top:4px;">' + email + '</div>'
       + '</div>'
-      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:16px;">'
-      + '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;"><span style="font-size:14px;color:#888;">Login via</span><span style="font-size:14px;font-weight:600;color:#1A1A1A;">' + provider + '</span></div>'
-      + '<div style="display:flex;justify-content:space-between;padding:10px 0;"><span style="font-size:14px;color:#888;">ID da conta</span><span style="font-size:11px;font-weight:500;color:#888;">' + (u.uid || '—').slice(0,16) + '...</span></div>'
+      + '<div class="st-card">'
+      + '<div class="st-row"><span class="st-label">Login via</span><span class="st-value">' + provider + '</span></div>'
+      + '<div class="st-row"><span class="st-label">ID da conta</span><span class="st-value" style="font-size:12px;">' + (u.uid || '—').slice(0,16) + '...</span></div>'
       + '</div>'
-      + '<button onclick="doLogout();fecharModal();" style="width:100%;padding:14px;background:#FFF0F0;color:#E53935;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Sair da conta</button>';
-    abrirModal('Minha Conta', html);
+      + '<button class="st-btn st-btn-danger" onclick="doLogout();fecharTela();">Sair da conta</button>';
+    abrirTela('Minha Conta', html);
   }
 
   // ── Upload de Foto de Perfil ──────────────────────────────────────────────
@@ -2061,19 +2151,20 @@ export function getAppHTML(firebaseScripts: string): string {
     var tipo = veh ? (veh.type || 'Carro de passeio') : 'Não configurado';
     var consumo = veh ? (veh.consumption || 12) + ' km/L' : '—';
     var tanque = veh ? (veh.tank || 50) + ' litros' : '—';
-    var html = '<div style="background:#FFF8F0;border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;">'
-      + '<div style="font-size:40px;margin-bottom:8px;">🚗</div>'
-      + '<div style="font-size:16px;font-weight:700;color:#1A1A1A;">' + tipo + '</div>'
+    var icone = tipo.includes('Moto') ? '🏍️' : tipo.includes('Caminhão') || tipo.includes('Van') ? '🚛' : tipo.includes('Elétrico') || tipo.includes('Híbrido') ? '⚡' : tipo.includes('SUV') || tipo.includes('Picape') ? '🚙' : '🚗';
+    var html = '<div class="st-card" style="text-align:center;padding:24px 16px;">'
+      + '<div style="font-size:48px;margin-bottom:8px;">' + icone + '</div>'
+      + '<div style="font-size:17px;font-weight:800;color:#1A1A1A;">' + tipo + '</div>'
       + '</div>'
-      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:20px;">'
-      + '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;"><span style="font-size:14px;color:#888;">Consumo médio</span><span style="font-size:14px;font-weight:600;color:#1A1A1A;">' + consumo + '</span></div>'
-      + '<div style="display:flex;justify-content:space-between;padding:10px 0;"><span style="font-size:14px;color:#888;">Tanque</span><span style="font-size:14px;font-weight:600;color:#1A1A1A;">' + tanque + '</span></div>'
+      + '<div class="st-card">'
+      + '<div class="st-row"><span class="st-label">Consumo médio</span><span class="st-value">' + consumo + '</span></div>'
+      + '<div class="st-row"><span class="st-label">Tanque</span><span class="st-value">' + tanque + '</span></div>'
       + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
-      + '<button onclick="editarVeiculo(&quot;tipo&quot;)" style="padding:14px;background:#F5F5F5;color:#1A1A1A;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">Alterar tipo</button>'
-      + '<button onclick="editarVeiculo(&quot;consumo&quot;)" style="padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">Editar consumo</button>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">'
+      + '<button onclick="editarVeiculo(&quot;tipo&quot;)" class="st-btn st-btn-ghost" style="margin:0;">Alterar tipo</button>'
+      + '<button onclick="editarVeiculo(&quot;consumo&quot;)" class="st-btn" style="margin:0;">Editar consumo</button>'
       + '</div>';
-    abrirModal('Meus Veículos', html);
+    abrirTela('Meus Veículos', html);
   }
 
   function editarVeiculo(campo) {
@@ -2082,17 +2173,21 @@ export function getAppHTML(firebaseScripts: string): string {
     if (campo === 'tipo') {
       var tipos = ['Carro de passeio','SUV / Picape','Moto','Caminhão / Van','Elétrico / Híbrido'];
       var opts = tipos.map(function(t) { return '<option' + (veh.type === t ? ' selected' : '') + '>' + t + '</option>'; }).join('');
-      var html = '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Tipo de veículo</label>'
-        + '<select id="veh-edit-tipo" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;margin-bottom:20px;">' + opts + '</select>'
-        + '<button onclick="salvarVeiculoCampo(&quot;tipo&quot;)" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Salvar</button>';
-      abrirModal('Tipo de Veículo', html);
+      var html = '<div class="st-card">'
+        + '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:10px;">Tipo de veículo</label>'
+        + '<select id="veh-edit-tipo" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;background:#fff;">' + opts + '</select>'
+        + '</div>'
+        + '<button onclick="salvarVeiculoCampo(&quot;tipo&quot;)" class="st-btn">Salvar</button>';
+      abrirTela('Tipo de Veículo', html);
     } else {
-      var html = '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Consumo médio (km/L)</label>'
-        + '<input id="veh-edit-consumo" type="number" min="4" max="50" value="' + (veh.consumption || 12) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;margin-bottom:8px;">'
-        + '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;margin-top:12px;">Capacidade do tanque (litros)</label>'
-        + '<input id="veh-edit-tanque" type="number" min="20" max="200" value="' + (veh.tank || 50) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;margin-bottom:20px;">'
-        + '<button onclick="salvarVeiculoCampo(&quot;consumo&quot;)" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Salvar</button>';
-      abrirModal('Consumo do Veículo', html);
+      var html = '<div class="st-card">'
+        + '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Consumo médio (km/L)</label>'
+        + '<input id="veh-edit-consumo" type="number" min="4" max="50" value="' + (veh.consumption || 12) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;margin-bottom:16px;">'
+        + '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Capacidade do tanque (litros)</label>'
+        + '<input id="veh-edit-tanque" type="number" min="20" max="200" value="' + (veh.tank || 50) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;">'
+        + '</div>'
+        + '<button onclick="salvarVeiculoCampo(&quot;consumo&quot;)" class="st-btn">Salvar</button>';
+      abrirTela('Consumo do Veículo', html);
     }
   }
 
@@ -2109,51 +2204,46 @@ export function getAppHTML(firebaseScripts: string): string {
       if (t) veh.tank = parseInt(t.value) || 50;
     }
     localStorage.setItem('rp_vehicle', JSON.stringify(veh));
-    document.getElementById('rp-modal-overlay')?.remove();
+    fecharTela();
     showToast('Veículo atualizado! ✓');
   }
 
   // ── Formas de Pagamento ───────────────────────────────────────────────────
   function abrirFormasPagamento() {
-    var html = '<div style="background:#FFF8F0;border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;">'
-      + '<div style="font-size:36px;margin-bottom:8px;">💳</div>'
-      + '<div style="font-size:15px;color:#555;line-height:1.6;">O RotaPosto utiliza <strong>PIX recorrente</strong> como forma de pagamento para assinaturas Premium.</div>'
+    var html = '<div class="st-card" style="text-align:center;padding:24px 16px;">'
+      + '<div style="font-size:48px;margin-bottom:10px;">💳</div>'
+      + '<p style="font-size:14px;color:#555;line-height:1.65;">O RotaPosto utiliza <strong>PIX recorrente</strong> como forma de pagamento para assinaturas Premium.</p>'
       + '</div>'
-      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:20px;">'
-      + '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #eee;">'
-      + '<div style="width:40px;height:40px;background:#00C853;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🔑</div>'
-      + '<div><div style="font-size:14px;font-weight:700;color:#1A1A1A;">PIX Recorrente</div><div style="font-size:12px;color:#888;">Cobrança automática mensal ou anual</div></div>'
+      + '<div class="st-card">'
+      + '<div class="st-row"><span class="st-label">PIX Recorrente</span><span class="st-value" style="color:#00C853;">✓ Disponível</span></div>'
+      + '<div class="st-row"><span class="st-label">Cartão de crédito</span><span class="st-value" style="color:#888;">Em breve</span></div>'
+      + '<div class="st-row"><span class="st-label">Processado via</span><span class="st-value">OpenPix/Woovi</span></div>'
       + '</div>'
-      + '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;">'
-      + '<div style="width:40px;height:40px;background:#E8F5E9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🔒</div>'
-      + '<div><div style="font-size:14px;font-weight:700;color:#1A1A1A;">Pagamento seguro</div><div style="font-size:12px;color:#888;">Processado via OpenPix/Woovi</div></div>'
-      + '</div>'
-      + '</div>'
-      + '<button onclick="fecharModal();goToAssinatura();" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Ver planos Premium</button>';
-    abrirModal('Formas de Pagamento', html);
+      + '<button class="st-btn" onclick="fecharTela();goToAssinatura();">Ver planos Premium</button>';
+    abrirTela('Formas de Pagamento', html);
   }
 
   // ── Notificações ──────────────────────────────────────────────────────────
   function abrirNotificacoes() {
     var ativas = Notification.permission === 'granted';
-    var html = '<div style="background:#F9F9F9;border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;">'
-      + '<div style="font-size:40px;margin-bottom:8px;">' + (ativas ? '🔔' : '🔕') + '</div>'
-      + '<div style="font-size:16px;font-weight:700;color:#1A1A1A;margin-bottom:4px;">' + (ativas ? 'Notificações ativas' : 'Notificações desativadas') + '</div>'
+    var html = '<div class="st-card" style="text-align:center;padding:24px 16px;">'
+      + '<div style="font-size:48px;margin-bottom:10px;">' + (ativas ? '🔔' : '🔕') + '</div>'
+      + '<div style="font-size:17px;font-weight:800;color:#1A1A1A;margin-bottom:6px;">' + (ativas ? 'Notificações ativas' : 'Notificações desativadas') + '</div>'
       + '<div style="font-size:13px;color:#888;">Status: ' + Notification.permission + '</div>'
       + '</div>'
-      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:20px;">'
-      + '<div style="font-size:13px;color:#555;line-height:1.7;">Receba alertas quando:<br>• Preços próximos de você caírem<br>• Postos favoritos atualizarem preços<br>• Novas promoções na sua região</div>'
+      + '<div class="st-card">'
+      + '<p style="font-size:14px;color:#555;line-height:1.7;">Receba alertas quando:<br>• Preços próximos de você caírem<br>• Postos favoritos atualizarem preços<br>• Novas promoções na sua região</p>'
       + '</div>'
-      + (!ativas ? '<button onclick="pedirPermissaoNotificacao()" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;">Ativar notificações</button>'
+      + (!ativas ? '<button class="st-btn" onclick="pedirPermissaoNotificacao()">Ativar notificações</button>'
       : '<div style="text-align:center;font-size:13px;color:#888;padding:12px;">Para desativar, acesse as configurações do seu navegador.</div>');
-    abrirModal('Notificações', html);
+    abrirTela('Notificações', html);
   }
 
   function pedirPermissaoNotificacao() {
     if (!('Notification' in window)) { showToast('Notificações não suportadas'); return; }
     Notification.requestPermission().then(function(result) {
-      document.getElementById('rp-modal-overlay')?.remove();
-      if (result === 'granted') showToast('Notificações ativadas! 🔔');
+      fecharTela();
+      if (result === 'granted') { showToast('Notificações ativadas! 🔔'); setTimeout(function(){ abrirNotificacoes(); }, 300); }
       else showToast('Permissão negada pelo navegador');
     });
   }
@@ -2162,20 +2252,20 @@ export function getAppHTML(firebaseScripts: string): string {
   function abrirIndiqueGanhe() {
     var u = currentUser || {};
     var link = 'https://rotaposto.com.br?ref=' + (u.uid || 'usuario').slice(0, 8);
-    var html = '<div style="background:linear-gradient(135deg,#FF6D00,#FF8F00);border-radius:16px;padding:20px;margin-bottom:20px;text-align:center;color:#fff;">'
-      + '<div style="font-size:40px;margin-bottom:8px;">🎁</div>'
-      + '<div style="font-size:18px;font-weight:800;margin-bottom:6px;">Convide amigos!</div>'
-      + '<div style="font-size:13px;opacity:0.9;">Você e seu amigo ganham<br><strong>7 dias de Premium grátis</strong></div>'
+    var html = '<div class="st-card" style="background:linear-gradient(135deg,#FF6D00,#FF8F00);text-align:center;color:#fff;padding:24px 16px;">'
+      + '<div style="font-size:48px;margin-bottom:10px;">🎁</div>'
+      + '<div style="font-size:20px;font-weight:800;margin-bottom:8px;">Convide amigos!</div>'
+      + '<div style="font-size:14px;opacity:0.92;">Você e seu amigo ganham<br><strong>7 dias de Premium grátis</strong></div>'
       + '</div>'
-      + '<div style="background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:16px;">'
-      + '<div style="font-size:12px;color:#888;margin-bottom:6px;">Seu link de indicação</div>'
-      + '<div style="font-size:13px;font-weight:600;color:#FF6D00;word-break:break-all;">' + link + '</div>'
+      + '<div class="st-card">'
+      + '<div class="st-section-title">Seu link de indicação</div>'
+      + '<div style="font-size:14px;font-weight:600;color:#FF6D00;word-break:break-all;padding:8px 0;">' + link + '</div>'
       + '</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
-      + '<button onclick="copiarLinkIndicacao(this.dataset.link)" data-link="' + link + '" style="padding:14px;background:#F5F5F5;color:#1A1A1A;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">📋 Copiar link</button>'
-      + '<button onclick="compartilharIndicacao(this.dataset.link)" data-link="' + link + '" style="padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:600;cursor:pointer;">📤 Compartilhar</button>'
+      + '<button class="st-btn st-btn-ghost" onclick="copiarLinkIndicacao(this.dataset.link)" data-link="' + link + '">📋 Copiar</button>'
+      + '<button class="st-btn" onclick="compartilharIndicacao(this.dataset.link)" data-link="' + link + '">📤 Compartilhar</button>'
       + '</div>';
-    abrirModal('Indique e Ganhe', html);
+    abrirTela('Indique e Ganhe', html);
   }
 
   function copiarLinkIndicacao(link) {
@@ -2198,18 +2288,17 @@ export function getAppHTML(firebaseScripts: string): string {
       ['Como reportar um preço?', 'Clique em um posto no mapa, abra os detalhes e use o botão "Reportar preço" para atualizar o valor.'],
       ['Como cancelar minha assinatura?', 'Acesse Perfil → Assinatura e clique em "Cancelar assinatura". Você continua com acesso Premium até o fim do período pago.'],
     ];
-    var html = faqs.map(function(f) {
-      return '<details style="border:1px solid #E0E0E0;border-radius:12px;margin-bottom:10px;overflow:hidden;">'
-        + '<summary style="padding:14px 16px;font-size:14px;font-weight:600;color:#1A1A1A;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">'
-        + f[0] + '<span style="color:#FF6D00;font-size:18px;line-height:1;">+</span></summary>'
-        + '<div style="padding:0 16px 14px;font-size:14px;color:#555;line-height:1.6;">' + f[1] + '</div>'
-        + '</details>';
-    }).join('')
-    + '<div style="background:#FFF8F0;border-radius:16px;padding:16px;margin-top:8px;text-align:center;">'
-    + '<div style="font-size:13px;color:#555;margin-bottom:12px;">Não encontrou o que procura?</div>'
-    + '<a href="mailto:contato@rotaposto.com.br" style="display:inline-block;padding:12px 24px;background:#FF6D00;color:#fff;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;">📧 Falar com suporte</a>'
-    + '</div>';
-    abrirModal('Ajuda e Suporte', html);
+    var html = '<div class="st-faq">'
+      + faqs.map(function(f) {
+          return '<details><summary>' + f[0] + '<span style="color:#FF6D00;font-size:20px;font-weight:300;">+</span></summary>'
+            + '<div class="st-faq-body">' + f[1] + '</div></details>';
+        }).join('')
+      + '</div>'
+      + '<div class="st-card" style="text-align:center;margin-top:4px;">'
+      + '<p style="font-size:14px;color:#555;margin-bottom:14px;">Não encontrou o que procura?</p>'
+      + '<a href="mailto:contato@rotaposto.com.br" class="st-btn" style="display:block;text-decoration:none;text-align:center;">📧 Falar com suporte</a>'
+      + '</div>';
+    abrirTela('Ajuda e Suporte', html);
   }
 
   // ── Configurações ─────────────────────────────────────────────────────────
@@ -2235,7 +2324,7 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<div style="text-align:center;margin-top:8px;">'
       + '<div style="font-size:11px;color:#aaa;">RotaPosto v1.0 • <a href="/termos" target="_blank" style="color:#FF6D00;">Termos</a> • <a href="/privacidade" target="_blank" style="color:#FF6D00;">Privacidade</a></div>'
       + '</div>';
-    abrirModal('Configurações', html);
+    abrirTela('Configurações', html);
   }
 
   function salvarConfig(chave, valor) {
@@ -2249,7 +2338,7 @@ export function getAppHTML(firebaseScripts: string): string {
     localStorage.clear();
     if (user) localStorage.setItem('rp_user', user);
     if (device) localStorage.setItem('rp_device_id', device);
-    document.getElementById('rp-modal-overlay')?.remove();
+    fecharTela();
     showToast('Dados locais limpos ✓');
   }
 
