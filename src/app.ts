@@ -1008,18 +1008,21 @@ export function getAppHTML(firebaseScripts: string): string {
       bottom: calc(var(--sab) + var(--nav-h) + 16px);
       right: 16px;
       z-index: 400;
-      width: 52px; height: 52px;
+      width: 56px; height: 56px;
       background: #D32F2F;
       color: #fff;
       border: none; border-radius: 50%;
       font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
-      cursor: pointer;
+      cursor: grab;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
       box-shadow: 0 4px 16px rgba(211,47,47,0.45);
-      transition: transform 0.15s;
+      transition: transform 0.15s, box-shadow 0.15s;
+      touch-action: none;
+      user-select: none;
     }
     #btn-sos-float:active { transform: scale(0.93); }
-    #btn-sos-float svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
+    #btn-sos-float.dragging { cursor: grabbing; box-shadow: 0 8px 24px rgba(211,47,47,0.55); transform: scale(1.08); }
+    #btn-sos-float svg { width: 20px; height: 20px; stroke: #fff; fill: none; pointer-events: none; }
 
     /* ══════════════════════════════════════════════
        VIEW SOS
@@ -1119,6 +1122,22 @@ export function getAppHTML(firebaseScripts: string): string {
       cursor: pointer; white-space: nowrap; text-decoration: none;
       text-align: center; display: block;
     }
+    .sos-btn-irla {
+      padding: 8px 12px; background: #1565C0; color: #fff;
+      border: none; border-radius: 10px; font-size: 12px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; text-decoration: none;
+      text-align: center; display: block;
+    }
+    /* Drag handle do botão SOS flutuante */
+    #btn-sos-float.dragging { opacity: 0.85; transition: none; }
+    #btn-sos-drag-hint {
+      position: fixed; right: 8px;
+      display: flex; flex-direction: column; gap: 2px;
+      align-items: center; pointer-events: none;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #btn-sos-float:hover ~ #btn-sos-drag-hint,
+    #btn-sos-drag-hint.visible { opacity: 1; }
     /* Estado vazio/loading */
     .sos-loading {
       text-align: center; padding: 40px 20px;
@@ -1815,9 +1834,16 @@ export function getAppHTML(firebaseScripts: string): string {
       header.style.display = 'none';
     }
 
-    // Botão SOS flutuante: ocultar na própria tela SOS
+    // Botão SOS flutuante: SEMPRE visível exceto na própria tela SOS
     const btnSos = document.getElementById('btn-sos-float');
-    if (btnSos) btnSos.style.display = viewId === 'sos' ? 'none' : 'flex';
+    if (btnSos) {
+      btnSos.style.display = viewId === 'sos' ? 'none' : 'flex';
+      // Ajustar posição: sem nav nas telas fullscreen (planejar, detalhes, sos)
+      const semNav = viewId === 'planejar' || viewId === 'detalhes' || viewId === 'perfil';
+      btnSos.style.bottom = semNav
+        ? 'calc(var(--sab) + var(--nav-h) + 16px)'
+        : 'calc(var(--sab) + var(--nav-h) + 16px)';
+    }
 
     // Bottom nav: atualizar ativo
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -1958,6 +1984,12 @@ export function getAppHTML(firebaseScripts: string): string {
       var btnWhats = whatsNum
         ? '<a href="https://wa.me/' + whatsNum + '?text=' + whatsMsg + '" target="_blank" class="sos-btn-whats">💬 WhatsApp</a>'
         : '';
+      // Botão Ir até lá (abre Google Maps com destino)
+      var coordsLat = s.lat || '';
+      var coordsLng = s.lng || '';
+      var btnIrLa = (coordsLat && coordsLng)
+        ? '<a href="https://www.google.com/maps/dir/?api=1&destination=' + coordsLat + ',' + coordsLng + '&travelmode=driving" target="_blank" class="sos-btn-irla">🗺️ Ir até lá</a>'
+        : '<a href="https://www.google.com/maps/search/' + encodeURIComponent(s.nome + ' ' + (s.endereco || '')) + '" target="_blank" class="sos-btn-irla">🗺️ Ir até lá</a>';
       return '<div class="sos-card">'
         + '<div class="sos-card-emoji">' + s.emoji + '</div>'
         + '<div class="sos-card-info">'
@@ -1965,7 +1997,7 @@ export function getAppHTML(firebaseScripts: string): string {
         + '<div class="sos-card-end">' + s.endereco + '</div>'
         + '<div class="sos-card-meta"><span class="sos-dist">' + s.distancia_km + ' km</span>' + abertoLabel + ratingLabel + '</div>'
         + '</div>'
-        + '<div class="sos-card-btns">' + btnLigar + btnWhats + '</div>'
+        + '<div class="sos-card-btns">' + btnLigar + btnWhats + btnIrLa + '</div>'
         + '</div>';
     }).join('');
 
@@ -3504,6 +3536,74 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // Iniciar na view mapa (com header)
     goToView('mapa');
+
+    // ── Drag vertical do botão SOS ─────────────────────────────────────────
+    (function initSosDrag() {
+      var btn = document.getElementById('btn-sos-float');
+      if (!btn) return;
+
+      // Restaurar posição salva
+      var savedBottom = localStorage.getItem('rp_sos_bottom');
+      if (savedBottom) btn.style.bottom = savedBottom + 'px';
+
+      var isDragging = false;
+      var startY = 0;
+      var startBottom = 0;
+
+      function getBottom() {
+        var rect = btn.getBoundingClientRect();
+        return window.innerHeight - rect.bottom;
+      }
+
+      function onStart(e) {
+        // só inicia drag em long-press ou se não for clique rápido
+        isDragging = false;
+        startY = e.touches ? e.touches[0].clientY : e.clientY;
+        startBottom = getBottom();
+        var moved = false;
+
+        function onMove(ev) {
+          var curY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+          var dy = startY - curY;
+          if (!isDragging && Math.abs(dy) > 6) {
+            isDragging = true;
+            btn.classList.add('dragging');
+          }
+          if (!isDragging) return;
+          ev.preventDefault();
+          var newBottom = Math.max(60, Math.min(window.innerHeight - 80, startBottom + dy));
+          btn.style.bottom = newBottom + 'px';
+          btn.style.transition = 'none';
+        }
+
+        function onEnd() {
+          if (isDragging) {
+            var curBottom = getBottom();
+            localStorage.setItem('rp_sos_bottom', Math.round(curBottom).toString());
+            btn.classList.remove('dragging');
+            btn.style.transition = '';
+          }
+          isDragging = false;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onEnd);
+          document.removeEventListener('touchmove', onMove);
+          document.removeEventListener('touchend', onEnd);
+        }
+
+        document.addEventListener('mousemove', onMove, { passive: false });
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onEnd);
+      }
+
+      btn.addEventListener('mousedown', onStart);
+      btn.addEventListener('touchstart', onStart, { passive: true });
+
+      // Click só dispara se não houve drag
+      btn.addEventListener('click', function(e) {
+        if (isDragging) { e.stopPropagation(); e.preventDefault(); }
+      }, true);
+    })();
 
     // Verificar se item "Instalar app" deve aparecer no menu
     verificarMenuInstalar();
