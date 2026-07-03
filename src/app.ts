@@ -664,24 +664,64 @@ export function getAppHTML(firebaseScripts: string): string {
       cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     #plan-dest-val.placeholder { color: var(--gray); font-weight: 400; }
-    #plan-dest-input {
-      display: none; width: 100%;
-      padding: 0; background: none;
-      border: none; outline: none;
-      font-size: 15px; font-family: inherit; font-weight: 600;
-      color: var(--black); box-sizing: border-box;
-    }
-    #plan-dest-input::placeholder { color: var(--gray); font-weight: 400; }
+    #plan-dest-input { display: none; }
     .plan-dest-label { font-size: 12px; color: var(--gray); margin-bottom: 2px; }
 
-    /* Dropdown sugestões — fixed para furar qualquer overflow:hidden do pai */
-    #plan-dest-suggestions {
-      position: fixed;
-      background: #fff; border-radius: 14px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-      border: 1px solid var(--border);
-      z-index: 9500; overflow: hidden;
-      max-height: 280px; overflow-y: auto;
+    /* ── Overlay de busca fullscreen ── */
+    #plan-busca-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 9800;
+      background: #fff;
+      flex-direction: column;
+    }
+    #plan-busca-overlay.aberto { display: flex; }
+    #plan-busca-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+    }
+    #plan-busca-back {
+      width: 38px; height: 38px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--black);
+    }
+    #plan-busca-input {
+      flex: 1; padding: 11px 14px;
+      border: 1.5px solid var(--orange);
+      border-radius: 10px;
+      font-size: 15px; font-family: inherit; font-weight: 600;
+      color: var(--black); outline: none; background: #fff;
+    }
+    #plan-busca-input::placeholder { color: var(--gray); font-weight: 400; }
+    #plan-busca-lista {
+      flex: 1; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .plan-busca-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #F5F5F5;
+      cursor: pointer; transition: background 0.1s;
+    }
+    .plan-busca-item:active { background: var(--orange-light); }
+    .plan-busca-icone {
+      width: 36px; height: 36px; flex-shrink: 0;
+      border-radius: 10px; background: var(--gray-card);
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .plan-busca-info { flex: 1; min-width: 0; }
+    .plan-busca-nome {
+      font-size: 14px; font-weight: 700; color: var(--black);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .plan-busca-sub {
+      font-size: 12px; color: var(--gray); margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .plan-busca-loading {
+      padding: 32px 16px; text-align: center;
+      font-size: 14px; color: var(--gray); line-height: 1.7;
     }
     .plan-sug-item {
       display: flex; align-items: center; gap: 12px;
@@ -1462,12 +1502,7 @@ export function getAppHTML(firebaseScripts: string): string {
             <div id="plan-dest-wrap">
               <div class="plan-dest-label">Para</div>
               <div id="plan-dest-val" class="placeholder" onclick="abrirBuscaDestino()">Cidade, endereço, shopping…</div>
-              <input id="plan-dest-input" type="text" placeholder="Ex: Shopping Vitória, Salvador…"
-                oninput="onPlanDestInput(this.value);reposicionarSugestoes()"
-                onkeydown="if(event.key==='Enter')buscarDestinoPlan(this.value)"
-                onblur="setTimeout(fecharSugestoes, 200)"
-                onfocus="setTimeout(reposicionarSugestoes,50)"/>
-              <div id="plan-dest-suggestions" style="display:none;"></div>
+              <input id="plan-dest-input" type="text" style="display:none"/>
             </div>
             <div id="plan-dest-searching"></div>
             <button class="btn-target" onclick="abrirBuscaDestino()" title="Buscar destino" id="btn-dest-buscar">
@@ -1671,6 +1706,22 @@ export function getAppHTML(firebaseScripts: string): string {
   </div>
 
   <!-- BOTÃO SOS FLUTUANTE -->
+  <!-- Overlay de busca de destino fullscreen -->
+  <div id="plan-busca-overlay">
+    <div id="plan-busca-header">
+      <button id="plan-busca-back" onclick="fecharBuscaOverlay()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <input id="plan-busca-input" type="text" placeholder="Cidade, shopping, endereço…"
+        oninput="onBuscaOverlayInput(this.value)"
+        onkeydown="if(event.key==='Enter')buscarDestinoPlan(this.value)"
+        autocomplete="off" autocorrect="off" spellcheck="false"/>
+    </div>
+    <div id="plan-busca-lista">
+      <div class="plan-busca-loading">🔍 Digite o destino acima para buscar</div>
+    </div>
+  </div>
+
   <button id="btn-sos-float" onclick="abrirSOS()" title="SOS — Guinchos e Emergências">
     <svg viewBox="0 0 24 24" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     SOS
@@ -2381,120 +2432,94 @@ export function getAppHTML(firebaseScripts: string): string {
     showToast('Usando sua localização atual 📍');
   }
 
-  // ── Destino livre no Planejar ─────────────────────────────────────────────
+  // ── Destino livre no Planejar — overlay fullscreen ───────────────────────
   var planDestLat = null;
   var planDestLng = null;
   var planDestNome = null;
   var planDestTimer = null;
 
-  function reposicionarSugestoes() {
-    requestAnimationFrame(function() {
-      var inp = document.getElementById('plan-dest-input');
-      var sug = document.getElementById('plan-dest-suggestions');
-      if (!inp || !sug) return;
-      // Garante que o input está visível antes de calcular (pode estar display:none)
-      if (inp.offsetParent === null) return; // elemento não visível
-      var rect = inp.getBoundingClientRect();
-      if (rect.width === 0) return; // ainda não renderizado
-      var vw = window.innerWidth || document.documentElement.clientWidth;
-      var largura = Math.max(rect.width + 108, 300); // +108 p/ compensar dot+wrap
-      var left = Math.max(8, rect.left - 54); // alinhar com borda do card
-      if (left + largura > vw - 8) left = vw - largura - 8;
-      sug.style.top   = (rect.bottom + 6) + 'px';
-      sug.style.left  = left + 'px';
-      sug.style.width = largura + 'px';
-    });
-  }
-
+  // Abre o overlay fullscreen de busca
   function abrirBuscaDestino() {
-    var val = document.getElementById('plan-dest-val');
-    var inp = document.getElementById('plan-dest-input');
-    var btn = document.getElementById('btn-dest-buscar');
-    if (!val || !inp) return;
-    // Garantir que o dropdown flutuante está no body (fura overflow:hidden dos pais)
-    var sug = document.getElementById('plan-dest-suggestions');
-    if (sug && sug.parentElement !== document.body) document.body.appendChild(sug);
-    val.style.display = 'none';
-    inp.style.display = 'block';
-    if (btn) btn.style.display = 'none';
+    var overlay = document.getElementById('plan-busca-overlay');
+    var inp     = document.getElementById('plan-busca-input');
+    if (!overlay || !inp) return;
+    overlay.classList.add('aberto');
     inp.value = (planDestNome && planDestNome !== 'Cidade, endereço, shopping…') ? planDestNome : '';
-    inp.focus();
+    // Renderizar lista vazia inicial
+    document.getElementById('plan-busca-lista').innerHTML =
+      '<div class="plan-busca-loading">🔍 Digite o destino acima para buscar</div>';
+    setTimeout(function() { inp.focus(); inp.select(); }, 80);
+    // Se já tem texto, busca imediato
+    if (inp.value.length >= 3) buscarDestinoPlan(inp.value);
   }
 
-  function fecharBuscaDestino() {
-    var val = document.getElementById('plan-dest-val');
-    var inp = document.getElementById('plan-dest-input');
-    var btn = document.getElementById('btn-dest-buscar');
-    fecharSugestoes();
-    if (!val || !inp) return;
-    inp.style.display = 'none';
-    val.style.display = 'block';
-    if (btn) btn.style.display = 'flex';
+  function fecharBuscaOverlay() {
+    var overlay = document.getElementById('plan-busca-overlay');
+    if (overlay) overlay.classList.remove('aberto');
   }
 
-  function fecharSugestoes() {
-    var s = document.getElementById('plan-dest-suggestions');
-    if (s) s.style.display = 'none';
-  }
+  // Compatibilidade com chamadas antigas
+  function fecharBuscaDestino() { fecharBuscaOverlay(); }
+  function fecharSugestoes()     { /* no-op: overlay fecha via fecharBuscaOverlay */ }
+  function reposicionarSugestoes() { /* no-op: overlay é fullscreen */ }
+  function onPlanDestInput(v) { /* no-op: substituído por onBuscaOverlayInput */ }
 
-  function onPlanDestInput(val) {
+  function onBuscaOverlayInput(val) {
     clearTimeout(planDestTimer);
-    if (val.length < 3) { fecharSugestoes(); return; }
-    planDestTimer = setTimeout(function() { buscarDestinoPlan(val); }, 400);
+    if (!val || val.length < 3) {
+      document.getElementById('plan-busca-lista').innerHTML =
+        '<div class="plan-busca-loading">🔍 Continue digitando para buscar…</div>';
+      return;
+    }
+    planDestTimer = setTimeout(function() { buscarDestinoPlan(val); }, 380);
   }
 
   async function buscarDestinoPlan(q) {
     if (!q || q.length < 2) return;
-    var sug = document.getElementById('plan-dest-suggestions');
-    var spinner = document.getElementById('plan-dest-searching');
-    if (!sug) return;
+    var lista = document.getElementById('plan-busca-lista');
+    if (!lista) return;
 
-    reposicionarSugestoes();
-    sug.style.display = 'block';
-    sug.innerHTML = '<div class="plan-sug-loading">🔍 Buscando "<b>' + q + '</b>"...</div>';
-    if (spinner) spinner.style.display = 'block';
+    lista.innerHTML = '<div class="plan-busca-loading">⏳ Buscando <b>"' + q + '"</b>…</div>';
 
     try {
-      var res = await fetch('/api/geocode?q=' + encodeURIComponent(q));
+      var res  = await fetch('/api/geocode?q=' + encodeURIComponent(q));
       var data = await res.json();
-      if (spinner) spinner.style.display = 'none';
 
       if (!data || data.length === 0) {
-        sug.innerHTML = '<div class="plan-sug-loading">😕 Nenhum resultado para <b>"' + q + '"</b><br><small style="color:#aaa;">Tente adicionar a cidade: ex. "Shopping Vitória Salvador"</small></div>';
+        lista.innerHTML = '<div class="plan-busca-loading">😕 Nenhum resultado para <b>"' + q + '"</b>.<br>'
+          + '<small style="color:#aaa;">Tente incluir a cidade: ex. "Shopping Vitória Salvador"</small></div>';
         return;
       }
 
-      var html = data.slice(0, 6).map(function(r) {
-        // API retorna: nome, lat, lng (e display_name=nome, lon=lng como aliases)
+      var html = data.slice(0, 8).map(function(r) {
         var nomeCompleto = r.nome || r.display_name || q;
-        var partes = nomeCompleto.split(',');
-        var titulo = partes[0].trim();
-        // Subtítulo: bairro + cidade + estado
-        var subtit = '';
+        var partes  = nomeCompleto.split(',');
+        var titulo  = partes[0].trim();
+        var subtit  = '';
         if (r.cidade || r.estado) {
           subtit = [r.cidade, r.estado].filter(Boolean).join(' – ');
         } else if (partes.length > 1) {
           subtit = partes.slice(1, 3).join(',').trim();
         }
-        var lat = parseFloat(r.lat);
-        var lng = parseFloat(r.lng || r.lon);
-        var icone = detectarIconeLugar(nomeCompleto);
-        // Escapar aspas para o onclick inline
-        var tituloEsc = titulo.replace(/\\/g,'\\\\').replace(/"/g,'').replace(/'/g,'');
-        var subtitEsc = subtit.replace(/\\/g,'\\\\').replace(/"/g,'').replace(/'/g,'');
-        return '<div class="plan-sug-item" onclick="selecionarDestinoPlan(' + lat + ',' + lng + ',&quot;' + tituloEsc + '&quot;,&quot;' + subtitEsc + '&quot;)">'
-          + '<div class="plan-sug-icon">' + icone + '</div>'
-          + '<div class="plan-sug-info">'
-          + '<div class="plan-sug-nome">' + titulo + '</div>'
-          + (subtit ? '<div class="plan-sug-end">' + subtit + '</div>' : '')
+        var lat    = parseFloat(r.lat);
+        var lng    = parseFloat(r.lng || r.lon);
+        var icone  = detectarIconeLugar(nomeCompleto);
+        var titEsc = titulo.replace(/"/g,'').replace(/'/g,'');
+        var subEsc = subtit.replace(/"/g,'').replace(/'/g,'');
+        return '<div class="plan-busca-item" onclick="selecionarDestinoPlan(' + lat + ',' + lng
+          + ',&quot;' + titEsc + '&quot;,&quot;' + subEsc + '&quot;)">'
+          + '<div class="plan-busca-icone">' + icone + '</div>'
+          + '<div class="plan-busca-info">'
+          + '<div class="plan-busca-nome">' + titulo + '</div>'
+          + (subtit ? '<div class="plan-busca-sub">' + subtit + '</div>' : '')
           + '</div>'
           + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="2.5" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>'
           + '</div>';
       }).join('');
-      sug.innerHTML = html;
+      lista.innerHTML = html;
+
     } catch(e) {
-      if (spinner) spinner.style.display = 'none';
-      sug.innerHTML = '<div class="plan-sug-loading">⚠️ Erro ao buscar. Verifique sua conexão.</div>';
+      lista.innerHTML = '<div class="plan-busca-loading">⚠️ Erro ao buscar. Verifique sua conexão.</div>';
     }
   }
 
@@ -2514,19 +2539,21 @@ export function getAppHTML(firebaseScripts: string): string {
     return '📍';
   }
 
+
   function selecionarDestinoPlan(lat, lng, nome, subtit) {
     planDestLat = parseFloat(lat);
     planDestLng = parseFloat(lng);
     planDestNome = nome;
 
+    // Fechar overlay de busca
+    fecharBuscaOverlay();
+
     // Atualizar UI do campo Para
     var val = document.getElementById('plan-dest-val');
-    var inp = document.getElementById('plan-dest-input');
     if (val) {
       val.textContent = nome;
       val.classList.remove('placeholder');
     }
-    fecharBuscaDestino();
 
     // Traçar rota no mapa
     tracarRotaPlan(planDestLat, planDestLng, nome, subtit || '');
