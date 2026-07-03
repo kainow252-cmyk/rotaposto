@@ -674,14 +674,14 @@ export function getAppHTML(firebaseScripts: string): string {
     #plan-dest-input::placeholder { color: var(--gray); font-weight: 400; }
     .plan-dest-label { font-size: 12px; color: var(--gray); margin-bottom: 2px; }
 
-    /* Dropdown sugestões */
+    /* Dropdown sugestões — fixed para furar qualquer overflow:hidden do pai */
     #plan-dest-suggestions {
-      position: absolute; top: calc(100% + 4px); left: -54px; right: -52px;
+      position: fixed;
       background: #fff; border-radius: 14px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
       border: 1px solid var(--border);
-      z-index: 500; overflow: hidden;
-      max-height: 260px; overflow-y: auto;
+      z-index: 9500; overflow: hidden;
+      max-height: 280px; overflow-y: auto;
     }
     .plan-sug-item {
       display: flex; align-items: center; gap: 12px;
@@ -1465,7 +1465,8 @@ export function getAppHTML(firebaseScripts: string): string {
               <input id="plan-dest-input" type="text" placeholder="Ex: Shopping Vitória, Salvador…"
                 oninput="onPlanDestInput(this.value)"
                 onkeydown="if(event.key==='Enter')buscarDestinoPlan(this.value)"
-                onblur="setTimeout(fecharSugestoes, 200)"/>
+                onblur="setTimeout(fecharSugestoes, 200)"
+                onfocus="reposicionarSugestoes()"/>
               <div id="plan-dest-suggestions" style="display:none;"></div>
             </div>
             <div id="plan-dest-searching"></div>
@@ -2386,6 +2387,16 @@ export function getAppHTML(firebaseScripts: string): string {
   var planDestNome = null;
   var planDestTimer = null;
 
+  function reposicionarSugestoes() {
+    var inp = document.getElementById('plan-dest-input');
+    var sug = document.getElementById('plan-dest-suggestions');
+    if (!inp || !sug) return;
+    var rect = inp.getBoundingClientRect();
+    sug.style.top    = (rect.bottom + 4) + 'px';
+    sug.style.left   = rect.left + 'px';
+    sug.style.width  = Math.max(rect.width, 280) + 'px';
+  }
+
   function abrirBuscaDestino() {
     var val = document.getElementById('plan-dest-val');
     var inp = document.getElementById('plan-dest-input');
@@ -2427,6 +2438,7 @@ export function getAppHTML(firebaseScripts: string): string {
     if (!sug) return;
 
     sug.style.display = 'block';
+    reposicionarSugestoes();
     sug.innerHTML = '<div class="plan-sug-loading">🔍 Buscando "<b>' + q + '</b>"...</div>';
     if (spinner) spinner.style.display = 'block';
 
@@ -3730,6 +3742,10 @@ export function getAppHTML(firebaseScripts: string): string {
   });
 
   (function init() {
+    // Mover #plan-dest-suggestions para o body para furar qualquer overflow:hidden dos pais
+    var sugEl = document.getElementById('plan-dest-suggestions');
+    if (sugEl) document.body.appendChild(sugEl);
+
     // ── Registrar SW v6 com auto-update silencioso ──
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(reg => {
