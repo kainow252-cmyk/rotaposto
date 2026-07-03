@@ -1765,7 +1765,7 @@ export function getAppHTML(firebaseScripts: string): string {
     // Filtros de tipo
     var filtrosHTML = '<div class="sos-filtros">';
     Object.entries(tipoLabels).forEach(([k, v]) => {
-      filtrosHTML += '<button class="sos-chip' + (sosTipoAtivo === k ? ' ativo' : '') + '" onclick="buscarServicosSOSAPI(' + lat + ',' + lng + ',\'' + k + '\')">' + v + '</button>';
+      filtrosHTML += '<button class="sos-chip' + (sosTipoAtivo === k ? ' ativo' : '') + '" onclick="buscarServicosSOSAPI(' + lat + ',' + lng + ',&quot;' + k + '&quot;)">' + v + '</button>';
     });
     filtrosHTML += '</div>';
 
@@ -1819,7 +1819,7 @@ export function getAppHTML(firebaseScripts: string): string {
     const tipoLabels = { todos: '🆘 Todos', guincho: '🚛 Guinchos', borracheiro: '🔧 Borracheiros', mecanica: '🔩 Mecânicas' };
     var filtrosHTML = '<div class="sos-filtros">';
     Object.entries(tipoLabels).forEach(([k, v]) => {
-      filtrosHTML += '<button class="sos-chip' + (sosTipoAtivo === k ? ' ativo' : '') + '" onclick="buscarServicosSOSAPI(' + lat + ',' + lng + ',\'' + k + '\')">' + v + '</button>';
+      filtrosHTML += '<button class="sos-chip' + (sosTipoAtivo === k ? ' ativo' : '') + '" onclick="buscarServicosSOSAPI(' + lat + ',' + lng + ',&quot;' + k + '&quot;)">' + v + '</button>';
     });
     filtrosHTML += '</div>';
 
@@ -1833,7 +1833,7 @@ export function getAppHTML(firebaseScripts: string): string {
       + ['🚛 Guinchos próximos 24h', '🔧 Borracheiros e mecânicas', '📞 Liga direto ou WhatsApp', '⭐ Avaliação e distância exata', '🔔 Alertas de preço baixo'].map(f => '<div style="font-size:13px;color:#444;padding:4px 0;">'+f+'</div>').join('')
       + '</div>'
       + '<button onclick="goToAssinatura()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer;">Assinar por R$ 9,90/mês</button>'
-      + '<button onclick="goToView(\'mapa\')" style="width:100%;padding:12px;background:none;color:#888;border:none;font-size:14px;cursor:pointer;margin-top:8px;">Agora não</button>'
+      + '<button onclick="goToView(&quot;mapa&quot;)" style="width:100%;padding:12px;background:none;color:#888;border:none;font-size:14px;cursor:pointer;margin-top:8px;">Agora não</button>'
       + '</div>';
   }
 
@@ -2172,7 +2172,7 @@ export function getAppHTML(firebaseScripts: string): string {
     // Foto Google Places
     var fotoHtml = '';
     if (p.fotoUrl) {
-      fotoHtml = '<img src="' + p.fotoUrl + '" style="width:100%;height:130px;object-fit:cover;border-radius:12px;margin-bottom:8px;" onerror="this.style.display=\'none\'" loading="lazy" alt="Foto do posto"/>';
+      fotoHtml = '<img src="' + p.fotoUrl + '" style="width:100%;height:130px;object-fit:cover;border-radius:12px;margin-bottom:8px;" onerror="this.style.display=&quot;none&quot;" loading="lazy" alt="Foto do posto"/>';
     }
 
     // Telefone
