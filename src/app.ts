@@ -657,6 +657,66 @@ export function getAppHTML(firebaseScripts: string): string {
       outline: none; box-sizing: border-box;
     }
 
+    /* ── Campo de busca livre de destino ── */
+    #plan-dest-wrap { flex: 1; position: relative; }
+    #plan-dest-val {
+      font-size: 15px; font-weight: 600; color: var(--black);
+      cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #plan-dest-val.placeholder { color: var(--gray); font-weight: 400; }
+    #plan-dest-input {
+      display: none; width: 100%;
+      padding: 0; background: none;
+      border: none; outline: none;
+      font-size: 15px; font-family: inherit; font-weight: 600;
+      color: var(--black); box-sizing: border-box;
+    }
+    #plan-dest-input::placeholder { color: var(--gray); font-weight: 400; }
+    .plan-dest-label { font-size: 12px; color: var(--gray); margin-bottom: 2px; }
+
+    /* Dropdown sugestões */
+    #plan-dest-suggestions {
+      position: absolute; top: calc(100% + 4px); left: -54px; right: -52px;
+      background: #fff; border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+      border: 1px solid var(--border);
+      z-index: 500; overflow: hidden;
+      max-height: 260px; overflow-y: auto;
+    }
+    .plan-sug-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px; cursor: pointer;
+      border-bottom: 1px solid #F5F5F5;
+      transition: background 0.12s;
+    }
+    .plan-sug-item:last-child { border-bottom: none; }
+    .plan-sug-item:active, .plan-sug-item:hover { background: var(--orange-light); }
+    .plan-sug-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--gray-card); display: flex; align-items: center;
+      justify-content: center; font-size: 16px; flex-shrink: 0;
+    }
+    .plan-sug-info { flex: 1; min-width: 0; }
+    .plan-sug-nome {
+      font-size: 14px; font-weight: 700; color: var(--black);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .plan-sug-end {
+      font-size: 12px; color: var(--gray); margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .plan-sug-loading {
+      padding: 20px 16px; text-align: center;
+      font-size: 13px; color: var(--gray);
+    }
+    /* Indicador de busca no campo Para */
+    #plan-dest-searching {
+      width: 18px; height: 18px; flex-shrink: 0;
+      border: 2px solid var(--border); border-top-color: var(--orange);
+      border-radius: 50%; animation: spin360 0.7s linear infinite;
+      display: none;
+    }
+
     /* ── Lista de veículos em Meus Veículos ── */
     .veh-list-item {
       display: flex; align-items: center; gap: 14px;
@@ -1399,12 +1459,18 @@ export function getAppHTML(firebaseScripts: string): string {
           </div>
           <div class="route-field">
             <div class="route-dot-dest"></div>
-            <div class="route-field-content" style="flex:1;">
-              <div class="route-field-label">Para</div>
-              <div class="route-field-val" id="plan-dest">Selecione um posto</div>
+            <div id="plan-dest-wrap">
+              <div class="plan-dest-label">Para</div>
+              <div id="plan-dest-val" class="placeholder" onclick="abrirBuscaDestino()">Cidade, endereço, shopping…</div>
+              <input id="plan-dest-input" type="text" placeholder="Ex: Shopping Vitória, Salvador…"
+                oninput="onPlanDestInput(this.value)"
+                onkeydown="if(event.key==='Enter')buscarDestinoPlan(this.value)"
+                onblur="setTimeout(fecharSugestoes, 200)"/>
+              <div id="plan-dest-suggestions" style="display:none;"></div>
             </div>
-            <button class="btn-target" onclick="goToView('lista');showToast('Toque num posto para traçar a rota')" title="Escolher destino">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="11" y1="5" x2="11" y2="19"/><line x1="5" y1="11" x2="19" y2="11"/></svg>
+            <div id="plan-dest-searching"></div>
+            <button class="btn-target" onclick="abrirBuscaDestino()" title="Buscar destino" id="btn-dest-buscar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </button>
           </div>
         </div>
@@ -1864,11 +1930,17 @@ export function getAppHTML(firebaseScripts: string): string {
     if (viewId === 'mapa' && !mapMain) initMapMain();
     if (viewId === 'planejar') {
       renderPlanCarTabs();
-      if (!mapPlan && selectedPosto) initMapPlan();
-      else if (mapPlan) atualizarCustoPlan(
-        selectedPosto?.distancia || 1.2,
-        selectedPosto?.preco || selectedPosto?.precos?.[selectedFuel] || 0
-      );
+      // Tem destino livre digitado?
+      if (!mapPlan && planDestLat && planDestLng) {
+        tracarRotaPlan(planDestLat, planDestLng, planDestNome || 'Destino', '');
+      } else if (!mapPlan && selectedPosto) {
+        initMapPlan();
+      } else if (mapPlan) {
+        var dist = planDestLat ? calcHaversinePlan(userLat, userLng, planDestLat, planDestLng)
+          : (selectedPosto?.distancia || 1.2);
+        var preco = selectedPosto?.preco || selectedPosto?.precos?.[selectedFuel] || 0;
+        atualizarCustoPlan(dist, preco);
+      }
     }
     if (viewId === 'lista') renderLista();
   }
@@ -2308,7 +2380,172 @@ export function getAppHTML(firebaseScripts: string): string {
     showToast('Usando sua localização atual 📍');
   }
 
-  // ══════════════════════════════════════════════════════
+  // ── Destino livre no Planejar ─────────────────────────────────────────────
+  var planDestLat = null;
+  var planDestLng = null;
+  var planDestNome = null;
+  var planDestTimer = null;
+
+  function abrirBuscaDestino() {
+    var val = document.getElementById('plan-dest-val');
+    var inp = document.getElementById('plan-dest-input');
+    var btn = document.getElementById('btn-dest-buscar');
+    if (!val || !inp) return;
+    val.style.display = 'none';
+    inp.style.display = 'block';
+    if (btn) btn.style.display = 'none';
+    inp.value = (planDestNome && planDestNome !== 'Cidade, endereço, shopping…') ? planDestNome : '';
+    inp.focus();
+  }
+
+  function fecharBuscaDestino() {
+    var val = document.getElementById('plan-dest-val');
+    var inp = document.getElementById('plan-dest-input');
+    var btn = document.getElementById('btn-dest-buscar');
+    fecharSugestoes();
+    if (!val || !inp) return;
+    inp.style.display = 'none';
+    val.style.display = 'block';
+    if (btn) btn.style.display = 'flex';
+  }
+
+  function fecharSugestoes() {
+    var s = document.getElementById('plan-dest-suggestions');
+    if (s) s.style.display = 'none';
+  }
+
+  function onPlanDestInput(val) {
+    clearTimeout(planDestTimer);
+    if (val.length < 3) { fecharSugestoes(); return; }
+    planDestTimer = setTimeout(function() { buscarDestinoPlan(val); }, 400);
+  }
+
+  async function buscarDestinoPlan(q) {
+    if (!q || q.length < 2) return;
+    var sug = document.getElementById('plan-dest-suggestions');
+    var spinner = document.getElementById('plan-dest-searching');
+    if (!sug) return;
+
+    sug.style.display = 'block';
+    sug.innerHTML = '<div class="plan-sug-loading">🔍 Buscando...</div>';
+    if (spinner) spinner.style.display = 'block';
+
+    try {
+      var res = await fetch('/api/geocode?q=' + encodeURIComponent(q));
+      var data = await res.json();
+      if (spinner) spinner.style.display = 'none';
+
+      if (!data || data.length === 0) {
+        sug.innerHTML = '<div class="plan-sug-loading">😕 Nenhum resultado para <b>"' + q + '"</b></div>';
+        return;
+      }
+
+      var html = data.slice(0, 6).map(function(r, i) {
+        var nome = r.display_name || r.name || q;
+        var partes = nome.split(',');
+        var titulo = partes[0].trim();
+        var subtit = partes.slice(1, 3).join(',').trim();
+        var icone = detectarIconeLugar(nome);
+        return '<div class="plan-sug-item" onclick="selecionarDestinoPlan(' + r.lat + ',' + r.lon + ',&quot;' + titulo.replace(/"/g,'') + '&quot;,&quot;' + subtit.replace(/"/g,'') + '&quot;)">'
+          + '<div class="plan-sug-icon">' + icone + '</div>'
+          + '<div class="plan-sug-info">'
+          + '<div class="plan-sug-nome">' + titulo + '</div>'
+          + (subtit ? '<div class="plan-sug-end">' + subtit + '</div>' : '')
+          + '</div>'
+          + '</div>';
+      }).join('');
+      sug.innerHTML = html;
+    } catch(e) {
+      if (spinner) spinner.style.display = 'none';
+      sug.innerHTML = '<div class="plan-sug-loading">⚠️ Erro ao buscar. Verifique sua conexão.</div>';
+    }
+  }
+
+  function detectarIconeLugar(nome) {
+    var n = (nome || '').toLowerCase();
+    if (n.includes('shopping') || n.includes('mall') || n.includes('center')) return '🛍️';
+    if (n.includes('aeroporto') || n.includes('airport')) return '✈️';
+    if (n.includes('hospital') || n.includes('clínica') || n.includes('ubs') || n.includes('saúde')) return '🏥';
+    if (n.includes('escola') || n.includes('universidade') || n.includes('colégio') || n.includes('faculdade')) return '🎓';
+    if (n.includes('praia') || n.includes('beach')) return '🏖️';
+    if (n.includes('hotel') || n.includes('pousada') || n.includes('resort')) return '🏨';
+    if (n.includes('parque') || n.includes('park')) return '🌳';
+    if (n.includes('estádio') || n.includes('arena') || n.includes('stadium')) return '🏟️';
+    if (n.includes('posto') || n.includes('gasolina') || n.includes('combustível')) return '⛽';
+    if (n.includes('restaurante') || n.includes('bar ') || n.includes('lanchonete')) return '🍽️';
+    if (n.includes('rua') || n.includes('av.') || n.includes('avenida') || n.includes('estrada')) return '📍';
+    return '📍';
+  }
+
+  function selecionarDestinoPlan(lat, lng, nome, subtit) {
+    planDestLat = parseFloat(lat);
+    planDestLng = parseFloat(lng);
+    planDestNome = nome;
+
+    // Atualizar UI do campo Para
+    var val = document.getElementById('plan-dest-val');
+    var inp = document.getElementById('plan-dest-input');
+    if (val) {
+      val.textContent = nome;
+      val.classList.remove('placeholder');
+    }
+    fecharBuscaDestino();
+
+    // Traçar rota no mapa
+    tracarRotaPlan(planDestLat, planDestLng, nome, subtit || '');
+  }
+
+  function tracarRotaPlan(destLat, destLng, nome, endereco) {
+    // Resetar mapa se existia
+    if (mapPlan) { mapPlan.remove(); mapPlan = null; }
+
+    var mapEl = document.getElementById('plan-map');
+    if (!mapEl) return;
+
+    mapPlan = L.map('plan-map', {
+      zoomControl: false, attributionControl: false,
+      dragging: true, scrollWheelZoom: false, touchZoom: true
+    }).setView([(userLat + destLat) / 2, (userLng + destLng) / 2], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapPlan);
+
+    // Marcador origem (azul)
+    L.marker([userLat, userLng], { icon: L.divIcon({
+      className: '',
+      html: '<svg width="28" height="36" viewBox="0 0 28 36" fill="none"><path d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z" fill="#1565C0"/><circle cx="14" cy="14" r="6" fill="white"/></svg>',
+      iconSize: [28, 36], iconAnchor: [14, 36]
+    })}).addTo(mapPlan).bindPopup('Você está aqui');
+
+    // Marcador destino (laranja)
+    L.marker([destLat, destLng], { icon: L.divIcon({
+      className: '',
+      html: '<svg width="28" height="36" viewBox="0 0 28 36" fill="none"><path d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z" fill="#FF6D00"/><circle cx="14" cy="14" r="6" fill="white"/></svg>',
+      iconSize: [28, 36], iconAnchor: [14, 36]
+    })}).addTo(mapPlan).bindPopup(nome);
+
+    // Linha de rota
+    var routeLine = L.polyline([[userLat, userLng], [destLat, destLng]], {
+      color: '#1565C0', weight: 4, dashArray: '8, 5', opacity: 0.85
+    }).addTo(mapPlan);
+    mapPlan.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+    // Calcular distância e tempo
+    var dist = calcHaversinePlan(userLat, userLng, destLat, destLng);
+    var tempo = Math.max(1, Math.round(dist * 2.8));
+    document.getElementById('plan-dist').textContent = dist.toFixed(1).replace('.', ',') + ' km';
+    document.getElementById('plan-time').textContent = tempo + ' min';
+
+    // Card destino (genérico — não é posto)
+    document.getElementById('plan-logo').textContent = detectarIconeLugar(nome + ' ' + endereco);
+    document.getElementById('plan-nome').textContent = nome;
+    document.getElementById('plan-end').textContent = endereco || '';
+    document.getElementById('plan-preco').innerHTML = '—';
+    document.getElementById('plan-posto-card').style.display = 'flex';
+    document.getElementById('btn-iniciar-nav').style.display = 'block';
+
+    // Calcular custo (sem preço de combustível pois é destino genérico)
+    atualizarCustoPlan(dist, 0);
+  }
   //  LISTA DE POSTOS (Tela 8)
   // ══════════════════════════════════════════════════════
   function renderLista() {
@@ -2519,8 +2756,16 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<span style="font-size:11px;color:#FF6D00;cursor:pointer;font-weight:600;" onclick="abrirReportarPreco('+idx+')">'
       + '📝 Preços diferentes? Informe o valor real</span></div>';
 
-    // Planejar: atualizar dest e resetar mapa
-    document.getElementById('plan-dest').textContent = p.nome;
+    // Planejar: atualizar destino quando usuário vem da lista/detalhes
+    var destVal = document.getElementById('plan-dest-val');
+    if (destVal) {
+      destVal.textContent = p.nome;
+      destVal.classList.remove('placeholder');
+    }
+    // Setar coords do posto como destino livre também
+    planDestLat = p.lat || null;
+    planDestLng = p.lng || null;
+    planDestNome = p.nome;
     if (mapPlan) { mapPlan.remove(); mapPlan = null; }
     planVeiculoId = null;
 
@@ -2606,8 +2851,15 @@ export function getAppHTML(firebaseScripts: string): string {
   function toggleFavorite() { showToast('Adicionado aos favoritos ❤️'); }
 
   function iniciarNavegacao() {
-    const dest = selectedPosto || getDemoPostos()[0];
-    window.open('https://www.google.com/maps/dir/?api=1&destination=' + dest.lat + ',' + dest.lng + '&travelmode=driving', '_blank');
+    // Prioridade: destino livre digitado → posto selecionado → demo
+    var lat, lng;
+    if (planDestLat && planDestLng) {
+      lat = planDestLat; lng = planDestLng;
+    } else {
+      var dest = selectedPosto || getDemoPostos()[0];
+      lat = dest.lat; lng = dest.lng;
+    }
+    window.open('https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving', '_blank');
   }
 
   async function onSearchInput(val) {
