@@ -1238,6 +1238,159 @@ app.get('/api/pix/verificar/:txid', async (c) => {
   return c.json({ pago, txid })
 })
 
+// ─── API: SOS — Guinchos, Borracheiros e Mecânicas próximos ─────────────────
+// Usa Google Places API v1 (Nearby Search). Lógica de degustação:
+//   - 1ª chamada de qualquer usuário (anon ou free): retorna resultados OK
+//   - A partir da 2ª: exige assinatura ACTIVE
+// O contador de uso fica em KV: sos_uses:{userId|ip}
+app.post('/api/sos/servicos', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const { lat, lng, tipo = 'guincho', userId } = body
+
+    if (!lat || !lng) return c.json({ erro: 'lat/lng obrigatorios' }, 400)
+
+    const kv = getKV(c.env)
+    const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+
+    if (!googleKey) return c.json({ erro: 'API key nao configurada' }, 500)
+
+    // ── Verificar degustação ─────────────────────────────────────────────────
+    const sessionKey = userId
+      ? `sos_uses:${userId}`
+      : `sos_uses:ip:${c.req.header('CF-Connecting-IP') || 'anon'}`
+
+    let usosCount = 0
+    if (kv) {
+      const stored = await kv.get(sessionKey)
+      usosCount = stored ? parseInt(stored) : 0
+    }
+
+    // Se já usou 1 vez e não é premium → bloquear
+    if (usosCount >= 1 && userId) {
+      const assin = kv ? await kvGetAssinatura(kv, userId) : null
+      const isPremium = assin?.status === 'ACTIVE'
+      if (!isPremium) {
+        return c.json({ erro: 'premium_required', usos: usosCount }, 403)
+      }
+    }
+
+    // ── Mapa tipo → includedTypes Google Places ──────────────────────────────
+    const tipoMap: Record<string, string[]> = {
+      guincho:     ['towing_service'],
+      borracheiro: ['tire_repair', 'auto_repair'],
+      mecanica:    ['auto_repair', 'car_repair'],
+      todos:       ['towing_service', 'tire_repair', 'auto_repair'],
+    }
+    const includedTypes = tipoMap[tipo] || tipoMap['todos']
+
+    // ── Chamada Google Places Nearby Search ──────────────────────────────────
+    const url = 'https://places.googleapis.com/v1/places:searchNearby'
+    const reqBody = {
+      includedTypes,
+      maxResultCount: 20,
+      locationRestriction: {
+        circle: {
+          center: { latitude: lat, longitude: lng },
+          radius: 10000 // 10 km
+        }
+      },
+      rankPreference: 'DISTANCE'
+    }
+    const fieldMask = [
+      'places.id',
+      'places.displayName',
+      'places.formattedAddress',
+      'places.location',
+      'places.rating',
+      'places.userRatingCount',
+      'places.internationalPhoneNumber',
+      'places.nationalPhoneNumber',
+      'places.currentOpeningHours',
+      'places.businessStatus',
+      'places.types'
+    ].join(',')
+
+    const gRes = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': googleKey,
+        'X-Goog-FieldMask': fieldMask,
+        'Accept-Language': 'pt-BR'
+      },
+      body: JSON.stringify(reqBody),
+      signal: AbortSignal.timeout(8000)
+    })
+
+    if (!gRes.ok) {
+      const errText = await gRes.text()
+      console.warn('[SOS] Google Places erro:', gRes.status, errText.slice(0, 200))
+      return c.json({ erro: 'Erro na busca. Tente novamente.' }, 502)
+    }
+
+    const gJson = await gRes.json() as any
+    const places: any[] = gJson.places || []
+
+    // ── Calcular distância Haversine ─────────────────────────────────────────
+    const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371
+      const dLat = (lat2 - lat1) * Math.PI / 180
+      const dLon = (lon2 - lon1) * Math.PI / 180
+      const a = Math.sin(dLat/2)**2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2)**2
+      return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1))
+    }
+
+    const servicos = places.map((p: any) => {
+      const pLat = p.location?.latitude ?? lat
+      const pLng = p.location?.longitude ?? lng
+      const distancia = haversine(lat, lng, pLat, pLng)
+      const aberto = p.currentOpeningHours?.openNow
+      const tel = p.internationalPhoneNumber || p.nationalPhoneNumber || null
+
+      // Emoji por tipo
+      const tipos: string[] = p.types || []
+      const emoji = tipos.includes('towing_service') ? '🚛'
+        : tipos.includes('tire_repair') ? '🔧'
+        : tipos.includes('auto_repair') ? '🔩'
+        : '🛠️'
+
+      return {
+        id: p.id,
+        nome: p.displayName?.text || 'Serviço',
+        endereco: p.formattedAddress || '',
+        lat: pLat,
+        lng: pLng,
+        distancia_km: distancia,
+        telefone: tel,
+        avaliacao: p.rating ? parseFloat(p.rating.toFixed(1)) : null,
+        total_avaliacoes: p.userRatingCount || 0,
+        aberto: aberto ?? null,
+        status: p.businessStatus || 'OPERATIONAL',
+        emoji
+      }
+    }).sort((a: any, b: any) => a.distancia_km - b.distancia_km)
+
+    // ── Registrar uso ────────────────────────────────────────────────────────
+    if (kv) {
+      await kv.put(sessionKey, String(usosCount + 1), { expirationTtl: 30 * 24 * 3600 })
+    }
+
+    return c.json({
+      sucesso: true,
+      servicos,
+      usos: usosCount + 1,
+      degustacao: usosCount === 0 // true = foi a degustação gratuita
+    })
+
+  } catch (err: any) {
+    console.error('[SOS] Erro:', err?.message)
+    return c.json({ erro: 'Erro interno.' }, 500)
+  }
+})
+
 // ─── API: Cancelar assinatura ────────────────────────────────────────────────
 app.post('/api/assinatura/cancelar', async (c) => {
   try {

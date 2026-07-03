@@ -882,8 +882,147 @@ export function getAppHTML(firebaseScripts: string): string {
     .nav-item.active { color: var(--orange); }
 
     /* ══════════════════════════════════════════════
-       UTILITÁRIOS
+       BOTÃO SOS FLUTUANTE
     ══════════════════════════════════════════════ */
+    #btn-sos-float {
+      position: fixed;
+      bottom: calc(var(--sab) + var(--nav-h) + 16px);
+      right: 16px;
+      z-index: 400;
+      width: 52px; height: 52px;
+      background: #D32F2F;
+      color: #fff;
+      border: none; border-radius: 50%;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+      box-shadow: 0 4px 16px rgba(211,47,47,0.45);
+      transition: transform 0.15s;
+    }
+    #btn-sos-float:active { transform: scale(0.93); }
+    #btn-sos-float svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
+
+    /* ══════════════════════════════════════════════
+       VIEW SOS
+    ══════════════════════════════════════════════ */
+    #view-sos {
+      display: none; flex-direction: column;
+      background: var(--gray-bg);
+    }
+    #view-sos.active { display: flex; }
+    #sos-header {
+      background: #D32F2F;
+      padding: calc(var(--sat) + 14px) 16px 14px;
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0;
+    }
+    #sos-back {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,255,255,0.18); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #sos-back svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
+    #sos-titulo { font-size: 18px; font-weight: 800; color: #fff; flex: 1; }
+    #sos-badge-premium {
+      font-size: 11px; font-weight: 700; color: #FFD600;
+      background: rgba(0,0,0,0.25); border-radius: 100px; padding: 3px 10px;
+    }
+    #sos-body {
+      flex: 1; overflow-y: auto;
+      padding: 16px 16px calc(var(--sab) + 80px);
+    }
+    /* Filtros de tipo */
+    .sos-filtros {
+      display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto;
+      padding-bottom: 2px; scrollbar-width: none;
+    }
+    .sos-filtros::-webkit-scrollbar { display: none; }
+    .sos-chip {
+      flex-shrink: 0;
+      padding: 8px 16px; border-radius: 100px;
+      background: #fff; border: 1.5px solid #E0E0E0;
+      font-size: 13px; font-weight: 600; color: #555; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sos-chip.ativo {
+      background: #D32F2F; border-color: #D32F2F; color: #fff;
+    }
+    /* Card de serviço */
+    .sos-card {
+      background: #fff; border-radius: 16px;
+      padding: 14px 16px; margin-bottom: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .sos-card-emoji {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: #FFF3E0; display: flex; align-items: center;
+      justify-content: center; font-size: 22px; flex-shrink: 0;
+    }
+    .sos-card-info { flex: 1; min-width: 0; }
+    .sos-card-nome {
+      font-size: 15px; font-weight: 700; color: #1A1A1A;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sos-card-end {
+      font-size: 12px; color: #888; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sos-card-meta {
+      display: flex; gap: 8px; align-items: center; margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .sos-dist {
+      font-size: 12px; font-weight: 600; color: #FF6D00;
+      background: #FFF3E0; padding: 2px 8px; border-radius: 100px;
+    }
+    .sos-aberto {
+      font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 100px;
+    }
+    .sos-aberto.sim { background: #E8F5E9; color: #2E7D32; }
+    .sos-aberto.nao { background: #FFEBEE; color: #C62828; }
+    .sos-rating {
+      font-size: 12px; color: #888;
+    }
+    .sos-card-btns {
+      display: flex; gap: 6px; flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sos-btn-ligar {
+      padding: 8px 12px; background: #D32F2F; color: #fff;
+      border: none; border-radius: 10px; font-size: 12px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; text-decoration: none;
+      text-align: center; display: block;
+    }
+    .sos-btn-whats {
+      padding: 8px 12px; background: #25D366; color: #fff;
+      border: none; border-radius: 10px; font-size: 12px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; text-decoration: none;
+      text-align: center; display: block;
+    }
+    /* Estado vazio/loading */
+    .sos-loading {
+      text-align: center; padding: 40px 20px;
+      color: #888; font-size: 14px;
+    }
+    .sos-loading-spinner {
+      width: 36px; height: 36px; border: 3px solid #F5F5F5;
+      border-top-color: #D32F2F; border-radius: 50%;
+      animation: spin360 0.8s linear infinite; margin: 0 auto 12px;
+    }
+    /* Banner de degustação / upgrade */
+    .sos-banner-upgrade {
+      background: linear-gradient(135deg, #FF6D00, #FF8F00);
+      border-radius: 16px; padding: 18px 16px; margin-bottom: 16px;
+      color: #fff; text-align: center;
+    }
+    .sos-banner-upgrade h3 { margin: 0 0 6px; font-size: 16px; font-weight: 800; }
+    .sos-banner-upgrade p { margin: 0 0 14px; font-size: 13px; opacity: 0.92; line-height: 1.5; }
+    .sos-banner-upgrade button {
+      background: #fff; color: #FF6D00; border: none;
+      padding: 11px 24px; border-radius: 100px;
+      font-size: 14px; font-weight: 800; cursor: pointer;
+    }
     #app-toast {
       position: fixed; bottom: calc(var(--sab) + var(--nav-h) + 14px);
       left: 50%; transform: translateX(-50%) translateY(20px);
@@ -1277,6 +1416,29 @@ export function getAppHTML(firebaseScripts: string): string {
   <!-- ══════════════════════════════════
        BOTTOM NAV
   ══════════════════════════════════ -->
+  <!-- TELA SOS: Guinchos, Borracheiros, Mecânicas -->
+  <div id="view-sos" class="view">
+    <div id="sos-header">
+      <button id="sos-back" onclick="goToView('mapa')">
+        <svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div id="sos-titulo">🚨 SOS RotaPosto</div>
+      <div id="sos-badge-premium" style="display:none;">👑 Premium</div>
+    </div>
+    <div id="sos-body">
+      <div class="sos-loading" id="sos-loading">
+        <div class="sos-loading-spinner"></div>
+        Buscando serviços próximos…
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTÃO SOS FLUTUANTE -->
+  <button id="btn-sos-float" onclick="abrirSOS()" title="SOS — Guinchos e Emergências">
+    <svg viewBox="0 0 24 24" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    SOS
+  </button>
+
   <nav id="bottom-nav">
     <button class="nav-item" id="nav-melhor" onclick="goToView('mapa')">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
@@ -1502,9 +1664,13 @@ export function getAppHTML(firebaseScripts: string): string {
       header.style.display = 'none';
     }
 
+    // Botão SOS flutuante: ocultar na própria tela SOS
+    const btnSos = document.getElementById('btn-sos-float');
+    if (btnSos) btnSos.style.display = viewId === 'sos' ? 'none' : 'flex';
+
     // Bottom nav: atualizar ativo
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    const navMap = { mapa: 'mapa', lista: 'lista', planejar: 'planejar', relatorios: 'perfil', perfil: 'perfil', detalhes: 'lista' };
+    const navMap = { mapa: 'mapa', lista: 'lista', planejar: 'planejar', relatorios: 'perfil', perfil: 'perfil', detalhes: 'lista', sos: '' };
     const navId = navMap[viewId] || viewId;
     const navBtn = document.getElementById('nav-' + navId);
     if (navBtn) navBtn.classList.add('active');
@@ -1521,6 +1687,154 @@ export function getAppHTML(firebaseScripts: string): string {
     if (viewId === 'mapa' && !mapMain) initMapMain();
     if (viewId === 'planejar' && !mapPlan) initMapPlan();
     if (viewId === 'lista') renderLista();
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  SOS — GUINCHOS, BORRACHEIROS, MECÂNICAS
+  // ══════════════════════════════════════════════════════
+  let sosTipoAtivo = 'todos';
+  let sosResultados = [];
+  let sosUsosCount = 0;
+
+  function abrirSOS() {
+    goToView('sos');
+    // Atualizar badge premium
+    const badge = document.getElementById('sos-badge-premium');
+    if (badge) badge.style.display = currentUser?.premium ? 'block' : 'none';
+    buscarServicosSOSComLocalizacao(sosTipoAtivo);
+  }
+
+  function buscarServicosSOSComLocalizacao(tipo) {
+    sosTipoAtivo = tipo;
+    const body = document.getElementById('sos-body');
+    body.innerHTML = '<div class="sos-loading" id="sos-loading"><div class="sos-loading-spinner"></div>Obtendo sua localização…</div>';
+
+    if (!navigator.geolocation) {
+      body.innerHTML = '<div class="sos-loading">Geolocalização não disponível no seu dispositivo.</div>';
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => buscarServicosSOSAPI(pos.coords.latitude, pos.coords.longitude, tipo),
+      (err) => {
+        body.innerHTML = '<div class="sos-loading">⚠️ Não foi possível obter sua localização.<br><br><small>Verifique as permissões de localização e tente novamente.</small></div>';
+      },
+      { timeout: 8000, maximumAge: 60000 }
+    );
+  }
+
+  async function buscarServicosSOSAPI(lat, lng, tipo) {
+    const body = document.getElementById('sos-body');
+    body.innerHTML = '<div class="sos-loading"><div class="sos-loading-spinner"></div>Buscando serviços num raio de 10 km…</div>';
+
+    try {
+      const payload: any = { lat, lng, tipo };
+      if (currentUser?.uid) payload.userId = currentUser.uid;
+
+      const res = await fetch('/api/sos/servicos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (res.status === 403 && data.erro === 'premium_required') {
+        renderSOSBloqueado(lat, lng, tipo);
+        return;
+      }
+
+      if (!res.ok || !data.sucesso) {
+        body.innerHTML = '<div class="sos-loading">⚠️ ' + (data.erro || 'Erro ao buscar serviços.') + '</div>';
+        return;
+      }
+
+      sosResultados = data.servicos || [];
+      sosUsosCount = data.usos || 1;
+      renderSOSResultados(lat, lng, tipo, data.degustacao);
+
+    } catch (e) {
+      body.innerHTML = '<div class="sos-loading">⚠️ Sem conexão. Verifique sua internet e tente novamente.</div>';
+    }
+  }
+
+  function renderSOSResultados(lat, lng, tipo, isDegustacao) {
+    const body = document.getElementById('sos-body');
+    const tipoLabels = { todos: '🆘 Todos', guincho: '🚛 Guinchos', borracheiro: '🔧 Borracheiros', mecanica: '🔩 Mecânicas' };
+
+    // Filtros de tipo
+    var filtrosHTML = '<div class="sos-filtros">';
+    Object.entries(tipoLabels).forEach(([k, v]) => {
+      filtrosHTML += '<button class="sos-chip' + (sosTipoAtivo === k ? ' ativo' : '') + '" onclick="buscarServicosSOSAPI(' + lat + ',' + lng + ',\'' + k + '\')">' + v + '</button>';
+    });
+    filtrosHTML += '</div>';
+
+    // Banner de aviso de degustação (discreta - só 1 uso restante)
+    var bannerHTML = '';
+    if (isDegustacao && !currentUser?.premium) {
+      bannerHTML = '<div class="sos-banner-upgrade">'
+        + '<h3>🎁 Uso gratuito utilizado!</h3>'
+        + '<p>Você tem direito a 1 busca grátis. Para usar ilimitadamente, assine o Premium por R$ 9,90/mês.</p>'
+        + '<button onclick="fecharTela();goToAssinatura();">Assinar Premium</button>'
+        + '</div>';
+    }
+
+    if (sosResultados.length === 0) {
+      body.innerHTML = filtrosHTML + bannerHTML
+        + '<div class="sos-loading">😕 Nenhum serviço encontrado num raio de 10 km.<br><br><small>Tente mudar o tipo de serviço.</small></div>';
+      return;
+    }
+
+    var cardsHTML = sosResultados.map(s => {
+      var telLink = s.telefone ? s.telefone.replace(/\s+/g, '') : null;
+      var whatsNum = telLink ? telLink.replace(/[^0-9]/g, '') : null;
+      var whatsMsg = encodeURIComponent('Olá, vi seu contato pelo app RotaPosto. Estou precisando de ' +
+        (sosTipoAtivo === 'guincho' ? 'um guincho' : sosTipoAtivo === 'borracheiro' ? 'um borracheiro' : 'assistência mecânica') +
+        ' na minha localização atual. Você está disponível?');
+      var abertoLabel = s.aberto === true ? '<span class="sos-aberto sim">Aberto</span>'
+        : s.aberto === false ? '<span class="sos-aberto nao">Fechado</span>' : '';
+      var ratingLabel = s.avaliacao ? '<span class="sos-rating">⭐ ' + s.avaliacao + (s.total_avaliacoes ? ' (' + s.total_avaliacoes + ')' : '') + '</span>' : '';
+      var btnLigar = telLink
+        ? '<a href="tel:' + telLink + '" class="sos-btn-ligar">📞 Ligar</a>'
+        : '<span style="font-size:11px;color:#bbb;text-align:center;display:block;">Sem tel.</span>';
+      var btnWhats = whatsNum
+        ? '<a href="https://wa.me/' + whatsNum + '?text=' + whatsMsg + '" target="_blank" class="sos-btn-whats">💬 WhatsApp</a>'
+        : '';
+      return '<div class="sos-card">'
+        + '<div class="sos-card-emoji">' + s.emoji + '</div>'
+        + '<div class="sos-card-info">'
+        + '<div class="sos-card-nome">' + s.nome + '</div>'
+        + '<div class="sos-card-end">' + s.endereco + '</div>'
+        + '<div class="sos-card-meta"><span class="sos-dist">' + s.distancia_km + ' km</span>' + abertoLabel + ratingLabel + '</div>'
+        + '</div>'
+        + '<div class="sos-card-btns">' + btnLigar + btnWhats + '</div>'
+        + '</div>';
+    }).join('');
+
+    body.innerHTML = filtrosHTML + bannerHTML + cardsHTML;
+  }
+
+  function renderSOSBloqueado(lat, lng, tipo) {
+    const body = document.getElementById('sos-body');
+    const tipoLabels = { todos: '🆘 Todos', guincho: '🚛 Guinchos', borracheiro: '🔧 Borracheiros', mecanica: '🔩 Mecânicas' };
+    var filtrosHTML = '<div class="sos-filtros">';
+    Object.entries(tipoLabels).forEach(([k, v]) => {
+      filtrosHTML += '<button class="sos-chip' + (sosTipoAtivo === k ? ' ativo' : '') + '" onclick="buscarServicosSOSAPI(' + lat + ',' + lng + ',\'' + k + '\')">' + v + '</button>';
+    });
+    filtrosHTML += '</div>';
+
+    body.innerHTML = filtrosHTML
+      + '<div style="text-align:center;padding:32px 20px;">'
+      + '<div style="font-size:56px;margin-bottom:12px;">🚨</div>'
+      + '<div style="font-size:18px;font-weight:800;color:#1A1A1A;margin-bottom:8px;">Recurso Premium</div>'
+      + '<div style="font-size:14px;color:#888;line-height:1.6;margin-bottom:24px;">Você já usou a busca gratuita.<br>Assine o <strong>Premium</strong> por apenas <strong>R$ 9,90/mês</strong> e tenha acesso ilimitado ao SOS RotaPosto — guinchos, borracheiros e mecânicas mais próximos de você, 24h.</div>'
+      + '<div style="background:#FFF8F5;border-radius:16px;padding:16px;margin-bottom:24px;text-align:left;">'
+      + '<div style="font-size:13px;font-weight:700;color:#FF6D00;margin-bottom:10px;">✦ O que você ganha com o Premium:</div>'
+      + ['🚛 Guinchos próximos 24h', '🔧 Borracheiros e mecânicas', '📞 Liga direto ou WhatsApp', '⭐ Avaliação e distância exata', '🔔 Alertas de preço baixo'].map(f => '<div style="font-size:13px;color:#444;padding:4px 0;">'+f+'</div>').join('')
+      + '</div>'
+      + '<button onclick="goToAssinatura()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer;">Assinar por R$ 9,90/mês</button>'
+      + '<button onclick="goToView(\'mapa\')" style="width:100%;padding:12px;background:none;color:#888;border:none;font-size:14px;cursor:pointer;margin-top:8px;">Agora não</button>'
+      + '</div>';
   }
 
   // ══════════════════════════════════════════════════════
