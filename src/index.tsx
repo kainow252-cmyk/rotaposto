@@ -506,11 +506,15 @@ app.get('/api/geocode', async (c) => {
 
   const resultados = await geocodeNominatim(q)
   return c.json(resultados.map(r => ({
+    // campos legados
     nome: r.nome,
     lat: r.lat,
     lng: r.lng,
+    lon: r.lng,            // alias para compatibilidade com Nominatim
     cidade: r.cidade,
-    estado: r.estado
+    estado: r.estado,
+    // campos extras para o autocomplete do Planejar
+    display_name: r.nome,  // alias display_name = nome completo
   })))
 })
 

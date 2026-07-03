@@ -2299,7 +2299,7 @@ export function getAppHTML(firebaseScripts: string): string {
         + '<span class="plan-car-tab-icon">' + ic + '</span>'
         + '<span class="plan-car-tab-info">'
         + '<span class="plan-car-tab-nome">' + v.nome + '</span>'
-        + '<span class="plan-car-tab-consumo">' + v.consumo + ' km/L</span>'
+        + '<span class="plan-car-tab-consumo">' + v.consumo + ' km/L' + (v.placa ? ' · ' + v.placa : '') + '</span>'
         + '</span>'
         + '</button>';
     });
@@ -2427,7 +2427,7 @@ export function getAppHTML(firebaseScripts: string): string {
     if (!sug) return;
 
     sug.style.display = 'block';
-    sug.innerHTML = '<div class="plan-sug-loading">🔍 Buscando...</div>';
+    sug.innerHTML = '<div class="plan-sug-loading">🔍 Buscando "<b>' + q + '</b>"...</div>';
     if (spinner) spinner.style.display = 'block';
 
     try {
@@ -2436,22 +2436,35 @@ export function getAppHTML(firebaseScripts: string): string {
       if (spinner) spinner.style.display = 'none';
 
       if (!data || data.length === 0) {
-        sug.innerHTML = '<div class="plan-sug-loading">😕 Nenhum resultado para <b>"' + q + '"</b></div>';
+        sug.innerHTML = '<div class="plan-sug-loading">😕 Nenhum resultado para <b>"' + q + '"</b><br><small style="color:#aaa;">Tente adicionar a cidade: ex. "Shopping Vitória Salvador"</small></div>';
         return;
       }
 
-      var html = data.slice(0, 6).map(function(r, i) {
-        var nome = r.display_name || r.name || q;
-        var partes = nome.split(',');
+      var html = data.slice(0, 6).map(function(r) {
+        // API retorna: nome, lat, lng (e display_name=nome, lon=lng como aliases)
+        var nomeCompleto = r.nome || r.display_name || q;
+        var partes = nomeCompleto.split(',');
         var titulo = partes[0].trim();
-        var subtit = partes.slice(1, 3).join(',').trim();
-        var icone = detectarIconeLugar(nome);
-        return '<div class="plan-sug-item" onclick="selecionarDestinoPlan(' + r.lat + ',' + r.lon + ',&quot;' + titulo.replace(/"/g,'') + '&quot;,&quot;' + subtit.replace(/"/g,'') + '&quot;)">'
+        // Subtítulo: bairro + cidade + estado
+        var subtit = '';
+        if (r.cidade || r.estado) {
+          subtit = [r.cidade, r.estado].filter(Boolean).join(' – ');
+        } else if (partes.length > 1) {
+          subtit = partes.slice(1, 3).join(',').trim();
+        }
+        var lat = parseFloat(r.lat);
+        var lng = parseFloat(r.lng || r.lon);
+        var icone = detectarIconeLugar(nomeCompleto);
+        // Escapar aspas para o onclick inline
+        var tituloEsc = titulo.replace(/\\/g,'\\\\').replace(/"/g,'').replace(/'/g,'');
+        var subtitEsc = subtit.replace(/\\/g,'\\\\').replace(/"/g,'').replace(/'/g,'');
+        return '<div class="plan-sug-item" onclick="selecionarDestinoPlan(' + lat + ',' + lng + ',&quot;' + tituloEsc + '&quot;,&quot;' + subtitEsc + '&quot;)">'
           + '<div class="plan-sug-icon">' + icone + '</div>'
           + '<div class="plan-sug-info">'
           + '<div class="plan-sug-nome">' + titulo + '</div>'
           + (subtit ? '<div class="plan-sug-end">' + subtit + '</div>' : '')
           + '</div>'
+          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="2.5" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>'
           + '</div>';
       }).join('');
       sug.innerHTML = html;
@@ -3060,7 +3073,7 @@ export function getAppHTML(firebaseScripts: string): string {
           + '<div class="veh-list-icon">' + ic + '</div>'
           + '<div class="veh-list-info">'
           + '<div class="veh-list-nome">' + v.nome + '</div>'
-          + '<div class="veh-list-det">' + v.tipo + ' · ' + v.consumo + ' km/L · tanque ' + v.tanque + ' L</div>'
+          + '<div class="veh-list-det">' + v.tipo + ' · ' + v.consumo + ' km/L · tanque ' + v.tanque + ' L' + (v.placa ? ' · 🔖 ' + v.placa : '') + '</div>'
           + '</div>'
           + '<div class="veh-list-btns">'
           + '<button class="veh-list-btn-edit" onclick="editarVeiculoId(&quot;' + v.id + '&quot;)">✏️</button>'
@@ -3108,6 +3121,8 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<div style="font-size:11px;color:#AAA;margin-bottom:14px;">Carro popular ≈ 10–13 km/L · SUV ≈ 8–11 · Moto ≈ 20–35 · Elétrico: deixe 1 e insira Wh/km</div>'
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">Capacidade do tanque <span style="font-weight:400;color:#AAA;">(litros)</span></label>'
       + '<input id="veh-f-tanque" type="number" min="10" max="200" value="' + (v ? v.tanque : '50') + '" placeholder="Ex: 50" style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;font-family:inherit;">'
+      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;margin-top:14px;">Placa <span style="font-weight:400;color:#AAA;">(opcional)</span></label>'
+      + '<input id="veh-f-placa" type="text" maxlength="8" placeholder="ABC-1234 ou ABC1D23" value="' + (v ? (v.placa || '') : '') + '" oninput="this.value=this.value.toUpperCase()" style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;font-family:inherit;text-transform:uppercase;letter-spacing:3px;">'
       + '</div>'
       + '<button onclick="salvarFormVeiculo(&quot;' + (v ? v.id : '') + '&quot;)" class="st-btn">' + (isNovo ? 'Cadastrar veículo' : 'Salvar alterações') + '</button>';
     abrirTela(isNovo ? 'Novo Veículo' : 'Editar Veículo', html);
@@ -3118,10 +3133,12 @@ export function getAppHTML(firebaseScripts: string): string {
     var tipoEl = document.getElementById('veh-f-tipo');
     var consumoEl = document.getElementById('veh-f-consumo');
     var tanqueEl = document.getElementById('veh-f-tanque');
+    var placaEl = document.getElementById('veh-f-placa');
     if (!nomeEl || !tipoEl || !consumoEl || !tanqueEl) return;
     var nome = nomeEl.value.trim() || tipoEl.value;
     var consumo = parseFloat(consumoEl.value) || 12;
     var tanque = parseInt(tanqueEl.value) || 50;
+    var placa = placaEl ? placaEl.value.trim().toUpperCase() : '';
     if (consumo < 1 || consumo > 100) { showToast('Consumo inválido'); return; }
 
     var lista = getVeiculos();
@@ -3133,11 +3150,12 @@ export function getAppHTML(firebaseScripts: string): string {
         lista[idx].tipo = tipoEl.value;
         lista[idx].consumo = consumo;
         lista[idx].tanque = tanque;
+        lista[idx].placa = placa;
       }
     } else {
       // novo
       if (lista.length >= 2) { showToast('Limite de 2 veículos'); return; }
-      lista.push({ id: 'v' + Date.now(), nome: nome, tipo: tipoEl.value, consumo: consumo, tanque: tanque, ativo: lista.length === 0 });
+      lista.push({ id: 'v' + Date.now(), nome: nome, tipo: tipoEl.value, consumo: consumo, tanque: tanque, placa: placa, ativo: lista.length === 0 });
     }
     salvarVeiculos(lista);
     fecharTela();
