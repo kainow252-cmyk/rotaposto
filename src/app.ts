@@ -1463,10 +1463,10 @@ export function getAppHTML(firebaseScripts: string): string {
               <div class="plan-dest-label">Para</div>
               <div id="plan-dest-val" class="placeholder" onclick="abrirBuscaDestino()">Cidade, endereço, shopping…</div>
               <input id="plan-dest-input" type="text" placeholder="Ex: Shopping Vitória, Salvador…"
-                oninput="onPlanDestInput(this.value)"
+                oninput="onPlanDestInput(this.value);reposicionarSugestoes()"
                 onkeydown="if(event.key==='Enter')buscarDestinoPlan(this.value)"
                 onblur="setTimeout(fecharSugestoes, 200)"
-                onfocus="reposicionarSugestoes()"/>
+                onfocus="setTimeout(reposicionarSugestoes,50)"/>
               <div id="plan-dest-suggestions" style="display:none;"></div>
             </div>
             <div id="plan-dest-searching"></div>
@@ -2388,13 +2388,22 @@ export function getAppHTML(firebaseScripts: string): string {
   var planDestTimer = null;
 
   function reposicionarSugestoes() {
-    var inp = document.getElementById('plan-dest-input');
-    var sug = document.getElementById('plan-dest-suggestions');
-    if (!inp || !sug) return;
-    var rect = inp.getBoundingClientRect();
-    sug.style.top    = (rect.bottom + 4) + 'px';
-    sug.style.left   = rect.left + 'px';
-    sug.style.width  = Math.max(rect.width, 280) + 'px';
+    requestAnimationFrame(function() {
+      var inp = document.getElementById('plan-dest-input');
+      var sug = document.getElementById('plan-dest-suggestions');
+      if (!inp || !sug) return;
+      // Garante que o input está visível antes de calcular (pode estar display:none)
+      if (inp.offsetParent === null) return; // elemento não visível
+      var rect = inp.getBoundingClientRect();
+      if (rect.width === 0) return; // ainda não renderizado
+      var vw = window.innerWidth || document.documentElement.clientWidth;
+      var largura = Math.max(rect.width + 108, 300); // +108 p/ compensar dot+wrap
+      var left = Math.max(8, rect.left - 54); // alinhar com borda do card
+      if (left + largura > vw - 8) left = vw - largura - 8;
+      sug.style.top   = (rect.bottom + 6) + 'px';
+      sug.style.left  = left + 'px';
+      sug.style.width = largura + 'px';
+    });
   }
 
   function abrirBuscaDestino() {
@@ -2402,6 +2411,9 @@ export function getAppHTML(firebaseScripts: string): string {
     var inp = document.getElementById('plan-dest-input');
     var btn = document.getElementById('btn-dest-buscar');
     if (!val || !inp) return;
+    // Garantir que o dropdown flutuante está no body (fura overflow:hidden dos pais)
+    var sug = document.getElementById('plan-dest-suggestions');
+    if (sug && sug.parentElement !== document.body) document.body.appendChild(sug);
     val.style.display = 'none';
     inp.style.display = 'block';
     if (btn) btn.style.display = 'none';
@@ -2437,8 +2449,8 @@ export function getAppHTML(firebaseScripts: string): string {
     var spinner = document.getElementById('plan-dest-searching');
     if (!sug) return;
 
-    sug.style.display = 'block';
     reposicionarSugestoes();
+    sug.style.display = 'block';
     sug.innerHTML = '<div class="plan-sug-loading">🔍 Buscando "<b>' + q + '</b>"...</div>';
     if (spinner) spinner.style.display = 'block';
 
@@ -3742,10 +3754,6 @@ export function getAppHTML(firebaseScripts: string): string {
   });
 
   (function init() {
-    // Mover #plan-dest-suggestions para o body para furar qualquer overflow:hidden dos pais
-    var sugEl = document.getElementById('plan-dest-suggestions');
-    if (sugEl) document.body.appendChild(sugEl);
-
     // ── Registrar SW v6 com auto-update silencioso ──
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(reg => {
