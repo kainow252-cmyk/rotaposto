@@ -570,6 +570,125 @@ export function getAppHTML(firebaseScripts: string): string {
     }
     .btn-iniciar-nav:active { opacity: 0.85; }
 
+    /* ── Seletor de veículo na tela Planejar ── */
+    #plan-veiculo-selector {
+      margin-bottom: 14px;
+    }
+    #plan-veiculo-selector .plan-sec-label {
+      font-size: 12px; font-weight: 700; color: var(--gray);
+      text-transform: uppercase; letter-spacing: 0.6px;
+      margin-bottom: 8px;
+    }
+    .plan-car-tabs {
+      display: flex; gap: 8px;
+    }
+    .plan-car-tab {
+      flex: 1; display: flex; align-items: center; gap: 9px;
+      padding: 11px 13px;
+      background: var(--gray-card);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      cursor: pointer; transition: all 0.18s;
+      text-align: left;
+    }
+    .plan-car-tab.active {
+      border-color: var(--orange);
+      background: var(--orange-light);
+    }
+    .plan-car-tab-icon { font-size: 22px; flex-shrink: 0; }
+    .plan-car-tab-info { flex: 1; overflow: hidden; }
+    .plan-car-tab-nome {
+      font-size: 13px; font-weight: 700; color: var(--black);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .plan-car-tab-consumo { font-size: 11px; color: var(--gray); }
+    .plan-car-add {
+      width: 52px; height: 52px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--gray-card); border: 1.5px dashed var(--border);
+      border-radius: 12px; font-size: 22px; cursor: pointer;
+      color: var(--gray);
+    }
+
+    /* ── Painel custo estimado ── */
+    #plan-custo-panel {
+      background: linear-gradient(135deg, #FF6D00 0%, #E65100 100%);
+      border-radius: 14px; padding: 16px 18px;
+      margin-bottom: 14px; color: #fff;
+    }
+    #plan-custo-panel .pcp-titulo {
+      font-size: 12px; font-weight: 600; opacity: 0.85;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+    }
+    #plan-custo-panel .pcp-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 0;
+    }
+    #plan-custo-panel .pcp-item {
+      text-align: center; padding: 4px 0;
+    }
+    #plan-custo-panel .pcp-item + .pcp-item {
+      border-left: 1px solid rgba(255,255,255,0.25);
+    }
+    #plan-custo-panel .pcp-val {
+      font-size: 19px; font-weight: 900; line-height: 1.1;
+    }
+    #plan-custo-panel .pcp-label {
+      font-size: 10px; opacity: 0.8; margin-top: 2px;
+    }
+    #plan-custo-panel.sem-veiculo {
+      background: var(--gray-card);
+      border: 1.5px dashed var(--border);
+    }
+    #plan-custo-panel.sem-veiculo .pcp-titulo,
+    #plan-custo-panel.sem-veiculo .pcp-val,
+    #plan-custo-panel.sem-veiculo .pcp-label {
+      color: var(--gray);
+    }
+    #plan-custo-panel.sem-veiculo .pcp-item + .pcp-item {
+      border-left-color: var(--border);
+    }
+
+    /* ── Campo de texto editável de origem ── */
+    #plan-origin-input {
+      display: none; width: 100%;
+      padding: 10px 12px; font-size: 14px; font-family: inherit;
+      border: 1.5px solid var(--orange); border-radius: 8px;
+      outline: none; box-sizing: border-box;
+    }
+
+    /* ── Lista de veículos em Meus Veículos ── */
+    .veh-list-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 0;
+    }
+    .veh-list-item + .veh-list-item { border-top: 1px solid var(--border); }
+    .veh-list-icon {
+      width: 50px; height: 50px; border-radius: 14px;
+      background: var(--orange-light); display: flex; align-items: center;
+      justify-content: center; font-size: 26px; flex-shrink: 0;
+    }
+    .veh-list-info { flex: 1; }
+    .veh-list-nome { font-size: 15px; font-weight: 800; color: var(--black); }
+    .veh-list-det { font-size: 12px; color: var(--gray); margin-top: 2px; }
+    .veh-list-btns { display: flex; gap: 6px; }
+    .veh-list-btn-edit {
+      padding: 7px 14px; font-size: 13px; font-weight: 600;
+      background: none; border: 1.5px solid var(--border);
+      border-radius: 9px; cursor: pointer; color: var(--black);
+    }
+    .veh-slot-add {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 0; cursor: pointer; opacity: 0.7;
+    }
+    .veh-slot-add-icon {
+      width: 50px; height: 50px; border-radius: 14px;
+      border: 2px dashed var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+    .veh-slot-add-label { font-size: 14px; font-weight: 600; color: var(--gray); }
+
     /* ══════════════════════════════════════════════
        TELA 11: RELATÓRIOS
     ══════════════════════════════════════════════ */
@@ -1125,7 +1244,7 @@ export function getAppHTML(firebaseScripts: string): string {
             <div class="map-posto-preco" id="map-card-preco">R$ 5,67 /L</div>
             <div class="map-posto-dist" id="map-card-dist">1,2 km • 3 min</div>
           </div>
-          <button class="btn-ir-ata-la" onclick="irAteLa()">Ir até lá</button>
+          <button class="btn-ir-ata-la" onclick="goToView('planejar')">🗺️ Planejar</button>
         </div>
       </div>
     </div>
@@ -1209,9 +1328,9 @@ export function getAppHTML(firebaseScripts: string): string {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
             Como chegar
           </button>
-          <button class="btn-ir-la" onclick="irAteLa()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Ir até lá
+          <button class="btn-ir-la" onclick="goToView('planejar')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Planejar rota
           </button>
         </div>
 
@@ -1244,56 +1363,88 @@ export function getAppHTML(firebaseScripts: string): string {
       </div>
 
       <div id="plan-body">
+
         <!-- Campos de rota -->
         <div class="route-fields">
           <div class="route-field">
             <div class="route-dot-origin"></div>
-            <div class="route-field-content">
+            <div class="route-field-content" style="flex:1;">
               <div class="route-field-label">De</div>
-              <div class="route-field-val" id="plan-origin">Minha localização</div>
+              <div class="route-field-val" id="plan-origin" onclick="editarOrigem()" style="cursor:pointer;">Minha localização</div>
+              <input id="plan-origin-input" type="text" placeholder="Digite o endereço de partida…"
+                onblur="confirmarOrigem()" onkeydown="if(event.key==='Enter')confirmarOrigem()"/>
             </div>
-            <button class="btn-target" onclick="showToast('Usar localização atual')">
+            <button class="btn-target" onclick="usarLocalizacaoAtual()" title="Usar minha localização">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="1"/><line x1="12" y1="23" x2="12" y2="21"/><line x1="3" y1="12" x2="1" y2="12"/><line x1="23" y1="12" x2="21" y2="12"/></svg>
             </button>
           </div>
           <div class="route-field">
             <div class="route-dot-dest"></div>
-            <div class="route-field-content">
+            <div class="route-field-content" style="flex:1;">
               <div class="route-field-label">Para</div>
-              <div class="route-field-val" id="plan-dest">Posto Shell</div>
+              <div class="route-field-val" id="plan-dest">Selecione um posto</div>
             </div>
-            <button class="btn-target" onclick="showToast('Alterar destino')">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="1"/><line x1="12" y1="23" x2="12" y2="21"/><line x1="3" y1="12" x2="1" y2="12"/><line x1="23" y1="12" x2="21" y2="12"/></svg>
+            <button class="btn-target" onclick="goToView('lista');showToast('Toque num posto para traçar a rota')" title="Escolher destino">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="11" y1="5" x2="11" y2="19"/><line x1="5" y1="11" x2="19" y2="11"/></svg>
             </button>
           </div>
         </div>
 
-        <!-- Stats -->
+        <!-- Seletor de veículo -->
+        <div id="plan-veiculo-selector">
+          <div class="plan-sec-label">Meu veículo</div>
+          <div class="plan-car-tabs" id="plan-car-tabs">
+            <!-- preenchido por renderPlanCarTabs() -->
+          </div>
+        </div>
+
+        <!-- Painel custo estimado -->
+        <div id="plan-custo-panel" class="sem-veiculo">
+          <div class="pcp-titulo">⛽ Estimativa de viagem</div>
+          <div class="pcp-grid">
+            <div class="pcp-item">
+              <div class="pcp-val" id="pcp-dist">—</div>
+              <div class="pcp-label">Distância</div>
+            </div>
+            <div class="pcp-item">
+              <div class="pcp-val" id="pcp-litros">—</div>
+              <div class="pcp-label">Litros usados</div>
+            </div>
+            <div class="pcp-item">
+              <div class="pcp-val" id="pcp-custo">—</div>
+              <div class="pcp-label">Custo estimado</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats distância / tempo -->
         <div class="route-stats-badge">
           <div class="route-stats-label">Melhor rota</div>
           <div class="route-stats-vals">
-            <div class="route-stat" id="plan-dist">1,2 km</div>
+            <div class="route-stat" id="plan-dist">—</div>
             <div class="route-stat-sep"></div>
-            <div class="route-stat" id="plan-time">3 min</div>
+            <div class="route-stat" id="plan-time">—</div>
           </div>
         </div>
 
         <!-- Mapa rota -->
         <div id="plan-map"></div>
 
-        <!-- Card posto -->
-        <div class="plan-posto-card">
-          <div class="plan-posto-logo" id="plan-logo">🐚</div>
+        <!-- Card posto destino -->
+        <div class="plan-posto-card" id="plan-posto-card" style="display:none;">
+          <div class="plan-posto-logo" id="plan-logo">⛽</div>
           <div class="plan-posto-info">
-            <div class="plan-posto-nome" id="plan-nome">Posto Shell</div>
-            <div class="plan-posto-end" id="plan-end">Av. Rebouças, 1234 – Pinheiros</div>
+            <div class="plan-posto-nome" id="plan-nome">—</div>
+            <div class="plan-posto-end" id="plan-end">—</div>
           </div>
           <div>
-            <div class="plan-posto-preco" id="plan-preco">R$ 5,67<span class="plan-preco-unit">/L</span></div>
+            <div class="plan-posto-preco" id="plan-preco">—<span class="plan-preco-unit">/L</span></div>
           </div>
         </div>
 
-        <button class="btn-iniciar-nav" onclick="iniciarNavegacao()">Iniciar navegação</button>
+        <button class="btn-iniciar-nav" id="btn-iniciar-nav" onclick="iniciarNavegacao()" style="display:none;">
+          🗺️ Iniciar navegação
+        </button>
       </div>
     </div>
 
@@ -1685,7 +1836,14 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // Init mapa quando necessário
     if (viewId === 'mapa' && !mapMain) initMapMain();
-    if (viewId === 'planejar' && !mapPlan) initMapPlan();
+    if (viewId === 'planejar') {
+      renderPlanCarTabs();
+      if (!mapPlan && selectedPosto) initMapPlan();
+      else if (mapPlan) atualizarCustoPlan(
+        selectedPosto?.distancia || 1.2,
+        selectedPosto?.preco || selectedPosto?.precos?.[selectedFuel] || 0
+      );
+    }
     if (viewId === 'lista') renderLista();
   }
 
@@ -1940,18 +2098,18 @@ export function getAppHTML(firebaseScripts: string): string {
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapPlan);
 
-    // Marcador origem (vermelho)
+    // Marcador origem (azul)
     const originIcon = L.divIcon({
       className: '',
-      html: '<svg width="28" height="36" viewBox="0 0 28 36" fill="none"><path d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z" fill="#E53935"/><circle cx="14" cy="14" r="6" fill="white"/></svg>',
+      html: '<svg width="28" height="36" viewBox="0 0 28 36" fill="none"><path d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z" fill="#1565C0"/><circle cx="14" cy="14" r="6" fill="white"/></svg>',
       iconSize: [28, 36], iconAnchor: [14, 36]
     });
     L.marker([userLat, userLng], { icon: originIcon }).addTo(mapPlan);
 
-    // Marcador destino (verde)
+    // Marcador destino (laranja)
     const destIcon = L.divIcon({
       className: '',
-      html: '<svg width="28" height="36" viewBox="0 0 28 36" fill="none"><path d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z" fill="#00A651"/><circle cx="14" cy="14" r="6" fill="white"/></svg>',
+      html: '<svg width="28" height="36" viewBox="0 0 28 36" fill="none"><path d="M14 0C6.27 0 0 6.27 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.27 21.73 0 14 0Z" fill="#FF6D00"/><circle cx="14" cy="14" r="6" fill="white"/></svg>',
       iconSize: [28, 36], iconAnchor: [14, 36]
     });
     L.marker([destLat, destLng], { icon: destIcon }).addTo(mapPlan);
@@ -1963,20 +2121,159 @@ export function getAppHTML(firebaseScripts: string): string {
 
     mapPlan.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
 
-    // Atualizar info do card
+    // Calcular distância e tempo
+    var dist = dest && dest.distancia ? dest.distancia : calcHaversinePlan(userLat, userLng, destLat, destLng);
+    var tempo = Math.max(1, Math.round(dist * 3));
+    document.getElementById('plan-dist').textContent = dist.toFixed(1).replace('.', ',') + ' km';
+    document.getElementById('plan-time').textContent = tempo + ' min';
+
+    // Atualizar info do card posto
     if (dest) {
-      const preco = dest.preco || dest.precos?.[selectedFuel];
+      const preco = dest.preco || dest.precos?.[selectedFuel] || 0;
       document.getElementById('plan-logo').textContent = getEmoji(dest.bandeira || dest.nome);
       document.getElementById('plan-nome').textContent = dest.nome;
       document.getElementById('plan-end').textContent = dest.endereco || dest.nome;
       document.getElementById('plan-preco').innerHTML = preco
         ? 'R$ ' + preco.toFixed(2).replace('.', ',') + '<span class="plan-preco-unit">/L</span>'
-        : '-';
-      const dist = dest.distancia ? dest.distancia.toFixed(1) : '1,2';
-      const tempo = dest.distancia ? Math.round(dest.distancia * 3) : 3;
-      document.getElementById('plan-dist').textContent = dist.replace('.',',') + ' km';
-      document.getElementById('plan-time').textContent = tempo + ' min';
+        : '—';
+      document.getElementById('plan-posto-card').style.display = 'flex';
+      document.getElementById('btn-iniciar-nav').style.display = 'block';
+
+      // Calcular custo com veículo selecionado
+      atualizarCustoPlan(dist, preco);
     }
+
+    // Renderizar tabs de veículo
+    renderPlanCarTabs();
+  }
+
+  function calcHaversinePlan(lat1, lng1, lat2, lng2) {
+    var R = 6371;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLng = (lng2 - lng1) * Math.PI / 180;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+            Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function getVeiculos() {
+    try { return JSON.parse(localStorage.getItem('rp_vehicles') || '[]'); } catch(e) { return []; }
+  }
+  function salvarVeiculos(lista) {
+    localStorage.setItem('rp_vehicles', JSON.stringify(lista));
+    // migrar para novo formato se existir legacy
+    localStorage.removeItem('rp_vehicle');
+  }
+  function getVeiculoAtivo() {
+    var lista = getVeiculos();
+    if (lista.length === 0) {
+      // tentar migrar do formato antigo
+      try {
+        var legado = JSON.parse(localStorage.getItem('rp_vehicle') || 'null');
+        if (legado) {
+          var migrado = { id: 'v1', nome: legado.type || 'Meu carro', tipo: legado.type || 'Carro de passeio', consumo: legado.consumption || 12, tanque: legado.tank || 50, ativo: true };
+          salvarVeiculos([migrado]);
+          return migrado;
+        }
+      } catch(e) {}
+      return null;
+    }
+    return lista.find(function(v) { return v.ativo; }) || lista[0];
+  }
+  var planVeiculoId = null; // id do veículo selecionado no painel Planejar
+
+  function renderPlanCarTabs() {
+    var lista = getVeiculos();
+    var container = document.getElementById('plan-car-tabs');
+    if (!container) return;
+    var html = '';
+    lista.forEach(function(v) {
+      var ic = veiculoIcone(v.tipo);
+      var isAtivo = planVeiculoId ? (v.id === planVeiculoId) : v.ativo;
+      html += '<button class="plan-car-tab' + (isAtivo ? ' active' : '') + '" onclick="selecionarCarPlan(&quot;' + v.id + '&quot;)">'
+        + '<span class="plan-car-tab-icon">' + ic + '</span>'
+        + '<span class="plan-car-tab-info">'
+        + '<span class="plan-car-tab-nome">' + v.nome + '</span>'
+        + '<span class="plan-car-tab-consumo">' + v.consumo + ' km/L</span>'
+        + '</span>'
+        + '</button>';
+    });
+    if (lista.length < 2) {
+      html += '<button class="plan-car-add" onclick="abrirMeusVeiculos()" title="Adicionar veículo">＋</button>';
+    }
+    if (lista.length === 0) {
+      html = '<button style="flex:1;padding:12px;background:var(--orange-light);border:1.5px dashed var(--orange);border-radius:12px;font-size:13px;font-weight:600;color:var(--orange);cursor:pointer;" onclick="abrirMeusVeiculos()">＋ Cadastrar meu veículo para calcular o custo</button>';
+    }
+    container.innerHTML = html;
+  }
+
+  function selecionarCarPlan(id) {
+    planVeiculoId = id;
+    renderPlanCarTabs();
+    // recalcular custo
+    var dest = selectedPosto || (postosData[0] || null);
+    if (!dest) return;
+    var dist = dest.distancia || calcHaversinePlan(userLat, userLng, dest.lat, dest.lng);
+    var preco = dest.preco || dest.precos?.[selectedFuel] || 0;
+    atualizarCustoPlan(dist, preco);
+  }
+
+  function atualizarCustoPlan(distKm, precoLitro) {
+    var lista = getVeiculos();
+    var veh = planVeiculoId ? lista.find(function(v) { return v.id === planVeiculoId; }) : getVeiculoAtivo();
+    var panel = document.getElementById('plan-custo-panel');
+    if (!panel) return;
+
+    if (!veh) {
+      panel.classList.add('sem-veiculo');
+      document.getElementById('pcp-dist').textContent = distKm ? distKm.toFixed(1).replace('.', ',') + ' km' : '—';
+      document.getElementById('pcp-litros').textContent = '—';
+      document.getElementById('pcp-custo').textContent = '—';
+      return;
+    }
+
+    panel.classList.remove('sem-veiculo');
+    var litros = distKm / veh.consumo;
+    var custo = precoLitro > 0 ? litros * precoLitro : null;
+
+    document.getElementById('pcp-dist').textContent = distKm.toFixed(1).replace('.', ',') + ' km';
+    document.getElementById('pcp-litros').textContent = litros.toFixed(2).replace('.', ',') + ' L';
+    document.getElementById('pcp-custo').textContent = custo ? 'R$ ' + custo.toFixed(2).replace('.', ',') : '—';
+  }
+
+  function veiculoIcone(tipo) {
+    if (!tipo) return '🚗';
+    var t = tipo.toLowerCase();
+    if (t.includes('moto')) return '🏍️';
+    if (t.includes('caminhão') || t.includes('caminhao') || t.includes('van')) return '🚛';
+    if (t.includes('elétrico') || t.includes('eletrico') || t.includes('híbrido') || t.includes('hibrido')) return '⚡';
+    if (t.includes('suv') || t.includes('picape') || t.includes('pickup')) return '🚙';
+    return '🚗';
+  }
+
+  function editarOrigem() {
+    var val = document.getElementById('plan-origin');
+    var inp = document.getElementById('plan-origin-input');
+    if (!val || !inp) return;
+    inp.value = val.textContent === 'Minha localização' ? '' : val.textContent;
+    val.style.display = 'none';
+    inp.style.display = 'block';
+    inp.focus();
+  }
+
+  function confirmarOrigem() {
+    var val = document.getElementById('plan-origin');
+    var inp = document.getElementById('plan-origin-input');
+    if (!val || !inp) return;
+    inp.style.display = 'none';
+    val.style.display = 'block';
+    val.textContent = inp.value.trim() || 'Minha localização';
+  }
+
+  function usarLocalizacaoAtual() {
+    document.getElementById('plan-origin').textContent = 'Minha localização';
+    showToast('Usando sua localização atual 📍');
   }
 
   // ══════════════════════════════════════════════════════
@@ -2190,9 +2487,10 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<span style="font-size:11px;color:#FF6D00;cursor:pointer;font-weight:600;" onclick="abrirReportarPreco('+idx+')">'
       + '📝 Preços diferentes? Informe o valor real</span></div>';
 
-    // Planejar: atualizar dest
+    // Planejar: atualizar dest e resetar mapa
     document.getElementById('plan-dest').textContent = p.nome;
     if (mapPlan) { mapPlan.remove(); mapPlan = null; }
+    planVeiculoId = null;
 
     goToView('detalhes');
   }
@@ -2458,68 +2756,130 @@ export function getAppHTML(firebaseScripts: string): string {
     reader.readAsDataURL(file);
   }
 
-  // ── Meus Veículos ─────────────────────────────────────────────────────────
+  // ── Meus Veículos (até 2 carros) ─────────────────────────────────────────
   function abrirMeusVeiculos() {
-    var veh = null;
-    try { veh = JSON.parse(localStorage.getItem('rp_vehicle') || 'null'); } catch(e) {}
-    var tipo = veh ? (veh.type || 'Carro de passeio') : 'Não configurado';
-    var consumo = veh ? (veh.consumption || 12) + ' km/L' : '—';
-    var tanque = veh ? (veh.tank || 50) + ' litros' : '—';
-    var icone = tipo.includes('Moto') ? '🏍️' : tipo.includes('Caminhão') || tipo.includes('Van') ? '🚛' : tipo.includes('Elétrico') || tipo.includes('Híbrido') ? '⚡' : tipo.includes('SUV') || tipo.includes('Picape') ? '🚙' : '🚗';
-    var html = '<div class="st-card" style="text-align:center;padding:24px 16px;">'
-      + '<div style="font-size:48px;margin-bottom:8px;">' + icone + '</div>'
-      + '<div style="font-size:17px;font-weight:800;color:#1A1A1A;">' + tipo + '</div>'
-      + '</div>'
-      + '<div class="st-card">'
-      + '<div class="st-row"><span class="st-label">Consumo médio</span><span class="st-value">' + consumo + '</span></div>'
-      + '<div class="st-row"><span class="st-label">Tanque</span><span class="st-value">' + tanque + '</span></div>'
-      + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">'
-      + '<button onclick="editarVeiculo(&quot;tipo&quot;)" class="st-btn st-btn-ghost" style="margin:0;">Alterar tipo</button>'
-      + '<button onclick="editarVeiculo(&quot;consumo&quot;)" class="st-btn" style="margin:0;">Editar consumo</button>'
-      + '</div>';
+    var lista = getVeiculos();
+    var html = '';
+
+    // Lista de veículos cadastrados
+    if (lista.length === 0) {
+      html += '<div class="st-card" style="text-align:center;padding:28px 16px;">'
+        + '<div style="font-size:52px;margin-bottom:10px;">🚗</div>'
+        + '<div style="font-size:16px;font-weight:800;color:#1A1A1A;margin-bottom:6px;">Nenhum veículo cadastrado</div>'
+        + '<div style="font-size:13px;color:#888;line-height:1.6;">Cadastre seu carro para calcular o consumo e custo de cada rota.</div>'
+        + '</div>';
+    } else {
+      html += '<div class="st-card">';
+      lista.forEach(function(v, i) {
+        var ic = veiculoIcone(v.tipo);
+        html += '<div class="veh-list-item">'
+          + '<div class="veh-list-icon">' + ic + '</div>'
+          + '<div class="veh-list-info">'
+          + '<div class="veh-list-nome">' + v.nome + '</div>'
+          + '<div class="veh-list-det">' + v.tipo + ' · ' + v.consumo + ' km/L · tanque ' + v.tanque + ' L</div>'
+          + '</div>'
+          + '<div class="veh-list-btns">'
+          + '<button class="veh-list-btn-edit" onclick="editarVeiculoId(&quot;' + v.id + '&quot;)">✏️</button>'
+          + '<button class="veh-list-btn-edit" style="color:#E53935;border-color:#FFCDD2;" onclick="excluirVeiculo(&quot;' + v.id + '&quot;)">🗑️</button>'
+          + '</div>'
+          + '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Slot para adicionar (se < 2)
+    if (lista.length < 2) {
+      html += '<button class="st-btn" onclick="adicionarVeiculo()">＋ Adicionar veículo</button>';
+    } else {
+      html += '<div style="text-align:center;font-size:13px;color:#888;padding:8px 0;">Limite de 2 veículos atingido. Exclua um para adicionar outro.</div>';
+    }
     abrirTela('Meus Veículos', html);
   }
 
-  function editarVeiculo(campo) {
-    var veh = null;
-    try { veh = JSON.parse(localStorage.getItem('rp_vehicle') || '{}'); } catch(e) { veh = {}; }
-    if (campo === 'tipo') {
-      var tipos = ['Carro de passeio','SUV / Picape','Moto','Caminhão / Van','Elétrico / Híbrido'];
-      var opts = tipos.map(function(t) { return '<option' + (veh.type === t ? ' selected' : '') + '>' + t + '</option>'; }).join('');
-      var html = '<div class="st-card">'
-        + '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:10px;">Tipo de veículo</label>'
-        + '<select id="veh-edit-tipo" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;background:#fff;">' + opts + '</select>'
-        + '</div>'
-        + '<button onclick="salvarVeiculoCampo(&quot;tipo&quot;)" class="st-btn">Salvar</button>';
-      abrirTela('Tipo de Veículo', html);
+  function adicionarVeiculo() {
+    var lista = getVeiculos();
+    if (lista.length >= 2) { showToast('Limite de 2 veículos atingido'); return; }
+    _renderFormVeiculo(null, lista);
+  }
+
+  function editarVeiculoId(id) {
+    var lista = getVeiculos();
+    var v = lista.find(function(x) { return x.id === id; });
+    _renderFormVeiculo(v, lista);
+  }
+
+  function _renderFormVeiculo(v, lista) {
+    var tipos = ['Carro de passeio','SUV / Picape','Moto','Caminhão / Van','Elétrico / Híbrido'];
+    var optsHtml = tipos.map(function(t) {
+      return '<option' + (v && v.tipo === t ? ' selected' : '') + '>' + t + '</option>';
+    }).join('');
+    var isNovo = !v;
+    var html = '<div class="st-card">'
+      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">Nome do veículo</label>'
+      + '<input id="veh-f-nome" type="text" placeholder="Ex: Meu Corsa, Moto Honda…" maxlength="30" value="' + (v ? v.nome : '') + '" style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;margin-bottom:14px;font-family:inherit;">'
+      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">Tipo de veículo</label>'
+      + '<select id="veh-f-tipo" style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;background:#fff;margin-bottom:14px;">' + optsHtml + '</select>'
+      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">Consumo médio <span style="font-weight:400;color:#AAA;">(km por litro)</span></label>'
+      + '<input id="veh-f-consumo" type="number" min="4" max="50" step="0.5" value="' + (v ? v.consumo : '12') + '" placeholder="Ex: 12" style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;margin-bottom:6px;font-family:inherit;">'
+      + '<div style="font-size:11px;color:#AAA;margin-bottom:14px;">Carro popular ≈ 10–13 km/L · SUV ≈ 8–11 · Moto ≈ 20–35 · Elétrico: deixe 1 e insira Wh/km</div>'
+      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">Capacidade do tanque <span style="font-weight:400;color:#AAA;">(litros)</span></label>'
+      + '<input id="veh-f-tanque" type="number" min="10" max="200" value="' + (v ? v.tanque : '50') + '" placeholder="Ex: 50" style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;font-family:inherit;">'
+      + '</div>'
+      + '<button onclick="salvarFormVeiculo(&quot;' + (v ? v.id : '') + '&quot;)" class="st-btn">' + (isNovo ? 'Cadastrar veículo' : 'Salvar alterações') + '</button>';
+    abrirTela(isNovo ? 'Novo Veículo' : 'Editar Veículo', html);
+  }
+
+  function salvarFormVeiculo(id) {
+    var nomeEl = document.getElementById('veh-f-nome');
+    var tipoEl = document.getElementById('veh-f-tipo');
+    var consumoEl = document.getElementById('veh-f-consumo');
+    var tanqueEl = document.getElementById('veh-f-tanque');
+    if (!nomeEl || !tipoEl || !consumoEl || !tanqueEl) return;
+    var nome = nomeEl.value.trim() || tipoEl.value;
+    var consumo = parseFloat(consumoEl.value) || 12;
+    var tanque = parseInt(tanqueEl.value) || 50;
+    if (consumo < 1 || consumo > 100) { showToast('Consumo inválido'); return; }
+
+    var lista = getVeiculos();
+    if (id) {
+      // editar existente
+      var idx = lista.findIndex(function(x) { return x.id === id; });
+      if (idx >= 0) {
+        lista[idx].nome = nome;
+        lista[idx].tipo = tipoEl.value;
+        lista[idx].consumo = consumo;
+        lista[idx].tanque = tanque;
+      }
     } else {
-      var html = '<div class="st-card">'
-        + '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Consumo médio (km/L)</label>'
-        + '<input id="veh-edit-consumo" type="number" min="4" max="50" value="' + (veh.consumption || 12) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;margin-bottom:16px;">'
-        + '<label style="font-size:14px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Capacidade do tanque (litros)</label>'
-        + '<input id="veh-edit-tanque" type="number" min="20" max="200" value="' + (veh.tank || 50) + '" style="width:100%;padding:14px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;">'
-        + '</div>'
-        + '<button onclick="salvarVeiculoCampo(&quot;consumo&quot;)" class="st-btn">Salvar</button>';
-      abrirTela('Consumo do Veículo', html);
+      // novo
+      if (lista.length >= 2) { showToast('Limite de 2 veículos'); return; }
+      lista.push({ id: 'v' + Date.now(), nome: nome, tipo: tipoEl.value, consumo: consumo, tanque: tanque, ativo: lista.length === 0 });
+    }
+    salvarVeiculos(lista);
+    fecharTela();
+    showToast('Veículo salvo! ✓');
+    // Se estiver na tela planejar, atualizar tabs
+    if (document.getElementById('view-planejar')?.classList.contains('active')) {
+      renderPlanCarTabs();
     }
   }
 
+  function excluirVeiculo(id) {
+    var lista = getVeiculos().filter(function(v) { return v.id !== id; });
+    if (lista.length > 0 && !lista.find(function(v) { return v.ativo; })) lista[0].ativo = true;
+    salvarVeiculos(lista);
+    abrirMeusVeiculos();
+    showToast('Veículo removido');
+  }
+
+  function editarVeiculo(campo) {
+    // legacy — redireciona para novo sistema
+    abrirMeusVeiculos();
+  }
+
   function salvarVeiculoCampo(campo) {
-    var veh = null;
-    try { veh = JSON.parse(localStorage.getItem('rp_vehicle') || '{}'); } catch(e) { veh = {}; }
-    if (campo === 'tipo') {
-      var sel = document.getElementById('veh-edit-tipo');
-      if (sel) veh.type = sel.value;
-    } else {
-      var c = document.getElementById('veh-edit-consumo');
-      var t = document.getElementById('veh-edit-tanque');
-      if (c) veh.consumption = parseInt(c.value) || 12;
-      if (t) veh.tank = parseInt(t.value) || 50;
-    }
-    localStorage.setItem('rp_vehicle', JSON.stringify(veh));
+    // legacy — não usado mais, mas mantido para compatibilidade
     fecharTela();
-    showToast('Veículo atualizado! ✓');
   }
 
   // ── Formas de Pagamento ───────────────────────────────────────────────────
