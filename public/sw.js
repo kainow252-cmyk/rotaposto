@@ -1,10 +1,9 @@
-// RotaPosto Service Worker v9.1
-// v9.1: force asset re-upload (hash bump)
-// v9: filtros completos + fix campo Para planejar + B2B parcerias + gamificação
+// RotaPosto Service Worker v10.0
+// v10: bump completo — limpa TODOS os caches antigos, força atualização PWA
 
-const VERSION = 'v9.1';
-const CACHE_STATIC = 'rp-static-v9';
-const CACHE_API    = 'rp-api-v9';
+const VERSION = 'v10.0';
+const CACHE_STATIC = 'rp-static-v10';
+const CACHE_API    = 'rp-api-v10';
 
 const PRECACHE = [
   '/manifest.json',
@@ -17,30 +16,27 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_STATIC)
       .then(cache => cache.addAll(PRECACHE.map(u => new Request(u, { cache: 'reload' }))))
-      .catch(() => {})  // não falhar se ícone não existir
-      .then(() => self.skipWaiting())  // ativar IMEDIATAMENTE (sem esperar aba fechar)
+      .catch(() => {})
+      .then(() => self.skipWaiting())  // ativa IMEDIATAMENTE
   );
 });
 
-// ── ACTIVATE: limpar caches antigos + assumir controle de TODAS as abas ───
+// ── ACTIVATE: limpa TODOS os caches antigos (qualquer versão) ──────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
         keys
           .filter(k => k !== CACHE_STATIC && k !== CACHE_API)
-          .map(k => caches.delete(k))
+          .map(k => {
+            console.log('[SW v10] Deletando cache antigo:', k);
+            return caches.delete(k);
+          })
       ))
-      .then(() => self.clients.claim())  // controlar abas abertas imediatamente
-      .then(() => {
-        // ── Auto-reload silencioso em todas as abas ──────────────────────
-        // Quando novo SW ativa, recarrega todas as páginas automaticamente
-        // para garantir que o usuário sempre veja a versão mais recente
-        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      })
+      .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
       .then(clients => {
         clients.forEach(client => {
-          // Navegar de volta pra mesma URL (reload silencioso)
           client.navigate(client.url);
         });
       })
@@ -65,15 +61,16 @@ self.addEventListener('fetch', event => {
   // Só GET
   if (req.method !== 'GET') return;
 
-  // Só origem própria (ignora Firebase, Google, CDNs)
+  // Só origem própria
   const isOwn = url.hostname.includes('rotaposto') || url.hostname === 'localhost';
   if (!isOwn) return;
 
   const path = url.pathname;
 
-  // ── PÁGINAS HTML: sempre busca na rede (nunca serve cache desatualizado) ─
+  // ── PÁGINAS HTML: SEMPRE busca na rede (nunca serve cache) ───────────────
   const isHtmlPage = path === '/' || path === '/app' || path === '/onboarding'
-    || path === '/landing' || path === '/admin' || !path.includes('.');
+    || path === '/landing' || path === '/admin' || path === '/parcerias'
+    || path === '/parcerias/empresa' || !path.includes('.');
 
   if (isHtmlPage) {
     event.respondWith(
@@ -94,7 +91,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // ── APIs de postos/preços: network-first com cache de 5 min ──────────────
+  // ── APIs: network-first com cache de 5 min ────────────────────────────────
   if (path.startsWith('/api/postos') || path.startsWith('/api/precos') || path.startsWith('/api/geocode')) {
     event.respondWith(
       fetch(req)
@@ -110,7 +107,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // ── Assets estáticos (ícones, manifest, imagens): cache-first ────────────
+  // ── Assets estáticos: cache-first ────────────────────────────────────────
   event.respondWith(
     caches.match(req).then(cached => {
       if (cached) return cached;

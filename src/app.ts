@@ -21,7 +21,7 @@ export function getAppHTML(firebaseScripts: string): string {
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
   ${firebaseScripts}
@@ -58,7 +58,7 @@ export function getAppHTML(firebaseScripts: string): string {
 
     html, body {
       width: 100%; height: 100%;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Roboto', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--gray-bg);
       overflow: hidden;
     }
@@ -99,6 +99,7 @@ export function getAppHTML(firebaseScripts: string): string {
 
     .header-logo {
       font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+      font-family: 'Roboto', sans-serif;
     }
     .header-logo .rota { color: var(--black); }
     .header-logo .posto { color: var(--orange); }
@@ -227,16 +228,19 @@ export function getAppHTML(firebaseScripts: string): string {
 
     .map-posto-info { flex: 1; min-width: 0; overflow: hidden; }
     .map-posto-nome {
-      font-size: 13px; font-weight: 800; color: var(--black);
+      font-size: 12px; font-weight: 700; color: var(--black);
       margin-bottom: 2px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-transform: uppercase; letter-spacing: 0.3px;
+      font-family: 'Roboto', sans-serif;
     }
     .map-posto-preco {
-      font-size: 18px; font-weight: 900; color: var(--orange);
-      margin-bottom: 1px; line-height: 1.2;
+      font-size: 20px; font-weight: 900; color: #1A237E;
+      margin-bottom: 1px; line-height: 1.1;
+      font-family: 'Roboto', sans-serif;
     }
     .map-posto-dist {
-      font-size: 12px; color: var(--gray); font-weight: 500;
+      font-size: 11px; color: var(--gray); font-weight: 500;
     }
 
     .btn-ir-ata-la {
@@ -290,9 +294,11 @@ export function getAppHTML(firebaseScripts: string): string {
 
     .posto-item-info { flex: 1; min-width: 0; }
     .posto-item-nome {
-      font-size: 15px; font-weight: 700; color: var(--black);
-      margin-bottom: 4px;
+      font-size: 14px; font-weight: 700; color: var(--black);
+      margin-bottom: 3px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-transform: uppercase; letter-spacing: 0.3px;
+      font-family: 'Roboto', sans-serif;
     }
     .posto-item-rating {
       display: flex; align-items: center; gap: 5px;
@@ -309,15 +315,20 @@ export function getAppHTML(firebaseScripts: string): string {
       text-align: right; flex-shrink: 0;
     }
     .posto-item-preco .preco-val {
-      font-size: 17px; font-weight: 800; color: var(--black);
-      white-space: nowrap;
+      font-size: 22px; font-weight: 900; color: #1A237E;
+      white-space: nowrap; font-family: 'Roboto', sans-serif;
+      line-height: 1.1;
+    }
+    .posto-item-preco .preco-rs {
+      font-size: 13px; font-weight: 700; color: #1A237E;
+      vertical-align: top; margin-top: 3px; display: inline-block;
     }
     .posto-item-preco .preco-unit {
-      font-size: 12px; font-weight: 500; color: var(--gray);
+      font-size: 11px; font-weight: 500; color: var(--gray);
     }
     .posto-item-preco .dist-txt {
-      font-size: 12px; color: var(--gray);
-      margin-top: 3px;
+      font-size: 11px; color: var(--gray);
+      margin-top: 4px;
     }
     .posto-item-preco .preco-estimado {
       color: #999;
@@ -2923,20 +2934,30 @@ export function getAppHTML(firebaseScripts: string): string {
       // Rating Google compacto
       const ratingStr = p.rating ? '<span style="font-size:10px;color:#F59E0B;margin-left:3px;">★' + p.rating.toFixed(1) + '</span>' : '';
 
+      // Badge de distância estilo pílula azul (igual CompletaÍ)
+      const distBadge = p.distancia
+        ? '<span style="display:inline-block;background:#1565C0;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;margin-left:6px;vertical-align:middle;white-space:nowrap">' + dist + '</span>'
+        : '';
+      // Endereço em caixa alta estilo CompletaÍ
+      const endStr = (p.endereco ? p.endereco.toUpperCase() : '') + (p.bairro ? ' - ' + p.bairro.toUpperCase() : '');
+
       return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
         + '<div class="posto-brand-logo" style="background:' + bandInfo.bg + ';border-color:' + bandInfo.border + ';font-size:20px">' + emoji + '</div>'
         + '<div class="posto-item-info">'
-        +   '<div class="posto-item-nome">' + p.nome + '</div>'
-        +   '<div style="display:flex;align-items:center;gap:2px;margin-top:2px;">'
+        +   '<div class="posto-item-nome">' + p.nome + distBadge + '</div>'
+        +   (endStr ? '<div style="font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400;">' + endStr + '</div>' : '')
+        +   '<div style="display:flex;align-items:center;gap:3px;margin-top:3px;">'
         +     (isBest ? '<span style="font-size:10px;background:#E8F5E9;color:#00A651;font-weight:700;padding:1px 5px;border-radius:4px;">MELHOR PREÇO</span>' : '')
-        +     badgeFonte
-        +     abertoStr
-        +     ratingStr
+        +     badgeFonte + abertoStr + ratingStr
         +   '</div>'
         + '</div>'
         + '<div class="posto-item-preco">'
-        +   '<div class="preco-val" style="color:' + corPreco + '">' + fonteSufixo + precoFmt + '<span class="preco-unit">/L</span></div>'
-        +   '<div class="dist-txt">' + dist + ' • ' + tempo + '</div>'
+        +   (precoFmt !== '-'
+            ? '<div class="preco-val" style="color:' + corPreco + '"><span style="font-size:12px;font-weight:700;vertical-align:top;margin-top:2px;display:inline-block">R$</span>' + fonteSufixo + precoFmt + '</div>'
+              + '<div class="preco-unit">/L</div>'
+              + '<div class="dist-txt">' + tempo + '</div>'
+            : '<div style="font-size:11px;color:#999;font-weight:600;text-align:right;line-height:1.4">Sem<br>atualização</div>'
+          )
         + '</div>'
         + '</div>';
     }).join('');
