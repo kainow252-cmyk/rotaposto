@@ -1747,19 +1747,10 @@ export function getAppHTML(firebaseScripts: string): string {
   <div id="app-toast"></div>
   <div id="app-loading"><div class="app-spinner"></div></div>
 
-  <!-- ══ SUB-TELA CHEIA (menu perfil) ══ -->
-  <div id="rp-subtela">
-    <div id="rp-subtela-header">
-      <button id="rp-subtela-back" onclick="fecharTela()">
-        <svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div id="rp-subtela-titulo">Título</div>
-    </div>
-    <div id="rp-subtela-body"></div>
-  </div>
+</div><!-- #app-root -->
 
-  <!-- ══ MODAL ASSINATURA PIX ══ -->
-  <div id="modal-assinatura" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);flex-direction:column;align-items:center;justify-content:flex-end;overflow-y:auto;">
+<!-- ══ MODAL ASSINATURA PIX — FORA do #app-root para escapar de overflow:hidden ══ -->
+<div id="modal-assinatura" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);flex-direction:column;align-items:center;justify-content:flex-end;overflow-y:auto;">
     <div style="min-height:100%;width:100%;display:flex;align-items:flex-end;justify-content:center;padding-top:60px;">
       <div id="assin-sheet" style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:0 0 40px;position:relative;">
 
@@ -1905,7 +1896,16 @@ export function getAppHTML(firebaseScripts: string): string {
   </div>
   <!-- /MODAL ASSINATURA -->
 
-</div><!-- #app-root -->
+<!-- ══ SUB-TELA CHEIA (menu perfil) — FORA do #app-root para escapar de overflow:hidden ══ -->
+<div id="rp-subtela">
+  <div id="rp-subtela-header">
+    <button id="rp-subtela-back" onclick="fecharTela()">
+      <svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div id="rp-subtela-titulo">Título</div>
+  </div>
+  <div id="rp-subtela-body"></div>
+</div>
 
 <script>
   // ══════════════════════════════════════════════════════
@@ -3214,11 +3214,6 @@ export function getAppHTML(firebaseScripts: string): string {
     var el = document.getElementById('rp-subtela');
     if (!el) return;
     el.classList.remove('aberta');
-    // Devolver ao app-root depois da animação
-    setTimeout(function() {
-      var root = document.getElementById('app-root');
-      if (root && el.parentNode !== root) root.appendChild(el);
-    }, 300);
   }
 
   function fecharModal() { fecharTela(); }  // compatibilidade
@@ -3228,11 +3223,11 @@ export function getAppHTML(firebaseScripts: string): string {
     var tit = document.getElementById('rp-subtela-titulo');
     var body = document.getElementById('rp-subtela-body');
     if (!el || !tit || !body) return;
-    // Mover para document.body para escapar do overflow:hidden do #app-root
+    // Garantir que está no body (fora de qualquer container overflow:hidden)
     if (el.parentNode !== document.body) document.body.appendChild(el);
     tit.textContent = titulo;
     body.innerHTML = conteudoHTML;
-    // Forçar reflow antes de adicionar classe para garantir transição
+    // Forçar reflow antes de adicionar classe para garantir transição CSS
     el.offsetHeight;
     el.classList.add('aberta');
     body.scrollTop = 0;
