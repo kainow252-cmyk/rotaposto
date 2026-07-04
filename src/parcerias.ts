@@ -27,7 +27,7 @@ export function getParceriasLandingHTML(): string {
       height:64px;background:#07111C;
       border-bottom:none;
       display:flex;align-items:center;
-      padding:0 40px;gap:16px;
+      padding:0 40px;gap:0;
       position:sticky;top:0;z-index:100;
       backdrop-filter:blur(16px)
     }
@@ -47,6 +47,7 @@ export function getParceriasLandingHTML(): string {
       border-left:1px solid rgba(255,109,0,0.25);
       border-right:1px solid rgba(255,109,0,0.25);
       height:64px;
+      padding:0 24px;
     }
 
     .n-center-text{
