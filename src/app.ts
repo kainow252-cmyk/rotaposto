@@ -2677,7 +2677,8 @@ export function getAppHTML(firebaseScripts: string): string {
         + 'style="padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid ' + (f.raioKm===v ? 'var(--orange)' : '#e0e0e0') + ';background:' + (f.raioKm===v ? '#FFF5EE' : '#fff') + ';color:' + (f.raioKm===v ? 'var(--orange)' : '#555') + ';">' + label + '</button>';
     }
     function optOrdenar(v, label) {
-      return '<button onclick="window._tmpFiltros.ordenar=\'' + v + '\';window._tmpFiltros._render()" '
+      var Q = String.fromCharCode(39);
+      return '<button onclick="window._tmpFiltros.ordenar=' + Q + v + Q + ';window._tmpFiltros._render()" '
         + 'style="padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid ' + (f.ordenar===v ? 'var(--orange)' : '#e0e0e0') + ';background:' + (f.ordenar===v ? '#FFF5EE' : '#fff') + ';color:' + (f.ordenar===v ? 'var(--orange)' : '#555') + ';">' + label + '</button>';
     }
     function optAval(v, label) {
@@ -2742,7 +2743,8 @@ export function getAppHTML(firebaseScripts: string): string {
     }
     function _optOrdenar(atual, v, label) {
       var sel = atual === v;
-      return '<button onclick="window._tmpFiltros.ordenar=\'' + v + '\';window._tmpFiltros._render()" '
+      var Q = String.fromCharCode(39);
+      return '<button onclick="window._tmpFiltros.ordenar=' + Q + v + Q + ';window._tmpFiltros._render()" '
         + 'style="padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid ' + (sel ? 'var(--orange)' : '#e0e0e0') + ';background:' + (sel ? '#FFF5EE' : '#fff') + ';color:' + (sel ? 'var(--orange)' : '#555') + ';">' + label + '</button>';
     }
     function _optAval(atual, v, label) {
@@ -3069,7 +3071,7 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<span style="font-size:11px;color:#FF6D00;cursor:pointer;font-weight:600;" onclick="abrirReportarPreco('+idx+')">'
       + '📝 Preços diferentes? Informe o valor real</span></div>'
       + '<div style="margin-top:12px;" id="btn-gerar-desconto-wrap">'
-      + '<button onclick="abrirGerarCupom(\'' + (p.id || '') + '\',\'' + (p.nome || 'Posto').replace(/'/g,"\\'") + '\',\'' + selectedFuel + '\')" '
+      + (function(){ var Q=String.fromCharCode(39); return '<button onclick="abrirGerarCupom(' + Q + (p.id||'') + Q + ',' + Q + (p.nome||'Posto').replace(/'/g,Q) + Q + ',' + Q + selectedFuel + Q + ')" '; }())
       + 'style="width:100%;padding:12px;background:linear-gradient(135deg,#FF6D00,#FFA040);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">'
       + '🎟️ Gerar Cupom de Desconto Premium'
       + '</button></div>';
@@ -4497,7 +4499,7 @@ function abrirPainelGamificacao() {
     + '<div style="font-size:14px;font-weight:700;color:#1976D2;margin-bottom:8px;">👥 Seu Código de Indicação</div>'
     + '<div style="display:flex;align-items:center;gap:8px;">'
     + '<div style="flex:1;background:#fff;border:2px solid #1976D2;border-radius:12px;padding:12px;text-align:center;font-size:22px;font-weight:900;color:#1976D2;letter-spacing:4px;">' + codigo + '</div>'
-    + '<button onclick="compartilharCodigoIndicacao(\'' + codigo + '\')" style="background:#1976D2;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;">Compartilhar</button>'
+    + '<button onclick="compartilharCodigoIndicacao(' + String.fromCharCode(39) + codigo + String.fromCharCode(39) + ')" style="background:#1976D2;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;">Compartilhar</button>'
     + '</div>'
     + '<div style="font-size:12px;color:#888;margin-top:8px;">Ganhe 50 pontos por amigo que assinar o RotaPosto Premium!</div>'
     + '</div>'
@@ -4506,7 +4508,7 @@ function abrirPainelGamificacao() {
     + '<div style="font-size:14px;font-weight:700;color:#333;margin-bottom:12px;">📊 Últimas ações</div>'
     + logHtml
     + '</div>'
-    + '<button onclick="this.closest(\'[onclick]\').remove()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:15px;font-weight:700;color:#555;cursor:pointer;">Fechar</button>'
+    + '<button onclick="this.closest(' + String.fromCharCode(39) + '[onclick]' + String.fromCharCode(39) + ').remove()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:15px;font-weight:700;color:#555;cursor:pointer;">Fechar</button>'
     + '</div></div>';
 
   var el = document.createElement('div');
@@ -4572,10 +4574,10 @@ function abrirGerarCupom(postoId, nomePosto, combustivelSugerido) {
       + '<div style="background:#FFF8F0;border-radius:14px;padding:16px;margin-bottom:20px;">'
       + '<div style="font-size:13px;color:#FF6D00;font-weight:700;margin-bottom:8px;">💡 Ou ganhe de graça!</div>'
       + '<div style="font-size:13px;color:#555;">Acumule 501 pontos reportando preços e ganhe 30 dias Premium grátis.</div>'
-      + '<button onclick="this.closest(\'[style*=fixed]\').remove();abrirPainelGamificacao();" style="margin-top:12px;background:#FF6D00;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Ver meus pontos</button>'
+      + '<button onclick="this.closest(' + String.fromCharCode(39) + '[style*=fixed]' + String.fromCharCode(39) + ').remove();abrirPainelGamificacao();" style="margin-top:12px;background:#FF6D00;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Ver meus pontos</button>'
       + '</div>'
       + '<button onclick="abrirModalAssinatura()" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">Assinar Premium — R$10/mês</button>'
-      + '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:14px;color:#555;cursor:pointer;">Cancelar</button>'
+      + '<button onclick="this.closest(' + String.fromCharCode(39) + '[style*=fixed]' + String.fromCharCode(39) + ').remove()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:14px;color:#555;cursor:pointer;">Cancelar</button>'
       + '</div>';
     document.body.appendChild(el);
     return;
@@ -4601,7 +4603,7 @@ function abrirGerarCupom(postoId, nomePosto, combustivelSugerido) {
     + '<select id="cupom-combustivel" style="width:100%;padding:12px;border:2px solid #eee;border-radius:12px;font-size:15px;background:#fff;">' + optsHtml + '</select>'
     + '</div>'
     + '<div id="cupom-area" style="display:none;"></div>'
-    + '<button id="btn-gerar-cupom" onclick="gerarCupomPremium(\'' + (postoId||'') + '\',\'' + (nomePosto||'Posto Parceiro').replace(/'/g,"\\'") + '\')" '
+    + (function(){ var Q=String.fromCharCode(39); return '<button id="btn-gerar-cupom" onclick="gerarCupomPremium(' + Q + (postoId||'') + Q + ',' + Q + (nomePosto||'Posto Parceiro').replace(/'/g,Q) + Q + ')" '; }())
     + 'style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">🎟️ Gerar Cupom de Desconto</button>'
     + '<button onclick="fecharModalCupom()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:14px;color:#555;cursor:pointer;">Cancelar</button>'
     + '</div>';
