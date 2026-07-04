@@ -230,12 +230,27 @@ export function getParceriasLandingHTML(): string {
     /* ── TELA CHEIA CADASTRO ── */
     .tela-cheia{display:none;position:fixed;inset:0;z-index:9999;background:#07111C;overflow-y:auto;flex-direction:column}
     .tela-cheia.open{display:flex}
-    .tc-nav{height:60px;background:#07111C;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;padding:0 32px;gap:16px;position:sticky;top:0;z-index:10}
+    .tc-nav{height:60px;background:#07111C;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;padding:0 32px;gap:16px;position:sticky;top:0;z-index:10;flex-shrink:0}
     .tc-back{display:flex;align-items:center;gap:8px;background:transparent;border:1.5px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);padding:8px 16px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Raleway',sans-serif;transition:all .18s}
     .tc-back:hover{border-color:#FF6D00;color:#FF6D00}
     .tc-title{font-size:15px;font-weight:800;color:#fff}
-    .tc-body{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px 24px}
-    .tc-card{background:#0D1B2A;border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:500px;padding:36px}
+    .tc-body{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 60px)}
+    .tc-left{background:linear-gradient(135deg,rgba(255,109,0,0.12),rgba(255,109,0,0.03));border-right:1px solid rgba(255,255,255,0.06);padding:56px 48px;display:flex;flex-direction:column;justify-content:center}
+    .tc-left h2{font-size:clamp(24px,2.5vw,38px);font-weight:900;line-height:1.15;margin-bottom:16px}
+    .tc-left h2 span{color:#FF6D00}
+    .tc-left p{font-size:14px;color:rgba(255,255,255,0.5);line-height:1.8;margin-bottom:32px}
+    .tc-beneficios{display:flex;flex-direction:column;gap:14px}
+    .tc-ben{display:flex;align-items:flex-start;gap:12px}
+    .tc-ben-ico{width:32px;height:32px;border-radius:9px;background:rgba(255,109,0,0.15);border:1px solid rgba(255,109,0,0.25);display:flex;align-items:center;justify-content:center;color:#FF6D00;font-size:13px;flex-shrink:0;margin-top:2px}
+    .tc-ben-txt strong{display:block;font-size:13px;font-weight:800;margin-bottom:2px}
+    .tc-ben-txt span{font-size:12px;color:rgba(255,255,255,0.4)}
+    .tc-right{padding:40px 48px;overflow-y:auto}
+    .tc-card{width:100%;max-width:580px}
+    @media(max-width:900px){
+      .tc-body{grid-template-columns:1fr}
+      .tc-left{display:none}
+      .tc-right{padding:24px 20px}
+    }
 
     /* ── TELA CHEIA SUBPÁGINAS ── */
     .subpagina{display:none;position:fixed;inset:0;z-index:9998;background:#07111C;overflow-y:auto;flex-direction:column}
@@ -271,6 +286,66 @@ export function getParceriasLandingHTML(): string {
     .fok{background:rgba(0,200,83,0.08);border:1px solid rgba(0,200,83,0.22);border-radius:11px;padding:20px;text-align:center;display:none}
     .fok h4{font-size:17px;font-weight:900;color:#69F0AE;margin-bottom:7px}
     .fok p{font-size:12.5px;color:rgba(255,255,255,0.55);line-height:1.6}
+
+    /* ══════════════════════════════
+       RESPONSIVO — MOBILE / TABLET
+    ══════════════════════════════ */
+
+    /* Tablet (≤1024px) */
+    @media(max-width:1024px){
+      nav{padding:0 20px}
+      .n-center-text{font-size:clamp(10px,1.1vw,14px);letter-spacing:1.5px}
+      .btn-ghost,.btn-solid{padding:8px 14px;font-size:12px}
+      .hero-wrap{padding:16px 32px}
+      h1{font-size:clamp(28px,4vw,56px)}
+      .recursos-wrap,.cards-wrap{padding-left:24px;padding-right:24px}
+      .rec-cols{grid-template-columns:repeat(2,1fr);gap:16px}
+      .rec-col{border-right:none;padding:0 0 16px;border-bottom:1px solid rgba(255,255,255,0.07)}
+      .rec-col:nth-child(odd){padding-right:16px;border-right:1px solid rgba(255,255,255,0.07)}
+      .cards-grid{grid-template-columns:repeat(2,1fr)}
+      .footer-inner{grid-template-columns:1fr 1fr;gap:24px}
+      .f-social-col{grid-column:1/-1;flex-direction:row;justify-content:flex-start;align-items:center}
+      .f-social{flex-direction:row}
+    }
+
+    /* Mobile (≤600px) */
+    @media(max-width:600px){
+      nav{padding:0 16px;height:56px}
+      .n-center{display:none}
+      .n-tag{display:none}
+      .n-logo-name{font-size:16px}
+      .btn-ghost{display:none}
+      .btn-solid{padding:8px 14px;font-size:12px;gap:5px}
+      .btn-solid i{display:none}
+      .hero-wrap{padding:20px 16px 16px}
+      h1{font-size:clamp(24px,7vw,40px);letter-spacing:-1px}
+      .hero-sub{font-size:14px}
+      .recursos-wrap{padding:16px 16px 0}
+      .rec-cols{grid-template-columns:1fr;gap:0}
+      .rec-col{padding:12px 0;border-right:none;border-bottom:1px solid rgba(255,255,255,0.07)}
+      .rec-col:last-child{border-bottom:none}
+      .cards-wrap{padding:0 16px 16px}
+      .cards-grid{grid-template-columns:1fr 1fr;gap:10px}
+      .feat-card{padding:12px}
+      .feat-card h4{font-size:13px}
+      .feat-card p{font-size:11px}
+      footer{padding:24px 16px 0}
+      .footer-inner{grid-template-columns:1fr;gap:20px}
+      .f-social-col{align-items:flex-start}
+      .f-bottom{flex-direction:column;gap:6px;text-align:center}
+      /* Subpáginas mobile */
+      .sp-content{padding:24px 16px}
+      .sp-h1{font-size:clamp(22px,6vw,32px)}
+      .sp-grid{grid-template-columns:1fr}
+      /* Nav mobile */
+      .tc-nav,.sp-nav{padding:0 16px}
+    }
+
+    /* Extra small (≤400px) */
+    @media(max-width:400px){
+      .cards-grid{grid-template-columns:1fr}
+      h1{font-size:clamp(22px,8vw,34px)}
+    }
   </style>
 </head>
 <body>
@@ -417,6 +492,18 @@ export function getParceriasLandingHTML(): string {
     <span class="tc-title">Cadastrar meu posto</span>
   </div>
   <div class="tc-body">
+    <div class="tc-left">
+      <h2>Seu posto no <span>mapa</span> de milhares de motoristas</h2>
+      <p>Cadastre agora e comece a atrair mais clientes com preços em tempo real, cupons e destaque na busca.</p>
+      <div class="tc-beneficios">
+        <div class="tc-ben"><div class="tc-ben-ico"><i class="fas fa-map-pin"></i></div><div class="tc-ben-txt"><strong>Destaque no mapa</strong><span>Apareça primeiro para motoristas na sua região</span></div></div>
+        <div class="tc-ben"><div class="tc-ben-ico"><i class="fas fa-rotate"></i></div><div class="tc-ben-txt"><strong>Preços em tempo real</strong><span>Atualize a qualquer hora direto pelo painel</span></div></div>
+        <div class="tc-ben"><div class="tc-ben-ico"><i class="fas fa-ticket"></i></div><div class="tc-ben-txt"><strong>Cupons e promoções</strong><span>Atraia clientes com ofertas exclusivas</span></div></div>
+        <div class="tc-ben"><div class="tc-ben-ico"><i class="fas fa-chart-line"></i></div><div class="tc-ben-txt"><strong>Relatórios completos</strong><span>Acompanhe visitas e desempenho em tempo real</span></div></div>
+        <div class="tc-ben"><div class="tc-ben-ico"><i class="fas fa-clock"></i></div><div class="tc-ben-txt"><strong>Aprovação em 24h</strong><span>Nossa equipe ativa seu posto rapidamente</span></div></div>
+      </div>
+    </div>
+    <div class="tc-right">
     <div class="tc-card">
       <div class="m-title">Cadastrar posto</div>
       <div class="m-sub">Preencha os dados e entraremos em contato em até 24h.</div>
@@ -494,6 +581,7 @@ export function getParceriasLandingHTML(): string {
         <div class="fterms">Ao cadastrar você concorda com os <a href="#" onclick="abrirSP('termos')">Termos de Uso</a></div>
         <button class="fsub" onclick="submitF()"><span id="f-btn"><i class="fas fa-rocket"></i> &nbsp;Enviar cadastro</span></button>
       </div>
+    </div>
     </div>
   </div>
 </div>
@@ -1049,6 +1137,66 @@ export function getPainelEmpresaHTML(): string {
       .btn-menu-mobile { display:block; }
       .sidebar-overlay.visivel { display:block; }
       .page-content { padding:16px; }
+    }
+
+    /* ══════════════════════════════
+       RESPONSIVO — MOBILE / TABLET
+    ══════════════════════════════ */
+
+    /* Tablet (≤1024px) */
+    @media(max-width:1024px){
+      nav{padding:0 20px}
+      .n-center-text{font-size:clamp(10px,1.1vw,14px);letter-spacing:1.5px}
+      .btn-ghost,.btn-solid{padding:8px 14px;font-size:12px}
+      .hero-wrap{padding:16px 32px}
+      h1{font-size:clamp(28px,4vw,56px)}
+      .recursos-wrap,.cards-wrap{padding-left:24px;padding-right:24px}
+      .rec-cols{grid-template-columns:repeat(2,1fr);gap:16px}
+      .rec-col{border-right:none;padding:0 0 16px;border-bottom:1px solid rgba(255,255,255,0.07)}
+      .rec-col:nth-child(odd){padding-right:16px;border-right:1px solid rgba(255,255,255,0.07)}
+      .cards-grid{grid-template-columns:repeat(2,1fr)}
+      .footer-inner{grid-template-columns:1fr 1fr;gap:24px}
+      .f-social-col{grid-column:1/-1;flex-direction:row;justify-content:flex-start;align-items:center}
+      .f-social{flex-direction:row}
+    }
+
+    /* Mobile (≤600px) */
+    @media(max-width:600px){
+      nav{padding:0 16px;height:56px}
+      .n-center{display:none}
+      .n-tag{display:none}
+      .n-logo-name{font-size:16px}
+      .btn-ghost{display:none}
+      .btn-solid{padding:8px 14px;font-size:12px;gap:5px}
+      .btn-solid i{display:none}
+      .hero-wrap{padding:20px 16px 16px}
+      h1{font-size:clamp(24px,7vw,40px);letter-spacing:-1px}
+      .hero-sub{font-size:14px}
+      .recursos-wrap{padding:16px 16px 0}
+      .rec-cols{grid-template-columns:1fr;gap:0}
+      .rec-col{padding:12px 0;border-right:none;border-bottom:1px solid rgba(255,255,255,0.07)}
+      .rec-col:last-child{border-bottom:none}
+      .cards-wrap{padding:0 16px 16px}
+      .cards-grid{grid-template-columns:1fr 1fr;gap:10px}
+      .feat-card{padding:12px}
+      .feat-card h4{font-size:13px}
+      .feat-card p{font-size:11px}
+      footer{padding:24px 16px 0}
+      .footer-inner{grid-template-columns:1fr;gap:20px}
+      .f-social-col{align-items:flex-start}
+      .f-bottom{flex-direction:column;gap:6px;text-align:center}
+      /* Subpáginas mobile */
+      .sp-content{padding:24px 16px}
+      .sp-h1{font-size:clamp(22px,6vw,32px)}
+      .sp-grid{grid-template-columns:1fr}
+      /* Nav mobile */
+      .tc-nav,.sp-nav{padding:0 16px}
+    }
+
+    /* Extra small (≤400px) */
+    @media(max-width:400px){
+      .cards-grid{grid-template-columns:1fr}
+      h1{font-size:clamp(22px,8vw,34px)}
     }
   </style>
 </head>
@@ -2000,6 +2148,66 @@ export function getValidadorHTML(): string {
     .res-preco { font-size:36px; font-weight:900; color:#FF6D00; margin:12px 0 4px; }
     .res-txt { font-size:13px; color:#757575; line-height:1.6; }
     .btn-novo { margin-top:14px; padding:12px; width:100%; background:none; border:2px solid #FF6D00; color:#FF6D00; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; }
+
+    /* ══════════════════════════════
+       RESPONSIVO — MOBILE / TABLET
+    ══════════════════════════════ */
+
+    /* Tablet (≤1024px) */
+    @media(max-width:1024px){
+      nav{padding:0 20px}
+      .n-center-text{font-size:clamp(10px,1.1vw,14px);letter-spacing:1.5px}
+      .btn-ghost,.btn-solid{padding:8px 14px;font-size:12px}
+      .hero-wrap{padding:16px 32px}
+      h1{font-size:clamp(28px,4vw,56px)}
+      .recursos-wrap,.cards-wrap{padding-left:24px;padding-right:24px}
+      .rec-cols{grid-template-columns:repeat(2,1fr);gap:16px}
+      .rec-col{border-right:none;padding:0 0 16px;border-bottom:1px solid rgba(255,255,255,0.07)}
+      .rec-col:nth-child(odd){padding-right:16px;border-right:1px solid rgba(255,255,255,0.07)}
+      .cards-grid{grid-template-columns:repeat(2,1fr)}
+      .footer-inner{grid-template-columns:1fr 1fr;gap:24px}
+      .f-social-col{grid-column:1/-1;flex-direction:row;justify-content:flex-start;align-items:center}
+      .f-social{flex-direction:row}
+    }
+
+    /* Mobile (≤600px) */
+    @media(max-width:600px){
+      nav{padding:0 16px;height:56px}
+      .n-center{display:none}
+      .n-tag{display:none}
+      .n-logo-name{font-size:16px}
+      .btn-ghost{display:none}
+      .btn-solid{padding:8px 14px;font-size:12px;gap:5px}
+      .btn-solid i{display:none}
+      .hero-wrap{padding:20px 16px 16px}
+      h1{font-size:clamp(24px,7vw,40px);letter-spacing:-1px}
+      .hero-sub{font-size:14px}
+      .recursos-wrap{padding:16px 16px 0}
+      .rec-cols{grid-template-columns:1fr;gap:0}
+      .rec-col{padding:12px 0;border-right:none;border-bottom:1px solid rgba(255,255,255,0.07)}
+      .rec-col:last-child{border-bottom:none}
+      .cards-wrap{padding:0 16px 16px}
+      .cards-grid{grid-template-columns:1fr 1fr;gap:10px}
+      .feat-card{padding:12px}
+      .feat-card h4{font-size:13px}
+      .feat-card p{font-size:11px}
+      footer{padding:24px 16px 0}
+      .footer-inner{grid-template-columns:1fr;gap:20px}
+      .f-social-col{align-items:flex-start}
+      .f-bottom{flex-direction:column;gap:6px;text-align:center}
+      /* Subpáginas mobile */
+      .sp-content{padding:24px 16px}
+      .sp-h1{font-size:clamp(22px,6vw,32px)}
+      .sp-grid{grid-template-columns:1fr}
+      /* Nav mobile */
+      .tc-nav,.sp-nav{padding:0 16px}
+    }
+
+    /* Extra small (≤400px) */
+    @media(max-width:400px){
+      .cards-grid{grid-template-columns:1fr}
+      h1{font-size:clamp(22px,8vw,34px)}
+    }
   </style>
 </head>
 <body>
