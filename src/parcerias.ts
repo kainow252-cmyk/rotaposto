@@ -375,7 +375,7 @@ export function getParceriasLandingHTML(): string {
     <div class="phone-col">
       <div class="phone-halo"></div>
       <div class="phone-wrap">
-        <img src="https://www.genspark.ai/api/files/s/bZ1AiNzN" alt="App RotaPosto" loading="eager"/>
+        <img src="/static/phone-mockup.png" alt="App RotaPosto" loading="eager"/>
       </div>
     </div>
 
