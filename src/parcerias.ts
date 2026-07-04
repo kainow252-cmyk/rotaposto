@@ -325,7 +325,7 @@ export function getParceriasLandingHTML(): string {
       <div class="phone-glow"></div>
       <div class="phone-wrap">
         <img class="phone-img"
-          src="https://www.genspark.ai/api/files/s/jR0JPETT?cache_control=3600"
+          src="/static/phone-mockup.png"
           alt="App RotaPosto — mapa com preços em tempo real"
           loading="eager"
         />
