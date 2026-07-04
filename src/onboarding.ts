@@ -882,14 +882,31 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
 
     // Registrar sessão única no servidor antes de redirecionar
     registrarSessao(user.uid, function() {
-      setTimeout(function() {
-        var vehicle = localStorage.getItem('rp_vehicle');
-        if (vehicle) {
-          window.location.href = '/app';
-        } else {
+      // Verificar veículo: primeiro localStorage (rápido), depois servidor (confiável)
+      var vehicleLocal = localStorage.getItem('rp_vehicle');
+      if (vehicleLocal) {
+        // Tem local — sincroniza com servidor em background e vai pro app
+        _sincVeiculoServidor(user.uid, vehicleLocal);
+        setTimeout(function() { window.location.href = '/app'; }, 600);
+        return;
+      }
+      // Não tem local — consultar servidor (outro dispositivo pode ter salvo)
+      fetch('/api/usuario/veiculo/' + user.uid)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.veiculo) {
+            // Restaurar do servidor para o localStorage
+            localStorage.setItem('rp_vehicle', JSON.stringify(data.veiculo));
+            setTimeout(function() { window.location.href = '/app'; }, 300);
+          } else {
+            // Primeiro acesso — pedir cadastro de veículo
+            goToScreen('vehicle');
+          }
+        })
+        .catch(function() {
+          // Falha de rede — pede veículo mesmo assim
           goToScreen('vehicle');
-        }
-      }, 600);
+        });
     });
   }
 
@@ -1024,9 +1041,35 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     const type = document.getElementById('veh-type').value;
     const consumption = document.getElementById('veh-consumption').value;
     const tank = document.getElementById('veh-tank').value;
-    localStorage.setItem('rp_vehicle', JSON.stringify({ type, consumption: parseInt(consumption), tank: parseInt(tank) }));
+    const vehicleData = { type, consumption: parseInt(consumption), tank: parseInt(tank) };
+    localStorage.setItem('rp_vehicle', JSON.stringify(vehicleData));
+
+    // Salvar no servidor vinculado ao UID (garante persistência entre dispositivos)
+    try {
+      var userData = JSON.parse(localStorage.getItem('rp_user') || '{}');
+      if (userData.uid) {
+        fetch('/api/usuario/veiculo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: userData.uid, ...vehicleData })
+        }).catch(function() {}); // ignora erro de rede silenciosamente
+      }
+    } catch(e) {}
+
     showToast('Tudo pronto! 🚗');
     setTimeout(() => window.location.href = '/app', 600);
+  }
+
+  // ── Sincronizar veículo local com servidor (em background) ──
+  function _sincVeiculoServidor(uid, vehicleJson) {
+    try {
+      var v = JSON.parse(vehicleJson);
+      fetch('/api/usuario/veiculo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: uid, type: v.type, consumption: v.consumption, tank: v.tank })
+      }).catch(function() {});
+    } catch(e) {}
   }
 
   // ══════════════════════════════════════════════════════

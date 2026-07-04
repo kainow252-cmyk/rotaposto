@@ -1649,6 +1649,25 @@ app.get('/api/perfil/foto/:userId', (c) => {
   return c.json({ fotoUrl: foto.url, ts: foto.ts })
 })
 
+// ─── API: Veículo do usuário — GET e POST ────────────────────────────────────
+app.get('/api/usuario/veiculo/:uid', async (c) => {
+  const uid = c.req.param('uid')
+  if (!uid) return c.json({ veiculo: null })
+  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  const veiculo = await r2Get(r2, `usuario:${uid}:veiculo`)
+  return c.json({ veiculo: veiculo || null })
+})
+
+app.post('/api/usuario/veiculo', async (c) => {
+  const { uid, type, consumption, tank } = await c.req.json() as {
+    uid: string; type: string; consumption: number; tank: number
+  }
+  if (!uid || !type) return c.json({ erro: 'Dados inválidos' }, 400)
+  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  await r2Put(r2, `usuario:${uid}:veiculo`, { type, consumption, tank, atualizadoEm: Date.now() })
+  return c.json({ ok: true })
+})
+
 // ─── API: Firebase Config (segura - não expõe secrets) ───────────────────────
 app.get('/api/auth/config', (c) => {
   return c.json({
