@@ -4490,7 +4490,7 @@ function abrirPainelGamificacao() {
     + '<div style="font-size:14px;font-weight:700;color:#1976D2;margin-bottom:8px;">👥 Seu Código de Indicação</div>'
     + '<div style="display:flex;align-items:center;gap:8px;">'
     + '<div style="flex:1;background:#fff;border:2px solid #1976D2;border-radius:12px;padding:12px;text-align:center;font-size:22px;font-weight:900;color:#1976D2;letter-spacing:4px;">' + codigo + '</div>'
-    + '<button onclick="compartilharCodigoIndicacao(\'' + codigo + '\')" style="background:#1976D2;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;">Compartilhar</button>'
+    + '<button onclick="compartilharCodigoIndicacao(this.dataset.c)" data-c="' + codigo + '" style="background:#1976D2;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;">Compartilhar</button>'
     + '</div>'
     + '<div style="font-size:12px;color:#888;margin-top:8px;">Ganhe 50 pontos por amigo que assinar o RotaPosto Premium!</div>'
     + '</div>'
