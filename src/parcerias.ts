@@ -432,26 +432,48 @@ export function getParceriasLandingHTML(): string {
           <div class="fg"><label class="fl">WhatsApp *</label><input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)" required/></div>
         </div>
         <div class="fg"><label class="fl">Nome do posto *</label><input class="fi" id="f-posto" placeholder="Posto São João" required/></div>
-        <div class="fr">
-          <div class="fg"><label class="fl">CNPJ *</label><input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" required/></div>
-          <div class="fg"><label class="fl">Cidade *</label><input class="fi" id="f-cidade" placeholder="Vitória" required/></div>
-        </div>
-        <div class="fg">
-          <label class="fl">Estado *</label>
-          <select class="fsel" id="f-estado" required>
-            <option value="">Selecione o estado</option>
-            <option value="AC">Acre</option><option value="AL">Alagoas</option><option value="AP">Amapá</option>
-            <option value="AM">Amazonas</option><option value="BA">Bahia</option><option value="CE">Ceará</option>
-            <option value="DF">Distrito Federal</option><option value="ES">Espírito Santo</option>
-            <option value="GO">Goiás</option><option value="MA">Maranhão</option><option value="MT">Mato Grosso</option>
-            <option value="MS">Mato Grosso do Sul</option><option value="MG">Minas Gerais</option>
-            <option value="PA">Pará</option><option value="PB">Paraíba</option><option value="PR">Paraná</option>
-            <option value="PE">Pernambuco</option><option value="PI">Piauí</option>
-            <option value="RJ">Rio de Janeiro</option><option value="RN">Rio Grande do Norte</option>
-            <option value="RS">Rio Grande do Sul</option><option value="RO">Rondônia</option>
-            <option value="RR">Roraima</option><option value="SC">Santa Catarina</option>
-            <option value="SP">São Paulo</option><option value="SE">Sergipe</option><option value="TO">Tocantins</option>
-          </select>
+        <div class="fg"><label class="fl">CNPJ *</label><input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" required/></div>
+
+        <div style="background:rgba(255,109,0,0.06);border:1px solid rgba(255,109,0,0.2);border-radius:12px;padding:16px;margin-bottom:13px">
+          <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#FF6D00;margin-bottom:12px"><i class="fas fa-map-marker-alt"></i> &nbsp;Localização do posto *</div>
+          <div class="fr" style="margin-bottom:0">
+            <div class="fg"><label class="fl">CEP *</label><input class="fi" id="f-cep" placeholder="29000-000" oninput="mCEP(this)" required/></div>
+            <div class="fg" style="display:flex;align-items:flex-end;padding-bottom:1px">
+              <button type="button" onclick="buscarCEP()" style="width:100%;padding:11px;background:rgba(255,109,0,0.15);border:1.5px solid rgba(255,109,0,0.4);border-radius:9px;color:#FF6D00;font-size:12px;font-weight:800;cursor:pointer;font-family:'Raleway',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px"><i class="fas fa-search"></i> Buscar CEP</button>
+            </div>
+          </div>
+          <div class="fg"><label class="fl">Endereço (Rua) *</label><input class="fi" id="f-rua" placeholder="Av. Nossa Senhora da Penha" required/></div>
+          <div class="fr">
+            <div class="fg"><label class="fl">Número *</label><input class="fi" id="f-num" placeholder="1234" required/></div>
+            <div class="fg"><label class="fl">Bairro *</label><input class="fi" id="f-bairro" placeholder="Centro" required/></div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label class="fl">Cidade *</label><input class="fi" id="f-cidade" placeholder="Vitória" required/></div>
+            <div class="fg">
+              <label class="fl">Estado *</label>
+              <select class="fsel" id="f-estado" required>
+                <option value="">UF</option>
+                <option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option>
+                <option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option>
+                <option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option>
+                <option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option>
+                <option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option>
+                <option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option>
+                <option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option>
+                <option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option>
+                <option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option>
+              </select>
+            </div>
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">Coordenadas GPS</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="fi" id="f-lat" placeholder="Latitude" readonly style="flex:1;background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.5);font-size:12px"/>
+              <input class="fi" id="f-lng" placeholder="Longitude" readonly style="flex:1;background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.5);font-size:12px"/>
+              <button type="button" onclick="obterGPS()" id="btn-gps" style="padding:11px 14px;background:rgba(0,200,83,0.1);border:1.5px solid rgba(0,200,83,0.3);border-radius:9px;color:#69F0AE;font-size:13px;cursor:pointer;white-space:nowrap;font-family:'Raleway',sans-serif;font-weight:800;display:flex;align-items:center;gap:6px"><i class="fas fa-crosshairs"></i> GPS</button>
+            </div>
+            <div id="geo-status" style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:6px"></div>
+          </div>
         </div>
         <div class="fg">
           <label class="fl">Plano de interesse *</label>
@@ -681,6 +703,90 @@ export function getParceriasLandingHTML(): string {
     else if(v.length>2)i.value=v.slice(0,2)+'.'+v.slice(2);
     else i.value=v;
   }
+  function mCEP(i){
+    let v=i.value.replace(/\D/g,'').slice(0,8);
+    if(v.length>5) i.value=v.slice(0,5)+'-'+v.slice(5);
+    else i.value=v;
+    if(v.length===8) buscarCEP();
+  }
+  async function buscarCEP(){
+    const cep=document.getElementById('f-cep').value.replace(/\D/g,'');
+    if(cep.length!==8){
+      document.getElementById('geo-status').textContent='CEP inválido.';return;
+    }
+    document.getElementById('geo-status').textContent='Buscando endereço...';
+    try{
+      const r=await fetch('https://viacep.com.br/ws/'+cep+'/json/');
+      const d=await r.json();
+      if(d.erro){document.getElementById('geo-status').textContent='CEP não encontrado.';return;}
+      document.getElementById('f-rua').value=d.logradouro||'';
+      document.getElementById('f-bairro').value=d.bairro||'';
+      document.getElementById('f-cidade').value=d.localidade||'';
+      const sel=document.getElementById('f-estado');
+      for(let o of sel.options){if(o.value===d.uf){sel.value=d.uf;break;}}
+      document.getElementById('geo-status').textContent='✓ Endereço preenchido! Confira e adicione o número.';
+      document.getElementById('f-num').focus();
+      // Geocodificar automaticamente
+      geocodificarEndereco(d.logradouro+', '+d.localidade+' - '+d.uf);
+    }catch(e){
+      document.getElementById('geo-status').textContent='Erro ao buscar CEP. Preencha manualmente.';
+    }
+  }
+  async function geocodificarEndereco(endereco){
+    try{
+      const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(endereco+', Brasil');
+      const r=await fetch(url,{headers:{'Accept-Language':'pt-BR'}});
+      const d=await r.json();
+      if(d&&d[0]){
+        document.getElementById('f-lat').value=parseFloat(d[0].lat).toFixed(7);
+        document.getElementById('f-lng').value=parseFloat(d[0].lon).toFixed(7);
+        document.getElementById('geo-status').textContent='✓ Endereço preenchido e localização encontrada no mapa!';
+      }
+    }catch(e){}
+  }
+  function obterGPS(){
+    const btn=document.getElementById('btn-gps');
+    const status=document.getElementById('geo-status');
+    if(!navigator.geolocation){status.textContent='GPS não suportado neste dispositivo.';return;}
+    btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Buscando...';
+    status.textContent='Obtendo sua localização...';
+    navigator.geolocation.getCurrentPosition(
+      async function(pos){
+        const lat=pos.coords.latitude.toFixed(7);
+        const lng=pos.coords.longitude.toFixed(7);
+        document.getElementById('f-lat').value=lat;
+        document.getElementById('f-lng').value=lng;
+        btn.innerHTML='<i class="fas fa-check"></i> GPS OK';
+        btn.style.background='rgba(0,200,83,0.2)';
+        // Reverse geocode
+        try{
+          const url='https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&accept-language=pt-BR';
+          const r=await fetch(url);
+          const d=await r.json();
+          if(d&&d.address){
+            const a=d.address;
+            if(!document.getElementById('f-rua').value)
+              document.getElementById('f-rua').value=a.road||a.pedestrian||'';
+            if(!document.getElementById('f-bairro').value)
+              document.getElementById('f-bairro').value=a.suburb||a.neighbourhood||a.quarter||'';
+            if(!document.getElementById('f-cidade').value)
+              document.getElementById('f-cidade').value=a.city||a.town||a.village||'';
+            const uf=(a.state_code||'').replace('BR-','');
+            const sel=document.getElementById('f-estado');
+            for(let o of sel.options){if(o.value===uf){sel.value=uf;break;}}
+          }
+          status.textContent='✓ Localização GPS obtida e endereço preenchido automaticamente!';
+        }catch(e){
+          status.textContent='✓ Coordenadas GPS capturadas: '+lat+', '+lng;
+        }
+      },
+      function(err){
+        btn.innerHTML='<i class="fas fa-crosshairs"></i> GPS';
+        status.textContent='Não foi possível obter GPS. Preencha o CEP acima.';
+      },
+      {enableHighAccuracy:true,timeout:10000}
+    );
+  }
   async function submitF(){
     const nome=document.getElementById('f-nome').value.trim();
     const email=document.getElementById('f-email').value.trim();
@@ -695,7 +801,18 @@ export function getParceriasLandingHTML(): string {
     const cbs=['cb-gasolina','cb-etanol','cb-diesel','cb-gnv'];
     const combsSel=cbs.filter(id=>document.getElementById(id).checked);
     // Limpar highlights
-    ['f-nome','f-email','f-tel','f-posto','f-cnpj','f-cidade','f-estado'].forEach(id=>{
+    ['f-nome','f-email','f-tel','f-posto','f-cnpj','f-cep','f-rua','f-num','f-bairro','f-cidade','f-estado'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.style.borderColor='';
+    });
+    const cep=document.getElementById('f-cep').value.trim();
+    const rua=document.getElementById('f-rua').value.trim();
+    const num=document.getElementById('f-num').value.trim();
+    const bairro=document.getElementById('f-bairro').value.trim();
+    const lat=document.getElementById('f-lat').value.trim();
+    const lng=document.getElementById('f-lng').value.trim();
+    // Limpar highlights extras
+    ['f-cep','f-rua','f-num','f-bairro'].forEach(id=>{
       document.getElementById(id).style.borderColor='';
     });
     const campos=[
@@ -704,6 +821,10 @@ export function getParceriasLandingHTML(): string {
       {id:'f-tel',val:tel,label:'WhatsApp'},
       {id:'f-posto',val:posto,label:'Nome do posto'},
       {id:'f-cnpj',val:cnpj,label:'CNPJ'},
+      {id:'f-cep',val:cep,label:'CEP'},
+      {id:'f-rua',val:rua,label:'Endereço (Rua)'},
+      {id:'f-num',val:num,label:'Número'},
+      {id:'f-bairro',val:bairro,label:'Bairro'},
       {id:'f-cidade',val:cidade,label:'Cidade'},
       {id:'f-estado',val:estado,label:'Estado'},
     ];
@@ -723,7 +844,7 @@ export function getParceriasLandingHTML(): string {
     try{
       const r=await fetch('/api/parceiro/cadastrar',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({nome,email,tel,nomePosto:posto,cnpj,cidade,estado,plano,combustiveis:combsSel.map(id=>id.replace('cb-',''))})
+        body:JSON.stringify({nome,email,tel,nomePosto:posto,cnpj,endereco:{cep,rua,numero:num,bairro,cidade,estado},coordenadas:{lat,lng},plano,combustiveis:combsSel.map(id=>id.replace('cb-',''))})
       });
       const d=await r.json();
       if(r.ok){
