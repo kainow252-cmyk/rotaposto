@@ -69,47 +69,34 @@ export function getParceriasLandingHTML(): string {
 
     /* ── HERO ── */
     .hero-wrap{
-      position:relative;
+      display:flex;
+      align-items:flex-end;
       width:100%;
-      height:500px;
-      overflow:hidden;
-      display:flex;
-      align-items:center
-    }
-    .hero-left{
-      position:relative;
-      z-index:2;
-      width:58%;
-      padding:0 40px 0 40px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center
-    }
-    .hero-right{
-      position:absolute;
-      right:0;
-      top:0;
-      width:44%;
-      height:100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      padding:40px 0 0 40px;
+      gap:0;
       overflow:hidden
     }
+    .hero-left{
+      flex:1;
+      min-width:0;
+      padding-bottom:32px;
+      padding-right:32px
+    }
+    .hero-right{
+      flex-shrink:0;
+      width:360px
+    }
     .hero-right img{
-      height:110%;
-      width:auto;
-      max-width:none;
+      width:360px;
+      height:auto;
       display:block;
-      object-fit:contain;
-      filter:drop-shadow(0 40px 80px rgba(0,0,0,0.9))
-             drop-shadow(0 0 60px rgba(255,109,0,0.25))
+      filter:drop-shadow(-8px 0 40px rgba(255,109,0,0.2))
     }
     h1{
-      font-size:clamp(38px,4.2vw,68px);
+      font-size:clamp(36px,4vw,66px);
       font-weight:900;line-height:1.0;
       letter-spacing:-2px;
-      margin-bottom:18px
+      margin-bottom:16px
     }
     h1 span{color:#FF6D00}
     .hero-sub{
