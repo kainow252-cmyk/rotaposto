@@ -1,9 +1,9 @@
-// RotaPosto Service Worker v8.0
-// v8: overlay fullscreen busca destino + campo placa veículo
+// RotaPosto Service Worker v9.0
+// v9: filtros completos + fix campo Para planejar + B2B parcerias + gamificação
 
-const VERSION = 'v8';
-const CACHE_STATIC = 'rp-static-v8';
-const CACHE_API    = 'rp-api-v8';
+const VERSION = 'v9';
+const CACHE_STATIC = 'rp-static-v9';
+const CACHE_API    = 'rp-api-v9';
 
 const PRECACHE = [
   '/manifest.json',
