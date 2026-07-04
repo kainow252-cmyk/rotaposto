@@ -6085,7 +6085,24 @@ app.get('/admin', (c) => {
   <section id="section-dashboard">
     <div class="page-header">
       <h2>📊 Dashboard</h2>
-      <div class="badge-live">Sistema ao vivo</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:8px;background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px 12px">
+          <i class="fas fa-map-marker-alt" style="color:#FF6D00;font-size:12px"></i>
+          <select id="select-cidade" onchange="mudarCidade()" style="background:transparent;border:none;color:#fff;font-size:12px;font-weight:700;font-family:'Raleway',sans-serif;outline:none;cursor:pointer">
+            <option value="-23.5505,-46.6333,São Paulo,SP">São Paulo, SP</option>
+            <option value="-22.9068,-43.1729,Rio de Janeiro,RJ">Rio de Janeiro, RJ</option>
+            <option value="-19.9167,-43.9345,Belo Horizonte,MG">Belo Horizonte, MG</option>
+            <option value="-12.9714,-38.5014,Salvador,BA">Salvador, BA</option>
+            <option value="-15.7801,-47.9292,Brasília,DF">Brasília, DF</option>
+            <option value="-3.7172,-38.5433,Fortaleza,CE">Fortaleza, CE</option>
+            <option value="-8.0476,-34.8770,Recife,PE">Recife, PE</option>
+            <option value="-30.0346,-51.2177,Porto Alegre,RS">Porto Alegre, RS</option>
+            <option value="-25.4284,-49.2733,Curitiba,PR">Curitiba, PR</option>
+            <option value="-1.4558,-48.5039,Belém,PA">Belém, PA</option>
+          </select>
+        </div>
+        <div class="badge-live">Sistema ao vivo</div>
+      </div>
     </div>
 
     <div class="kpi-grid" id="kpi-grid">
@@ -6100,6 +6117,7 @@ app.get('/admin', (c) => {
         <div class="kpi-val" id="kpi-preco-medio">–</div>
         <div class="kpi-label">Preço Médio Gasolina</div>
         <div class="kpi-delta" id="kpi-preco-label">São Paulo, SP</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:2px" id="kpi-preco-raio">raio 15 km</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-icon" style="background:rgba(255,109,0,0.15);color:#FF6D00"><i class="fas fa-comments"></i></div>
@@ -6109,9 +6127,9 @@ app.get('/admin', (c) => {
       </div>
       <div class="kpi-card">
         <div class="kpi-icon" style="background:rgba(255,214,0,0.15);color:#FFD600"><i class="fas fa-crown"></i></div>
-        <div class="kpi-val">–</div>
-        <div class="kpi-label">Assinantes Premium</div>
-        <div class="kpi-delta down">🔒 Firebase Auth</div>
+        <div class="kpi-val" id="kpi-parceiros">–</div>
+        <div class="kpi-label">Parceiros Cadastrados</div>
+        <div class="kpi-delta up" id="kpi-parceiros-label">Postos parceiros</div>
       </div>
     </div>
 
@@ -6170,7 +6188,7 @@ app.get('/admin', (c) => {
     </div>
     <div class="section-card">
       <div class="section-header">
-        <h3>Lista de Postos (São Paulo)</h3>
+        <h3>Lista de Postos — <span id="postos-cidade-label">São Paulo, SP</span></h3>
         <span style="font-size:12px;color:rgba(255,255,255,0.35);font-weight:600" id="postos-count">Carregando...</span>
       </div>
       <div class="section-body" style="padding:0">
@@ -6298,6 +6316,32 @@ let chartPrecos = null;
 let currentSection = 'dashboard';
 const ADMIN_KEY = new URLSearchParams(window.location.search).get('key') || sessionStorage.getItem('admin_key') || '';
 
+// Região selecionada (default: São Paulo)
+let adminLat = -23.5505;
+let adminLng = -46.6333;
+let adminCidade = 'São Paulo';
+let adminUF = 'SP';
+
+function mudarCidade() {
+  const sel = document.getElementById('select-cidade');
+  const parts = sel.value.split(',');
+  adminLat = parseFloat(parts[0]);
+  adminLng = parseFloat(parts[1]);
+  adminCidade = parts[2];
+  adminUF = parts[3];
+
+  // Atualiza labels
+  const labelEl = document.getElementById('kpi-preco-label');
+  if (labelEl) labelEl.textContent = adminCidade + ', ' + adminUF;
+  const postosCidadeEl = document.getElementById('postos-cidade-label');
+  if (postosCidadeEl) postosCidadeEl.textContent = adminCidade + ', ' + adminUF;
+
+  // Recarrega seção atual
+  if (currentSection === 'dashboard') carregarDashboard();
+  else if (currentSection === 'postos') carregarPostos();
+  else if (currentSection === 'mapa') iniciarMapaAdmin(true);
+}
+
 function showSection(name) {
   document.querySelectorAll('main section').forEach(s => s.style.display = 'none');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -6305,7 +6349,7 @@ function showSection(name) {
   event.currentTarget.classList.add('active');
   currentSection = name;
 
-  if (name === 'mapa') iniciarMapaAdmin();
+  if (name === 'mapa') iniciarMapaAdmin(false);
   if (name === 'postos') carregarPostos();
   if (name === 'precos') carregarReportes();
   if (name === 'dashboard') carregarDashboard();
@@ -6314,9 +6358,10 @@ function showSection(name) {
 
 async function carregarDashboard() {
   try {
-    const [postosRes, reportesRes] = await Promise.all([
-      fetch('/api/postos?lat=-23.5505&lng=-46.6333&combustivel=gasolina&raio=15'),
-      fetch('/api/precos/reportados')
+    const [postosRes, reportesRes, usuariosRes] = await Promise.all([
+      fetch(\`/api/postos?lat=\${adminLat}&lng=\${adminLng}&combustivel=gasolina&raio=15\`),
+      fetch('/api/precos/reportados'),
+      fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY))
     ]);
     const postosData = await postosRes.json();
     const reportesData = await reportesRes.json();
@@ -6332,12 +6377,23 @@ async function carregarDashboard() {
     if (postosData.estatisticas?.mediaPreco) {
       document.getElementById('kpi-preco-medio').textContent = 'R$ ' + postosData.estatisticas.mediaPreco.toFixed(2);
       document.getElementById('kpi-preco-label').textContent = postosData.estatisticas.cidade + ', ' + postosData.estatisticas.uf;
+      document.getElementById('kpi-preco-raio').textContent = 'raio 15 km · ' + adminCidade;
+    } else {
+      document.getElementById('kpi-preco-label').textContent = adminCidade + ', ' + adminUF;
     }
 
     document.getElementById('kpi-reportes').textContent = collab;
     document.getElementById('stat-anp').textContent = anp;
     document.getElementById('stat-osm').textContent = osm;
     document.getElementById('stat-collab').textContent = collab;
+
+    // KPI parceiros cadastrados
+    if (usuariosRes.ok) {
+      const usuariosData = await usuariosRes.json();
+      const total_parceiros = usuariosData.total || 0;
+      document.getElementById('kpi-parceiros').textContent = total_parceiros;
+      document.getElementById('kpi-parceiros-label').textContent = total_parceiros === 1 ? '1 posto parceiro' : total_parceiros + ' postos parceiros';
+    }
 
     const total = Math.max(anp + osm, 1);
     const pAnp = Math.round(anp / total * 100);
@@ -6353,7 +6409,7 @@ async function carregarDashboard() {
     const data = postos.slice(0, 8).map(p => p.preco || p.precos?.gasolina || 0);
     renderChart(labels, data, 'Gasolina');
 
-    document.getElementById('last-update').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+    document.getElementById('last-update').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR') + ' · ' + adminCidade;
   } catch(e) {
     console.error('Erro dashboard:', e);
   }
@@ -6394,7 +6450,7 @@ function renderChart(labels, data, label) {
 async function toggleChart(combustivel, el) {
   document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  const res = await fetch('/api/postos?lat=-23.5505&lng=-46.6333&combustivel=' + combustivel + '&raio=15');
+  const res = await fetch(\`/api/postos?lat=\${adminLat}&lng=\${adminLng}&combustivel=\${combustivel}&raio=15\`);
   const data = await res.json();
   const postos = data.postos || [];
   const labels = postos.slice(0, 8).map(p => p.bandeira.substring(0, 8));
@@ -6404,9 +6460,12 @@ async function toggleChart(combustivel, el) {
 
 async function carregarPostos() {
   const tbody = document.getElementById('postos-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Buscando postos na ANP e OSM...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Buscando postos em ' + adminCidade + '...</td></tr>';
+  // Atualiza label do cabeçalho
+  const cidadeLabel = document.getElementById('postos-cidade-label');
+  if (cidadeLabel) cidadeLabel.textContent = adminCidade + ', ' + adminUF;
   try {
-    const res = await fetch('/api/postos?lat=-23.5505&lng=-46.6333&combustivel=gasolina&raio=15');
+    const res = await fetch(\`/api/postos?lat=\${adminLat}&lng=\${adminLng}&combustivel=gasolina&raio=15\`);
     const data = await res.json();
     const postos = data.postos || [];
     document.getElementById('postos-count').textContent = postos.length + ' postos';
@@ -6486,15 +6545,16 @@ async function carregarReportes() {
   }
 }
 
-function iniciarMapaAdmin() {
-  if (adminMap) { adminMap.invalidateSize(); return; }
-  adminMap = L.map('admin-map').setView([-23.5505, -46.6333], 12);
+function iniciarMapaAdmin(reset) {
+  if (adminMap && !reset) { adminMap.invalidateSize(); return; }
+  if (adminMap && reset) { adminMap.remove(); adminMap = null; }
+  adminMap = L.map('admin-map').setView([adminLat, adminLng], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap', maxZoom: 19
   }).addTo(adminMap);
 
-  // Carregar postos no mapa
-  fetch('/api/postos?lat=-23.5505&lng=-46.6333&combustivel=gasolina&raio=15')
+  // Carregar postos no mapa da cidade selecionada
+  fetch(\`/api/postos?lat=\${adminLat}&lng=\${adminLng}&combustivel=gasolina&raio=15\`)
     .then(r => r.json())
     .then(data => {
       (data.postos || []).forEach(p => {
