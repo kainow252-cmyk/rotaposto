@@ -2466,7 +2466,7 @@ export function getAppHTML(firebaseScripts: string): string {
         + '</button>'
         + '<input id="plan-busca-input" type="text" placeholder="Cidade, shopping, endereço…"'
         + ' oninput="onBuscaOverlayInput(this.value)"'
-        + " onkeydown=\"if(event.key==='Enter')buscarDestinoPlan(this.value)\""
+        + ' onkeydown="if(event.key===' + String.fromCharCode(39) + 'Enter' + String.fromCharCode(39) + ')buscarDestinoPlan(this.value)"'
         + ' autocomplete="off" autocorrect="off" spellcheck="false"/>'
         + '</div>'
         + '<div id="plan-busca-lista"><div class="plan-busca-loading">🔍 Digite o destino acima para buscar</div></div>';
