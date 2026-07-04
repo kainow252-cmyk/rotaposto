@@ -7072,8 +7072,31 @@ async function carregarReportes() {
 function iniciarMapaAdmin(reset) {
   if (adminMap && !reset) { adminMap.invalidateSize(); return; }
   if (adminMap && reset) { adminMap.remove(); adminMap = null; }
-  adminMap = L.map('admin-map').setView([adminLat, adminLng], 12);
+  adminMap = L.map('admin-map').setView([adminLat, adminLng], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(adminMap);
+
+  // Marcador da localização do admin
+  const userIcon = L.divIcon({ html: '<div style="width:14px;height:14px;background:#1565C0;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 3px rgba(21,101,192,0.35)"></div>', className: '', iconAnchor: [7,7] });
+  L.marker([adminLat, adminLng], { icon: userIcon }).addTo(adminMap).bindPopup('<strong>Sua localização</strong>');
+
+  // Botão "Minha localização"
+  const btnGeo = L.control({ position: 'topright' });
+  btnGeo.onAdd = function() {
+    const btn = L.DomUtil.create('button');
+    btn.innerHTML = '📍 Minha localização';
+    btn.style.cssText = 'background:#FF6D00;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3)';
+    L.DomEvent.on(btn, 'click', function() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        adminLat = pos.coords.latitude; adminLng = pos.coords.longitude;
+        adminMap.setView([adminLat, adminLng], 13);
+        iniciarMapaAdmin(true);
+      }, null, { timeout: 6000 });
+    });
+    return btn;
+  };
+  btnGeo.addTo(adminMap);
+
   fetch(\`/api/postos?lat=\${adminLat}&lng=\${adminLng}&combustivel=gasolina&raio=15\`)
     .then(r => r.json())
     .then(data => {
@@ -7086,8 +7109,42 @@ function iniciarMapaAdmin(reset) {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-carregarDashboard();
 document.getElementById('last-update').textContent = 'Carregando...';
+
+// Tenta geolocalizar o admin antes de carregar dados
+function _initComGeo() {
+  if (!navigator.geolocation) { carregarDashboard(); return; }
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      adminLat = pos.coords.latitude;
+      adminLng = pos.coords.longitude;
+      // Geocode reverso para pegar cidade/UF
+      fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + adminLat + '&lon=' + adminLng + '&accept-language=pt-BR')
+        .then(r => r.json())
+        .then(geo => {
+          const addr = geo.address || {};
+          adminCidade = addr.city || addr.town || addr.municipality || addr.village || 'Sua localização';
+          adminUF     = addr.state_code || addr['ISO3166-2-lvl4']?.split('-')[1] || '';
+          // Atualiza labels
+          const lbl = adminCidade + (adminUF ? ', ' + adminUF : '');
+          const cidEl = document.getElementById('cidade-label');
+          if (cidEl) cidEl.textContent = lbl;
+          const kpiEl = document.getElementById('kpi-preco-label');
+          if (kpiEl) kpiEl.textContent = lbl;
+          const pcEl = document.getElementById('postos-cidade-label');
+          if (pcEl) pcEl.textContent = lbl;
+        })
+        .catch(() => {
+          const cidEl = document.getElementById('cidade-label');
+          if (cidEl) cidEl.textContent = 'Sua localização';
+        })
+        .finally(() => { carregarDashboard(); });
+    },
+    function() { carregarDashboard(); }, // negou permissão → usa SP
+    { timeout: 6000, maximumAge: 300000 }
+  );
+}
+_initComGeo();
 setInterval(() => { if (currentSection === 'dashboard') carregarDashboard(); }, 5 * 60000);
 </script>
 </body>
