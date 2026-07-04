@@ -70,7 +70,7 @@ export function getParceriasLandingHTML(): string {
     /* ── HERO ── */
     .hero-wrap{
       display:flex;
-      align-items:flex-end;
+      align-items:flex-start;
       width:100%;
       padding:40px 0 0 40px;
       gap:0;
@@ -79,8 +79,9 @@ export function getParceriasLandingHTML(): string {
     .hero-left{
       flex:1;
       min-width:0;
-      padding-bottom:32px;
-      padding-right:32px
+      padding-top:32px;
+      padding-right:32px;
+      padding-bottom:40px
     }
     .hero-right{
       flex-shrink:0;
