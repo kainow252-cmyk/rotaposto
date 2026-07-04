@@ -25,9 +25,9 @@ export function getParceriasLandingHTML(): string {
     /* ── NAV ── */
     nav{
       height:64px;background:#07111C;
-      border-bottom:1px solid rgba(255,255,255,0.07);
+      border-bottom:none;
       display:flex;align-items:center;
-      padding:0 40px;gap:0;
+      padding:0 40px;gap:16px;
       position:sticky;top:0;z-index:100;
       backdrop-filter:blur(16px)
     }
@@ -42,12 +42,17 @@ export function getParceriasLandingHTML(): string {
       padding:2px 8px;border-radius:20px;flex-shrink:0
     }
     .n-center{
-      flex:1;display:flex;align-items:center;justify-content:center;gap:10px
+      flex:1;
+      display:flex;align-items:center;justify-content:center;
+      border-left:1px solid rgba(255,109,0,0.25);
+      border-right:1px solid rgba(255,109,0,0.25);
+      height:64px;
     }
-    .n-center-line{width:32px;height:2px;background:#FF6D00;border-radius:2px;flex-shrink:0}
+
     .n-center-text{
       font-size:11px;font-weight:800;letter-spacing:2px;
-      text-transform:uppercase;color:#FF6D00;white-space:nowrap
+      text-transform:uppercase;color:#FF6D00;
+      text-align:center
     }
     .nav-btns{display:flex;align-items:center;gap:10px;flex-shrink:0}
     .btn-ghost{
@@ -69,44 +74,27 @@ export function getParceriasLandingHTML(): string {
 
     /* ── HERO ── */
     .hero-wrap{
-      display:grid;
-      grid-template-columns:1fr 300px;
-      align-items:center;
-      padding:56px 0 0 56px;
-      gap:0;
-      overflow:hidden
+      position:relative;
+      padding:12px 56px 12px 56px;
+      overflow:hidden;
+      text-align:center
     }
-    .hero-left{
-      display:flex;flex-direction:column;
-      justify-content:center;
-      padding-bottom:56px;
-      padding-right:48px
-    }
-    .hero-right{
-      align-self:flex-end;
-      line-height:0
-    }
-    .hero-right img{
-      width:100%;
-      height:auto;
-      display:block;
-      max-height:calc(100vh - 64px);
-      object-fit:contain;
-      object-position:bottom
-    }
+    .hero-left{ position:relative;z-index:1;width:100% }
+
     h1{
-      font-size:clamp(46px,4.8vw,76px);
-      font-weight:900;line-height:1.05;
-      letter-spacing:-2px;margin-bottom:20px
+      font-size:clamp(32px,4.5vw,72px);
+      font-weight:900;line-height:1;
+      letter-spacing:-2px;margin-bottom:4px;
+      width:100%
     }
     h1 span{color:#FF6D00}
     .hero-sub{
-      font-size:17px;color:rgba(255,255,255,0.6);
-      line-height:1.65;font-weight:500;
-      margin-bottom:28px;max-width:520px
+      font-size:16px;color:rgba(255,255,255,0.6);
+      line-height:1.5;font-weight:500;
+      margin-bottom:0;width:100%
     }
     .hero-sub em{color:rgba(255,180,80,0.9);font-style:normal}
-    .hero-ctas{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:40px}
+    .hero-ctas{display:flex;gap:14px;flex-wrap:wrap}
     .cta-primary{
       display:inline-flex;align-items:center;gap:9px;
       padding:15px 30px;background:#FF6D00;color:#fff;
@@ -123,31 +111,11 @@ export function getParceriasLandingHTML(): string {
       cursor:pointer;font-family:'Raleway',sans-serif;transition:all .18s
     }
     .cta-secondary:hover{background:rgba(255,255,255,0.1)}
-    .hero-stats{
-      display:flex;gap:0;
-      border-top:1px solid rgba(255,255,255,0.08);
-      padding-top:28px
-    }
-    .h-stat{
-      flex:1;
-      padding-right:28px;
-      border-right:1px solid rgba(255,255,255,0.08)
-    }
-    .h-stat:last-child{border-right:none;padding-right:0;padding-left:28px}
-    .h-stat:not(:first-child):not(:last-child){padding-left:28px}
-    .h-stat-num{
-      font-size:28px;font-weight:900;color:#fff;
-      line-height:1;margin-bottom:4px
-    }
-    .h-stat-num span{color:#FF6D00}
-    .h-stat-label{
-      font-size:12px;color:rgba(255,255,255,0.38);
-      font-weight:600;letter-spacing:.3px
-    }
+
 
     /* ── RECURSOS INCLUSOS ── */
     .recursos-wrap{
-      padding:40px 40px 0;
+      padding:16px 40px 0;
       max-width:100%;
       box-sizing:border-box
     }
@@ -166,23 +134,23 @@ export function getParceriasLandingHTML(): string {
       padding-bottom:32px
     }
     .rec-col{
-      padding:0 24px;
+      padding:0 16px;
       border-right:1px solid rgba(255,255,255,0.07)
     }
     .rec-col:first-child{padding-left:0}
     .rec-col:last-child{border-right:none;padding-right:0}
     .rec-ico{
-      width:36px;height:36px;border-radius:10px;
+      width:28px;height:28px;border-radius:8px;
       background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:15px;margin-bottom:12px
+      color:#FF6D00;font-size:12px;margin-bottom:8px
     }
     .rec-col h5{font-size:14px;font-weight:800;margin-bottom:6px}
     .rec-col p{font-size:12px;color:rgba(255,255,255,0.42);line-height:1.6}
 
     /* ── FEATURE CARDS ── */
     .cards-wrap{
-      padding:0 40px 40px;
+      padding:0 40px 20px;
       max-width:100%;
       box-sizing:border-box
     }
@@ -194,7 +162,7 @@ export function getParceriasLandingHTML(): string {
     .feat-card{
       background:rgba(255,255,255,0.045);
       border:1px solid rgba(255,255,255,0.09);
-      border-radius:16px;padding:22px;
+      border-radius:12px;padding:14px;
       transition:all .2s
     }
     .feat-card:hover{
@@ -202,10 +170,10 @@ export function getParceriasLandingHTML(): string {
       border-color:rgba(255,109,0,0.35)
     }
     .feat-ico{
-      width:40px;height:40px;border-radius:11px;
+      width:30px;height:30px;border-radius:8px;
       background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:16px;margin-bottom:14px
+      color:#FF6D00;font-size:13px;margin-bottom:8px
     }
     .feat-card h4{font-size:14px;font-weight:800;margin-bottom:7px}
     .feat-card p{font-size:12px;color:rgba(255,255,255,0.42);line-height:1.6}
@@ -296,7 +264,6 @@ export function getParceriasLandingHTML(): string {
     <div class="n-tag">EMPRESAS</div>
   </div>
   <div class="n-center">
-    <div class="n-center-line"></div>
     <span class="n-center-text">Novo canal de vendas para postos</span>
   </div>
   <div class="nav-btns">
@@ -312,37 +279,11 @@ export function getParceriasLandingHTML(): string {
 <!-- HERO -->
 <div class="hero-wrap">
   <div class="hero-left">
-    <h1>Pronto para <span>acelerar</span><br>seus resultados?</h1>
-    <p class="hero-sub">
-      Cadastre seu posto e conecte-se a milhares de motoristas
-      com <em>preços em tempo real</em> e <em>destaque no mapa</em>.
-    </p>
-    <div class="hero-ctas">
-      <button class="cta-primary" onclick="openM('premium')">
-        <i class="fas fa-handshake"></i> Quero ser parceiro
-      </button>
-      <button class="cta-secondary" onclick="openM('premium')">
-        <i class="fas fa-play"></i> Conhecer a plataforma
-      </button>
-    </div>
-    <div class="hero-stats">
-      <div class="h-stat">
-        <div class="h-stat-num">12<span>k+</span></div>
-        <div class="h-stat-label">Motoristas ativos</div>
-      </div>
-      <div class="h-stat">
-        <div class="h-stat-num">340<span>+</span></div>
-        <div class="h-stat-label">Postos parceiros</div>
-      </div>
-      <div class="h-stat">
-        <div class="h-stat-num">98<span>%</span></div>
-        <div class="h-stat-label">Satisfação</div>
-      </div>
-    </div>
+    <h1>Pronto para <span>acelerar</span> seus resultados?</h1>
+    <p class="hero-sub">Cadastre seu posto e conecte-se a milhares de motoristas com <em>preços em tempo real</em> e <em>destaque no mapa</em>.</p>
+
   </div>
-  <div class="hero-right">
-    <img src="/static/phone-mockup.png" alt="App RotaPosto"/>
-  </div>
+
 </div>
 
 <!-- RECURSOS INCLUSOS -->
