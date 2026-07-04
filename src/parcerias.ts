@@ -27,8 +27,8 @@ export function getParceriasLandingHTML(): string {
     /* ═══ SHELL ═══ */
     .shell{
       height:100vh;display:grid;
-      grid-template-rows:56px 1fr;
-      overflow:hidden;background:#07111C;position:relative
+      grid-template-rows:56px 1fr auto;
+      background:#07111C;position:relative
     }
 
     /* ── foto de fundo suave ── */
@@ -75,6 +75,14 @@ export function getParceriasLandingHTML(): string {
       transition:color .15s
     }
     .n-btn:hover{color:#fff}
+    .n-parceiro{
+      display:flex;align-items:center;gap:7px;
+      padding:9px 20px;background:rgba(255,109,0,0.15);color:#FF6D00;
+      border-radius:9px;font-size:12.5px;font-weight:800;
+      border:1.5px solid rgba(255,109,0,0.4);cursor:pointer;
+      font-family:'Raleway',sans-serif;flex-shrink:0;transition:all .15s
+    }
+    .n-parceiro:hover{background:rgba(255,109,0,0.25);border-color:#FF6D00}
     .n-cta{
       display:flex;align-items:center;gap:7px;
       padding:9px 20px;background:#FF6D00;color:#fff;
@@ -349,6 +357,84 @@ export function getParceriasLandingHTML(): string {
     }
     .fok h4{font-size:17px;font-weight:900;color:#69F0AE;margin-bottom:7px}
     .fok p{font-size:12.5px;color:rgba(255,255,255,0.55);line-height:1.6}
+
+    /* ═══ RODAPÉ ═══ */
+    .footer{
+      position:relative;z-index:10;
+      background:rgba(5,12,20,0.97);
+      border-top:1px solid rgba(255,255,255,0.07);
+      padding:20px 40px 0;
+      flex-shrink:0
+    }
+    .footer-inner{
+      display:grid;
+      grid-template-columns:1.4fr 2fr auto;
+      gap:32px;align-items:start;
+      padding-bottom:16px;
+      border-bottom:1px solid rgba(255,255,255,0.06)
+    }
+    .footer-brand{}
+    .footer-logo{
+      display:flex;align-items:center;gap:7px;
+      cursor:pointer;margin-bottom:8px
+    }
+    .footer-logo-name{font-size:16px;font-weight:900;color:#fff}
+    .footer-tag{
+      font-size:7px;font-weight:800;letter-spacing:.6px;
+      color:#FF6D00;background:rgba(255,109,0,0.12);
+      border:1px solid rgba(255,109,0,0.3);
+      padding:2px 6px;border-radius:20px
+    }
+    .footer-desc{
+      font-size:11px;color:rgba(255,255,255,0.38);
+      line-height:1.6;font-weight:500
+    }
+    .footer-links{
+      display:grid;grid-template-columns:repeat(3,1fr);gap:20px
+    }
+    .footer-col{display:flex;flex-direction:column;gap:6px}
+    .footer-col-title{
+      font-size:10px;font-weight:800;
+      color:rgba(255,255,255,0.35);
+      text-transform:uppercase;letter-spacing:1px;
+      margin-bottom:4px
+    }
+    .footer-col a{
+      font-size:11.5px;color:rgba(255,255,255,0.45);
+      font-weight:500;transition:color .15s;cursor:pointer
+    }
+    .footer-col a:hover{color:#FF6D00}
+    .footer-cta-col{
+      display:flex;flex-direction:column;align-items:flex-end;gap:12px
+    }
+    .footer-cta-btn{
+      display:flex;align-items:center;gap:8px;
+      padding:11px 22px;background:#FF6D00;color:#fff;
+      border-radius:10px;font-size:13px;font-weight:800;
+      border:none;cursor:pointer;font-family:'Raleway',sans-serif;
+      transition:background .15s;white-space:nowrap
+    }
+    .footer-cta-btn:hover{background:#E65100}
+    .footer-social{display:flex;gap:8px}
+    .soc-btn{
+      width:32px;height:32px;border-radius:8px;
+      background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+      display:flex;align-items:center;justify-content:center;
+      color:rgba(255,255,255,0.5);font-size:13px;
+      transition:all .15s;cursor:pointer
+    }
+    .soc-btn:hover{background:rgba(255,109,0,0.15);border-color:rgba(255,109,0,0.3);color:#FF6D00}
+    .footer-bottom{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:10px 0;
+      font-size:10.5px;color:rgba(255,255,255,0.25);font-weight:500
+    }
+    @media(max-width:900px){
+      .footer{padding:16px 20px 0}
+      .footer-inner{grid-template-columns:1fr;gap:20px}
+      .footer-cta-col{align-items:flex-start}
+      .footer-links{grid-template-columns:repeat(3,1fr)}
+    }
   </style>
 </head>
 <body>
@@ -363,9 +449,14 @@ export function getParceriasLandingHTML(): string {
       <div class="n-tag">EMPRESAS</div>
     </div>
 
-    <button class="n-cta" onclick="location.href='/parcerias/empresa'">
-      <i class="fas fa-arrow-right"></i> Acessar Painel
-    </button>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <button class="n-parceiro" onclick="openM('premium')">
+        <i class="fas fa-handshake"></i> Quero ser parceiro
+      </button>
+      <button class="n-cta" onclick="location.href='/parcerias/empresa'">
+        <i class="fas fa-arrow-right"></i> Acessar Painel
+      </button>
+    </div>
   </nav>
 
   <!-- BODY -->
@@ -539,6 +630,57 @@ export function getParceriasLandingHTML(): string {
       </div>
     </div>
   </div>
+
+  <!-- RODAPÉ -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="footer-logo" onclick="location.href='/'">
+          <i class="fas fa-location-dot" style="color:#FF6D00;font-size:16px"></i>
+          <span class="footer-logo-name">Rota<span style="color:#FF6D00">Posto</span></span>
+          <span class="footer-tag">EMPRESAS</span>
+        </div>
+        <p class="footer-desc">Conectando postos a motoristas.<br>A plataforma mais inteligente para seu negócio crescer.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <div class="footer-col-title">Produto</div>
+          <a href="#" onclick="openM('premium')">Como funciona</a>
+          <a href="#" onclick="openM('premium')">Recursos</a>
+          <a href="#" onclick="openM('premium')">Planos e preços</a>
+          <a href="#" onclick="openM('premium')">Depoimentos</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Empresa</div>
+          <a href="#" onclick="openM('premium')">Sobre nós</a>
+          <a href="#" onclick="openM('premium')">Blog</a>
+          <a href="#" onclick="openM('premium')">Contato</a>
+          <a href="#" onclick="openM('premium')">Termos de uso</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Suporte</div>
+          <a href="#" onclick="openM('premium')">Central de ajuda</a>
+          <a href="#" onclick="openM('premium')">WhatsApp</a>
+          <a href="#" onclick="openM('premium')">E-mail</a>
+          <a href="tel:+5527999999999">+55 (27) 9 9999-9999</a>
+        </div>
+      </div>
+      <div class="footer-cta-col">
+        <button class="footer-cta-btn" onclick="openM('premium')">
+          <i class="fas fa-handshake"></i> Quero ser parceiro
+        </button>
+        <div class="footer-social">
+          <a href="#" class="soc-btn"><i class="fab fa-instagram"></i></a>
+          <a href="#" class="soc-btn"><i class="fab fa-whatsapp"></i></a>
+          <a href="#" class="soc-btn"><i class="fab fa-linkedin"></i></a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 RotaPosto. Todos os direitos reservados.</span>
+      <span>Feito com <i class="fas fa-heart" style="color:#FF6D00;font-size:10px"></i> no Brasil</span>
+    </div>
+  </footer>
 
 </div><!-- /shell -->
 
