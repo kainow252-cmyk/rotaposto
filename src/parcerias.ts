@@ -44,16 +44,14 @@ export function getParceriasLandingHTML(): string {
     .n-center{
       flex:1;
       display:flex;align-items:center;justify-content:center;
-      border-left:1px solid rgba(255,109,0,0.25);
-      border-right:1px solid rgba(255,109,0,0.25);
       height:64px;
       padding:0 24px;
     }
 
     .n-center-text{
-      font-size:11px;font-weight:800;letter-spacing:2px;
+      font-size:clamp(13px,1.4vw,20px);font-weight:800;letter-spacing:3px;
       text-transform:uppercase;color:#FF6D00;
-      text-align:center
+      text-align:center;white-space:nowrap
     }
     .nav-btns{display:flex;align-items:center;gap:10px;flex-shrink:0}
     .btn-ghost{
@@ -229,12 +227,32 @@ export function getParceriasLandingHTML(): string {
       padding:14px 0;font-size:11px;color:rgba(255,255,255,0.22)
     }
 
-    /* ── MODAL ── */
-    .modal-ov{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px}
-    .modal-ov.open{display:flex}
-    .modal-box{background:#0D1B2A;border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:460px;padding:30px;position:relative;max-height:92vh;overflow-y:auto}
-    .m-close{position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.07);border:none;cursor:pointer;color:rgba(255,255,255,0.4);width:30px;height:30px;border-radius:8px;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .2s}
-    .m-close:hover{background:rgba(255,255,255,0.13);color:#fff}
+    /* ── TELA CHEIA CADASTRO ── */
+    .tela-cheia{display:none;position:fixed;inset:0;z-index:9999;background:#07111C;overflow-y:auto;flex-direction:column}
+    .tela-cheia.open{display:flex}
+    .tc-nav{height:60px;background:#07111C;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;padding:0 32px;gap:16px;position:sticky;top:0;z-index:10}
+    .tc-back{display:flex;align-items:center;gap:8px;background:transparent;border:1.5px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);padding:8px 16px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Raleway',sans-serif;transition:all .18s}
+    .tc-back:hover{border-color:#FF6D00;color:#FF6D00}
+    .tc-title{font-size:15px;font-weight:800;color:#fff}
+    .tc-body{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px 24px}
+    .tc-card{background:#0D1B2A;border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:500px;padding:36px}
+
+    /* ── TELA CHEIA SUBPÁGINAS ── */
+    .subpagina{display:none;position:fixed;inset:0;z-index:9998;background:#07111C;overflow-y:auto;flex-direction:column}
+    .subpagina.open{display:flex}
+    .sp-nav{height:60px;background:#07111C;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;padding:0 32px;gap:16px;position:sticky;top:0;z-index:10}
+    .sp-content{flex:1;padding:48px 40px;max-width:860px;margin:0 auto;width:100%}
+    .sp-tag{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#FF6D00;margin-bottom:12px}
+    .sp-h1{font-size:clamp(28px,4vw,48px);font-weight:900;margin-bottom:16px;line-height:1.1}
+    .sp-h1 span{color:#FF6D00}
+    .sp-sub{font-size:16px;color:rgba(255,255,255,0.55);line-height:1.7;margin-bottom:40px}
+    .sp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:40px}
+    .sp-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:14px;padding:24px}
+    .sp-card-ico{width:40px;height:40px;background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#FF6D00;font-size:16px;margin-bottom:14px}
+    .sp-card h3{font-size:15px;font-weight:800;margin-bottom:8px}
+    .sp-card p{font-size:13px;color:rgba(255,255,255,0.45);line-height:1.7}
+    .sp-cta{display:inline-flex;align-items:center;gap:10px;padding:15px 32px;background:#FF6D00;color:#fff;border-radius:12px;font-size:15px;font-weight:800;border:none;cursor:pointer;font-family:'Raleway',sans-serif;transition:all .18s}
+    .sp-cta:hover{background:#E65100}
     .m-title{font-size:20px;font-weight:900;color:#fff;margin-bottom:3px}
     .m-sub{font-size:12.5px;color:rgba(255,255,255,0.4);margin-bottom:22px;font-weight:500}
     .fg{margin-bottom:13px}
@@ -354,27 +372,27 @@ export function getParceriasLandingHTML(): string {
     <div>
       <div class="f-col-title">Produto</div>
       <div class="f-col">
-        <a href="#" onclick="openM('premium')">Como funciona</a>
-        <a href="#" onclick="openM('premium')">Recursos</a>
-        <a href="#" onclick="openM('premium')">Planos e preços</a>
-        <a href="#" onclick="openM('premium')">Depoimentos</a>
+        <a href="#" onclick="abrirSP('como')">Como funciona</a>
+        <a href="#" onclick="abrirSP('recursos')">Recursos</a>
+        <a href="#" onclick="abrirSP('planos')">Planos e preços</a>
+        <a href="#" onclick="abrirSP('depoimentos')">Depoimentos</a>
       </div>
     </div>
     <div>
       <div class="f-col-title">Empresa</div>
       <div class="f-col">
-        <a href="#" onclick="openM('premium')">Sobre nós</a>
-        <a href="#" onclick="openM('premium')">Blog</a>
-        <a href="#" onclick="openM('premium')">Contato</a>
-        <a href="#" onclick="openM('premium')">Termos de uso</a>
+        <a href="#" onclick="abrirSP('sobre')">Sobre nós</a>
+        <a href="#" onclick="abrirSP('blog')">Blog</a>
+        <a href="#" onclick="abrirSP('contato')">Contato</a>
+        <a href="#" onclick="abrirSP('termos')">Termos de uso</a>
       </div>
     </div>
     <div>
       <div class="f-col-title">Suporte</div>
       <div class="f-col">
-        <a href="#" onclick="openM('premium')">Central de ajuda</a>
-        <a href="#" onclick="openM('premium')">WhatsApp</a>
-        <a href="#" onclick="openM('premium')">E-mail</a>
+        <a href="#" onclick="abrirSP('contato')">Central de ajuda</a>
+        <a href="#" onclick="abrirSP('contato')">WhatsApp</a>
+        <a href="#" onclick="abrirSP('contato')">E-mail</a>
         <a href="tel:+5527999999999">+55 (27) 9 9999-9999</a>
       </div>
     </div>
@@ -392,38 +410,210 @@ export function getParceriasLandingHTML(): string {
   </div>
 </footer>
 
-<!-- MODAL -->
-<div class="modal-ov" id="modal-cad">
-  <div class="modal-box">
-    <button class="m-close" onclick="closeM()"><i class="fas fa-times"></i></button>
-    <div class="m-title">Cadastrar posto</div>
-    <div class="m-sub">Preencha os dados e entraremos em contato em até 24h.</div>
-    <div class="ferr" id="f-err"></div>
-    <div class="fok" id="f-ok">
-      <h4>Cadastro enviado!</h4>
-      <p>Nossa equipe entrará em contato em até 24h úteis.</p>
+<!-- TELA CHEIA CADASTRO -->
+<div class="tela-cheia" id="tela-cad">
+  <div class="tc-nav">
+    <button class="tc-back" onclick="closeM()"><i class="fas fa-arrow-left"></i> Voltar</button>
+    <span class="tc-title">Cadastrar meu posto</span>
+  </div>
+  <div class="tc-body">
+    <div class="tc-card">
+      <div class="m-title">Cadastrar posto</div>
+      <div class="m-sub">Preencha os dados e entraremos em contato em até 24h.</div>
+      <div class="ferr" id="f-err"></div>
+      <div class="fok" id="f-ok">
+        <h4>Cadastro enviado!</h4>
+        <p>Nossa equipe entrará em contato em até 24h úteis.</p>
+      </div>
+      <div id="f-body">
+        <div class="fg"><label class="fl">Nome do responsável</label><input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name"/></div>
+        <div class="fr">
+          <div class="fg"><label class="fl">E-mail</label><input class="fi" id="f-email" type="email" placeholder="joao@posto.com"/></div>
+          <div class="fg"><label class="fl">WhatsApp</label><input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)"/></div>
+        </div>
+        <div class="fg"><label class="fl">Nome do posto</label><input class="fi" id="f-posto" placeholder="Posto São João"/></div>
+        <div class="fr">
+          <div class="fg"><label class="fl">CNPJ</label><input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)"/></div>
+          <div class="fg"><label class="fl">Cidade</label><input class="fi" id="f-cidade" placeholder="Vitória"/></div>
+        </div>
+        <div class="fg">
+          <label class="fl">Plano de interesse</label>
+          <select class="fsel" id="f-plano">
+            <option value="basico">Básico (Grátis)</option>
+            <option value="premium" selected>Profissional (R$197/mês)</option>
+            <option value="enterprise">Enterprise (Personalizado)</option>
+          </select>
+        </div>
+        <div class="fterms">Ao cadastrar você concorda com os <a href="#" onclick="abrirSP('termos')">Termos de Uso</a></div>
+        <button class="fsub" onclick="submitF()"><span id="f-btn"><i class="fas fa-rocket"></i> &nbsp;Enviar cadastro</span></button>
+      </div>
     </div>
-    <div id="f-body">
-      <div class="fg"><label class="fl">Nome do responsável</label><input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name"/></div>
-      <div class="fr">
-        <div class="fg"><label class="fl">E-mail</label><input class="fi" id="f-email" type="email" placeholder="joao@posto.com"/></div>
-        <div class="fg"><label class="fl">WhatsApp</label><input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)"/></div>
+  </div>
+</div>
+
+<!-- SUBPÁGINAS -->
+<div class="subpagina" id="sp-como">
+  <div class="sp-nav">
+    <button class="tc-back" onclick="fecharSP('como')"><i class="fas fa-arrow-left"></i> Voltar</button>
+    <span class="tc-title">Como funciona</span>
+  </div>
+  <div class="sp-content">
+    <div class="sp-tag">Plataforma</div>
+    <h1 class="sp-h1">Como o <span>RotaPosto</span> funciona</h1>
+    <p class="sp-sub">Em apenas 3 passos simples, seu posto começa a atrair mais motoristas e aumentar o faturamento.</p>
+    <div class="sp-grid">
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-clipboard-list"></i></div><h3>1. Cadastre seu posto</h3><p>Preencha o formulário com os dados do posto. Nossa equipe aprova em até 24h.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-tag"></i></div><h3>2. Atualize seus preços</h3><p>Use o painel para atualizar preços em tempo real e criar promoções exclusivas.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-users"></i></div><h3>3. Atraia motoristas</h3><p>Apareça em destaque no mapa do RotaPosto para milhares de motoristas locais.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-chart-line"></i></div><h3>4. Acompanhe resultados</h3><p>Monitore visitas, cliques e desempenho em tempo real pelo painel do gerente.</p></div>
+    </div>
+    <button class="sp-cta" onclick="fecharSP('como');openM('premium')"><i class="fas fa-rocket"></i> Quero começar agora</button>
+  </div>
+</div>
+
+<div class="subpagina" id="sp-recursos">
+  <div class="sp-nav">
+    <button class="tc-back" onclick="fecharSP('recursos')"><i class="fas fa-arrow-left"></i> Voltar</button>
+    <span class="tc-title">Recursos</span>
+  </div>
+  <div class="sp-content">
+    <div class="sp-tag">Funcionalidades</div>
+    <h1 class="sp-h1">Tudo que seu posto <span>precisa</span></h1>
+    <p class="sp-sub">O RotaPosto oferece ferramentas completas para postos que querem crescer e se destacar.</p>
+    <div class="sp-grid">
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-map-pin"></i></div><h3>Destaque no mapa</h3><p>Seu posto aparece em destaque para motoristas próximos buscando combustível.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-rotate"></i></div><h3>Preços em tempo real</h3><p>Atualize preços a qualquer hora. Motoristas veem o preço atual antes de sair de casa.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-ticket"></i></div><h3>Cupons e promoções</h3><p>Crie ofertas exclusivas para atrair novos clientes e fidelizar os atuais.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-chart-bar"></i></div><h3>Relatórios detalhados</h3><p>Acompanhe visitas, cliques, conversões e tendências do seu posto.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-bell"></i></div><h3>Notificações push</h3><p>Envie alertas de promoções diretamente para motoristas cadastrados na região.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-mobile-alt"></i></div><h3>Painel mobile</h3><p>Gerencie seu posto de qualquer lugar pelo celular, tablet ou computador.</p></div>
+    </div>
+    <button class="sp-cta" onclick="fecharSP('recursos');openM('premium')"><i class="fas fa-handshake"></i> Quero ser parceiro</button>
+  </div>
+</div>
+
+<div class="subpagina" id="sp-planos">
+  <div class="sp-nav">
+    <button class="tc-back" onclick="fecharSP('planos')"><i class="fas fa-arrow-left"></i> Voltar</button>
+    <span class="tc-title">Planos e preços</span>
+  </div>
+  <div class="sp-content">
+    <div class="sp-tag">Planos</div>
+    <h1 class="sp-h1">Escolha o plano <span>ideal</span></h1>
+    <p class="sp-sub">Comece grátis e cresça conforme seu posto evolui. Sem fidelidade, cancele quando quiser.</p>
+    <div class="sp-grid">
+      <div class="sp-card" style="border-color:rgba(255,255,255,0.15)">
+        <div class="sp-card-ico"><i class="fas fa-seedling"></i></div>
+        <h3>Básico</h3>
+        <div style="font-size:28px;font-weight:900;color:#fff;margin:12px 0">Grátis</div>
+        <p style="color:rgba(255,255,255,0.5);font-size:13px;line-height:1.8">✓ Perfil no mapa<br>✓ Atualização de preços<br>✓ 1 foto do posto<br>✗ Sem destaque<br>✗ Sem cupons</p>
+        <button class="sp-cta" style="margin-top:20px;width:100%;justify-content:center;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2)" onclick="fecharSP('planos');openM('basico')">Começar grátis</button>
       </div>
-      <div class="fg"><label class="fl">Nome do posto</label><input class="fi" id="f-posto" placeholder="Posto São João"/></div>
-      <div class="fr">
-        <div class="fg"><label class="fl">CNPJ</label><input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)"/></div>
-        <div class="fg"><label class="fl">Cidade</label><input class="fi" id="f-cidade" placeholder="Vitória"/></div>
+      <div class="sp-card" style="border-color:#FF6D00;background:rgba(255,109,0,0.06)">
+        <div class="sp-card-ico" style="background:rgba(255,109,0,0.2)"><i class="fas fa-star"></i></div>
+        <h3>Profissional <span style="font-size:10px;background:#FF6D00;color:#fff;padding:2px 8px;border-radius:20px;margin-left:6px">POPULAR</span></h3>
+        <div style="font-size:28px;font-weight:900;color:#FF6D00;margin:12px 0">R$197<span style="font-size:14px;color:rgba(255,255,255,0.4)">/mês</span></div>
+        <p style="color:rgba(255,255,255,0.5);font-size:13px;line-height:1.8">✓ Tudo do Básico<br>✓ Destaque no mapa<br>✓ Cupons ilimitados<br>✓ Relatórios avançados<br>✓ Notificações push</p>
+        <button class="sp-cta" style="margin-top:20px;width:100%;justify-content:center" onclick="fecharSP('planos');openM('premium')"><i class="fas fa-rocket"></i> Assinar agora</button>
       </div>
-      <div class="fg">
-        <label class="fl">Plano de interesse</label>
-        <select class="fsel" id="f-plano">
-          <option value="basico">Básico (Grátis)</option>
-          <option value="premium" selected>Profissional (R$197/mês)</option>
-          <option value="enterprise">Enterprise (Personalizado)</option>
-        </select>
+      <div class="sp-card" style="border-color:rgba(255,255,255,0.15)">
+        <div class="sp-card-ico"><i class="fas fa-building"></i></div>
+        <h3>Enterprise</h3>
+        <div style="font-size:28px;font-weight:900;color:#fff;margin:12px 0">Custom</div>
+        <p style="color:rgba(255,255,255,0.5);font-size:13px;line-height:1.8">✓ Tudo do Profissional<br>✓ Multi-unidades<br>✓ API dedicada<br>✓ Gerente de conta<br>✓ SLA garantido</p>
+        <button class="sp-cta" style="margin-top:20px;width:100%;justify-content:center;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2)" onclick="fecharSP('planos');openM('enterprise')">Falar com vendas</button>
       </div>
-      <div class="fterms">Ao cadastrar você concorda com os <a href="#">Termos de Uso</a></div>
-      <button class="fsub" onclick="submitF()"><span id="f-btn"><i class="fas fa-rocket"></i> &nbsp;Enviar cadastro</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="subpagina" id="sp-depoimentos">
+  <div class="sp-nav">
+    <button class="tc-back" onclick="fecharSP('depoimentos')"><i class="fas fa-arrow-left"></i> Voltar</button>
+    <span class="tc-title">Depoimentos</span>
+  </div>
+  <div class="sp-content">
+    <div class="sp-tag">Clientes</div>
+    <h1 class="sp-h1">O que nossos <span>parceiros</span> dizem</h1>
+    <p class="sp-sub">Postos em todo o Brasil já usam o RotaPosto para atrair mais clientes.</p>
+    <div class="sp-grid">
+      <div class="sp-card"><div style="font-size:24px;color:#FF6D00;margin-bottom:12px">★★★★★</div><p style="color:rgba(255,255,255,0.7);line-height:1.7;margin-bottom:16px">"Aumentei o movimento em 40% no primeiro mês. Os motoristas chegam dizendo que me acharam no RotaPosto."</p><div style="font-size:13px;font-weight:800">João Silva</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Posto São João — Vitória/ES</div></div>
+      <div class="sp-card"><div style="font-size:24px;color:#FF6D00;margin-bottom:12px">★★★★★</div><p style="color:rgba(255,255,255,0.7);line-height:1.7;margin-bottom:16px">"O painel é simples e fácil. Atualizo o preço em segundos e já apareço na frente da concorrência."</p><div style="font-size:13px;font-weight:800">Maria Oliveira</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Posto Central — Serra/ES</div></div>
+      <div class="sp-card"><div style="font-size:24px;color:#FF6D00;margin-bottom:12px">★★★★★</div><p style="color:rgba(255,255,255,0.7);line-height:1.7;margin-bottom:16px">"Os cupons de desconto trouxeram muitos clientes novos. Valeu cada centavo do investimento."</p><div style="font-size:13px;font-weight:800">Carlos Mendes</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">AutoPosto Mendes — Guarapari/ES</div></div>
+    </div>
+    <button class="sp-cta" onclick="fecharSP('depoimentos');openM('premium')"><i class="fas fa-handshake"></i> Quero ser parceiro também</button>
+  </div>
+</div>
+
+<div class="subpagina" id="sp-sobre">
+  <div class="sp-nav">
+    <button class="tc-back" onclick="fecharSP('sobre')"><i class="fas fa-arrow-left"></i> Voltar</button>
+    <span class="tc-title">Sobre nós</span>
+  </div>
+  <div class="sp-content">
+    <div class="sp-tag">A empresa</div>
+    <h1 class="sp-h1">Conectando postos a <span>motoristas</span></h1>
+    <p class="sp-sub">O RotaPosto nasceu para resolver um problema simples: motoristas queriam encontrar combustível mais barato, e postos queriam mais clientes. Criamos a ponte.</p>
+    <div class="sp-grid">
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-bullseye"></i></div><h3>Missão</h3><p>Conectar postos de combustível a motoristas de forma transparente, eficiente e em tempo real.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-eye"></i></div><h3>Visão</h3><p>Ser a maior plataforma de combustíveis do Brasil, presente em todos os postos do país.</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-heart"></i></div><h3>Valores</h3><p>Transparência, inovação, simplicidade e resultado real para nossos parceiros.</p></div>
+    </div>
+    <button class="sp-cta" onclick="fecharSP('sobre');openM('premium')"><i class="fas fa-handshake"></i> Seja nosso parceiro</button>
+  </div>
+</div>
+
+<div class="subpagina" id="sp-blog">
+  <div class="sp-nav">
+    <button class="tc-back" onclick="fecharSP('blog')"><i class="fas fa-arrow-left"></i> Voltar</button>
+    <span class="tc-title">Blog</span>
+  </div>
+  <div class="sp-content">
+    <div class="sp-tag">Conteúdo</div>
+    <h1 class="sp-h1">Dicas para <span>seu posto</span> crescer</h1>
+    <p class="sp-sub">Artigos e estratégias para donos e gerentes de postos de combustível.</p>
+    <div class="sp-grid">
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-newspaper"></i></div><h3>Como precificar combustível de forma estratégica</h3><p style="margin-top:8px;color:rgba(255,255,255,0.4);font-size:11px">15 de junho de 2025</p><p>Aprenda a definir preços competitivos sem perder margem de lucro...</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-newspaper"></i></div><h3>5 formas de fidelizar clientes no seu posto</h3><p style="margin-top:8px;color:rgba(255,255,255,0.4);font-size:11px">10 de junho de 2025</p><p>Estratégias práticas para transformar clientes eventuais em clientes fixos...</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-newspaper"></i></div><h3>Por que atualizar preços em tempo real aumenta vendas</h3><p style="margin-top:8px;color:rgba(255,255,255,0.4);font-size:11px">5 de junho de 2025</p><p>Dados mostram que postos com preços atualizados têm 3x mais cliques...</p></div>
+    </div>
+    <button class="sp-cta" onclick="fecharSP('blog');openM('premium')"><i class="fas fa-rocket"></i> Crescer com RotaPosto</button>
+  </div>
+</div>
+
+<div class="subpagina" id="sp-contato">
+  <div class="sp-nav">
+    <button class="tc-back" onclick="fecharSP('contato')"><i class="fas fa-arrow-left"></i> Voltar</button>
+    <span class="tc-title">Contato</span>
+  </div>
+  <div class="sp-content">
+    <div class="sp-tag">Fale conosco</div>
+    <h1 class="sp-h1">Estamos aqui para <span>ajudar</span></h1>
+    <p class="sp-sub">Entre em contato com nossa equipe. Respondemos em até 2 horas úteis.</p>
+    <div class="sp-grid">
+      <div class="sp-card" style="cursor:pointer" onclick="window.open('https://wa.me/5527999999999','_blank')"><div class="sp-card-ico"><i class="fab fa-whatsapp"></i></div><h3>WhatsApp</h3><p>Atendimento direto pelo WhatsApp. Mais rápido e prático.</p><p style="color:#FF6D00;font-weight:700;margin-top:12px">+55 (27) 9 9999-9999 →</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-envelope"></i></div><h3>E-mail</h3><p>Para dúvidas, parcerias ou suporte técnico.</p><p style="color:#FF6D00;font-weight:700;margin-top:12px">contato@rotaposto.com.br</p></div>
+      <div class="sp-card"><div class="sp-card-ico"><i class="fas fa-headset"></i></div><h3>Central de ajuda</h3><p>Acesse nossa base de conhecimento com artigos e tutoriais.</p><p style="color:#FF6D00;font-weight:700;margin-top:12px">ajuda.rotaposto.com.br</p></div>
+    </div>
+  </div>
+</div>
+
+<div class="subpagina" id="sp-termos">
+  <div class="sp-nav">
+    <button class="tc-back" onclick="fecharSP('termos')"><i class="fas fa-arrow-left"></i> Voltar</button>
+    <span class="tc-title">Termos de uso</span>
+  </div>
+  <div class="sp-content">
+    <div class="sp-tag">Legal</div>
+    <h1 class="sp-h1">Termos de <span>Uso</span></h1>
+    <p class="sp-sub">Última atualização: junho de 2025</p>
+    <div style="color:rgba(255,255,255,0.6);line-height:1.9;font-size:14px">
+      <p style="margin-bottom:20px"><strong style="color:#fff">1. Aceitação dos Termos</strong><br>Ao utilizar a plataforma RotaPosto Empresas, você concorda com estes Termos de Uso. Caso não concorde, não utilize a plataforma.</p>
+      <p style="margin-bottom:20px"><strong style="color:#fff">2. Cadastro e Responsabilidades</strong><br>O parceiro é responsável pela veracidade dos dados cadastrados, incluindo preços, CNPJ e informações do posto. Dados falsos resultarão no cancelamento imediato da conta.</p>
+      <p style="margin-bottom:20px"><strong style="color:#fff">3. Atualização de Preços</strong><br>Os preços exibidos na plataforma devem refletir os preços reais praticados no posto. O atraso na atualização pode resultar em reclamações de clientes e penalidades.</p>
+      <p style="margin-bottom:20px"><strong style="color:#fff">4. Pagamentos</strong><br>Os planos pagos são cobrados mensalmente. O cancelamento pode ser feito a qualquer momento, com efeito no final do período pago.</p>
+      <p style="margin-bottom:20px"><strong style="color:#fff">5. Privacidade</strong><br>Os dados dos parceiros são tratados conforme nossa Política de Privacidade e a Lei Geral de Proteção de Dados (LGPD).</p>
+      <p style="margin-bottom:20px"><strong style="color:#fff">6. Contato</strong><br>Dúvidas sobre estes termos: termos@rotaposto.com.br</p>
     </div>
   </div>
 </div>
@@ -432,10 +622,26 @@ export function getParceriasLandingHTML(): string {
   function openM(plano){
     const s=document.getElementById('f-plano');
     if(s&&plano)s.value=plano;
-    document.getElementById('modal-cad').classList.add('open');
+    document.getElementById('tela-cad').classList.add('open');
+    document.body.style.overflow='hidden';
   }
-  function closeM(){document.getElementById('modal-cad').classList.remove('open')}
-  document.getElementById('modal-cad').addEventListener('click',function(e){if(e.target===this)closeM()});
+  function closeM(){
+    document.getElementById('tela-cad').classList.remove('open');
+    document.body.style.overflow='';
+  }
+  const spMap={
+    'como':'sp-como','recursos':'sp-recursos','planos':'sp-planos',
+    'depoimentos':'sp-depoimentos','sobre':'sp-sobre','blog':'sp-blog',
+    'contato':'sp-contato','termos':'sp-termos'
+  };
+  function abrirSP(id){
+    const el=document.getElementById(spMap[id]);
+    if(el){el.classList.add('open');document.body.style.overflow='hidden';}
+  }
+  function fecharSP(id){
+    const el=document.getElementById(spMap[id]);
+    if(el){el.classList.remove('open');document.body.style.overflow='';}
+  }
   function mTel(i){
     let v=i.value.replace(/\D/g,'').slice(0,11);
     if(v.length>7)i.value='('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
