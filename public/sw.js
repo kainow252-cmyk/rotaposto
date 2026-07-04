@@ -1,7 +1,8 @@
-// RotaPosto Service Worker v9.0
+// RotaPosto Service Worker v9.1
+// v9.1: force asset re-upload (hash bump)
 // v9: filtros completos + fix campo Para planejar + B2B parcerias + gamificação
 
-const VERSION = 'v9';
+const VERSION = 'v9.1';
 const CACHE_STATIC = 'rp-static-v9';
 const CACHE_API    = 'rp-api-v9';
 
