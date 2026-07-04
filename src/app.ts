@@ -1670,6 +1670,11 @@ export function getAppHTML(firebaseScripts: string): string {
         ${buildMenuItem('card', 'Assinatura', "goToAssinatura()")}
         ${buildMenuItem('creditcard', 'Formas de pagamento', "abrirFormasPagamento()")}
         ${buildMenuItem('bell', 'Notificações', "abrirNotificacoes()")}
+        <div class="menu-item" onclick="abrirPainelGamificacao()">
+          <div class="menu-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+          <div style="flex:1;"><span class="menu-item-label">Pontos &amp; Níveis</span><div id="gamif-pontos-preview" style="font-size:11px;color:#FF6D00;margin-top:1px;"></div></div>
+          <div class="menu-item-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
         ${buildMenuItem('gift', 'Indique e ganhe', "abrirIndiqueGanhe()")}
         ${buildMenuItem('help', 'Ajuda e suporte', "abrirAjuda()")}
         ${buildMenuItem('settings', 'Configurações', "abrirConfiguracoes()")}
@@ -1981,6 +1986,18 @@ export function getAppHTML(firebaseScripts: string): string {
       }
     }
     if (viewId === 'lista') renderLista();
+
+    // Atualizar preview de pontos no menu de perfil
+    if (viewId === 'perfil') {
+      setTimeout(function() {
+        var prev = document.getElementById('gamif-pontos-preview');
+        if (prev && typeof getPontosGamif === 'function') {
+          var pts = getPontosGamif();
+          var nv = getNivelGamif();
+          prev.textContent = nv.icone + ' ' + pts + ' pts • ' + nv.nome;
+        }
+      }, 100);
+    }
   }
 
   // ══════════════════════════════════════════════════════
@@ -2730,9 +2747,12 @@ export function getAppHTML(firebaseScripts: string): string {
       fecharModal();
       renderLista();
       showToast('Preço enviado! Obrigado 🙌');
+      // Gamificação: pontos por atualizar preço
+      if (typeof adicionarPontosGamif === 'function') adicionarPontosGamif('atualizar_preco');
     }).catch(() => {
       fecharModal();
       showToast('Preço enviado! Obrigado 🙌');
+      if (typeof adicionarPontosGamif === 'function') adicionarPontosGamif('atualizar_preco');
     });
   }
 
@@ -2820,7 +2840,12 @@ export function getAppHTML(firebaseScripts: string): string {
       + fonteLabel
       + '<div style="margin-top:8px;">'
       + '<span style="font-size:11px;color:#FF6D00;cursor:pointer;font-weight:600;" onclick="abrirReportarPreco('+idx+')">'
-      + '📝 Preços diferentes? Informe o valor real</span></div>';
+      + '📝 Preços diferentes? Informe o valor real</span></div>'
+      + '<div style="margin-top:12px;" id="btn-gerar-desconto-wrap">'
+      + '<button onclick="abrirGerarCupom(\'' + (p.id || '') + '\',\'' + (p.nome || 'Posto').replace(/'/g,"\\'") + '\',\'' + selectedFuel + '\')" '
+      + 'style="width:100%;padding:12px;background:linear-gradient(135deg,#FF6D00,#FFA040);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">'
+      + '🎟️ Gerar Cupom de Desconto Premium'
+      + '</button></div>';
 
     // Planejar: atualizar destino quando usuário vem da lista/detalhes
     var destVal = document.getElementById('plan-dest-val');
@@ -3023,6 +3048,13 @@ export function getAppHTML(firebaseScripts: string): string {
       + '</div>'
       + '</div>'
       + '<button class="st-btn" onclick="salvarContaConta()">💾 Salvar dados</button>'
+      // Bloco de gamificação resumido
+      + '<div style="background:#FFF8F0;border-radius:14px;padding:14px;margin:12px 0;cursor:pointer;" onclick="fecharTela();abrirPainelGamificacao();">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;">'
+      + '<div><div style="font-size:13px;font-weight:700;color:#FF6D00;">⭐ Pontos &amp; Níveis</div>'
+      + '<div id="mc-gamif-info" style="font-size:12px;color:#888;margin-top:3px;">Carregando...</div></div>'
+      + '<div style="font-size:20px;">›</div></div></div>'
+      + '<script>setTimeout(function(){var el=document.getElementById("mc-gamif-info");if(el&&typeof getPontosGamif==="function"){var pts=getPontosGamif();var nv=getNivelGamif();el.textContent=nv.icone+" "+pts+" pts • "+nv.nome;}},200);<\/script>'
       + '<button class="st-btn st-btn-danger" onclick="doLogout();fecharTela();">Sair da conta</button>';
     abrirTela('Minha Conta', html);
   }
@@ -4051,6 +4083,8 @@ export function getAppHTML(firebaseScripts: string): string {
     }
   })();
 </script>
+${getGamificacaoScripts()}
+${getCupomQRScripts()}
 </body>
 </html>`;
 }
@@ -4077,3 +4111,401 @@ function buildMenuItem(icon: string, label: string, onclick: string): string {
   <div class="menu-item-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
 </div>`;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  GAMIFICAÇÃO — Pontos, Níveis e Recompensas
+// ══════════════════════════════════════════════════════════════════════════════
+
+export function getGamificacaoScripts(): string {
+  return `
+<script>
+// ── Constantes de gamificação ───────────────────────────────────────────────
+var GAMIF_PONTOS = {
+  confirmar_preco:  5,
+  atualizar_preco:  20,
+  foto_totem:       30,
+  comentar:         10,
+  indicar_amigo:    50
+};
+var GAMIF_NIVEIS = [
+  { min: 0,   max: 100, nome: 'Motorista Iniciante',   icone: '🚗', cor: '#9E9E9E' },
+  { min: 101, max: 500, nome: 'Fiscal dos Postos',     icone: '🔍', cor: '#2196F3' },
+  { min: 501, max: 999999, nome: 'Mestre do Combustível', icone: '🏆', cor: '#FF6D00' }
+];
+
+// ── Ler/gravar pontos no localStorage ──────────────────────────────────────
+function _getGamifKey() {
+  try {
+    var user = JSON.parse(localStorage.getItem('rp_user') || 'null');
+    return user && user.uid ? 'rp_gamif_' + user.uid : null;
+  } catch { return null; }
+}
+
+function getPontosGamif() {
+  var key = _getGamifKey();
+  if (!key) return 0;
+  return parseInt(localStorage.getItem(key + '_pontos') || '0', 10);
+}
+
+function getNivelGamif() {
+  var pontos = getPontosGamif();
+  for (var i = GAMIF_NIVEIS.length - 1; i >= 0; i--) {
+    if (pontos >= GAMIF_NIVEIS[i].min) return GAMIF_NIVEIS[i];
+  }
+  return GAMIF_NIVEIS[0];
+}
+
+function getCodigoIndicacaoGamif() {
+  var key = _getGamifKey();
+  if (!key) return null;
+  var cod = localStorage.getItem(key + '_codigo_indicacao');
+  if (!cod) {
+    try {
+      var user = JSON.parse(localStorage.getItem('rp_user') || '{}');
+      cod = 'RP' + (user.uid || '').slice(-4).toUpperCase() + Math.floor(1000 + Math.random() * 9000);
+      localStorage.setItem(key + '_codigo_indicacao', cod);
+    } catch { cod = 'RPDEMO'; }
+  }
+  return cod;
+}
+
+function adicionarPontosGamif(acao) {
+  var key = _getGamifKey();
+  if (!key) return;
+  var pts = GAMIF_PONTOS[acao] || 0;
+  if (!pts) return;
+  var atual = getPontosGamif();
+  var novo = atual + pts;
+  localStorage.setItem(key + '_pontos', String(novo));
+
+  // Log de ações
+  var logKey = key + '_log';
+  var log = [];
+  try { log = JSON.parse(localStorage.getItem(logKey) || '[]'); } catch {}
+  log.push({ acao: acao, pts: pts, total: novo, ts: Date.now() });
+  localStorage.setItem(logKey, JSON.stringify(log.slice(-100)));
+
+  // Verificar subida de nível
+  var nivelAntes = _nivelParaPontos(atual);
+  var nivelDepois = _nivelParaPontos(novo);
+  if (nivelDepois > nivelAntes) {
+    var info = GAMIF_NIVEIS[nivelDepois];
+    setTimeout(function() {
+      showToast(info.icone + ' Parabéns! Você é agora ' + info.nome + '!', 4000);
+      // Se atingiu Mestre do Combustível (nível 2), liberar Premium 30 dias
+      if (nivelDepois === 2) {
+        _liberarPremiumGamif();
+      }
+    }, 800);
+  }
+
+  showToast('+' + pts + ' pontos! ' + GAMIF_PONTOS[acao] + ' pts ganhos.');
+}
+
+function _nivelParaPontos(pontos) {
+  for (var i = GAMIF_NIVEIS.length - 1; i >= 0; i--) {
+    if (pontos >= GAMIF_NIVEIS[i].min) return i;
+  }
+  return 0;
+}
+
+function _liberarPremiumGamif() {
+  var key = _getGamifKey();
+  if (!key) return;
+  var expMs = Date.now() + 30 * 86400000; // 30 dias
+  localStorage.setItem(key + '_premium_gamif_exp', String(expMs));
+  localStorage.setItem('rp_assinatura_status', 'ativo');
+  localStorage.setItem('rp_assinatura_via', 'gamificacao');
+  setTimeout(function() {
+    showToast('🎉 30 dias de Premium liberados! Obrigado por manter os preços atualizados!', 5000);
+  }, 1500);
+}
+
+// ── UI do Painel de Gamificação ────────────────────────────────────────────
+function abrirPainelGamificacao() {
+  var pontos = getPontosGamif();
+  var nivel = getNivelGamif();
+  var proximo = GAMIF_NIVEIS[Math.min(_nivelParaPontos(pontos) + 1, GAMIF_NIVEIS.length - 1)];
+  var pct = nivel.max === 999999 ? 100 : Math.min(100, Math.round(((pontos - nivel.min) / (nivel.max - nivel.min)) * 100));
+  var codigo = getCodigoIndicacaoGamif();
+
+  var key = _getGamifKey();
+  var log = [];
+  try { log = JSON.parse(localStorage.getItem((key || '') + '_log') || '[]').slice(-5).reverse(); } catch {}
+
+  var logHtml = log.length ? log.map(function(l) {
+    return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;">'
+      + '<span style="font-size:13px;color:#555;">' + _nomeAcaoGamif(l.acao) + '</span>'
+      + '<span style="font-size:13px;font-weight:700;color:#FF6D00;">+' + l.pts + ' pts</span>'
+      + '</div>';
+  }).join('') : '<p style="color:#aaa;font-size:13px;text-align:center;padding:16px 0;">Nenhuma ação registrada ainda</p>';
+
+  var html = '<div style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;" onclick="if(event.target===this)this.remove()">'
+    + '<div style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding:24px;">'
+    + '<div style="text-align:center;margin-bottom:20px;">'
+    + '<div style="font-size:48px;margin-bottom:8px;">' + nivel.icone + '</div>'
+    + '<div style="font-size:20px;font-weight:800;color:#222;">' + nivel.nome + '</div>'
+    + '<div style="font-size:32px;font-weight:900;color:' + nivel.cor + ';margin:4px 0;">' + pontos + ' <span style="font-size:14px;color:#888;">pontos</span></div>'
+    + '</div>'
+    // Barra de progresso
+    + '<div style="margin-bottom:20px;">'
+    + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#888;margin-bottom:6px;">'
+    + '<span>' + nivel.min + ' pts</span><span>' + (nivel.max === 999999 ? '∞' : nivel.max + ' pts') + '</span></div>'
+    + '<div style="background:#f0f0f0;border-radius:8px;height:12px;">'
+    + '<div style="width:' + pct + '%;height:100%;border-radius:8px;background:' + nivel.cor + ';transition:width .5s;"></div></div>'
+    + (nivel.max !== 999999 ? '<div style="font-size:12px;color:#888;margin-top:4px;text-align:right;">Próximo nível: ' + proximo.nome + ' em ' + (proximo.min - pontos) + ' pts</div>' : '<div style="font-size:12px;color:#FF6D00;margin-top:4px;text-align:center;">🏆 Nível máximo atingido!</div>')
+    + '</div>'
+    // Como ganhar pontos
+    + '<div style="background:#FFF8F0;border-radius:16px;padding:16px;margin-bottom:20px;">'
+    + '<div style="font-size:14px;font-weight:700;color:#FF6D00;margin-bottom:12px;">⚡ Como ganhar pontos</div>'
+    + '<div style="display:grid;gap:8px;">'
+    + _itemPonto('✅ Confirmar preço no posto', 5)
+    + _itemPonto('📝 Atualizar preço mudou', 20)
+    + _itemPonto('📸 Enviar foto do totem', 30)
+    + _itemPonto('💬 Avaliar/comentar posto', 10)
+    + _itemPonto('👥 Indicar amigo', 50)
+    + '</div></div>'
+    // Código de indicação
+    + '<div style="background:#F3F9FF;border-radius:16px;padding:16px;margin-bottom:20px;">'
+    + '<div style="font-size:14px;font-weight:700;color:#1976D2;margin-bottom:8px;">👥 Seu Código de Indicação</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;">'
+    + '<div style="flex:1;background:#fff;border:2px solid #1976D2;border-radius:12px;padding:12px;text-align:center;font-size:22px;font-weight:900;color:#1976D2;letter-spacing:4px;">' + codigo + '</div>'
+    + '<button onclick="compartilharCodigoIndicacao(\'' + codigo + '\')" style="background:#1976D2;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;">Compartilhar</button>'
+    + '</div>'
+    + '<div style="font-size:12px;color:#888;margin-top:8px;">Ganhe 50 pontos por amigo que assinar o RotaPosto Premium!</div>'
+    + '</div>'
+    // Últimas ações
+    + '<div style="margin-bottom:20px;">'
+    + '<div style="font-size:14px;font-weight:700;color:#333;margin-bottom:12px;">📊 Últimas ações</div>'
+    + logHtml
+    + '</div>'
+    + '<button onclick="this.closest(\'[onclick]\').remove()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:15px;font-weight:700;color:#555;cursor:pointer;">Fechar</button>'
+    + '</div></div>';
+
+  var el = document.createElement('div');
+  el.innerHTML = html;
+  document.body.appendChild(el.firstElementChild);
+}
+
+function _itemPonto(label, pts) {
+  return '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<span style="font-size:13px;color:#555;">' + label + '</span>'
+    + '<span style="font-size:13px;font-weight:700;color:#FF6D00;background:#FFF0E0;border-radius:8px;padding:2px 8px;">+' + pts + '</span>'
+    + '</div>';
+}
+function _nomeAcaoGamif(acao) {
+  var nomes = { confirmar_preco:'Confirmou preço', atualizar_preco:'Atualizou preço', foto_totem:'Enviou foto do totem', comentar:'Comentou posto', indicar_amigo:'Indicou amigo' };
+  return nomes[acao] || acao;
+}
+
+function compartilharCodigoIndicacao(codigo) {
+  var texto = '⛽ Economize no combustível com o RotaPosto! Use meu código ' + codigo + ' e veja os melhores preços perto de você: https://rotaposto.com.br';
+  if (navigator.share) {
+    navigator.share({ title: 'RotaPosto', text: texto }).catch(function(){});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(texto).then(function() { showToast('Código copiado!'); });
+  } else {
+    showToast('Compartilhe: ' + codigo);
+  }
+}
+</script>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CUPOM QR CODE — Geração pelo Usuário Premium
+// ══════════════════════════════════════════════════════════════════════════════
+
+export function getCupomQRScripts(): string {
+  return `
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+var _cupomAtivo = null;
+var _cupomTimer = null;
+
+function abrirGerarCupom(postoId, nomePosto, combustivelSugerido) {
+  // Verificar se é Premium
+  var statusAssinatura = localStorage.getItem('rp_assinatura_status');
+  var keyGamif = null;
+  try {
+    var u = JSON.parse(localStorage.getItem('rp_user') || 'null');
+    if (u) keyGamif = 'rp_gamif_' + u.uid;
+  } catch {}
+  var premiumGamif = keyGamif ? parseInt(localStorage.getItem(keyGamif + '_premium_gamif_exp') || '0', 10) : 0;
+  var isPremium = statusAssinatura === 'ativo' || (premiumGamif > Date.now());
+
+  if (!isPremium) {
+    // Mostrar tela de upgrade
+    var el = document.createElement('div');
+    el.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;';
+    el.onclick = function(e) { if(e.target===this) this.remove(); };
+    el.innerHTML = '<div style="background:#fff;border-radius:24px 24px 0 0;width:100%;padding:28px;text-align:center;">'
+      + '<div style="font-size:40px;margin-bottom:12px;">🎟️</div>'
+      + '<div style="font-size:18px;font-weight:800;color:#222;margin-bottom:8px;">Recurso Premium</div>'
+      + '<div style="font-size:14px;color:#666;margin-bottom:20px;">Gere cupons de desconto em postos parceiros e economize até R$ 0,10/litro. Apenas assinantes Premium.</div>'
+      + '<div style="background:#FFF8F0;border-radius:14px;padding:16px;margin-bottom:20px;">'
+      + '<div style="font-size:13px;color:#FF6D00;font-weight:700;margin-bottom:8px;">💡 Ou ganhe de graça!</div>'
+      + '<div style="font-size:13px;color:#555;">Acumule 501 pontos reportando preços e ganhe 30 dias Premium grátis.</div>'
+      + '<button onclick="this.closest(\'[style*=fixed]\').remove();abrirPainelGamificacao();" style="margin-top:12px;background:#FF6D00;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Ver meus pontos</button>'
+      + '</div>'
+      + '<button onclick="abrirModalAssinatura()" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">Assinar Premium — R$10/mês</button>'
+      + '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:14px;color:#555;cursor:pointer;">Cancelar</button>'
+      + '</div>';
+    document.body.appendChild(el);
+    return;
+  }
+
+  var combustiveis = ['Gasolina Comum','Gasolina Aditivada','Etanol','Diesel S10','Diesel Comum','GNV'];
+  var optsHtml = combustiveis.map(function(c) {
+    return '<option value="' + c + '"' + (c === (combustivelSugerido||'Gasolina Comum') ? ' selected' : '') + '>' + c + '</option>';
+  }).join('');
+
+  var modal = document.createElement('div');
+  modal.id = 'modal-gerar-cupom';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;';
+  modal.onclick = function(e) { if(e.target===this) fecharModalCupom(); };
+  modal.innerHTML = '<div style="background:#fff;border-radius:24px 24px 0 0;width:100%;padding:24px;max-height:90vh;overflow-y:auto;">'
+    + '<div style="text-align:center;margin-bottom:20px;">'
+    + '<div style="font-size:14px;font-weight:600;color:#888;">Gerar cupom em</div>'
+    + '<div style="font-size:18px;font-weight:800;color:#222;">' + (nomePosto || 'Posto Parceiro') + '</div>'
+    + '</div>'
+    // Selecionar combustível
+    + '<div style="margin-bottom:16px;">'
+    + '<label style="font-size:13px;font-weight:600;color:#555;display:block;margin-bottom:6px;">⛽ Combustível</label>'
+    + '<select id="cupom-combustivel" style="width:100%;padding:12px;border:2px solid #eee;border-radius:12px;font-size:15px;background:#fff;">' + optsHtml + '</select>'
+    + '</div>'
+    + '<div id="cupom-area" style="display:none;"></div>'
+    + '<button id="btn-gerar-cupom" onclick="gerarCupomPremium(\'' + (postoId||'') + '\',\'' + (nomePosto||'Posto Parceiro').replace(/'/g,"\\'") + '\')" '
+    + 'style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">🎟️ Gerar Cupom de Desconto</button>'
+    + '<button onclick="fecharModalCupom()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:14px;color:#555;cursor:pointer;">Cancelar</button>'
+    + '</div>';
+  document.body.appendChild(modal);
+}
+
+function fecharModalCupom() {
+  if (_cupomTimer) { clearInterval(_cupomTimer); _cupomTimer = null; }
+  var m = document.getElementById('modal-gerar-cupom');
+  if (m) m.remove();
+}
+
+function gerarCupomPremium(postoId, nomePosto) {
+  var comb = document.getElementById('cupom-combustivel');
+  var combustivel = comb ? comb['value'] : 'Gasolina Comum';
+  var user = null;
+  try { user = JSON.parse(localStorage.getItem('rp_user') || 'null'); } catch {}
+
+  var btn = document.getElementById('btn-gerar-cupom');
+  if (btn) { btn['disabled'] = true; btn.textContent = 'Gerando...'; }
+
+  fetch('/api/parceiros/cupons/gerar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      uid: user ? user.uid : 'demo_' + Date.now(),
+      nomeUsuario: user ? (user.displayName || user.email || 'Assinante') : 'Demo',
+      postoId: postoId || 'demo',
+      combustivel: combustivel
+    })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok) {
+      _cupomAtivo = data;
+      mostrarCupomGerado(data, combustivel, nomePosto);
+      // Conceder pontos por confirmar (usar o posto parceiro)
+      adicionarPontosGamif('confirmar_preco');
+    } else {
+      if (btn) { btn['disabled'] = false; btn.textContent = '🎟️ Gerar Cupom de Desconto'; }
+      showToast(data.erro || 'Erro ao gerar cupom');
+    }
+  }).catch(function() {
+    // Modo offline: gerar cupom local
+    var codigo = String(Math.floor(100000 + Math.random() * 900000));
+    var hash = 'RP-DEMO-' + codigo;
+    _cupomAtivo = { ok: true, codigo: codigo, hash: hash, combustivel: combustivel, expiracaoSegundos: 300, qrData: hash };
+    mostrarCupomGerado(_cupomAtivo, combustivel, nomePosto);
+    if (btn) { btn['disabled'] = false; }
+  });
+}
+
+function mostrarCupomGerado(data, combustivel, nomePosto) {
+  var area = document.getElementById('cupom-area');
+  var btn = document.getElementById('btn-gerar-cupom');
+  if (!area) return;
+  if (btn) btn.style.display = 'none';
+  var sel = document.getElementById('cupom-combustivel');
+  if (sel) (sel as any).parentElement.style.display = 'none';
+
+  var secs = data.expiracaoSegundos || 300;
+  area.style.display = 'block';
+  area.innerHTML = '<div style="text-align:center;">'
+    // QR Code
+    + '<div id="qrcode-cupom" style="display:inline-block;padding:16px;background:#fff;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.1);margin-bottom:16px;"></div>'
+    // Código numérico grande
+    + '<div style="font-size:36px;font-weight:900;letter-spacing:8px;color:#222;margin-bottom:8px;">' + data.codigo + '</div>'
+    + '<div style="font-size:13px;color:#888;margin-bottom:16px;">⛽ ' + combustivel + ' • ' + (nomePosto || 'Posto Parceiro') + '</div>'
+    // Timer
+    + '<div id="cupom-timer" style="display:inline-flex;align-items:center;gap:8px;background:#FFF0E0;border-radius:12px;padding:8px 16px;margin-bottom:20px;">'
+    + '<span style="font-size:20px;">⏱️</span>'
+    + '<span id="cupom-timer-text" style="font-size:18px;font-weight:800;color:#FF6D00;">' + _formatarTempoTimer(secs) + '</span>'
+    + '<span style="font-size:13px;color:#888;">restantes</span></div>'
+    // Instruções
+    + '<div style="background:#F0FFF4;border-radius:12px;padding:14px;margin-bottom:16px;text-align:left;">'
+    + '<div style="font-size:13px;font-weight:700;color:#2E7D32;margin-bottom:6px;">✅ Como usar:</div>'
+    + '<div style="font-size:13px;color:#555;line-height:1.6;">'
+    + '1. Mostre o QR Code ou código para o frentista/caixa<br>'
+    + '2. O funcionário confirma no sistema do posto<br>'
+    + '3. Receba o desconto aplicado automaticamente na bomba'
+    + '</div></div>'
+    + '</div>';
+
+  // Gerar QR Code
+  setTimeout(function() {
+    var qrEl = document.getElementById('qrcode-cupom');
+    if (qrEl && window['QRCode']) {
+      new window['QRCode'](qrEl, { text: data.qrData || data.codigo, width: 160, height: 160, colorDark: '#222', colorLight: '#ffffff' });
+    }
+  }, 100);
+
+  // Iniciar timer countdown
+  var remaining = secs;
+  if (_cupomTimer) clearInterval(_cupomTimer);
+  _cupomTimer = setInterval(function() {
+    remaining--;
+    var timerEl = document.getElementById('cupom-timer-text');
+    if (timerEl) timerEl.textContent = _formatarTempoTimer(remaining);
+    if (remaining <= 60) {
+      var timerBox = document.getElementById('cupom-timer');
+      if (timerBox) timerBox.style.background = '#FFEBEE';
+      if (timerEl) timerEl.style.color = '#D32F2F';
+    }
+    if (remaining <= 0) {
+      clearInterval(_cupomTimer);
+      _cupomTimer = null;
+      if (area) area.innerHTML = '<div style="text-align:center;padding:20px;">'
+        + '<div style="font-size:48px;margin-bottom:8px;">⏰</div>'
+        + '<div style="font-size:16px;font-weight:700;color:#D32F2F;">Cupom expirado</div>'
+        + '<div style="font-size:13px;color:#888;margin-top:8px;">Gere um novo cupom antes de abastecer.</div>'
+        + '<button onclick="fecharModalCupom()" style="margin-top:16px;background:#FF6D00;color:#fff;border:none;border-radius:12px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;">Fechar</button>'
+        + '</div>';
+    }
+  }, 1000);
+}
+
+function _formatarTempoTimer(secs) {
+  var m = Math.floor(Math.max(0, secs) / 60);
+  var s = Math.max(0, secs) % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+// ── Integrar pontos quando usuário envia preço ──────────────────────────────
+// Interceptar a função enviarPrecoReal para adicionar pontos
+(function() {
+  var _enviarPrecoRealOriginal = window['enviarPrecoReal'];
+  if (typeof _enviarPrecoRealOriginal === 'function') {
+    window['enviarPrecoReal'] = function(idx) {
+      _enviarPrecoRealOriginal(idx);
+      adicionarPontosGamif('atualizar_preco');
+    };
+  }
+})();
+</script>`;
+}
+

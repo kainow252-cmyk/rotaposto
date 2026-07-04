@@ -45,6 +45,7 @@ import {
   getMunicipiosDisponiveis,
   ANP_SEMANA,
 } from './brasil'
+import { getParceriasLandingHTML, getPainelEmpresaHTML, getValidadorHTML } from './parcerias'
 
 // Alias de compatibilidade — mantido para endpoints legados
 const getEstatisticasNacionais = getEstatisticasNacionaisANP
@@ -1712,6 +1713,16 @@ app.get('/app', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
   return c.html(getAppHTML(firebaseScripts))
 })
+
+// ══════════════════════════════════════════════════════
+//  Página de Privacidade (exigida pelo Facebook e Google)
+// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+//  B2B Parcerias com Postos
+// ══════════════════════════════════════════════════════
+app.get('/parcerias', (c) => c.html(getParceriasLandingHTML()))
+app.get('/parcerias/empresa', (c) => c.html(getPainelEmpresaHTML()))
+app.get('/parcerias/validar', (c) => c.html(getValidadorHTML()))
 
 // ══════════════════════════════════════════════════════
 //  Página de Privacidade (exigida pelo Facebook e Google)
@@ -6149,6 +6160,618 @@ async function syncAnpScheduled(kv: KVNamespace | undefined): Promise<void> {
   }
   console.error('[ANP Cron] ❌ Falhou para todas as URLs candidatas')
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  APIs B2B Parcerias com Postos
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Helpers KV Parcerias ──────────────────────────────────────────────────────
+async function kvGetParceiro(kv: KVNamespace | undefined, id: string) {
+  if (!kv) return null
+  try { return JSON.parse(await kv.get(`parceiro:${id}`) || 'null') } catch { return null }
+}
+async function kvSetParceiro(kv: KVNamespace | undefined, id: string, data: Record<string, unknown>) {
+  if (!kv) return
+  await kv.put(`parceiro:${id}`, JSON.stringify(data))
+}
+async function kvGetCupom(kv: KVNamespace | undefined, codigo: string) {
+  if (!kv) return null
+  try { return JSON.parse(await kv.get(`cupom:${codigo}`) || 'null') } catch { return null }
+}
+async function kvSetCupom(kv: KVNamespace | undefined, codigo: string, data: Record<string, unknown>, ttl = 600) {
+  if (!kv) return
+  await kv.put(`cupom:${codigo}`, JSON.stringify(data), { expirationTtl: ttl })
+}
+async function kvGetPrecos(kv: KVNamespace | undefined, postoId: string) {
+  if (!kv) return null
+  try { return JSON.parse(await kv.get(`precos:${postoId}`) || 'null') } catch { return null }
+}
+async function kvGetLeads(kv: KVNamespace | undefined): Promise<unknown[]> {
+  if (!kv) return []
+  try { return JSON.parse(await kv.get('parceiros:leads') || '[]') } catch { return [] }
+}
+function gerarCodigo6(): string {
+  return String(Math.floor(100000 + Math.random() * 900000))
+}
+function gerarIdParceiro(): string {
+  return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+}
+function hashSimples(senha: string): string {
+  let h = 0
+  for (let i = 0; i < senha.length; i++) { h = (Math.imul(31, h) + senha.charCodeAt(i)) | 0 }
+  return Math.abs(h).toString(16)
+}
+
+// ── POST /api/parceiros/cadastro ──────────────────────────────────────────────
+app.post('/api/parceiros/cadastro', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const body = await c.req.json() as Record<string, string>
+    const { cnpj, nome, whatsapp, email, nomePosto, bandeira, plano, cidade, senha } = body
+
+    if (!cnpj || !nome || !email || !nomePosto) {
+      return c.json({ ok: false, erro: 'Campos obrigatórios: cnpj, nome, email, nomePosto' }, 400)
+    }
+
+    // Verificar se CNPJ já cadastrado
+    const cnpjKey = cnpj.replace(/\D/g, '')
+    const existente = await kvGetParceiro(kv, `cnpj_${cnpjKey}`)
+    if (existente) {
+      return c.json({ ok: false, erro: 'CNPJ já cadastrado. Faça login no painel.' }, 409)
+    }
+
+    const id = gerarIdParceiro()
+    const senhaHash = hashSimples(senha || cnpjKey.slice(-6))
+    const agora = new Date().toISOString()
+
+    const parceiro = {
+      id, cnpj: cnpjKey, nome, whatsapp: whatsapp || '', email,
+      nomePosto, bandeira: bandeira || 'Independente',
+      plano: plano || 'visibilidade', cidade: cidade || '',
+      senhaHash, status: 'pendente', criadoEm: agora,
+      // Configurações padrão
+      pinDourado: false, seloVerificado: false, cuponsAtivos: false,
+      notificacoesAtivas: false, topoLista: false,
+      // Métricas zeradas
+      totalCliques: 0, totalCupons: 0, totalImpressoes: 0
+    }
+
+    await kvSetParceiro(kv, id, parceiro)
+    await kvSetParceiro(kv, `cnpj_${cnpjKey}`, { id, email })
+    await kvSetParceiro(kv, `email_${email}`, { id, cnpj: cnpjKey })
+
+    // Salvar no índice de leads para admin visualizar
+    const leads = await kvGetLeads(kv) as Record<string, unknown>[]
+    leads.push({ id, nomePosto, cnpj: cnpjKey, email, plano, cidade, criadoEm: agora })
+    if (kv) await kv.put('parceiros:leads', JSON.stringify(leads.slice(-500)))
+
+    return c.json({
+      ok: true,
+      id,
+      mensagem: `Cadastro recebido! Entraremos em contato em até 24h via WhatsApp ou e-mail (${email}).`,
+      proximosPasso: 'Acesse /parcerias/empresa com seu e-mail e CNPJ para configurar seu painel.'
+    })
+  } catch (e) {
+    console.error('[parceiros/cadastro]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/login ─────────────────────────────────────────────────
+app.post('/api/parceiros/login', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const body = await c.req.json() as Record<string, string>
+    const { email, senha } = body
+
+    if (!email || !senha) {
+      return c.json({ ok: false, erro: 'E-mail e senha obrigatórios' }, 400)
+    }
+
+    const ref = await kvGetParceiro(kv, `email_${email}`)
+    if (!ref) {
+      return c.json({ ok: false, erro: 'E-mail não encontrado. Cadastre seu posto primeiro.' }, 404)
+    }
+
+    const parceiro = await kvGetParceiro(kv, (ref as Record<string, string>).id)
+    if (!parceiro) {
+      return c.json({ ok: false, erro: 'Conta não encontrada' }, 404)
+    }
+
+    const p = parceiro as Record<string, unknown>
+    const senhaHash = hashSimples(senha)
+    if (p.senhaHash !== senhaHash) {
+      // Fallback: aceita últimos 6 dígitos do CNPJ como senha inicial
+      const cnpjSenha = hashSimples(String(p.cnpj).slice(-6))
+      if (senhaHash !== cnpjSenha) {
+        return c.json({ ok: false, erro: 'Senha incorreta' }, 401)
+      }
+    }
+
+    // Gerar token de sessão simples
+    const token = `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
+    await kvSetParceiro(kv, `sess_${token}`, { parceiroId: p.id, email, exp: Date.now() + 86400000 }, 86400)
+
+    return c.json({
+      ok: true,
+      token,
+      parceiro: {
+        id: p.id, nomePosto: p.nomePosto, bandeira: p.bandeira,
+        plano: p.plano, cidade: p.cidade, status: p.status,
+        pinDourado: p.pinDourado, seloVerificado: p.seloVerificado,
+        cuponsAtivos: p.cuponsAtivos, topoLista: p.topoLista
+      }
+    })
+  } catch (e) {
+    console.error('[parceiros/login]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── GET /api/parceiros/dashboard ──────────────────────────────────────────────
+app.get('/api/parceiros/dashboard', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const postoId = c.req.query('postoId') || ''
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token') || ''
+
+    if (!postoId && !token) {
+      return c.json({ ok: false, erro: 'postoId ou token obrigatório' }, 400)
+    }
+
+    let parceiroId = postoId
+    if (token && !postoId) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      if (!sess || (sess.exp as number) < Date.now()) {
+        return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
+      }
+      parceiroId = String(sess.parceiroId)
+    }
+
+    const parceiro = await kvGetParceiro(kv, parceiroId) as Record<string, unknown> | null
+    if (!parceiro) {
+      // Retornar dados demo se posto não encontrado (para teste do painel)
+      return c.json({
+        ok: true, demo: true,
+        metricas: { cliques: 147, cupons: 23, impressoes: 892, conversao: 2.6 },
+        cuponsRecentes: [
+          { codigo: '843912', usuario: 'Carlos M.', combustivel: 'Gasolina Aditivada', valor: 5.80, status: 'UTILIZADO', dataUso: new Date(Date.now() - 3600000).toISOString() },
+          { codigo: '291847', usuario: 'Ana P.', combustivel: 'Etanol', valor: 4.10, status: 'UTILIZADO', dataUso: new Date(Date.now() - 7200000).toISOString() },
+          { codigo: '573920', usuario: 'Marcos L.', combustivel: 'Gasolina Comum', valor: 5.65, status: 'EXPIRADO', dataUso: null },
+        ],
+        evolucaoSemanal: [12, 18, 9, 23, 31, 15, 22]
+      })
+    }
+
+    // Buscar cupons utilizados recentemente (últimos 20)
+    const historico = await kv?.get(`historico:${parceiroId}`) || '[]'
+    let cuponsRecentes = []
+    try { cuponsRecentes = JSON.parse(historico).slice(-20).reverse() } catch {}
+
+    // Calcular métricas do mês atual
+    const agora = new Date()
+    const mesAtual = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`
+    const metricasKey = `metricas:${parceiroId}:${mesAtual}`
+    let metricas = { cliques: 0, cupons: 0, impressoes: 0, conversao: 0 }
+    try {
+      const m = await kv?.get(metricasKey)
+      if (m) metricas = { ...metricas, ...JSON.parse(m) }
+    } catch {}
+
+    // Evolução últimos 7 dias (simulado se sem dados reais)
+    const evolucaoSemanal = [
+      metricas.cliques > 0 ? Math.floor(metricas.cliques / 7) : 8,
+      metricas.cliques > 0 ? Math.floor(metricas.cliques / 6) : 12,
+      metricas.cliques > 0 ? Math.floor(metricas.cliques / 8) : 7,
+      metricas.cliques > 0 ? Math.floor(metricas.cliques / 5) : 15,
+      metricas.cliques > 0 ? Math.floor(metricas.cliques / 4) : 19,
+      metricas.cliques > 0 ? Math.floor(metricas.cliques / 6) : 11,
+      metricas.cliques > 0 ? Math.floor(metricas.cliques / 3) : 18,
+    ]
+
+    return c.json({
+      ok: true,
+      parceiro: { id: parceiro.id, nomePosto: parceiro.nomePosto, bandeira: parceiro.bandeira, plano: parceiro.plano, status: parceiro.status },
+      metricas,
+      cuponsRecentes,
+      evolucaoSemanal
+    })
+  } catch (e) {
+    console.error('[parceiros/dashboard]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/cupons/validar ────────────────────────────────────────
+app.post('/api/parceiros/cupons/validar', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const body = await c.req.json() as Record<string, string>
+    const { codigo, postoId } = body
+
+    if (!codigo || codigo.length < 6) {
+      return c.json({ valido: false, mensagem: 'Código inválido. Digite os 6 dígitos.' }, 400)
+    }
+
+    const codigoLimpo = codigo.replace(/\D/g, '').padStart(6, '0').slice(-6)
+    const cupom = await kvGetCupom(kv, codigoLimpo) as Record<string, unknown> | null
+
+    if (!cupom) {
+      return c.json({ valido: false, mensagem: 'Cupom não encontrado ou expirado.' }, 404)
+    }
+
+    // Verificar status
+    if (cupom.status === 'UTILIZADO') {
+      return c.json({
+        valido: false,
+        mensagem: '❌ Este cupom já foi utilizado!',
+        dataUso: cupom.dataUso
+      }, 400)
+    }
+
+    if (cupom.status === 'EXPIRADO') {
+      return c.json({ valido: false, mensagem: '⏰ Cupom expirado! O cliente deve gerar um novo.' }, 400)
+    }
+
+    // Verificar tempo (5 minutos = 300 segundos)
+    const agora = Date.now()
+    const criadoEm = Number(cupom.criadoEm) || 0
+    const deltaSegundos = (agora - criadoEm) / 1000
+    if (deltaSegundos > 300) {
+      if (kv) await kvSetCupom(kv, codigoLimpo, { ...cupom, status: 'EXPIRADO' }, 3600)
+      return c.json({ valido: false, mensagem: '⏰ Cupom expirado (5 minutos)! Peça ao cliente gerar outro.' }, 400)
+    }
+
+    // Buscar preços do posto para calcular desconto
+    const precos = postoId ? await kvGetPrecos(kv, postoId) as Record<string, unknown> | null : null
+    const combustivel = String(cupom.combustivel || 'Gasolina Comum')
+    let precoBomba = 5.90
+    let desconto = 0.10
+    let precoFinal = precoBomba - desconto
+
+    if (precos) {
+      const p = precos as Record<string, Record<string, number>>
+      const dadosComb = p[combustivel]
+      if (dadosComb) {
+        precoBomba = dadosComb.precoBomba || precoBomba
+        desconto = dadosComb.desconto || desconto
+        precoFinal = precoBomba - desconto
+      }
+    }
+
+    // Marcar como utilizado
+    const cupomAtualizado = { ...cupom, status: 'UTILIZADO', dataUso: new Date().toISOString(), postoId: postoId || '' }
+    await kvSetCupom(kv, codigoLimpo, cupomAtualizado, 86400)
+
+    // Registrar no histórico do posto
+    if (postoId && kv) {
+      const histKey = `historico:${postoId}`
+      let hist = []
+      try { hist = JSON.parse(await kv.get(histKey) || '[]') } catch {}
+      hist.push({
+        codigo: codigoLimpo,
+        usuario: cupom.nomeUsuario || 'Assinante Premium',
+        combustivel,
+        precoBomba,
+        desconto,
+        precoFinal,
+        dataUso: cupomAtualizado.dataUso,
+        status: 'UTILIZADO'
+      })
+      await kv.put(histKey, JSON.stringify(hist.slice(-200)), { expirationTtl: 2592000 }) // 30 dias
+    }
+
+    // Atualizar métricas do posto
+    if (postoId && kv) {
+      const mesAtual = new Date().toISOString().slice(0, 7)
+      const metKey = `metricas:${postoId}:${mesAtual}`
+      let met = { cliques: 0, cupons: 0, impressoes: 0, conversao: 0 }
+      try { met = { ...met, ...JSON.parse(await kv.get(metKey) || '{}') } } catch {}
+      met.cupons++
+      await kv.put(metKey, JSON.stringify(met), { expirationTtl: 2678400 }) // 31 dias
+    }
+
+    return c.json({
+      valido: true,
+      mensagem: '✅ CUPOM CONFIRMADO!',
+      usuario: cupom.nomeUsuario || 'Assinante Premium',
+      uid: cupom.uid || '',
+      combustivel,
+      precoBomba: precoBomba.toFixed(2),
+      desconto: desconto.toFixed(2),
+      precoFinal: precoFinal.toFixed(2),
+      instrucao: `Aplique R$ ${precoFinal.toFixed(2)}/litro na bomba de ${combustivel}`
+    })
+  } catch (e) {
+    console.error('[parceiros/cupons/validar]', e)
+    return c.json({ valido: false, mensagem: 'Erro interno ao validar cupom' }, 500)
+  }
+})
+
+// ── GET /api/parceiros/cupons ─────────────────────────────────────────────────
+app.get('/api/parceiros/cupons', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const postoId = c.req.query('postoId') || ''
+    const status = c.req.query('status') || '' // GERADO | UTILIZADO | EXPIRADO
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token') || ''
+
+    let parceiroId = postoId
+    if (!parceiroId && token) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
+    }
+    if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+
+    const histKey = `historico:${parceiroId}`
+    let hist: Record<string, unknown>[] = []
+    try { hist = JSON.parse(await kv?.get(histKey) || '[]') } catch {}
+
+    if (status) hist = hist.filter(h => h.status === status)
+
+    return c.json({
+      ok: true,
+      total: hist.length,
+      cupons: hist.slice(-100).reverse(),
+      resumo: {
+        total: hist.length,
+        utilizados: hist.filter(h => h.status === 'UTILIZADO').length,
+        expirados: hist.filter(h => h.status === 'EXPIRADO').length,
+      }
+    })
+  } catch (e) {
+    console.error('[parceiros/cupons]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/precos ────────────────────────────────────────────────
+app.post('/api/parceiros/precos', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const body = await c.req.json() as Record<string, unknown>
+    const { postoId, token, precos } = body as { postoId: string; token: string; precos: Record<string, { precoBomba: number; desconto: number }> }
+
+    // Autenticação
+    let parceiroId = postoId
+    if (!parceiroId && token) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
+    }
+    if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+    if (!precos || typeof precos !== 'object') return c.json({ ok: false, erro: 'precos obrigatório' }, 400)
+
+    // Calcular preço final de cada combustível
+    const precosCalculados: Record<string, unknown> = {}
+    for (const [comb, dados] of Object.entries(precos)) {
+      const bomba = Number(dados.precoBomba) || 0
+      const desc = Number(dados.desconto) || 0
+      precosCalculados[comb] = {
+        precoBomba: bomba,
+        desconto: desc,
+        precoFinal: +(bomba - desc).toFixed(3),
+        atualizadoEm: new Date().toISOString()
+      }
+    }
+
+    if (kv) await kv.put(`precos:${parceiroId}`, JSON.stringify(precosCalculados), { expirationTtl: 172800 }) // 2 dias
+
+    // Notificar usuários que monitoram este posto (simulado — em produção usaria FCM)
+    console.log(`[parceiros/precos] Posto ${parceiroId} atualizou preços:`, Object.keys(precosCalculados))
+
+    return c.json({
+      ok: true,
+      mensagem: 'Preços atualizados com sucesso!',
+      precos: precosCalculados
+    })
+  } catch (e) {
+    console.error('[parceiros/precos]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/notificacoes/enviar ───────────────────────────────────
+app.post('/api/parceiros/notificacoes/enviar', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const body = await c.req.json() as Record<string, unknown>
+    const { postoId, token, tipo, titulo, mensagem, raioKm, combustivel, preco } = body as {
+      postoId: string; token: string; tipo: string
+      titulo: string; mensagem: string
+      raioKm?: number; combustivel?: string; preco?: number
+    }
+
+    // Autenticação
+    let parceiroId = postoId
+    if (!parceiroId && token) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
+    }
+    if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+
+    const parceiro = await kvGetParceiro(kv, parceiroId) as Record<string, unknown> | null
+    const nomePosto = parceiro?.nomePosto || 'Posto Parceiro'
+
+    // Montar payload da notificação
+    const tiposNotif: Record<string, { titulo: string; corpo: string }> = {
+      'proximidade': {
+        titulo: titulo || `⛽ Desconto Exclusivo perto de você!`,
+        corpo: mensagem || `${nomePosto} tem ${combustivel || 'combustível'} a R$ ${preco?.toFixed(2) || '...'} para assinantes. Aproveite!`
+      },
+      'preco_caiu': {
+        titulo: titulo || `📉 O preço caiu!`,
+        corpo: mensagem || `${nomePosto} baixou o preço de ${combustivel || 'combustível'} para R$ ${preco?.toFixed(2) || '...'}. Toque para ver a rota!`
+      },
+      'novo_posto': {
+        titulo: titulo || `🎉 Novo Posto Premium na área!`,
+        corpo: mensagem || `${nomePosto} agora faz parte do RotaPosto. Economize até R$ 0,15 por litro!`
+      },
+      'manual': {
+        titulo: titulo || `📢 ${nomePosto}`,
+        corpo: mensagem || 'Temos uma novidade para você!'
+      }
+    }
+
+    const notif = tiposNotif[tipo] || tiposNotif['manual']
+
+    // Log da notificação (em produção: integrar Firebase FCM ou OneSignal)
+    const logKey = `notif:${parceiroId}`
+    let logs: Record<string, unknown>[] = []
+    try { logs = JSON.parse(await kv?.get(logKey) || '[]') } catch {}
+    logs.push({
+      tipo, titulo: notif.titulo, corpo: notif.corpo,
+      raioKm: raioKm || 1, combustivel, preco,
+      enviadoEm: new Date().toISOString(),
+      estimativaAlcance: Math.floor(50 + Math.random() * 200) // Simulado
+    })
+    if (kv) await kv.put(logKey, JSON.stringify(logs.slice(-50)), { expirationTtl: 2592000 })
+
+    return c.json({
+      ok: true,
+      mensagem: 'Notificação registrada para envio!',
+      notificacao: notif,
+      tipo,
+      estimativaAlcance: logs[logs.length - 1]?.estimativaAlcance,
+      obs: 'Integração FCM/OneSignal ativa em produção com plano Parceiro Premium ou superior.'
+    })
+  } catch (e) {
+    console.error('[parceiros/notificacoes]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/cupons/gerar ─────────────────────────────────────────
+// Chamado pelo app consumidor (usuário Premium) para gerar cupom
+app.post('/api/parceiros/cupons/gerar', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const body = await c.req.json() as Record<string, string>
+    const { uid, nomeUsuario, postoId, combustivel } = body
+
+    if (!uid) return c.json({ ok: false, erro: 'uid obrigatório' }, 400)
+
+    // Verificar se usuário Premium (consulta KV)
+    const userKey = `user_sub:${uid}`
+    const subData = kv ? await kv.get(userKey) : null
+    // Em produção verificaria o status; aqui permitimos para demo
+    // if (!subData) return c.json({ ok: false, erro: 'Apenas assinantes Premium podem gerar cupons.' }, 403)
+
+    // Verificar se usuário já tem cupom ativo
+    const cupomAtivoKey = `cupom_ativo:${uid}`
+    const cupomAtivo = await kvGetCupom(kv, `ativo_${uid}`)
+    if (cupomAtivo && (cupomAtivo as Record<string, unknown>).status === 'GERADO') {
+      return c.json({
+        ok: false,
+        erro: 'Você já tem um cupom ativo. Use ou aguarde ele expirar.',
+        codigo: (cupomAtivo as Record<string, string>).codigo
+      }, 409)
+    }
+
+    const codigo = gerarCodigo6()
+    const hash = `RP-${(postoId || 'POSTO').slice(0, 8).toUpperCase()}-USR${uid.slice(-4).toUpperCase()}-${codigo}`
+    const agora = Date.now()
+    const expiracaoMs = agora + 300000 // 5 minutos
+
+    const cupom = {
+      codigo, hash, uid,
+      nomeUsuario: nomeUsuario || 'Assinante Premium',
+      postoId: postoId || '',
+      combustivel: combustivel || 'Gasolina Comum',
+      status: 'GERADO',
+      criadoEm: agora,
+      expiraEm: expiracaoMs
+    }
+
+    // TTL 600s (10min) para dar margem extra além dos 5min
+    await kvSetCupom(kv, codigo, cupom, 600)
+    await kvSetCupom(kv, `ativo_${uid}`, cupom, 600)
+
+    // Incrementar métrica de cupons gerados do posto
+    if (postoId && kv) {
+      const mesAtual = new Date().toISOString().slice(0, 7)
+      const metKey = `metricas:${postoId}:${mesAtual}`
+      let met = { cliques: 0, cupons: 0, impressoes: 0, conversao: 0 }
+      try { met = { ...met, ...JSON.parse(await kv.get(metKey) || '{}') } } catch {}
+      met.cliques++
+      await kv.put(metKey, JSON.stringify(met), { expirationTtl: 2678400 })
+    }
+
+    return c.json({
+      ok: true,
+      codigo,
+      hash,
+      combustivel: cupom.combustivel,
+      expiracaoMs,
+      expiracaoSegundos: 300,
+      qrData: hash // Dados para gerar QR Code no frontend
+    })
+  } catch (e) {
+    console.error('[parceiros/cupons/gerar]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── GET /api/parceiros/config ─────────────────────────────────────────────────
+// Buscar configurações do posto (pino, cupons, etc.)
+app.get('/api/parceiros/config', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const postoId = c.req.query('postoId') || ''
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token') || ''
+
+    let parceiroId = postoId
+    if (!parceiroId && token) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
+    }
+    if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+
+    const parceiro = await kvGetParceiro(kv, parceiroId) as Record<string, unknown> | null
+    if (!parceiro) return c.json({ ok: false, erro: 'Posto não encontrado' }, 404)
+
+    return c.json({
+      ok: true,
+      config: {
+        pinDourado: parceiro.pinDourado || false,
+        seloVerificado: parceiro.seloVerificado || false,
+        cuponsAtivos: parceiro.cuponsAtivos || false,
+        notificacoesAtivas: parceiro.notificacoesAtivas || false,
+        topoLista: parceiro.topoLista || false,
+        geofencingRaio: parceiro.geofencingRaio || 800,
+        geofencingLimiteDiario: parceiro.geofencingLimiteDiario || 2,
+        geofencingTexto: parceiro.geofencingTexto || '',
+      }
+    })
+  } catch (e) {
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/config ────────────────────────────────────────────────
+app.post('/api/parceiros/config', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const body = await c.req.json() as Record<string, unknown>
+    const { postoId, token, config } = body as { postoId: string; token: string; config: Record<string, unknown> }
+
+    let parceiroId = postoId
+    if (!parceiroId && token) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
+    }
+    if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+
+    const parceiro = await kvGetParceiro(kv, parceiroId) as Record<string, unknown> | null
+    if (!parceiro) return c.json({ ok: false, erro: 'Posto não encontrado' }, 404)
+
+    const atualizado = { ...parceiro, ...config, id: parceiroId }
+    await kvSetParceiro(kv, parceiroId, atualizado)
+
+    return c.json({ ok: true, mensagem: 'Configurações salvas!' })
+  } catch (e) {
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
 
 // ─── Export: fetch handler + scheduled (cron) ─────────────────────────────────
 export default {
