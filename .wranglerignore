@@ -1,0 +1,11 @@
+.git
+node_modules
+.wrangler
+src
+*.ts
+*.tsx
+*.md
+package-lock.json
+tsconfig.json
+vite.config.ts
+ecosystem.config.cjs
