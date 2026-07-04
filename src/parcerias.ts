@@ -100,125 +100,16 @@ export function getParceriasLandingHTML(): string {
     /* ══ HERO PHONE MOCKUP ══ */
     .hero-right{display:flex;justify-content:center;align-items:center;position:relative}
     .phone-wrap{
-      position:relative;width:290px;
-      filter:drop-shadow(0 40px 80px rgba(0,0,0,0.85)) drop-shadow(0 0 40px rgba(255,109,0,0.2));
-      transform:rotate(-3deg)
+      position:relative;width:320px;
+      filter:drop-shadow(0 40px 80px rgba(0,0,0,0.7)) drop-shadow(0 0 60px rgba(255,109,0,0.25));
     }
-    /* frame externo — bisel metálico escuro tipo iPhone */
-    .phone-frame{
-      background:linear-gradient(160deg,#2a2a2e 0%,#1a1a1e 40%,#111114 100%);
-      border-radius:50px;padding:13px;
-      border:1px solid rgba(255,255,255,0.18);
-      box-shadow:
-        0 0 0 1px rgba(0,0,0,0.8),
-        inset 0 1px 0 rgba(255,255,255,0.15),
-        inset 0 -1px 0 rgba(0,0,0,0.5),
-        4px 4px 12px rgba(0,0,0,0.6),
-        -2px -2px 8px rgba(255,255,255,0.04)
-    }
-    /* tela — fundo CLARO como no app real */
-    .phone-screen{
-      background:#f0f2f5;border-radius:38px;overflow:hidden;
-      border:1px solid rgba(0,0,0,0.2);position:relative
-    }
-    /* notch dinâmico (Dynamic Island style) */
-    .phone-notch{
-      position:absolute;top:10px;left:50%;transform:translateX(-50%);
-      width:80px;height:22px;background:#111114;border-radius:20px;z-index:10;
-      box-shadow:0 0 0 1px rgba(255,255,255,0.08)
-    }
-    /* status bar */
-    .phone-status{
-      display:flex;align-items:center;justify-content:space-between;
-      padding:8px 16px 4px;font-size:9px;font-weight:700;color:#1a1a1a
-    }
-    .phone-status-time{font-size:11px;font-weight:800}
-    .phone-status-icons{display:flex;align-items:center;gap:4px;font-size:9px}
-    /* topbar do app */
-    .phone-topbar{
-      display:flex;align-items:center;justify-content:space-between;
-      padding:6px 14px 8px;background:#fff;
-      border-bottom:1px solid rgba(0,0,0,0.06)
-    }
-    .phone-logo{font-size:13px;font-weight:900;color:#1a1a1a}
-    .phone-logo span{color:#FF6D00}
-    .phone-menu-icon{width:22px;height:16px;display:flex;flex-direction:column;justify-content:space-between}
-    .phone-menu-icon span{height:2px;background:#555;border-radius:2px}
-    /* search bar */
-    .phone-inner{padding:0}
-    .phone-search{
-      display:flex;align-items:center;gap:8px;margin:8px 12px;
-      background:#fff;border-radius:10px;padding:8px 12px;
-      border:1px solid rgba(0,0,0,0.1);
-      box-shadow:0 1px 4px rgba(0,0,0,0.08)
-    }
-    .phone-search i{color:#FF6D00;font-size:11px}
-    .phone-search span{font-size:10px;color:#888;flex:1}
-    .phone-search .ps-hash{font-size:12px;color:#ccc}
-    /* mapa CLARO */
-    .map-area{
-      background:linear-gradient(135deg,#e8ede4 0%,#dde5d8 50%,#d5e0cf 100%);
-      height:150px;position:relative;overflow:hidden;margin:0 0 0 0
-    }
-    /* ruas do mapa */
-    .map-area::before{
-      content:'';position:absolute;inset:0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.9) 2px,transparent 2px),
-        linear-gradient(90deg,rgba(255,255,255,0.9) 2px,transparent 2px),
-        linear-gradient(rgba(255,255,255,0.4) 1px,transparent 1px),
-        linear-gradient(90deg,rgba(255,255,255,0.4) 1px,transparent 1px);
-      background-size:56px 56px,56px 56px,14px 14px,14px 14px
-    }
-    /* avenida principal */
-    .map-area::after{
-      content:'';position:absolute;
-      top:48%;left:0;right:0;height:14px;
-      background:rgba(255,255,255,0.95);
-      border-top:1.5px solid #ddd;border-bottom:1.5px solid #ddd
-    }
-    /* pins de preço — laranjas sobre mapa claro */
-    .map-pin{
-      position:absolute;
-      padding:4px 8px;border-radius:8px;font-size:9px;font-weight:900;
-      box-shadow:0 2px 8px rgba(0,0,0,0.25);white-space:nowrap;color:#fff
-    }
-    .map-pin::after{
-      content:'';position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);
-      border:5px solid transparent
-    }
-    .map-pin.p1{top:16px;left:14px;background:#4A8FD4}
-    .map-pin.p1::after{border-top-color:#4A8FD4}
-    .map-pin.p2{top:24px;left:75px;background:#888}
-    .map-pin.p2::after{border-top-color:#888}
-    .map-pin.p3{top:16px;right:18px;background:#FF6D00;font-size:10px;z-index:2;
-      box-shadow:0 3px 12px rgba(255,109,0,0.5)}
-    .map-pin.p3::after{border-top-color:#FF6D00}
-    .map-pin.p4{bottom:30px;left:24px;background:#888}
-    .map-pin.p4::after{border-top-color:#888}
-    /* posto card — fundo branco claro */
-    .posto-card{
-      background:#fff;border-top:1px solid rgba(0,0,0,0.08);
-      padding:10px 12px
-    }
-    .posto-card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
-    .posto-card-name{font-size:11px;font-weight:900;color:#1a1a1a}
-    .posto-card-id{font-size:8px;color:#aaa}
-    .posto-stars{display:flex;align-items:center;gap:2px;font-size:9px;color:#FF9800;margin-bottom:3px}
-    .posto-stars span{color:#888;font-size:8px}
-    .posto-dist{font-size:9px;color:#666;display:flex;align-items:center;gap:4px;margin-bottom:7px}
-    .posto-dist i{color:#FF6D00;font-size:8px}
-    .posto-fuel{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-    .posto-fuel-tag{font-size:9px;color:#888}
-    .posto-fuel-price{font-size:14px;font-weight:900;color:#FF6D00}
-    .posto-btn{
-      width:100%;background:#FF6D00;color:#fff;border:none;border-radius:8px;
-      padding:8px;font-size:10px;font-weight:800;font-family:'Raleway',sans-serif;cursor:pointer
+    .phone-img{
+      width:100%;height:auto;display:block;
     }
     /* glow halo no telefone */
     .phone-glow{
-      position:absolute;width:400px;height:400px;
-      background:radial-gradient(circle,rgba(255,109,0,0.2) 0%,transparent 65%);
+      position:absolute;width:460px;height:460px;
+      background:radial-gradient(circle,rgba(255,109,0,0.22) 0%,transparent 65%);
       top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:-1
     }
     @media(max-width:900px){
@@ -429,65 +320,15 @@ export function getParceriasLandingHTML(): string {
       </div>
     </div>
 
-    <!-- PHONE MOCKUP -->
+    <!-- PHONE MOCKUP — imagem gerada por IA -->
     <div class="hero-right">
       <div class="phone-glow"></div>
       <div class="phone-wrap">
-        <div class="phone-frame">
-          <div class="phone-screen">
-            <div class="phone-notch"></div>
-            <!-- status bar -->
-            <div class="phone-status">
-              <span class="phone-status-time">9:41</span>
-              <div class="phone-status-icons">
-                <i class="fas fa-signal"></i>
-                <i class="fas fa-wifi"></i>
-                <i class="fas fa-battery-three-quarters"></i>
-              </div>
-            </div>
-            <!-- topbar do app -->
-            <div class="phone-topbar">
-              <div class="phone-logo">Rota<span>Posto</span></div>
-              <div class="phone-menu-icon">
-                <span></span><span></span><span></span>
-              </div>
-            </div>
-            <div class="phone-inner">
-              <!-- barra busca -->
-              <div class="phone-search">
-                <i class="fas fa-location-dot"></i>
-                <span>Buscar posto próximo</span>
-                <span class="ps-hash">#</span>
-              </div>
-              <!-- mapa claro -->
-              <div class="map-area">
-                <div class="map-pin p1">R$5,39</div>
-                <div class="map-pin p2">R$5,49</div>
-                <div class="map-pin p3">R$5,59</div>
-                <div class="map-pin p4">R$5,29</div>
-              </div>
-              <!-- card posto -->
-              <div class="posto-card">
-                <div class="posto-card-top">
-                  <div>
-                    <div class="posto-card-name">Posto Vitória</div>
-                    <div class="posto-stars">
-                      <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i>
-                      <span>4.7 (203)</span>
-                    </div>
-                  </div>
-                  <div class="posto-card-id">⭐ 323</div>
-                </div>
-                <div class="posto-dist"><i class="fas fa-location-dot"></i>1,2 km de você</div>
-                <div class="posto-fuel">
-                  <span class="posto-fuel-tag">Etanol Comum</span>
-                  <span class="posto-fuel-price">R$5,59</span>
-                </div>
-                <button class="posto-btn">Ver detalhes</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <img class="phone-img"
+          src="https://www.genspark.ai/api/files/s/jR0JPETT?cache_control=3600"
+          alt="App RotaPosto — mapa com preços em tempo real"
+          loading="eager"
+        />
       </div>
     </div>
 
