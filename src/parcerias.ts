@@ -90,9 +90,9 @@ export function getParceriasLandingHTML(): string {
       position:relative;z-index:2;
       display:grid;
       grid-template-columns:1fr 380px;
-      grid-template-rows:1fr auto auto;
+      grid-template-rows:1fr auto 1fr;
       gap:0;overflow:hidden;
-      padding:32px 40px 24px
+      padding:28px 40px 20px
     }
     @media(max-width:1100px){
       .body{grid-template-columns:1fr;grid-template-rows:auto auto auto}
@@ -162,7 +162,7 @@ export function getParceriasLandingHTML(): string {
     .phone-col{
       grid-column:2;grid-row:1/3;
       display:flex;align-items:center;justify-content:center;
-      position:relative
+      position:relative;overflow:hidden
     }
     .phone-halo{
       position:absolute;
@@ -172,10 +172,10 @@ export function getParceriasLandingHTML(): string {
     }
     .phone-wrap{
       position:relative;z-index:2;
-      width:200px;
-      filter:drop-shadow(0 32px 60px rgba(0,0,0,0.8)) drop-shadow(0 0 40px rgba(255,109,0,0.2));
+      width:220px;
+      filter:drop-shadow(0 32px 60px rgba(0,0,0,0.85)) drop-shadow(0 0 50px rgba(255,109,0,0.22));
     }
-    .phone-wrap img{width:100%;height:auto;display:block;mix-blend-mode:screen;filter:brightness(1.4) contrast(1.1) saturate(1.1)}
+    .phone-wrap img{width:100%;height:auto;display:block;mix-blend-mode:screen;filter:brightness(1.5) contrast(1.05) saturate(1.1)}
     @media(max-width:1100px){.phone-col{display:none}}
 
     /* ═══ FEATURES ═══ */
@@ -211,7 +211,7 @@ export function getParceriasLandingHTML(): string {
       grid-column:1/3;grid-row:3;
       display:grid;grid-template-columns:1fr auto;
       gap:12px;align-items:stretch;
-      margin-top:12px
+      margin-top:10px
     }
     @media(max-width:1100px){.bottom-row{grid-template-columns:1fr;grid-row:3}}
 
@@ -219,7 +219,8 @@ export function getParceriasLandingHTML(): string {
     .recursos{
       background:rgba(255,255,255,0.035);
       border:1px solid rgba(255,255,255,0.08);
-      border-radius:16px;padding:18px 22px
+      border-radius:16px;padding:18px 22px;
+      height:100%
     }
     .recursos-title{
       font-size:12px;font-weight:800;color:rgba(255,255,255,0.4);
@@ -249,11 +250,12 @@ export function getParceriasLandingHTML(): string {
 
     /* cta block */
     .cta-block{
-      background:linear-gradient(135deg,rgba(255,109,0,0.12) 0%,rgba(255,109,0,0.04) 100%);
-      border:1px solid rgba(255,109,0,0.2);
+      background:linear-gradient(135deg,rgba(255,109,0,0.14) 0%,rgba(255,109,0,0.04) 100%);
+      border:1px solid rgba(255,109,0,0.25);
       border-radius:16px;padding:20px 22px;
       display:flex;flex-direction:column;justify-content:space-between;
-      min-width:240px;max-width:260px
+      min-width:240px;max-width:260px;
+      height:100%
     }
     @media(max-width:1100px){.cta-block{max-width:100%;flex-direction:row;align-items:center;gap:16px}}
     .cta-ico{
