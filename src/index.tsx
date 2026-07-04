@@ -6227,6 +6227,10 @@ app.get('/admin', (c) => {
     .toast{position:fixed;bottom:24px;right:24px;background:#1A2E44;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 18px;font-size:13px;font-weight:700;color:#fff;z-index:99999;transform:translateY(80px);opacity:0;transition:all 0.3s;pointer-events:none}
     .toast.show{transform:translateY(0);opacity:1}
     .tr-hover:hover{background:rgba(255,255,255,0.03)}
+    .cidade-opt{padding:10px 16px;font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);font-family:'Raleway',sans-serif;cursor:pointer;transition:background 0.15s;border-bottom:1px solid rgba(255,255,255,0.05)}
+    .cidade-opt:last-child{border-bottom:none}
+    .cidade-opt:hover{background:rgba(255,109,0,0.15);color:#FF6D00}
+    .cidade-opt.selected{color:#FF6D00;background:rgba(255,109,0,0.08)}
   </style>
 </head>
 <body>
@@ -6295,20 +6299,24 @@ app.get('/admin', (c) => {
     <div class="page-header">
       <h2>📊 Dashboard</h2>
       <div style="display:flex;align-items:center;gap:12px">
-        <div style="display:flex;align-items:center;gap:8px;background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px 12px">
-          <i class="fas fa-map-marker-alt" style="color:#FF6D00;font-size:12px"></i>
-          <select id="select-cidade" onchange="mudarCidade()" style="background:transparent;border:none;color:#fff;font-size:12px;font-weight:700;font-family:'Raleway',sans-serif;outline:none;cursor:pointer">
-            <option value="-23.5505,-46.6333,São Paulo,SP">São Paulo, SP</option>
-            <option value="-22.9068,-43.1729,Rio de Janeiro,RJ">Rio de Janeiro, RJ</option>
-            <option value="-19.9167,-43.9345,Belo Horizonte,MG">Belo Horizonte, MG</option>
-            <option value="-12.9714,-38.5014,Salvador,BA">Salvador, BA</option>
-            <option value="-15.7801,-47.9292,Brasília,DF">Brasília, DF</option>
-            <option value="-3.7172,-38.5433,Fortaleza,CE">Fortaleza, CE</option>
-            <option value="-8.0476,-34.8770,Recife,PE">Recife, PE</option>
-            <option value="-30.0346,-51.2177,Porto Alegre,RS">Porto Alegre, RS</option>
-            <option value="-25.4284,-49.2733,Curitiba,PR">Curitiba, PR</option>
-            <option value="-1.4558,-48.5039,Belém,PA">Belém, PA</option>
-          </select>
+        <div style="position:relative" id="cidade-dropdown-wrap">
+          <div id="cidade-btn" onclick="toggleCidadeDropdown()" style="display:flex;align-items:center;gap:8px;background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px 14px;cursor:pointer;user-select:none;min-width:160px">
+            <i class="fas fa-map-marker-alt" style="color:#FF6D00;font-size:12px"></i>
+            <span id="cidade-label" style="color:#fff;font-size:12px;font-weight:700;font-family:'Raleway',sans-serif;flex:1">São Paulo, SP</span>
+            <i class="fas fa-chevron-down" id="cidade-chevron" style="color:rgba(255,255,255,0.4);font-size:10px;transition:transform 0.2s"></i>
+          </div>
+          <div id="cidade-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0D2035;border:1px solid rgba(255,255,255,0.12);border-radius:10px;overflow:hidden;z-index:9999;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.5)">
+            <div class="cidade-opt" data-val="-23.5505,-46.6333,São Paulo,SP" onclick="selecionarCidade(this)">São Paulo, SP</div>
+            <div class="cidade-opt" data-val="-22.9068,-43.1729,Rio de Janeiro,RJ" onclick="selecionarCidade(this)">Rio de Janeiro, RJ</div>
+            <div class="cidade-opt" data-val="-19.9167,-43.9345,Belo Horizonte,MG" onclick="selecionarCidade(this)">Belo Horizonte, MG</div>
+            <div class="cidade-opt" data-val="-12.9714,-38.5014,Salvador,BA" onclick="selecionarCidade(this)">Salvador, BA</div>
+            <div class="cidade-opt" data-val="-15.7801,-47.9292,Brasília,DF" onclick="selecionarCidade(this)">Brasília, DF</div>
+            <div class="cidade-opt" data-val="-3.7172,-38.5433,Fortaleza,CE" onclick="selecionarCidade(this)">Fortaleza, CE</div>
+            <div class="cidade-opt" data-val="-8.0476,-34.8770,Recife,PE" onclick="selecionarCidade(this)">Recife, PE</div>
+            <div class="cidade-opt" data-val="-30.0346,-51.2177,Porto Alegre,RS" onclick="selecionarCidade(this)">Porto Alegre, RS</div>
+            <div class="cidade-opt" data-val="-25.4284,-49.2733,Curitiba,PR" onclick="selecionarCidade(this)">Curitiba, PR</div>
+            <div class="cidade-opt" data-val="-1.4558,-48.5039,Belém,PA" onclick="selecionarCidade(this)">Belém, PA</div>
+          </div>
         </div>
         <div class="badge-live">Sistema ao vivo</div>
       </div>
@@ -6606,20 +6614,54 @@ function showToast(msg, tipo) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ── NAVEGAÇÃO ────────────────────────────────────────────────────────────────
-function mudarCidade() {
-  const sel = document.getElementById('select-cidade');
-  const parts = sel.value.split(',');
+// ── DROPDOWN DE CIDADE CUSTOMIZADO ──────────────────────────────────────────
+function toggleCidadeDropdown() {
+  const menu = document.getElementById('cidade-menu');
+  const chevron = document.getElementById('cidade-chevron');
+  const isOpen = menu.style.display !== 'none';
+  menu.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+
+function selecionarCidade(el) {
+  const val = el.dataset.val;
+  const parts = val.split(',');
   adminLat = parseFloat(parts[0]); adminLng = parseFloat(parts[1]);
   adminCidade = parts[2]; adminUF = parts[3];
+
+  // Atualiza label do botão
+  document.getElementById('cidade-label').textContent = adminCidade + ', ' + adminUF;
+
+  // Marca item selecionado
+  document.querySelectorAll('.cidade-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+
+  // Fecha menu
+  document.getElementById('cidade-menu').style.display = 'none';
+  document.getElementById('cidade-chevron').style.transform = '';
+
+  // Atualiza outros labels
   const labelEl = document.getElementById('kpi-preco-label');
   if (labelEl) labelEl.textContent = adminCidade + ', ' + adminUF;
   const postosCidadeEl = document.getElementById('postos-cidade-label');
   if (postosCidadeEl) postosCidadeEl.textContent = adminCidade + ', ' + adminUF;
+
+  // Recarrega seção atual
   if (currentSection === 'dashboard') carregarDashboard();
   else if (currentSection === 'postos') carregarPostos();
   else if (currentSection === 'mapa') iniciarMapaAdmin(true);
 }
+
+// Fecha dropdown ao clicar fora
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('cidade-dropdown-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const menu = document.getElementById('cidade-menu');
+    const chevron = document.getElementById('cidade-chevron');
+    if (menu) menu.style.display = 'none';
+    if (chevron) chevron.style.transform = '';
+  }
+});
 
 function showSection(name, el) {
   document.querySelectorAll('main section').forEach(s => s.style.display = 'none');
