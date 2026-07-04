@@ -7021,7 +7021,9 @@ app.get('/api/parceiros/promocoes', async (c) => {
     if (!postoId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
 
     let promos: unknown[] = []
-    try { promos = JSON.parse(await kv?.get(`promos:${postoId}`) || '[]') } catch {}
+    const promosData = await r2Get(r2, `promos:${postoId}`)
+    if (Array.isArray(promosData)) promos = promosData
+    else { try { promos = JSON.parse(await kv?.get(`promos:${postoId}`) || '[]') } catch {} }
 
     // Filtrar expiradas
     const hoje = new Date().toISOString().slice(0, 10)
@@ -7054,7 +7056,9 @@ app.post('/api/parceiros/promocoes', async (c) => {
     if (!postoId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
 
     let promos: unknown[] = []
-    try { promos = JSON.parse(await kv?.get(`promos:${postoId}`) || '[]') } catch {}
+    const promosExist = await r2Get(r2, `promos:${postoId}`)
+    if (Array.isArray(promosExist)) promos = promosExist
+    else { try { promos = JSON.parse(await kv?.get(`promos:${postoId}`) || '[]') } catch {} }
 
     if (body.promocoes !== undefined) {
       // Substituição completa do array (usado ao excluir)
@@ -7066,7 +7070,9 @@ app.post('/api/parceiros/promocoes', async (c) => {
       if (promos.length > 20) promos = promos.slice(0, 20)
     }
 
-    if (kv) await kv.put(`promos:${postoId}`, JSON.stringify(promos), { expirationTtl: 7776000 }) // 90 dias
+    // Salvar no R2 (persistência real) e KV como fallback
+    await r2Put(r2, `promos:${postoId}`, promos)
+    if (kv) await kv.put(`promos:${postoId}`, JSON.stringify(promos), { expirationTtl: 7776000 }).catch(() => {})
 
     return c.json({ ok: true, promocoes: promos })
   } catch (e) {
