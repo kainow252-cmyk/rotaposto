@@ -69,6 +69,23 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('*', cors())
 
+// ─── DEBUG: inspecionar bindings no runtime ──────────────────────────────────
+app.get('/api/debug/env', async (c) => {
+  const env = c.env as Record<string, unknown>
+  const keys = Object.keys(env || {})
+  const r2 = env?.ROTAPOSTO_R2
+  const kv = env?.ROTAPOSTO_KV
+  return c.json({
+    env_keys: keys,
+    ROTAPOSTO_R2_type: typeof r2,
+    ROTAPOSTO_R2_is_null: r2 === null,
+    ROTAPOSTO_R2_is_undefined: r2 === undefined,
+    ROTAPOSTO_R2_constructor: r2 ? (r2 as object).constructor?.name : null,
+    ROTAPOSTO_KV_type: typeof kv,
+    ROTAPOSTO_KV_is_undefined: kv === undefined,
+  })
+})
+
 // ─── Headers COOP/COEP: necessário para signInWithPopup do Firebase funcionar ─
 // sem isso, o Cloudflare Pages aplica COOP: same-origin que bloqueia popups OAuth
 app.use('*', async (c, next) => {
