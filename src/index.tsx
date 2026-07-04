@@ -6570,6 +6570,28 @@ app.post('/api/parceiros/login', async (c) => {
       return c.json({ ok: false, erro: 'E-mail e senha obrigatórios' }, 400)
     }
 
+    // ── Conta de teste hardcoded (funciona sem KV) ────────────────────────────
+    if (email === 'teste@rotaposto.com.br' && senha === 'teste123') {
+      const token = `sess_teste_${Date.now().toString(36)}`
+      // Salvar sessão no KV se disponível
+      if (kv) await kv.put(`parceiro:sess_${token}`, JSON.stringify({ parceiroId: 'p_teste', email, exp: Date.now() + 86400000 }), { expirationTtl: 86400 })
+      return c.json({
+        ok: true, sucesso: true,
+        token,
+        sessao: {
+          token, postoId: 'p_teste', postoNome: 'Posto Teste RotaPosto',
+          plano: 'premium', email, tel: '(27) 99999-9999',
+          bandeira: 'Independente', cidade: 'Vitória - ES',
+          horario: '24 horas', seloVerificado: true
+        },
+        parceiro: {
+          id: 'p_teste', nomePosto: 'Posto Teste RotaPosto', bandeira: 'Independente',
+          plano: 'premium', cidade: 'Vitória - ES', status: 'ativo',
+          pinDourado: true, seloVerificado: true, cuponsAtivos: true, topoLista: true
+        }
+      })
+    }
+
     const ref = await kvGetParceiro(kv, `email_${email}`)
     if (!ref) {
       return c.json({ ok: false, erro: 'E-mail não encontrado. Cadastre seu posto primeiro.' }, 404)
