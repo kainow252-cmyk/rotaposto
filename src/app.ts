@@ -1284,10 +1284,6 @@ export function getAppHTML(firebaseScripts: string): string {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.5; transform: scale(0.8); }
     }
-    #modal-assinatura { animation: fadeInModal 0.25s ease; }
-    @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
-    #assin-sheet { animation: slideUpSheet 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-    @keyframes slideUpSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
     .app-spinner {
       width: 40px; height: 40px;
       border: 3px solid rgba(255,109,0,0.2);
@@ -1749,152 +1745,138 @@ export function getAppHTML(firebaseScripts: string): string {
 
 </div><!-- #app-root -->
 
-<!-- ══ MODAL ASSINATURA PIX — FORA do #app-root para escapar de overflow:hidden ══ -->
-<div id="modal-assinatura" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);flex-direction:column;align-items:center;justify-content:flex-end;overflow-y:auto;">
-    <div style="min-height:100%;width:100%;display:flex;align-items:flex-end;justify-content:center;padding-top:60px;">
-      <div id="assin-sheet" style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:0 0 40px;position:relative;">
-
-        <!-- Handle bar -->
-        <div style="display:flex;justify-content:center;padding:12px 0 0;">
-          <div style="width:40px;height:4px;background:#E0E0E0;border-radius:2px;"></div>
-        </div>
-
-        <!-- Fechar -->
-        <button onclick="fecharAssinatura()" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;padding:8px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-
-        <!-- Step 1: Escolher plano -->
-        <div id="assin-step1">
-          <div style="padding:20px 24px 0;">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-              <div style="width:40px;height:40px;background:#FFF3E0;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">👑</div>
-              <div>
-                <h2 style="font-size:18px;font-weight:700;color:#1A1A1A;margin:0;">RotaPosto Premium</h2>
-                <p style="font-size:13px;color:#757575;margin:0;">Assine e economize muito mais!</p>
-              </div>
-            </div>
-
-            <!-- Features -->
-            <div style="background:#F8F9FA;border-radius:16px;padding:16px;margin:16px 0;">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                ${['Todos os postos BR','Mapa em tempo real','Rota mais barata','Histórico completo','Sem anúncios','Suporte premium'].map(f => `
-                <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#424242;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6D00" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                  ${f}
-                </div>`).join('')}
-              </div>
-            </div>
-
-            <!-- Planos -->
-            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
-              <label id="label-plano-premium" onclick="selecionarPlano('premium')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:2px solid #FF6D00;border-radius:16px;cursor:pointer;background:#FFF8F5;">
-                <div style="display:flex;align-items:center;gap:12px;">
-                  <div style="width:20px;height:20px;border-radius:50%;border:2px solid #FF6D00;background:#FF6D00;display:flex;align-items:center;justify-content:center;" id="radio-premium">
-                    <div style="width:8px;height:8px;border-radius:50%;background:#fff;"></div>
-                  </div>
-                  <div>
-                    <div style="font-weight:700;font-size:14px;color:#1A1A1A;">Mensal</div>
-                    <div style="font-size:12px;color:#757575;">Cancele quando quiser</div>
-                  </div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-weight:800;font-size:20px;color:#FF6D00;">R$ 9,90</div>
-                  <div style="font-size:11px;color:#757575;">/mês</div>
-                </div>
-              </label>
-
-              <label id="label-plano-anual" onclick="selecionarPlano('anual')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:2px solid #E0E0E0;border-radius:16px;cursor:pointer;background:#fff;position:relative;">
-                <div style="position:absolute;top:-8px;right:12px;background:#00C853;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;">2 MESES GRÁTIS</div>
-                <div style="display:flex;align-items:center;gap:12px;">
-                  <div style="width:20px;height:20px;border-radius:50%;border:2px solid #E0E0E0;background:#fff;display:flex;align-items:center;justify-content:center;" id="radio-anual">
-                    <div style="width:8px;height:8px;border-radius:50%;background:#fff;"></div>
-                  </div>
-                  <div>
-                    <div style="font-weight:700;font-size:14px;color:#1A1A1A;">Anual</div>
-                    <div style="font-size:12px;color:#757575;">Economize R$ 29,80</div>
-                  </div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-weight:800;font-size:20px;color:#1A1A1A;">R$ 89,00</div>
-                  <div style="font-size:11px;color:#757575;">/ano</div>
-                </div>
-              </label>
-            </div>
-
-            <!-- Botão assinar -->
-            <button onclick="iniciarPagamentoPIX()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
-              <svg width="22" height="22" viewBox="0 0 512 512" fill="currentColor"><path d="M242.4 292.5C247.8 287.1 255.1 284.1 262.5 284.1C269.9 284.1 277.2 287.1 282.6 292.5L350.2 360.1C355.6 365.5 358.7 372.8 358.7 380.2C358.7 387.6 355.6 394.9 350.2 400.3L282.6 467.9C277.2 473.3 269.9 476.4 262.5 476.4C255.1 476.4 247.8 473.3 242.4 467.9L174.8 400.3C169.4 394.9 166.3 387.6 166.3 380.2C166.3 372.8 169.4 365.5 174.8 360.1L242.4 292.5zM374.7 111.7C380.1 106.3 387.4 103.2 394.8 103.2C402.2 103.2 409.5 106.3 414.9 111.7L482.5 179.3C487.9 184.7 491 192 491 199.4C491 206.8 487.9 214.1 482.5 219.5L414.9 287.1C409.5 292.5 402.2 295.6 394.8 295.6C387.4 295.6 380.1 292.5 374.7 287.1L307.1 219.5C301.7 214.1 298.6 206.8 298.6 199.4C298.6 192 301.7 184.7 307.1 179.3L374.7 111.7zM110.1 111.7C115.5 106.3 122.8 103.2 130.2 103.2C137.6 103.2 144.9 106.3 150.3 111.7L217.9 179.3C223.3 184.7 226.4 192 226.4 199.4C226.4 206.8 223.3 214.1 217.9 219.5L150.3 287.1C144.9 292.5 137.6 295.6 130.2 295.6C122.8 295.6 115.5 292.5 110.1 287.1L42.5 219.5C37.1 214.1 34 206.8 34 199.4C34 192 37.1 184.7 42.5 179.3L110.1 111.7z"/></svg>
-              Pagar com PIX
-            </button>
-            <p style="text-align:center;font-size:11px;color:#9E9E9E;margin-top:10px;">
-              Pagamento 100% seguro • Cancele quando quiser
-            </p>
-          </div>
-        </div>
-
-        <!-- Step 2: QR Code PIX -->
-        <div id="assin-step2" style="display:none;padding:20px 24px;">
-          <h2 style="font-size:18px;font-weight:700;color:#1A1A1A;text-align:center;margin:0 0 4px;">Pague com PIX</h2>
-          <p id="assin-step2-desc" style="text-align:center;font-size:13px;color:#757575;margin:0 0 20px;">Escaneie o QR Code para ativar o Premium</p>
-
-          <!-- QR Code -->
-          <div style="display:flex;justify-content:center;margin-bottom:16px;">
-            <div style="background:#fff;border:2px solid #E0E0E0;border-radius:20px;padding:16px;">
-              <img id="assin-qr-img" src="" alt="QR Code PIX" style="width:200px;height:200px;display:block;" />
-            </div>
-          </div>
-
-          <!-- Valor destaque -->
-          <div style="text-align:center;margin-bottom:16px;">
-            <span id="assin-valor-label" style="font-size:28px;font-weight:800;color:#FF6D00;"></span>
-            <span id="assin-ciclo-label" style="font-size:14px;color:#757575;"></span>
-          </div>
-
-          <!-- Copiar código -->
-          <div style="background:#F5F5F5;border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;">
-            <span id="assin-brcode-txt" style="font-size:11px;color:#424242;word-break:break-all;flex:1;font-family:monospace;max-height:44px;overflow:hidden;"></span>
-            <button onclick="copiarCodigo()" style="background:#FF6D00;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-              Copiar
-            </button>
-          </div>
-
-          <!-- Status -->
-          <div id="assin-status-box" style="background:#FFF3E0;border:1px solid #FFB300;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
-            <div id="assin-status-dot" style="width:10px;height:10px;border-radius:50%;background:#FFB300;flex-shrink:0;animation:pulse-dot 1.5s infinite;"></div>
-            <span id="assin-status-txt" style="font-size:13px;color:#E65100;font-weight:600;">Aguardando pagamento...</span>
-          </div>
-
-          <!-- Instrucoes -->
-          <div style="font-size:12px;color:#757575;line-height:1.6;margin-bottom:16px;">
-            <b style="color:#1A1A1A;">Como pagar:</b><br/>
-            1. Abra seu app de banco<br/>
-            2. Vá em Pix > Pagar com QR Code ou Copia e Cola<br/>
-            3. Confirme o pagamento<br/>
-            4. Seu Premium é ativado automaticamente!
-          </div>
-
-          <!-- Botão voltar -->
-          <button onclick="voltarStep1()" style="width:100%;padding:14px;background:#F5F5F5;color:#757575;border:none;border-radius:16px;font-size:14px;font-weight:600;cursor:pointer;">
-            Escolher outro plano
-          </button>
-        </div>
-
-        <!-- Step 3: Ativado! -->
-        <div id="assin-step3" style="display:none;padding:32px 24px;text-align:center;">
-          <div style="width:80px;height:80px;background:#E8F5E9;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 20px;">🎉</div>
-          <h2 style="font-size:22px;font-weight:800;color:#1A1A1A;margin:0 0 8px;">Premium ativado!</h2>
-          <p style="font-size:14px;color:#757575;margin:0 0 24px;">Bem-vindo ao RotaPosto Premium!<br/>Aproveite todos os benefícios.</p>
-          <div id="assin-expira-label" style="background:#F1F8E9;border-radius:12px;padding:12px;margin-bottom:24px;font-size:13px;color:#558B2F;font-weight:600;"></div>
-          <button onclick="fecharAssinatura()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;">
-            Aproveitar o Premium!
-          </button>
-        </div>
-
-      </div>
-    </div>
+<!-- ══ TELA ASSINATURA — tela cheia, fora do #app-root ══ -->
+<div id="modal-assinatura" style="position:fixed;inset:0;z-index:99999;background:#F5F5F5;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);">
+  <!-- Header laranja igual ao rp-subtela -->
+  <div style="background:#FF6D00;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;">
+    <button onclick="fecharAssinatura()" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span id="assin-titulo-header" style="font-size:18px;font-weight:800;color:#fff;flex:1;">Assinatura Premium</span>
   </div>
-  <!-- /MODAL ASSINATURA -->
+  <!-- Corpo scrollável -->
+  <div id="assin-body" style="flex:1;overflow-y:auto;padding:20px 16px calc(env(safe-area-inset-bottom,0px) + 24px);-webkit-overflow-scrolling:touch;">
+
+    <!-- Step 1: Escolher plano -->
+    <div id="assin-step1">
+      <!-- Hero Premium -->
+      <div style="background:linear-gradient(135deg,#FF6D00,#FF8F00);border-radius:20px;padding:24px;margin-bottom:16px;text-align:center;">
+        <div style="font-size:40px;margin-bottom:8px;">👑</div>
+        <div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:4px;">RotaPosto Premium</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.85);">Assine e economize muito mais!</div>
+      </div>
+
+      <!-- Features -->
+      <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:12px;">O que você recebe:</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          ${['Todos os postos BR','Mapa em tempo real','Rota mais barata','Histórico completo','Sem anúncios','Suporte premium'].map(f => `
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#424242;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6D00" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            ${f}
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Planos -->
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+        <label id="label-plano-premium" onclick="selecionarPlano('premium')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:2px solid #FF6D00;border-radius:16px;cursor:pointer;background:#FFF8F5;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:20px;height:20px;border-radius:50%;border:2px solid #FF6D00;background:#FF6D00;display:flex;align-items:center;justify-content:center;" id="radio-premium">
+              <div style="width:8px;height:8px;border-radius:50%;background:#fff;"></div>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:14px;color:#1A1A1A;">Mensal</div>
+              <div style="font-size:12px;color:#757575;">Cancele quando quiser</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:800;font-size:20px;color:#FF6D00;">R$ 9,90</div>
+            <div style="font-size:11px;color:#757575;">/mês</div>
+          </div>
+        </label>
+
+        <label id="label-plano-anual" onclick="selecionarPlano('anual')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:2px solid #E0E0E0;border-radius:16px;cursor:pointer;background:#fff;position:relative;">
+          <div style="position:absolute;top:-8px;right:12px;background:#00C853;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;">2 MESES GRÁTIS</div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:20px;height:20px;border-radius:50%;border:2px solid #E0E0E0;background:#fff;display:flex;align-items:center;justify-content:center;" id="radio-anual">
+              <div style="width:8px;height:8px;border-radius:50%;background:#fff;"></div>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:14px;color:#1A1A1A;">Anual</div>
+              <div style="font-size:12px;color:#757575;">Economize R$ 29,80</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:800;font-size:20px;color:#1A1A1A;">R$ 89,00</div>
+            <div style="font-size:11px;color:#757575;">/ano</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Botão assinar -->
+      <button onclick="iniciarPagamentoPIX()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+        <svg width="22" height="22" viewBox="0 0 512 512" fill="currentColor"><path d="M242.4 292.5C247.8 287.1 255.1 284.1 262.5 284.1C269.9 284.1 277.2 287.1 282.6 292.5L350.2 360.1C355.6 365.5 358.7 372.8 358.7 380.2C358.7 387.6 355.6 394.9 350.2 400.3L282.6 467.9C277.2 473.3 269.9 476.4 262.5 476.4C255.1 476.4 247.8 473.3 242.4 467.9L174.8 400.3C169.4 394.9 166.3 387.6 166.3 380.2C166.3 372.8 169.4 365.5 174.8 360.1L242.4 292.5zM374.7 111.7C380.1 106.3 387.4 103.2 394.8 103.2C402.2 103.2 409.5 106.3 414.9 111.7L482.5 179.3C487.9 184.7 491 192 491 199.4C491 206.8 487.9 214.1 482.5 219.5L414.9 287.1C409.5 292.5 402.2 295.6 394.8 295.6C387.4 295.6 380.1 292.5 374.7 287.1L307.1 219.5C301.7 214.1 298.6 206.8 298.6 199.4C298.6 192 301.7 184.7 307.1 179.3L374.7 111.7zM110.1 111.7C115.5 106.3 122.8 103.2 130.2 103.2C137.6 103.2 144.9 106.3 150.3 111.7L217.9 179.3C223.3 184.7 226.4 192 226.4 199.4C226.4 206.8 223.3 214.1 217.9 219.5L150.3 287.1C144.9 292.5 137.6 295.6 130.2 295.6C122.8 295.6 115.5 292.5 110.1 287.1L42.5 219.5C37.1 214.1 34 206.8 34 199.4C34 192 37.1 184.7 42.5 179.3L110.1 111.7z"/></svg>
+        Pagar com PIX
+      </button>
+      <p style="text-align:center;font-size:11px;color:#9E9E9E;margin-top:10px;">
+        Pagamento 100% seguro • Cancele quando quiser
+      </p>
+    </div>
+
+    <!-- Step 2: QR Code PIX -->
+    <div id="assin-step2" style="display:none;">
+      <h2 style="font-size:18px;font-weight:700;color:#1A1A1A;text-align:center;margin:0 0 4px;">Pague com PIX</h2>
+      <p id="assin-step2-desc" style="text-align:center;font-size:13px;color:#757575;margin:0 0 20px;">Escaneie o QR Code para ativar o Premium</p>
+
+      <div style="display:flex;justify-content:center;margin-bottom:16px;">
+        <div style="background:#fff;border:2px solid #E0E0E0;border-radius:20px;padding:16px;">
+          <img id="assin-qr-img" src="" alt="QR Code PIX" style="width:200px;height:200px;display:block;" />
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-bottom:16px;">
+        <span id="assin-valor-label" style="font-size:28px;font-weight:800;color:#FF6D00;"></span>
+        <span id="assin-ciclo-label" style="font-size:14px;color:#757575;"></span>
+      </div>
+
+      <div style="background:#F5F5F5;border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;">
+        <span id="assin-brcode-txt" style="font-size:11px;color:#424242;word-break:break-all;flex:1;font-family:monospace;max-height:44px;overflow:hidden;"></span>
+        <button onclick="copiarCodigo()" style="background:#FF6D00;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Copiar</button>
+      </div>
+
+      <div id="assin-status-box" style="background:#FFF3E0;border:1px solid #FFB300;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+        <div id="assin-status-dot" style="width:10px;height:10px;border-radius:50%;background:#FFB300;flex-shrink:0;animation:pulse-dot 1.5s infinite;"></div>
+        <span id="assin-status-txt" style="font-size:13px;color:#E65100;font-weight:600;">Aguardando pagamento...</span>
+      </div>
+
+      <div style="font-size:12px;color:#757575;line-height:1.6;margin-bottom:16px;">
+        <b style="color:#1A1A1A;">Como pagar:</b><br/>
+        1. Abra seu app de banco<br/>
+        2. Vá em Pix > Pagar com QR Code ou Copia e Cola<br/>
+        3. Confirme o pagamento<br/>
+        4. Seu Premium é ativado automaticamente!
+      </div>
+
+      <button onclick="voltarStep1()" style="width:100%;padding:14px;background:#F5F5F5;color:#757575;border:none;border-radius:16px;font-size:14px;font-weight:600;cursor:pointer;">
+        Escolher outro plano
+      </button>
+    </div>
+
+    <!-- Step 3: Ativado! -->
+    <div id="assin-step3" style="display:none;text-align:center;padding-top:40px;">
+      <div style="width:80px;height:80px;background:#E8F5E9;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 20px;">🎉</div>
+      <h2 style="font-size:22px;font-weight:800;color:#1A1A1A;margin:0 0 8px;">Premium ativado!</h2>
+      <p style="font-size:14px;color:#757575;margin:0 0 24px;">Bem-vindo ao RotaPosto Premium!<br/>Aproveite todos os benefícios.</p>
+      <div id="assin-expira-label" style="background:#F1F8E9;border-radius:12px;padding:12px;margin-bottom:24px;font-size:13px;color:#558B2F;font-weight:600;"></div>
+      <button onclick="fecharAssinatura()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;">
+        Aproveitar o Premium!
+      </button>
+    </div>
+
+  </div>
+</div>
+<!-- /TELA ASSINATURA -->
 
 <!-- ══ SUB-TELA CHEIA (menu perfil) — FORA do #app-root para escapar de overflow:hidden ══ -->
 <div id="rp-subtela">
@@ -3774,16 +3756,17 @@ export function getAppHTML(firebaseScripts: string): string {
   function abrirModalAssinatura() {
     var el = document.getElementById('modal-assinatura');
     if (!el) return;
-    // Mover para body para escapar de qualquer container com transform/overflow
+    // Garantir que está no body (fora de qualquer container overflow:hidden)
     if (el.parentNode !== document.body) document.body.appendChild(el);
-    el.style.display = 'flex'; el.style.flexDirection = 'column';
-    document.body.style.overflow = 'hidden';
+    el.offsetHeight; // forçar reflow para ativar transição CSS
+    el.style.transform = 'translateX(0)';
     mostrarStep1();
   }
 
   function fecharAssinatura() {
-    document.getElementById('modal-assinatura').style.display = 'none';
-    document.body.style.overflow = '';
+    var el = document.getElementById('modal-assinatura');
+    if (!el) return;
+    el.style.transform = 'translateX(100%)';
     if (assinaturaInterval) { clearInterval(assinaturaInterval); assinaturaInterval = null; }
     // Recarregar dados do perfil
     verificarStatusAssinatura();
