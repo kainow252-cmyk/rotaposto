@@ -23,8 +23,8 @@ export const FIREBASE_CONFIG = {
 // Google OAuth Client ID do projeto rotaposto-32e33 (Rotaposto2)
 export const GOOGLE_CLIENT_ID = "1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com"
 
-// Google API Key
-export const GOOGLE_API_KEY = "AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8"
+// Google API Key (Places API / Geocoding / Maps)
+export const GOOGLE_API_KEY = "AIzaSyAd6TcR2SUE2zWV7AWcND0VWDIK30km8Rk"
 
 // ─── HTML do Firebase Auth ────────────────────────────────────────────────────
 // signInWithPopup — sem redirect_uri_mismatch
