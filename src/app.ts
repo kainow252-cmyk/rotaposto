@@ -4460,23 +4460,23 @@ function abrirPainelGamificacao() {
       + '</div>';
   }).join('') : '<p style="color:#aaa;font-size:13px;text-align:center;padding:16px 0;">Nenhuma ação registrada ainda</p>';
 
-  var html = '<div style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;" onclick="if(event.target===this)this.remove()">'
-    + '<div style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding:24px;">'
-    + '<div style="text-align:center;margin-bottom:20px;">'
+  var html = ''
+    // Hero nível
+    + '<div style="background:linear-gradient(135deg,#1A1A2E,#2d2d4e);border-radius:20px;padding:24px;margin-bottom:16px;text-align:center;">'
     + '<div style="font-size:48px;margin-bottom:8px;">' + nivel.icone + '</div>'
-    + '<div style="font-size:20px;font-weight:800;color:#222;">' + nivel.nome + '</div>'
-    + '<div style="font-size:32px;font-weight:900;color:' + nivel.cor + ';margin:4px 0;">' + pontos + ' <span style="font-size:14px;color:#888;">pontos</span></div>'
+    + '<div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:4px;">' + nivel.nome + '</div>'
+    + '<div style="font-size:32px;font-weight:900;color:' + nivel.cor + ';margin:4px 0;">' + pontos + ' <span style="font-size:14px;color:rgba(255,255,255,0.6);">pontos</span></div>'
     + '</div>'
     // Barra de progresso
-    + '<div style="margin-bottom:20px;">'
+    + '<div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;">'
     + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#888;margin-bottom:6px;">'
     + '<span>' + nivel.min + ' pts</span><span>' + (nivel.max === 999999 ? '∞' : nivel.max + ' pts') + '</span></div>'
     + '<div style="background:#f0f0f0;border-radius:8px;height:12px;">'
     + '<div style="width:' + pct + '%;height:100%;border-radius:8px;background:' + nivel.cor + ';transition:width .5s;"></div></div>'
-    + (nivel.max !== 999999 ? '<div style="font-size:12px;color:#888;margin-top:4px;text-align:right;">Próximo nível: ' + proximo.nome + ' em ' + (proximo.min - pontos) + ' pts</div>' : '<div style="font-size:12px;color:#FF6D00;margin-top:4px;text-align:center;">🏆 Nível máximo atingido!</div>')
+    + (nivel.max !== 999999 ? '<div style="font-size:12px;color:#888;margin-top:6px;text-align:right;">Próximo: ' + proximo.nome + ' em ' + (proximo.min - pontos) + ' pts</div>' : '<div style="font-size:12px;color:#FF6D00;margin-top:6px;text-align:center;">🏆 Nível máximo atingido!</div>')
     + '</div>'
     // Como ganhar pontos
-    + '<div style="background:#FFF8F0;border-radius:16px;padding:16px;margin-bottom:20px;">'
+    + '<div style="background:#FFF8F0;border-radius:16px;padding:16px;margin-bottom:12px;">'
     + '<div style="font-size:14px;font-weight:700;color:#FF6D00;margin-bottom:12px;">⚡ Como ganhar pontos</div>'
     + '<div style="display:grid;gap:8px;">'
     + _itemPonto('✅ Confirmar preço no posto', 5)
@@ -4486,25 +4486,24 @@ function abrirPainelGamificacao() {
     + _itemPonto('👥 Indicar amigo', 50)
     + '</div></div>'
     // Código de indicação
-    + '<div style="background:#F3F9FF;border-radius:16px;padding:16px;margin-bottom:20px;">'
+    + '<div style="background:#F3F9FF;border-radius:16px;padding:16px;margin-bottom:12px;">'
     + '<div style="font-size:14px;font-weight:700;color:#1976D2;margin-bottom:8px;">👥 Seu Código de Indicação</div>'
     + '<div style="display:flex;align-items:center;gap:8px;">'
     + '<div style="flex:1;background:#fff;border:2px solid #1976D2;border-radius:12px;padding:12px;text-align:center;font-size:22px;font-weight:900;color:#1976D2;letter-spacing:4px;">' + codigo + '</div>'
-    + '<button onclick="compartilharCodigoIndicacao(' + String.fromCharCode(39) + codigo + String.fromCharCode(39) + ')" style="background:#1976D2;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;">Compartilhar</button>'
+    + '<button onclick="compartilharCodigoIndicacao(\'' + codigo + '\')" style="background:#1976D2;color:#fff;border:none;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;">Compartilhar</button>'
     + '</div>'
     + '<div style="font-size:12px;color:#888;margin-top:8px;">Ganhe 50 pontos por amigo que assinar o RotaPosto Premium!</div>'
     + '</div>'
     // Últimas ações
-    + '<div style="margin-bottom:20px;">'
+    + '<div style="background:#fff;border-radius:16px;padding:16px;">'
     + '<div style="font-size:14px;font-weight:700;color:#333;margin-bottom:12px;">📊 Últimas ações</div>'
     + logHtml
-    + '</div>'
-    + '<button onclick="this.closest(' + String.fromCharCode(39) + '[onclick]' + String.fromCharCode(39) + ').remove()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:15px;font-weight:700;color:#555;cursor:pointer;">Fechar</button>'
-    + '</div></div>';
+    + '</div>';
 
-  var el = document.createElement('div');
-  el.innerHTML = html;
-  document.body.appendChild(el.firstElementChild);
+  // Usa o rp-subtela padrão — tela cheia, sem iframe
+  if (typeof abrirTela === 'function') {
+    abrirTela('Pontos & Níveis', html);
+  }
 }
 
 function _itemPonto(label, pts) {
