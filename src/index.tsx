@@ -5936,6 +5936,131 @@ app.get('/api/admin/usuarios', async (c) => {
   }
 })
 
+// ─── GET /api/admin/app-usuarios — lista usuários reais (sessões KV + assinaturas) ──
+app.get('/api/admin/app-usuarios', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  try {
+    const list = await kv.list({ prefix: 'session:' })
+    const usuarios: unknown[] = []
+    for (const k of list.keys) {
+      try {
+        const raw = await kv.get(k.name)
+        if (!raw) continue
+        const sess = JSON.parse(raw) as any
+        const uid = sess.uid || k.name.replace('session:', '')
+        const assinRaw = await kv.get(`assin:${uid}`)
+        const assin = assinRaw ? JSON.parse(assinRaw) as any : null
+        let veiculo = null
+        if (r2) { try { veiculo = await r2Get(r2, `usuario:${uid}:veiculo`) } catch {} }
+        usuarios.push({
+          uid, deviceId: sess.deviceId || '—',
+          loginEm: sess.createdAt ? new Date(sess.createdAt).toISOString() : '—',
+          plano: assin?.status === 'ACTIVE' ? (assin.plano || 'premium') : 'gratuito',
+          assinatura: assin ? { status: assin.status, plano: assin.plano, expiraEm: assin.expiraEm, ativadaEm: assin.ativadaEm, pagamentos: assin.pagamentos || 0 } : null,
+          veiculo: veiculo || null,
+        })
+      } catch {}
+    }
+    return c.json({ total: usuarios.length, usuarios })
+  } catch (e) {
+    return c.json({ erro: 'Erro', detalhes: String(e) }, 500)
+  }
+})
+
+// ─── DELETE /api/admin/app-usuarios/:uid — banir/remover sessão ───────────────
+app.delete('/api/admin/app-usuarios/:uid', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const uid = c.req.param('uid')
+  await kv.delete(`session:${uid}`)
+  return c.json({ ok: true, uid })
+})
+
+// ─── POST /api/admin/assinatura/:uid/cancelar — cancelar assinatura de usuário ─
+app.post('/api/admin/assinatura/:uid/cancelar', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const uid = c.req.param('uid')
+  const raw = await kv.get(`assin:${uid}`)
+  if (!raw) return c.json({ erro: 'Assinatura não encontrada' }, 404)
+  const assin = JSON.parse(raw) as any
+  assin.status = 'CANCELLED'
+  assin.canceladaEm = Date.now()
+  await kv.put(`assin:${uid}`, JSON.stringify(assin), { expirationTtl: 60 * 60 * 24 * 365 })
+  return c.json({ ok: true, uid })
+})
+
+// ─── POST /api/admin/assinatura/:uid/ativar — ativar premium manualmente ──────
+app.post('/api/admin/assinatura/:uid/ativar', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const uid = c.req.param('uid')
+  const body = await c.req.json() as any
+  const dias = body.dias || 30
+  const expiraEm = Date.now() + dias * 86400000
+  const raw = await kv.get(`assin:${uid}`)
+  const assin = raw ? JSON.parse(raw) as any : { uid, plano: 'manual', subscriptionId: 'admin', pagamentos: 0 }
+  assin.status = 'ACTIVE'
+  assin.ativadaEm = Date.now()
+  assin.expiraEm = expiraEm
+  assin.plano = body.plano || assin.plano || 'manual'
+  await kv.put(`assin:${uid}`, JSON.stringify(assin), { expirationTtl: 60 * 60 * 24 * 400 })
+  return c.json({ ok: true, uid, expiraEm })
+})
+
+// ─── GET /api/admin/assinaturas — lista todas as assinaturas ──────────────────
+app.get('/api/admin/assinaturas', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  try {
+    const list = await kv.list({ prefix: 'assin:' })
+    const assinaturas: unknown[] = []
+    let ativas = 0, canceladas = 0, expiradas = 0
+    for (const k of list.keys) {
+      const raw = await kv.get(k.name)
+      if (!raw) continue
+      const a = JSON.parse(raw) as any
+      const uid = k.name.replace('assin:', '')
+      if (a.status === 'ACTIVE') ativas++
+      else if (a.status === 'CANCELLED') canceladas++
+      else expiradas++
+      assinaturas.push({ uid, ...a })
+    }
+    return c.json({ total: assinaturas.length, ativas, canceladas, expiradas, assinaturas })
+  } catch (e) {
+    return c.json({ erro: 'Erro', detalhes: String(e) }, 500)
+  }
+})
+
+// ─── DELETE /api/admin/postos/:id — remover posto parceiro do R2 ──────────────
+app.delete('/api/admin/postos/:id', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  if (!r2) return c.json({ erro: 'R2 não disponível' }, 500)
+  const id = c.req.param('id')
+  await r2.delete(`parceiro--${id}`)
+  return c.json({ ok: true, id })
+})
+
 app.get('/admin', (c) => {
   const key = c.req.query('key') || ''
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
@@ -6027,14 +6152,18 @@ app.get('/admin', (c) => {
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Raleway',sans-serif;background:#0D1B2A;color:#E0E7EF;min-height:100vh}
-    .sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:#0A1520;border-right:1px solid rgba(255,255,255,0.08);padding:24px 0;display:flex;flex-direction:column}
-    .sidebar-logo{padding:0 20px 24px;border-bottom:1px solid rgba(255,255,255,0.08)}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:#0A1520;border-right:1px solid rgba(255,255,255,0.08);padding:24px 0;display:flex;flex-direction:column;z-index:100}
+    .sidebar-logo{padding:0 20px 20px;border-bottom:1px solid rgba(255,255,255,0.08)}
     .sidebar-logo h1{font-size:22px;font-weight:900;color:#fff}.sidebar-logo h1 span{color:#FF6D00}
     .sidebar-logo p{font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:2px}
-    .nav-item{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,0.5);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent}
+    .nav-section{padding:10px 20px 4px;font-size:9px;font-weight:800;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:1px}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:11px 20px;color:rgba(255,255,255,0.5);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent}
     .nav-item:hover{color:#fff;background:rgba(255,255,255,0.06)}
     .nav-item.active{color:#FF6D00;background:rgba(255,109,0,0.10);border-left-color:#FF6D00}
     .nav-item i{width:18px;text-align:center;font-size:14px}
+    .nav-item-sair{display:flex;align-items:center;gap:10px;padding:11px 20px;color:rgba(255,82,82,0.7);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent}
+    .nav-item-sair:hover{color:#FF5252;background:rgba(255,82,82,0.08);border-left-color:#FF5252}
+    .nav-item-sair i{width:18px;text-align:center;font-size:14px}
     .main{margin-left:240px;padding:28px 32px;min-height:100vh}
     .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
     .page-header h2{font-size:22px;font-weight:900;color:#fff}
@@ -6049,19 +6178,24 @@ app.get('/admin', (c) => {
     .kpi-card .kpi-delta{font-size:11px;font-weight:700;margin-top:8px}
     .kpi-delta.up{color:#00C853}.kpi-delta.down{color:#FF6D00}
     .section-card{background:#112035;border-radius:16px;border:1px solid rgba(255,255,255,0.07);margin-bottom:20px}
-    .section-header{padding:18px 22px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between}
+    .section-header{padding:18px 22px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
     .section-header h3{font-size:14px;font-weight:800;color:#fff}
     .section-body{padding:22px}
     table{width:100%;border-collapse:collapse}
-    th{text-align:left;font-size:10px;font-weight:800;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.8px;padding:0 0 12px;border-bottom:1px solid rgba(255,255,255,0.07)}
-    td{padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px;color:rgba(255,255,255,0.85);font-weight:600;vertical-align:middle}
+    th{text-align:left;font-size:10px;font-weight:800;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.8px;padding:0 8px 12px;border-bottom:1px solid rgba(255,255,255,0.07)}
+    th:first-child{padding-left:0}
+    td{padding:11px 8px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px;color:rgba(255,255,255,0.85);font-weight:600;vertical-align:middle}
+    td:first-child{padding-left:0}
     tr:last-child td{border-bottom:none}
     .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800}
     .badge-anp{background:rgba(21,101,192,0.2);color:#42A5F5}
     .badge-osm{background:rgba(255,109,0,0.15);color:#FF8F00}
     .badge-collab{background:rgba(0,200,83,0.15);color:#00C853}
-    .badge-premium{background:rgba(255,214,0,0.15);color:#FFD600}
+    .badge-premium{background:rgba(255,214,0,0.18);color:#FFD600}
     .badge-free{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4)}
+    .badge-active{background:rgba(0,200,83,0.15);color:#00C853}
+    .badge-cancelled{background:rgba(255,82,82,0.15);color:#FF5252}
+    .badge-expired{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35)}
     .tabs{display:flex;gap:4px;background:rgba(255,255,255,0.05);border-radius:10px;padding:4px}
     .tab{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.4);cursor:pointer;transition:all 0.2s}
     .tab.active{background:#FF6D00;color:#fff}
@@ -6072,35 +6206,91 @@ app.get('/admin', (c) => {
     .stat-row .val{font-size:14px;font-weight:800;color:#fff}
     .btn-refresh{padding:8px 16px;background:rgba(255,109,0,0.15);color:#FF6D00;border:1px solid rgba(255,109,0,0.3);border-radius:8px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:800;cursor:pointer;transition:all 0.2s}
     .btn-refresh:hover{background:rgba(255,109,0,0.25)}
+    .btn-danger{padding:6px 12px;background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25);border-radius:7px;font-family:'Raleway',sans-serif;font-size:11px;font-weight:800;cursor:pointer;transition:all 0.2s;white-space:nowrap}
+    .btn-danger:hover{background:rgba(255,82,82,0.22)}
+    .btn-success{padding:6px 12px;background:rgba(0,200,83,0.12);color:#00C853;border:1px solid rgba(0,200,83,0.25);border-radius:7px;font-family:'Raleway',sans-serif;font-size:11px;font-weight:800;cursor:pointer;transition:all 0.2s;white-space:nowrap}
+    .btn-success:hover{background:rgba(0,200,83,0.22)}
+    .btn-info{padding:6px 12px;background:rgba(66,165,245,0.12);color:#42A5F5;border:1px solid rgba(66,165,245,0.25);border-radius:7px;font-family:'Raleway',sans-serif;font-size:11px;font-weight:800;cursor:pointer;transition:all 0.2s;white-space:nowrap}
+    .btn-info:hover{background:rgba(66,165,245,0.22)}
     .fonte-bar{display:flex;height:8px;border-radius:100px;overflow:hidden;margin-top:8px;gap:2px}
     .fonte-bar-anp{background:#1565C0;flex:0 0 var(--pct)}
     .fonte-bar-osm{background:#FF6D00;flex:0 0 var(--pct)}
     .fonte-bar-collab{background:#00C853;flex:0 0 var(--pct)}
     #precos-lista{max-height:320px;overflow-y:auto}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+    .modal-box{background:#112035;border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:28px;width:100%;max-width:400px}
+    .modal-box h4{font-size:16px;font-weight:800;color:#fff;margin-bottom:8px}
+    .modal-box p{font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px}
+    .modal-box input{width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;margin-bottom:12px}
+    .modal-box input:focus{border-color:#FF6D00}
+    .modal-actions{display:flex;gap:8px;justify-content:flex-end}
+    .toast{position:fixed;bottom:24px;right:24px;background:#1A2E44;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 18px;font-size:13px;font-weight:700;color:#fff;z-index:99999;transform:translateY(80px);opacity:0;transition:all 0.3s;pointer-events:none}
+    .toast.show{transform:translateY(0);opacity:1}
+    .tr-hover:hover{background:rgba(255,255,255,0.03)}
   </style>
 </head>
 <body>
+<!-- SIDEBAR -->
 <div class="sidebar">
   <div class="sidebar-logo">
     <h1>Rota<span>Posto</span></h1>
     <p>Painel Administrativo</p>
   </div>
-  <nav style="margin-top:16px;flex:1">
-    <div class="nav-item active" onclick="showSection('dashboard')"><i class="fas fa-tachometer-alt"></i>Dashboard</div>
-    <div class="nav-item" onclick="showSection('postos')"><i class="fas fa-gas-pump"></i>Postos</div>
-    <div class="nav-item" onclick="showSection('precos')"><i class="fas fa-tag"></i>Preços Reportados</div>
-    <div class="nav-item" onclick="showSection('usuarios')"><i class="fas fa-users"></i>Usuários</div>
-    <div class="nav-item" onclick="showSection('mapa')"><i class="fas fa-map"></i>Mapa ao Vivo</div>
-    <div class="nav-item" onclick="showSection('receita')"><i class="fas fa-dollar-sign"></i>Receita</div>
+  <nav style="margin-top:8px;flex:1;overflow-y:auto">
+    <div class="nav-section">Visão Geral</div>
+    <div class="nav-item active" id="nav-dashboard" onclick="showSection('dashboard',this)"><i class="fas fa-tachometer-alt"></i>Dashboard</div>
+    <div class="nav-section">App & Usuários</div>
+    <div class="nav-item" id="nav-app-usuarios" onclick="showSection('app-usuarios',this)"><i class="fas fa-mobile-alt"></i>Usuários do App</div>
+    <div class="nav-item" id="nav-assinaturas" onclick="showSection('assinaturas',this)"><i class="fas fa-crown"></i>Assinaturas</div>
+    <div class="nav-section">Postos & Dados</div>
+    <div class="nav-item" id="nav-postos-parceiros" onclick="showSection('postos-parceiros',this)"><i class="fas fa-star"></i>Postos Parceiros</div>
+    <div class="nav-item" id="nav-postos" onclick="showSection('postos',this)"><i class="fas fa-gas-pump"></i>Postos (Mapa)</div>
+    <div class="nav-item" id="nav-precos" onclick="showSection('precos',this)"><i class="fas fa-tag"></i>Preços Reportados</div>
+    <div class="nav-item" id="nav-mapa" onclick="showSection('mapa',this)"><i class="fas fa-map"></i>Mapa ao Vivo</div>
   </nav>
-  <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,0.08)">
-    <div style="font-size:11px;color:rgba(255,255,255,0.25);font-weight:600;">RotaPosto v2.0</div>
-    <div style="font-size:10px;color:rgba(255,255,255,0.15);margin-top:2px" id="last-update">Atualizando...</div>
+  <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:8px">
+    <div class="nav-item-sair" onclick="sairAdmin()"><i class="fas fa-sign-out-alt"></i>Sair</div>
+    <div style="padding:10px 20px">
+      <div style="font-size:11px;color:rgba(255,255,255,0.2);font-weight:600">RotaPosto v2.0</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.12);margin-top:2px" id="last-update">Atualizando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL ATIVAR PREMIUM -->
+<div class="modal-overlay" id="modal-ativar" style="display:none">
+  <div class="modal-box">
+    <h4>⭐ Ativar Premium</h4>
+    <p id="modal-ativar-desc">Ativar assinatura premium manualmente para o usuário.</p>
+    <input type="number" id="modal-ativar-dias" value="30" min="1" max="365" placeholder="Dias de premium"/>
+    <select id="modal-ativar-plano" style="width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;margin-bottom:12px;cursor:pointer">
+      <option value="mensal">Mensal</option>
+      <option value="anual">Anual</option>
+      <option value="manual">Manual (Admin)</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="fecharModalAtivar()">Cancelar</button>
+      <button class="btn-success" onclick="confirmarAtivarPremium()"><i class="fas fa-check"></i> Ativar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALHES USUÁRIO -->
+<div class="modal-overlay" id="modal-detalhe" style="display:none">
+  <div class="modal-box" style="max-width:500px">
+    <h4>👤 Detalhes do Usuário</h4>
+    <div id="modal-detalhe-body" style="margin-bottom:20px"></div>
+    <div class="modal-actions">
+      <button class="btn-info" onclick="fecharModalDetalhe()">Fechar</button>
+    </div>
   </div>
 </div>
 
 <main class="main">
-  <!-- Dashboard -->
+  <!-- ══ DASHBOARD ══ -->
   <section id="section-dashboard">
     <div class="page-header">
       <h2>📊 Dashboard</h2>
@@ -6146,9 +6336,9 @@ app.get('/admin', (c) => {
       </div>
       <div class="kpi-card">
         <div class="kpi-icon" style="background:rgba(255,214,0,0.15);color:#FFD600"><i class="fas fa-crown"></i></div>
-        <div class="kpi-val" id="kpi-parceiros">–</div>
-        <div class="kpi-label">Parceiros Cadastrados</div>
-        <div class="kpi-delta up" id="kpi-parceiros-label">Postos parceiros</div>
+        <div class="kpi-val" id="kpi-assinaturas-ativas">–</div>
+        <div class="kpi-label">Assinaturas Ativas</div>
+        <div class="kpi-delta up" id="kpi-assinaturas-label">Premium do app</div>
       </div>
     </div>
 
@@ -6199,7 +6389,129 @@ app.get('/admin', (c) => {
     </div>
   </section>
 
-  <!-- Postos -->
+  <!-- ══ USUÁRIOS DO APP ══ -->
+  <section id="section-app-usuarios" style="display:none">
+    <div class="page-header">
+      <h2>📱 Usuários do App</h2>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="app-usuarios-count" style="background:rgba(66,165,245,0.12);color:#42A5F5;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">–</span>
+        <button class="btn-refresh" onclick="carregarAppUsuarios()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+      </div>
+    </div>
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:700;margin-bottom:6px">TOTAL DE USUÁRIOS</div>
+        <div style="font-size:26px;font-weight:900;color:#fff" id="au-total">–</div>
+      </div>
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:11px;color:#FFD600;font-weight:700;margin-bottom:6px">👑 PREMIUM</div>
+        <div style="font-size:26px;font-weight:900;color:#FFD600" id="au-premium">–</div>
+      </div>
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:700;margin-bottom:6px">GRATUITO</div>
+        <div style="font-size:26px;font-weight:900;color:rgba(255,255,255,0.5)" id="au-gratuito">–</div>
+      </div>
+    </div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3><i class="fas fa-users" style="color:#42A5F5;margin-right:8px"></i>Lista de Usuários</h3>
+        <input id="au-search" type="text" placeholder="🔍 Buscar por UID..." oninput="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:200px"/>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="min-width:800px">
+          <thead><tr>
+            <th>UID</th><th>Device ID</th><th>Último Login</th>
+            <th>Plano</th><th>Exp. Assinatura</th><th>Veículo</th><th>Ações</th>
+          </tr></thead>
+          <tbody id="app-usuarios-tbody">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ ASSINATURAS ══ -->
+  <section id="section-assinaturas" style="display:none">
+    <div class="page-header">
+      <h2>👑 Assinaturas Premium</h2>
+      <button class="btn-refresh" onclick="carregarAssinaturas()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+    </div>
+    <!-- Stats de assinaturas -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;margin-bottom:6px">TOTAL</div>
+        <div style="font-size:26px;font-weight:900;color:#fff" id="as-total">–</div>
+      </div>
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:10px;color:#00C853;font-weight:700;margin-bottom:6px">✅ ATIVAS</div>
+        <div style="font-size:26px;font-weight:900;color:#00C853" id="as-ativas">–</div>
+      </div>
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:10px;color:#FF5252;font-weight:700;margin-bottom:6px">❌ CANCELADAS</div>
+        <div style="font-size:26px;font-weight:900;color:#FF5252" id="as-canceladas">–</div>
+      </div>
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;margin-bottom:6px">⏰ EXPIRADAS</div>
+        <div style="font-size:26px;font-weight:900;color:rgba(255,255,255,0.4)" id="as-expiradas">–</div>
+      </div>
+    </div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3><i class="fas fa-list" style="color:#FFD600;margin-right:8px"></i>Todas as Assinaturas</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="as-filtro" onchange="filtrarAssinaturas()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer">
+            <option value="">Todos</option>
+            <option value="ACTIVE">Ativas</option>
+            <option value="CANCELLED">Canceladas</option>
+            <option value="EXPIRED">Expiradas</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="min-width:750px">
+          <thead><tr>
+            <th>UID</th><th>Plano</th><th>Status</th><th>Ativada em</th>
+            <th>Expira em</th><th>Pagamentos</th><th>Ações</th>
+          </tr></thead>
+          <tbody id="assinaturas-tbody">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ POSTOS PARCEIROS ══ -->
+  <section id="section-postos-parceiros" style="display:none">
+    <div class="page-header">
+      <h2>⭐ Postos Parceiros</h2>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="parceiros-count" style="background:rgba(255,214,0,0.12);color:#FFD600;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">–</span>
+        <button class="btn-refresh" onclick="carregarParceirosCadastrados()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+      </div>
+    </div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3><i class="fas fa-star" style="color:#FFD600;margin-right:8px"></i>Postos cadastrados no app</h3>
+        <input id="pc-search" type="text" placeholder="🔍 Buscar posto..." oninput="filtrarParceiros()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:200px"/>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="min-width:760px">
+          <thead><tr>
+            <th>Posto / Empresa</th><th>E-mail</th><th>Plano</th>
+            <th>Cidade</th><th>Tel</th><th>Cadastrado</th><th>Ações</th>
+          </tr></thead>
+          <tbody id="parceiros-tbody">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ POSTOS (MAPA) ══ -->
   <section id="section-postos" style="display:none">
     <div class="page-header">
       <h2>⛽ Postos Encontrados</h2>
@@ -6225,35 +6537,12 @@ app.get('/admin', (c) => {
     </div>
   </section>
 
-  <!-- Preços Reportados -->
+  <!-- ══ PREÇOS REPORTADOS ══ -->
   <section id="section-precos" style="display:none">
     <div class="page-header">
-      <h2>🎯 Colabore & Ganhe</h2>
+      <h2>🎯 Preços Reportados</h2>
       <button class="btn-refresh" onclick="carregarReportes()"><i class="fas fa-sync-alt"></i> Atualizar</button>
     </div>
-
-    <!-- Banner gamificacao -->
-    <div style="background:linear-gradient(135deg,#1a2744,#0D1B2A);border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid rgba(255,193,7,0.3)">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-        <div style="font-size:28px">🎰</div>
-        <div>
-          <div style="font-size:14px;font-weight:900;color:white">Sorteio Mensal RotaPosto!</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Reporte precos nos postos e concorra a premios!</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <div style="flex:1;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.25);border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:11px;color:#FFC107;font-weight:800">📊 Novo reporte</div>
-          <div style="font-size:12px;color:white;margin-top:4px">+10 pts + 1 numero</div>
-        </div>
-        <div style="flex:1;background:rgba(0,200,83,0.1);border:1px solid rgba(0,200,83,0.25);border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:11px;color:#00C853;font-weight:800">✅ Confirmacao</div>
-          <div style="font-size:12px;color:white;margin-top:4px">+5 pontos</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Ranking de contribuidores -->
     <div class="section-card" style="margin-bottom:16px">
       <div class="section-header">
         <h3><i class="fas fa-trophy" style="color:#FFC107;margin-right:6px"></i> Ranking de Colaboradores</h3>
@@ -6262,66 +6551,25 @@ app.get('/admin', (c) => {
         <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:13px">Carregando ranking...</div>
       </div>
     </div>
-
-    <!-- Lista de reportes -->
     <div class="section-card">
       <div class="section-header">
-        <h3>Reportes de Preco (ultimas 24h)</h3>
+        <h3>Reportes de Preço (últimas 24h)</h3>
       </div>
       <div class="section-body" style="padding:0" id="precos-lista">
         <table>
-          <thead><tr><th>Posto</th><th>Combustivel</th><th>Preco</th><th>Conf.</th><th>Ha</th></tr></thead>
+          <thead><tr><th>Posto</th><th>Combustível</th><th>Preço</th><th>Conf.</th><th>Há</th></tr></thead>
           <tbody id="reportes-tbody"><tr><td colspan="5" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Nenhum reporte ainda</td></tr></tbody>
         </table>
       </div>
     </div>
   </section>
 
-  <!-- Usuários -->
-  <section id="section-usuarios" style="display:none">
-    <div class="page-header">
-      <h2>👥 Usuários Cadastrados</h2>
-      <span id="usuarios-count" style="background:rgba(255,109,0,0.15);color:#FF6D00;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">Carregando...</span>
-    </div>
-    <div class="section-card">
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
-              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Posto / Empresa</th>
-              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">E-mail</th>
-              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Plano</th>
-              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Cidade</th>
-              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Telefone</th>
-              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Cadastrado em</th>
-            </tr>
-          </thead>
-          <tbody id="usuarios-tbody">
-            <tr><td colspan="6" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando usuários...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- Mapa ao Vivo -->
+  <!-- ══ MAPA AO VIVO ══ -->
   <section id="section-mapa" style="display:none">
     <div class="page-header"><h2>🗺️ Mapa ao Vivo</h2></div>
     <div class="section-card">
       <div class="section-body" style="padding:0">
         <div id="admin-map" style="width:100%;height:500px;border-radius:0 0 16px 16px"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Receita -->
-  <section id="section-receita" style="display:none">
-    <div class="page-header"><h2>💰 Receita</h2></div>
-    <div class="section-card">
-      <div class="section-body" style="text-align:center;padding:60px">
-        <i class="fas fa-credit-card" style="font-size:48px;color:rgba(255,255,255,0.15);display:block;margin-bottom:16px"></i>
-        <h3 style="font-size:18px;font-weight:800;color:rgba(255,255,255,0.6)">Requer MercadoPago API</h3>
-        <p style="color:rgba(255,255,255,0.3);font-size:13px;margin-top:8px">Configure MP_ACCESS_TOKEN para ver dados de assinaturas</p>
       </div>
     </div>
   </section>
@@ -6336,51 +6584,66 @@ let currentSection = 'dashboard';
 const ADMIN_KEY = new URLSearchParams(window.location.search).get('key') || sessionStorage.getItem('admin_key') || '';
 
 // Região selecionada (default: São Paulo)
-let adminLat = -23.5505;
-let adminLng = -46.6333;
-let adminCidade = 'São Paulo';
-let adminUF = 'SP';
+let adminLat = -23.5505, adminLng = -46.6333, adminCidade = 'São Paulo', adminUF = 'SP';
 
+// Dados em cache
+let _appUsuarios = [], _assinaturas = [], _parceiros = [];
+
+// ── SAIR ────────────────────────────────────────────────────────────────────
+function sairAdmin() {
+  if (!confirm('Deseja sair do painel admin?')) return;
+  sessionStorage.removeItem('admin_key');
+  window.location.href = '/admin';
+}
+
+// ── TOAST ───────────────────────────────────────────────────────────────────
+function showToast(msg, tipo) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = tipo === 'ok' ? 'rgba(0,200,83,0.4)' : tipo === 'err' ? 'rgba(255,82,82,0.4)' : 'rgba(255,255,255,0.1)';
+  t.style.color = tipo === 'ok' ? '#69F0AE' : tipo === 'err' ? '#FF5252' : '#fff';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── NAVEGAÇÃO ────────────────────────────────────────────────────────────────
 function mudarCidade() {
   const sel = document.getElementById('select-cidade');
   const parts = sel.value.split(',');
-  adminLat = parseFloat(parts[0]);
-  adminLng = parseFloat(parts[1]);
-  adminCidade = parts[2];
-  adminUF = parts[3];
-
-  // Atualiza labels
+  adminLat = parseFloat(parts[0]); adminLng = parseFloat(parts[1]);
+  adminCidade = parts[2]; adminUF = parts[3];
   const labelEl = document.getElementById('kpi-preco-label');
   if (labelEl) labelEl.textContent = adminCidade + ', ' + adminUF;
   const postosCidadeEl = document.getElementById('postos-cidade-label');
   if (postosCidadeEl) postosCidadeEl.textContent = adminCidade + ', ' + adminUF;
-
-  // Recarrega seção atual
   if (currentSection === 'dashboard') carregarDashboard();
   else if (currentSection === 'postos') carregarPostos();
   else if (currentSection === 'mapa') iniciarMapaAdmin(true);
 }
 
-function showSection(name) {
+function showSection(name, el) {
   document.querySelectorAll('main section').forEach(s => s.style.display = 'none');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('section-' + name).style.display = 'block';
-  event.currentTarget.classList.add('active');
+  const sec = document.getElementById('section-' + name);
+  if (sec) sec.style.display = 'block';
+  if (el) el.classList.add('active');
   currentSection = name;
-
   if (name === 'mapa') iniciarMapaAdmin(false);
   if (name === 'postos') carregarPostos();
   if (name === 'precos') carregarReportes();
   if (name === 'dashboard') carregarDashboard();
-  if (name === 'usuarios') carregarUsuarios();
+  if (name === 'app-usuarios') carregarAppUsuarios();
+  if (name === 'assinaturas') carregarAssinaturas();
+  if (name === 'postos-parceiros') carregarParceirosCadastrados();
 }
 
+// ── DASHBOARD ────────────────────────────────────────────────────────────────
 async function carregarDashboard() {
   try {
-    const [postosRes, reportesRes, usuariosRes] = await Promise.all([
+    const [postosRes, reportesRes, assinRes] = await Promise.all([
       fetch(\`/api/postos?lat=\${adminLat}&lng=\${adminLng}&combustivel=gasolina&raio=15\`),
       fetch('/api/precos/reportados'),
-      fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY))
+      fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY))
     ]);
     const postosData = await postosRes.json();
     const reportesData = await reportesRes.json();
@@ -6406,32 +6669,21 @@ async function carregarDashboard() {
     document.getElementById('stat-osm').textContent = osm;
     document.getElementById('stat-collab').textContent = collab;
 
-    // KPI parceiros cadastrados
-    if (usuariosRes.ok) {
-      const usuariosData = await usuariosRes.json();
-      const total_parceiros = usuariosData.total || 0;
-      document.getElementById('kpi-parceiros').textContent = total_parceiros;
-      document.getElementById('kpi-parceiros-label').textContent = total_parceiros === 1 ? '1 posto parceiro' : total_parceiros + ' postos parceiros';
+    if (assinRes.ok) {
+      const ad = await assinRes.json();
+      document.getElementById('kpi-assinaturas-ativas').textContent = ad.ativas || 0;
+      document.getElementById('kpi-assinaturas-label').textContent = (ad.ativas || 0) + ' ativas de ' + (ad.total || 0);
     }
 
     const total = Math.max(anp + osm, 1);
-    const pAnp = Math.round(anp / total * 100);
-    const pOsm = Math.round(osm / total * 100);
-    const pC = Math.max(0, 100 - pAnp - pOsm);
-    const bar = document.getElementById('fonte-bar');
-    bar.innerHTML = \`<div class="fonte-bar-anp" style="--pct:\${pAnp}%;flex:0 0 \${pAnp}%"></div>
-      <div class="fonte-bar-osm" style="--pct:\${pOsm}%;flex:0 0 \${pOsm}%"></div>
-      <div class="fonte-bar-collab" style="--pct:\${pC}%;flex:0 0 \${pC}%"></div>\`;
+    const pAnp = Math.round(anp / total * 100), pOsm = Math.round(osm / total * 100), pC = Math.max(0, 100 - pAnp - pOsm);
+    document.getElementById('fonte-bar').innerHTML = \`<div class="fonte-bar-anp" style="--pct:\${pAnp}%;flex:0 0 \${pAnp}%"></div><div class="fonte-bar-osm" style="--pct:\${pOsm}%;flex:0 0 \${pOsm}%"></div><div class="fonte-bar-collab" style="--pct:\${pC}%;flex:0 0 \${pC}%"></div>\`;
 
-    // Gráfico de preços
     const labels = postos.slice(0, 8).map(p => p.bandeira.substring(0, 8));
     const data = postos.slice(0, 8).map(p => p.preco || p.precos?.gasolina || 0);
     renderChart(labels, data, 'Gasolina');
-
     document.getElementById('last-update').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR') + ' · ' + adminCidade;
-  } catch(e) {
-    console.error('Erro dashboard:', e);
-  }
+  } catch(e) { console.error('Erro dashboard:', e); }
 }
 
 function renderChart(labels, data, label) {
@@ -6439,28 +6691,13 @@ function renderChart(labels, data, label) {
   if (chartPrecos) chartPrecos.destroy();
   chartPrecos = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'R$/L ' + label,
-        data,
-        backgroundColor: data.map((v, i) => i === 0 ? 'rgba(0,200,83,0.8)' : 'rgba(21,101,192,0.6)'),
-        borderRadius: 8,
-        borderSkipped: false
-      }]
-    },
+    data: { labels, datasets: [{ label: 'R$/L ' + label, data, backgroundColor: data.map((v, i) => i === 0 ? 'rgba(0,200,83,0.8)' : 'rgba(21,101,192,0.6)'), borderRadius: 8, borderSkipped: false }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        y: {
-          beginAtZero: false, min: 4,
-          ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 },
-            callback: v => 'R$ ' + v.toFixed(2) },
-          grid: { color: 'rgba(255,255,255,0.05)' }
-        },
-        x: { ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } },
-          grid: { display: false } }
+        y: { beginAtZero: false, min: 4, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 }, callback: v => 'R$ ' + v.toFixed(2) }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        x: { ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } }, grid: { display: false } }
       }
     }
   });
@@ -6472,15 +6709,279 @@ async function toggleChart(combustivel, el) {
   const res = await fetch(\`/api/postos?lat=\${adminLat}&lng=\${adminLng}&combustivel=\${combustivel}&raio=15\`);
   const data = await res.json();
   const postos = data.postos || [];
-  const labels = postos.slice(0, 8).map(p => p.bandeira.substring(0, 8));
-  const values = postos.slice(0, 8).map(p => p.preco || 0);
-  renderChart(labels, values, combustivel.charAt(0).toUpperCase() + combustivel.slice(1));
+  renderChart(postos.slice(0, 8).map(p => p.bandeira.substring(0, 8)), postos.slice(0, 8).map(p => p.preco || 0), combustivel.charAt(0).toUpperCase() + combustivel.slice(1));
 }
 
+// ── USUÁRIOS DO APP ──────────────────────────────────────────────────────────
+async function carregarAppUsuarios() {
+  const tbody = document.getElementById('app-usuarios-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando usuários...</td></tr>';
+  try {
+    const res = await fetch('/api/admin/app-usuarios?key=' + encodeURIComponent(ADMIN_KEY));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    _appUsuarios = data.usuarios || [];
+
+    document.getElementById('app-usuarios-count').textContent = _appUsuarios.length + ' usuário(s)';
+    document.getElementById('au-total').textContent = _appUsuarios.length;
+    document.getElementById('au-premium').textContent = _appUsuarios.filter(u => u.plano !== 'gratuito').length;
+    document.getElementById('au-gratuito').textContent = _appUsuarios.filter(u => u.plano === 'gratuito').length;
+
+    renderAppUsuarios(_appUsuarios);
+  } catch(e) {
+    tbody.innerHTML = \`<tr><td colspan="7" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro: \${e.message}</td></tr>\`;
+  }
+}
+
+function renderAppUsuarios(lista) {
+  const tbody = document.getElementById('app-usuarios-tbody');
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:rgba(255,255,255,0.3)">Nenhum usuário encontrado</td></tr>';
+    return;
+  }
+  const fmtDate = (v) => { if (!v || v === '—') return '—'; try { return new Date(v).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch { return v; } };
+  const fmtExp = (ms) => { if (!ms) return '—'; const d = new Date(ms); const hoje = Date.now(); if (ms < hoje) return '<span style="color:#FF5252;font-size:11px">Expirada</span>'; return '<span style="color:#69F0AE;font-size:11px">' + d.toLocaleDateString('pt-BR') + '</span>'; };
+  const planoBadge = (p) => p === 'gratuito' ? '<span class="badge badge-free">Free</span>' : '<span class="badge badge-premium">⭐ Premium</span>';
+  const veiculo = (v) => v ? (v.marca || '') + ' ' + (v.modelo || '') : '—';
+
+  tbody.innerHTML = lista.map(u => {
+    const uidShort = u.uid ? u.uid.substring(0, 12) + '…' : '—';
+    const devShort = u.deviceId ? u.deviceId.substring(0, 10) + '…' : '—';
+    return \`<tr class="tr-hover">
+      <td>
+        <div style="font-family:monospace;font-size:11px;color:#42A5F5;cursor:pointer" title="\${u.uid}" onclick="copiarUID('\${u.uid}')">\${uidShort}</div>
+      </td>
+      <td><span style="font-family:monospace;font-size:11px;color:rgba(255,255,255,0.4)">\${devShort}</span></td>
+      <td style="font-size:11px;color:rgba(255,255,255,0.5)">\${fmtDate(u.loginEm)}</td>
+      <td>\${planoBadge(u.plano)}</td>
+      <td>\${fmtExp(u.assinatura?.expiraEm)}</td>
+      <td style="font-size:11px;color:rgba(255,255,255,0.5)">\${veiculo(u.veiculo)}</td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:nowrap">
+          <button class="btn-info" onclick="verDetalheUsuario('\${u.uid}')" title="Detalhes"><i class="fas fa-eye"></i></button>
+          <button class="btn-success" onclick="abrirModalAtivar('\${u.uid}')" title="Ativar Premium"><i class="fas fa-crown"></i></button>
+          <button class="btn-danger" onclick="banirUsuario('\${u.uid}')" title="Banir (remover sessão)"><i class="fas fa-ban"></i></button>
+        </div>
+      </td>
+    </tr>\`;
+  }).join('');
+}
+
+function filtrarAppUsuarios() {
+  const q = document.getElementById('au-search').value.toLowerCase();
+  renderAppUsuarios(q ? _appUsuarios.filter(u => (u.uid||'').toLowerCase().includes(q) || (u.deviceId||'').toLowerCase().includes(q)) : _appUsuarios);
+}
+
+function copiarUID(uid) {
+  navigator.clipboard.writeText(uid).then(() => showToast('UID copiado!', 'ok')).catch(() => {});
+}
+
+let _uidAtual = '';
+function abrirModalAtivar(uid) {
+  _uidAtual = uid;
+  document.getElementById('modal-ativar-desc').textContent = 'Ativar premium para: ' + uid.substring(0, 18) + '…';
+  document.getElementById('modal-ativar-dias').value = '30';
+  document.getElementById('modal-ativar-plano').value = 'manual';
+  document.getElementById('modal-ativar').style.display = 'flex';
+}
+function fecharModalAtivar() { document.getElementById('modal-ativar').style.display = 'none'; _uidAtual = ''; }
+
+async function confirmarAtivarPremium() {
+  if (!_uidAtual) return;
+  const dias = parseInt(document.getElementById('modal-ativar-dias').value) || 30;
+  const plano = document.getElementById('modal-ativar-plano').value;
+  fecharModalAtivar();
+  try {
+    const res = await fetch('/api/admin/assinatura/' + encodeURIComponent(_uidAtual) + '/ativar?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dias, plano })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    showToast('✅ Premium ativado por ' + dias + ' dias!', 'ok');
+    if (currentSection === 'app-usuarios') carregarAppUsuarios();
+    if (currentSection === 'assinaturas') carregarAssinaturas();
+  } catch(e) { showToast('❌ Erro: ' + e.message, 'err'); }
+}
+
+async function banirUsuario(uid) {
+  if (!confirm('Banir usuário ' + uid.substring(0, 18) + '…? Isso removerá a sessão e deslogará o usuário.')) return;
+  try {
+    const res = await fetch('/api/admin/app-usuarios/' + encodeURIComponent(uid) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    showToast('✅ Usuário banido!', 'ok');
+    carregarAppUsuarios();
+  } catch(e) { showToast('❌ Erro: ' + e.message, 'err'); }
+}
+
+function verDetalheUsuario(uid) {
+  const u = _appUsuarios.find(x => x.uid === uid);
+  if (!u) return;
+  const fmtDate = (v) => { if (!v || v === '—') return '—'; try { return new Date(v).toLocaleString('pt-BR'); } catch { return v; } };
+  const assin = u.assinatura;
+  const veiculo = u.veiculo;
+  document.getElementById('modal-detalhe-body').innerHTML = \`
+    <div style="display:grid;gap:10px;font-size:13px">
+      <div style="background:#0A1520;border-radius:10px;padding:12px">
+        <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;margin-bottom:6px">IDENTIFICAÇÃO</div>
+        <div style="font-family:monospace;font-size:11px;color:#42A5F5;word-break:break-all">\${u.uid}</div>
+        <div style="margin-top:4px;color:rgba(255,255,255,0.5);font-size:11px">Device: \${u.deviceId}</div>
+        <div style="margin-top:4px;color:rgba(255,255,255,0.5);font-size:11px">Login: \${fmtDate(u.loginEm)}</div>
+      </div>
+      \${assin ? \`<div style="background:#0A1520;border-radius:10px;padding:12px">
+        <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;margin-bottom:6px">ASSINATURA</div>
+        <div style="color:\${assin.status==='ACTIVE'?'#69F0AE':'#FF5252'};font-weight:800">\${assin.status}</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:4px">Plano: \${assin.plano || '—'}</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:11px">Ativada: \${fmtDate(assin.ativadaEm)}</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:11px">Expira: \${fmtDate(assin.expiraEm)}</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:11px">Pagamentos: \${assin.pagamentos || 0}</div>
+      </div>\` : '<div style="background:#0A1520;border-radius:10px;padding:12px;color:rgba(255,255,255,0.3);font-size:12px">Sem assinatura</div>'}
+      \${veiculo ? \`<div style="background:#0A1520;border-radius:10px;padding:12px">
+        <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;margin-bottom:6px">VEÍCULO</div>
+        <div style="color:rgba(255,255,255,0.85);font-weight:700">\${veiculo.marca || ''} \${veiculo.modelo || ''} \${veiculo.ano || ''}</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:11px">Combustível: \${veiculo.combustivel || '—'}</div>
+      </div>\` : ''}
+    </div>
+  \`;
+  document.getElementById('modal-detalhe').style.display = 'flex';
+}
+function fecharModalDetalhe() { document.getElementById('modal-detalhe').style.display = 'none'; }
+
+// ── ASSINATURAS ──────────────────────────────────────────────────────────────
+async function carregarAssinaturas() {
+  const tbody = document.getElementById('assinaturas-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando assinaturas...</td></tr>';
+  try {
+    const res = await fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    _assinaturas = data.assinaturas || [];
+
+    document.getElementById('as-total').textContent = data.total || 0;
+    document.getElementById('as-ativas').textContent = data.ativas || 0;
+    document.getElementById('as-canceladas').textContent = data.canceladas || 0;
+    document.getElementById('as-expiradas').textContent = data.expiradas || 0;
+
+    renderAssinaturas(_assinaturas, '');
+  } catch(e) {
+    tbody.innerHTML = \`<tr><td colspan="7" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro: \${e.message}</td></tr>\`;
+  }
+}
+
+function renderAssinaturas(lista, filtro) {
+  const tbody = document.getElementById('assinaturas-tbody');
+  const filtrada = filtro ? lista.filter(a => a.status === filtro) : lista;
+  if (!filtrada.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">Nenhuma assinatura encontrada</td></tr>';
+    return;
+  }
+  const fmtDate = (v) => { if (!v) return '—'; try { return new Date(v).toLocaleDateString('pt-BR'); } catch { return v; } };
+  const statusBadge = (s) => s === 'ACTIVE' ? '<span class="badge badge-active">✅ Ativa</span>' : s === 'CANCELLED' ? '<span class="badge badge-cancelled">❌ Cancelada</span>' : '<span class="badge badge-expired">⏰ Expirada</span>';
+  const planoBadge = (p) => p ? \`<span class="badge badge-premium">\${p}</span>\` : '<span class="badge badge-free">—</span>';
+  const isExpired = (ms) => ms && ms < Date.now();
+
+  tbody.innerHTML = filtrada.map(a => {
+    const uidShort = a.uid ? a.uid.substring(0, 14) + '…' : '—';
+    const expirado = isExpired(a.expiraEm);
+    const efetivo = a.status === 'ACTIVE' && expirado ? 'EXPIRED' : a.status;
+    return \`<tr class="tr-hover">
+      <td><span style="font-family:monospace;font-size:11px;color:#42A5F5;cursor:pointer" onclick="copiarUID('\${a.uid}')" title="\${a.uid}">\${uidShort}</span></td>
+      <td>\${planoBadge(a.plano)}</td>
+      <td>\${statusBadge(efetivo)}</td>
+      <td style="font-size:11px;color:rgba(255,255,255,0.5)">\${fmtDate(a.ativadaEm)}</td>
+      <td style="font-size:11px;\${expirado?'color:#FF5252':'color:#69F0AE'}">\${fmtDate(a.expiraEm)}</td>
+      <td style="font-size:12px;color:rgba(255,255,255,0.6)">\${a.pagamentos || 0}</td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:nowrap">
+          \${efetivo === 'ACTIVE' ? \`<button class="btn-danger" onclick="cancelarAssinatura('\${a.uid}')"><i class="fas fa-times"></i> Cancelar</button>\` : ''}
+          <button class="btn-success" onclick="abrirModalAtivar('\${a.uid}')"><i class="fas fa-redo"></i> Reativar</button>
+        </div>
+      </td>
+    </tr>\`;
+  }).join('');
+}
+
+function filtrarAssinaturas() {
+  const f = document.getElementById('as-filtro').value;
+  renderAssinaturas(_assinaturas, f);
+}
+
+async function cancelarAssinatura(uid) {
+  if (!confirm('Cancelar assinatura do usuário ' + uid.substring(0, 18) + '…?')) return;
+  try {
+    const res = await fetch('/api/admin/assinatura/' + encodeURIComponent(uid) + '/cancelar?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    showToast('✅ Assinatura cancelada!', 'ok');
+    carregarAssinaturas();
+  } catch(e) { showToast('❌ Erro: ' + e.message, 'err'); }
+}
+
+// ── POSTOS PARCEIROS ─────────────────────────────────────────────────────────
+async function carregarParceirosCadastrados() {
+  const tbody = document.getElementById('parceiros-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando parceiros...</td></tr>';
+  try {
+    const res = await fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    _parceiros = data.parceiros || [];
+
+    document.getElementById('parceiros-count').textContent = _parceiros.length + ' parceiro(s)';
+    renderParceiros(_parceiros);
+  } catch(e) {
+    tbody.innerHTML = \`<tr><td colspan="7" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro: \${e.message}</td></tr>\`;
+  }
+}
+
+function renderParceiros(lista) {
+  const tbody = document.getElementById('parceiros-tbody');
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:rgba(255,255,255,0.3)"><i class="fas fa-store-slash" style="font-size:28px;display:block;margin-bottom:10px;opacity:0.3"></i>Nenhum posto parceiro cadastrado</td></tr>';
+    return;
+  }
+  const planoBadge = (p) => {
+    const cores = { premium: '#FFD600', basico: '#69F0AE', gratuito: 'rgba(255,255,255,0.3)', pro: '#FF6D00' };
+    const cor = cores[(p||'gratuito').toLowerCase()] || 'rgba(255,255,255,0.3)';
+    return \`<span style="background:\${cor}22;color:\${cor};padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;text-transform:uppercase">\${p || 'gratuito'}</span>\`;
+  };
+  const fmtDate = (iso) => { if (!iso || iso === '—') return '—'; try { return new Date(iso).toLocaleDateString('pt-BR'); } catch { return iso; } };
+
+  tbody.innerHTML = lista.map(u => \`<tr class="tr-hover">
+    <td>
+      <div style="font-weight:800;color:#fff;font-size:13px">\${u.nomePosto || '—'}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px;font-family:monospace">ID: \${u.id}</div>
+    </td>
+    <td style="color:rgba(255,255,255,0.6);font-size:12px">\${u.email || '—'}</td>
+    <td>\${planoBadge(u.plano)}</td>
+    <td style="color:rgba(255,255,255,0.6);font-size:12px">\${u.cidade || '—'}</td>
+    <td style="color:rgba(255,255,255,0.6);font-size:12px">\${u.tel || '—'}</td>
+    <td style="color:rgba(255,255,255,0.4);font-size:11px">\${fmtDate(u.criadoEm)}</td>
+    <td>
+      <div style="display:flex;gap:6px">
+        <button class="btn-danger" onclick="deletarParceiro('\${u.id}', '\${(u.nomePosto||'').replace(/'/g,'')}')" title="Remover posto"><i class="fas fa-trash"></i> Remover</button>
+      </div>
+    </td>
+  </tr>\`).join('');
+}
+
+function filtrarParceiros() {
+  const q = document.getElementById('pc-search').value.toLowerCase();
+  renderParceiros(q ? _parceiros.filter(p => (p.nomePosto||'').toLowerCase().includes(q) || (p.email||'').toLowerCase().includes(q) || (p.cidade||'').toLowerCase().includes(q) || (p.id||'').toLowerCase().includes(q)) : _parceiros);
+}
+
+async function deletarParceiro(id, nome) {
+  if (!confirm('Remover o posto "' + nome + '" (ID: ' + id + ')? Esta ação é irreversível.')) return;
+  try {
+    const res = await fetch('/api/admin/postos/' + encodeURIComponent(id) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    showToast('✅ Posto removido!', 'ok');
+    carregarParceirosCadastrados();
+  } catch(e) { showToast('❌ Erro: ' + e.message, 'err'); }
+}
+
+// ── POSTOS (MAPA/API) ────────────────────────────────────────────────────────
 async function carregarPostos() {
   const tbody = document.getElementById('postos-tbody');
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Buscando postos em ' + adminCidade + '...</td></tr>';
-  // Atualiza label do cabeçalho
   const cidadeLabel = document.getElementById('postos-cidade-label');
   if (cidadeLabel) cidadeLabel.textContent = adminCidade + ', ' + adminUF;
   try {
@@ -6488,156 +6989,63 @@ async function carregarPostos() {
     const data = await res.json();
     const postos = data.postos || [];
     document.getElementById('postos-count').textContent = postos.length + ' postos';
-
     tbody.innerHTML = postos.map(p => {
-      const fonteBadge = p.fonte === 'anp' ? '<span class="badge badge-anp">ANP</span>' :
-        p.fonte === 'osm' ? '<span class="badge badge-osm">OSM</span>' :
-        '<span class="badge badge-collab">Colab</span>';
-      return \`<tr>
-        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${p.nome}</td>
-        <td>\${p.bandeira}</td>
-        <td>\${fonteBadge}</td>
-        <td style="color:#69F0AE;font-weight:800">\${p.precos?.gasolina ? 'R$ ' + p.precos.gasolina.toFixed(2) : '–'}</td>
-        <td>\${p.precos?.etanol ? 'R$ ' + p.precos.etanol.toFixed(2) : '–'}</td>
-        <td>\${p.precos?.diesel ? 'R$ ' + p.precos.diesel.toFixed(2) : '–'}</td>
-        <td style="color:rgba(255,255,255,0.5)">\${p.cidade}</td>
-      </tr>\`;
+      const fonteBadge = p.fonte === 'anp' ? '<span class="badge badge-anp">ANP</span>' : p.fonte === 'osm' ? '<span class="badge badge-osm">OSM</span>' : '<span class="badge badge-collab">Colab</span>';
+      return \`<tr><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${p.nome}</td><td>\${p.bandeira}</td><td>\${fonteBadge}</td><td style="color:#69F0AE;font-weight:800">\${p.precos?.gasolina ? 'R$ ' + p.precos.gasolina.toFixed(2) : '–'}</td><td>\${p.precos?.etanol ? 'R$ ' + p.precos.etanol.toFixed(2) : '–'}</td><td>\${p.precos?.diesel ? 'R$ ' + p.precos.diesel.toFixed(2) : '–'}</td><td style="color:rgba(255,255,255,0.5)">\${p.cidade}</td></tr>\`;
     }).join('') || '<tr><td colspan="7" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Nenhum posto encontrado</td></tr>';
   } catch(e) {
     tbody.innerHTML = '<tr><td colspan="7" style="color:#FF6D00;text-align:center;padding:24px">Erro ao carregar postos</td></tr>';
   }
 }
 
+// ── PREÇOS REPORTADOS ────────────────────────────────────────────────────────
 async function carregarReportes() {
   const tbody = document.getElementById('reportes-tbody');
   const rankingEl = document.getElementById('ranking-lista');
-
-  // Carregar ranking e reportes em paralelo
-  const [resReportes, resRanking] = await Promise.allSettled([
-    fetch('/api/precos/reportados'),
-    fetch('/api/contribuidores/ranking')
-  ]);
-
-  // Ranking de colaboradores
+  const [resReportes, resRanking] = await Promise.allSettled([fetch('/api/precos/reportados'), fetch('/api/contribuidores/ranking')]);
   if (rankingEl && resRanking.status === 'fulfilled' && resRanking.value.ok) {
     try {
       const rk = await resRanking.value.json();
       const ranking = rk.ranking || [];
       const medalhas = ['🥇', '🥈', '🥉'];
-
       rankingEl.innerHTML = ranking.length > 0
-        ? ranking.slice(0, 10).map((u, i) => \`
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;\${i < ranking.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.05)' : ''}">
-              <div style="font-size:16px;min-width:22px">\${medalhas[i] || \`<span style="font-size:12px;color:rgba(255,255,255,0.3)">\${i+1}º</span>\`}</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:12px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${u.nome}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.4)">\${u.reportes} reportes · \${u.ultimoReporte}min atras</div>
-              </div>
-              <div style="text-align:right;flex-shrink:0">
-                <div style="font-size:12px;font-weight:900;color:#FFC107">\${u.pontos} pts</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.3)">\${u.numerossorteio} nums</div>
-              </div>
-            </div>
-          \`).join('')
-        : '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:13px">Seja o primeiro a reportar precos!</div>';
+        ? ranking.slice(0, 10).map((u, i) => \`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;\${i < ranking.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.05)' : ''}"><div style="font-size:16px;min-width:22px">\${medalhas[i] || '<span style=\\"font-size:12px;color:rgba(255,255,255,0.3)\\">' + (i+1) + 'º</span>'}</div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${u.nome}</div><div style="font-size:10px;color:rgba(255,255,255,0.4)">\${u.reportes} reportes</div></div><div style="text-align:right"><div style="font-size:12px;font-weight:900;color:#FFC107">\${u.pontos} pts</div></div></div>\`).join('')
+        : '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:13px">Seja o primeiro a reportar!</div>';
     } catch {}
   }
-
-  // Reportes de preco
   if (!tbody) return;
   try {
     if (resReportes.status === 'rejected') throw new Error('failed');
     const data = await resReportes.value.json();
     const reportes = data.reportes || [];
-
     tbody.innerHTML = reportes.length > 0
-      ? reportes.map(r => \`<tr>
-          <td style="font-size:11px;color:rgba(255,255,255,0.6);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${r.postoNome || r.postoId}</td>
-          <td><span class="badge badge-collab">\${r.combustivel}</span></td>
-          <td style="font-weight:800;color:#69F0AE">R$ \${r.preco.toFixed(2)}</td>
-          <td style="color:#FFD600;font-size:12px">\${r.confirmacoes}x</td>
-          <td style="color:rgba(255,255,255,0.4);font-size:11px">\${r.idadeMin}min</td>
-        </tr>\`).join('')
-      : '<tr><td colspan="5" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Nenhum reporte nas ultimas 24h</td></tr>';
+      ? reportes.map(r => \`<tr><td style="font-size:11px;color:rgba(255,255,255,0.6)">\${r.postoNome || r.postoId}</td><td><span class="badge badge-collab">\${r.combustivel}</span></td><td style="font-weight:800;color:#69F0AE">R$ \${r.preco.toFixed(2)}</td><td style="color:#FFD600;font-size:12px">\${r.confirmacoes}x</td><td style="color:rgba(255,255,255,0.4);font-size:11px">\${r.idadeMin}min</td></tr>\`).join('')
+      : '<tr><td colspan="5" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Nenhum reporte nas últimas 24h</td></tr>';
   } catch {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Nenhum reporte ainda</td></tr>';
   }
 }
 
+// ── MAPA AO VIVO ─────────────────────────────────────────────────────────────
 function iniciarMapaAdmin(reset) {
   if (adminMap && !reset) { adminMap.invalidateSize(); return; }
   if (adminMap && reset) { adminMap.remove(); adminMap = null; }
   adminMap = L.map('admin-map').setView([adminLat, adminLng], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap', maxZoom: 19
-  }).addTo(adminMap);
-
-  // Carregar postos no mapa da cidade selecionada
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(adminMap);
   fetch(\`/api/postos?lat=\${adminLat}&lng=\${adminLng}&combustivel=gasolina&raio=15\`)
     .then(r => r.json())
     .then(data => {
       (data.postos || []).forEach(p => {
         const cor = p.fonte === 'anp' ? '#1565C0' : '#FF6D00';
-        const icon = L.divIcon({
-          html: \`<div style="background:\${cor};color:white;padding:3px 7px;border-radius:8px;font-size:10px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.4);border:2px solid white;white-space:nowrap">R$\${p.preco?.toFixed(2)}</div>\`,
-          className: '', iconAnchor: [20, 12]
-        });
-        L.marker([p.lat, p.lng], { icon })
-          .addTo(adminMap)
-          .bindPopup(\`<strong>\${p.nome}</strong><br>\${p.bandeira} · \${p.fonte?.toUpperCase()}<br>R$ \${p.preco?.toFixed(2)}\`);
+        const icon = L.divIcon({ html: \`<div style="background:\${cor};color:white;padding:3px 7px;border-radius:8px;font-size:10px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.4);border:2px solid white;white-space:nowrap">R$\${p.preco?.toFixed(2)}</div>\`, className: '', iconAnchor: [20, 12] });
+        L.marker([p.lat, p.lng], { icon }).addTo(adminMap).bindPopup(\`<strong>\${p.nome}</strong><br>\${p.bandeira} · \${p.fonte?.toUpperCase()}<br>R$ \${p.preco?.toFixed(2)}\`);
       });
     });
 }
 
-async function carregarUsuarios() {
-  const tbody = document.getElementById('usuarios-tbody');
-  const countEl = document.getElementById('usuarios-count');
-  if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando usuários...</td></tr>';
-
-  try {
-    const res = await fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY));
-    if (!res.ok) throw new Error('Erro ' + res.status);
-    const data = await res.json();
-    const parceiros = data.parceiros || [];
-
-    if (countEl) countEl.textContent = parceiros.length + ' cadastrado(s)';
-
-    const planoBadge = (plano) => {
-      const cores = { premium: '#FFD600', basico: '#69F0AE', gratuito: 'rgba(255,255,255,0.3)', pro: '#FF6D00' };
-      const cor = cores[plano?.toLowerCase()] || 'rgba(255,255,255,0.3)';
-      return \`<span style="background:\${cor}20;color:\${cor};padding:3px 10px;border-radius:100px;font-size:11px;font-weight:800;text-transform:uppercase">\${plano || 'gratuito'}</span>\`;
-    };
-
-    const fmtData = (iso) => {
-      if (!iso || iso === '—') return '—';
-      try { return new Date(iso).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}); } catch { return iso; }
-    };
-
-    tbody.innerHTML = parceiros.length > 0
-      ? parceiros.map(u => \`<tr style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background=''">
-          <td style="padding:14px 16px">
-            <div style="font-weight:800;color:#fff;font-size:13px">\${u.nomePosto}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">ID: \${u.id}</div>
-          </td>
-          <td style="padding:14px 16px;color:rgba(255,255,255,0.6);font-size:12px">\${u.email}</td>
-          <td style="padding:14px 16px">\${planoBadge(u.plano)}</td>
-          <td style="padding:14px 16px;color:rgba(255,255,255,0.6);font-size:12px">\${u.cidade}</td>
-          <td style="padding:14px 16px;color:rgba(255,255,255,0.6);font-size:12px">\${u.tel}</td>
-          <td style="padding:14px 16px;color:rgba(255,255,255,0.4);font-size:11px">\${fmtData(u.criadoEm)}</td>
-        </tr>\`).join('')
-      : '<tr><td colspan="6" style="text-align:center;padding:48px;color:rgba(255,255,255,0.3)"><i class="fas fa-user-slash" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3"></i>Nenhum usuário cadastrado ainda</td></tr>';
-
-  } catch(e) {
-    tbody.innerHTML = \`<tr><td colspan="6" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro ao carregar usuários: \${e.message}</td></tr>\`;
-    if (countEl) countEl.textContent = 'Erro';
-  }
-}
-
-// Init
+// ── INIT ──────────────────────────────────────────────────────────────────────
 carregarDashboard();
 document.getElementById('last-update').textContent = 'Carregando...';
-// Auto-refresh a cada 5 minutos
 setInterval(() => { if (currentSection === 'dashboard') carregarDashboard(); }, 5 * 60000);
 </script>
 </body>
