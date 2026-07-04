@@ -69,48 +69,44 @@ export function getParceriasLandingHTML(): string {
 
     /* ── HERO ── */
     .hero-wrap{
-      display:flex;
+      display:grid;
+      grid-template-columns:1fr 300px;
       align-items:center;
-      width:100%;
-      padding:0 0 0 40px;
+      padding:56px 0 0 56px;
       gap:0;
-      overflow:hidden;
-      min-height:480px
+      overflow:hidden
     }
     .hero-left{
-      flex:1;
-      min-width:0;
-      padding-right:32px
+      display:flex;flex-direction:column;
+      justify-content:center;
+      padding-bottom:56px;
+      padding-right:48px
     }
     .hero-right{
-      flex-shrink:0;
-      width:360px;
-      align-self:stretch;
-      overflow:hidden;
-      display:flex;
-      align-items:flex-end
+      align-self:flex-end;
+      line-height:0
     }
     .hero-right img{
-      width:360px;
+      width:100%;
       height:auto;
       display:block;
-      filter:drop-shadow(-8px 0 40px rgba(255,109,0,0.2))
+      max-height:calc(100vh - 64px);
+      object-fit:contain;
+      object-position:bottom
     }
     h1{
-      font-size:clamp(48px,5.5vw,80px);
-      font-weight:900;line-height:1.0;
-      letter-spacing:-3px;
-      margin-bottom:20px
+      font-size:clamp(46px,4.8vw,76px);
+      font-weight:900;line-height:1.05;
+      letter-spacing:-2px;margin-bottom:20px
     }
     h1 span{color:#FF6D00}
     .hero-sub{
       font-size:17px;color:rgba(255,255,255,0.6);
       line-height:1.65;font-weight:500;
-      margin-bottom:28px;
-      max-width:540px
+      margin-bottom:28px;max-width:520px
     }
     .hero-sub em{color:rgba(255,180,80,0.9);font-style:normal}
-    .hero-ctas{display:flex;gap:14px;flex-wrap:wrap}
+    .hero-ctas{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:40px}
     .cta-primary{
       display:inline-flex;align-items:center;gap:9px;
       padding:15px 30px;background:#FF6D00;color:#fff;
@@ -118,7 +114,7 @@ export function getParceriasLandingHTML(): string {
       border:none;cursor:pointer;font-family:'Raleway',sans-serif;
       transition:all .18s
     }
-    .cta-primary:hover{background:#E65100;transform:translateY(-2px);box-shadow:0 10px 28px rgba(255,109,0,0.4)}
+    .cta-primary:hover{background:#E65100;transform:translateY(-2px)}
     .cta-secondary{
       display:inline-flex;align-items:center;gap:9px;
       padding:15px 24px;background:rgba(255,255,255,0.06);
@@ -127,6 +123,27 @@ export function getParceriasLandingHTML(): string {
       cursor:pointer;font-family:'Raleway',sans-serif;transition:all .18s
     }
     .cta-secondary:hover{background:rgba(255,255,255,0.1)}
+    .hero-stats{
+      display:flex;gap:0;
+      border-top:1px solid rgba(255,255,255,0.08);
+      padding-top:28px
+    }
+    .h-stat{
+      flex:1;
+      padding-right:28px;
+      border-right:1px solid rgba(255,255,255,0.08)
+    }
+    .h-stat:last-child{border-right:none;padding-right:0;padding-left:28px}
+    .h-stat:not(:first-child):not(:last-child){padding-left:28px}
+    .h-stat-num{
+      font-size:28px;font-weight:900;color:#fff;
+      line-height:1;margin-bottom:4px
+    }
+    .h-stat-num span{color:#FF6D00}
+    .h-stat-label{
+      font-size:12px;color:rgba(255,255,255,0.38);
+      font-weight:600;letter-spacing:.3px
+    }
 
     /* ── RECURSOS INCLUSOS ── */
     .recursos-wrap{
@@ -307,6 +324,20 @@ export function getParceriasLandingHTML(): string {
       <button class="cta-secondary" onclick="openM('premium')">
         <i class="fas fa-play"></i> Conhecer a plataforma
       </button>
+    </div>
+    <div class="hero-stats">
+      <div class="h-stat">
+        <div class="h-stat-num">12<span>k+</span></div>
+        <div class="h-stat-label">Motoristas ativos</div>
+      </div>
+      <div class="h-stat">
+        <div class="h-stat-num">340<span>+</span></div>
+        <div class="h-stat-label">Postos parceiros</div>
+      </div>
+      <div class="h-stat">
+        <div class="h-stat-num">98<span>%</span></div>
+        <div class="h-stat-label">Satisfação</div>
+      </div>
     </div>
   </div>
   <div class="hero-right">
