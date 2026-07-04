@@ -193,58 +193,59 @@ export function getAppHTML(firebaseScripts: string): string {
       position: absolute; bottom: 0; left: 0; right: 0;
       background: var(--white);
       border-radius: var(--radius) var(--radius) 0 0;
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
-      padding: 16px 20px calc(var(--sab) + 16px);
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+      padding: 12px 16px calc(var(--sab) + 12px);
       z-index: 500;
     }
 
     .map-card-label {
-      font-size: 12px; font-weight: 600;
-      color: var(--gray); margin-bottom: 10px;
+      font-size: 11px; font-weight: 600;
+      color: var(--gray); margin-bottom: 8px;
       display: flex; align-items: center; justify-content: space-between;
     }
     .btn-close-card {
-      width: 28px; height: 28px;
+      width: 26px; height: 26px;
       background: var(--gray-bg); border: none; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; color: var(--gray);
     }
 
     .map-posto-row {
-      display: flex; align-items: center; gap: 14px;
+      display: flex; align-items: center; gap: 10px;
     }
 
     .posto-logo-circle {
-      width: 48px; height: 48px; border-radius: 50%;
+      width: 42px; height: 42px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
-      border: 2px solid var(--border);
-      overflow: hidden; background: var(--white);
+      font-size: 18px; flex-shrink: 0;
+      border: 1.5px solid var(--border);
+      overflow: hidden; background: var(--gray-bg);
     }
     .posto-logo-circle img {
       width: 100%; height: 100%; object-fit: contain;
     }
 
-    .map-posto-info { flex: 1; min-width: 0; }
+    .map-posto-info { flex: 1; min-width: 0; overflow: hidden; }
     .map-posto-nome {
-      font-size: 16px; font-weight: 800; color: var(--black);
-      margin-bottom: 4px;
+      font-size: 13px; font-weight: 800; color: var(--black);
+      margin-bottom: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .map-posto-preco {
-      font-size: 22px; font-weight: 900; color: var(--orange);
-      margin-bottom: 2px;
+      font-size: 18px; font-weight: 900; color: var(--orange);
+      margin-bottom: 1px; line-height: 1.2;
     }
     .map-posto-dist {
-      font-size: 13px; color: var(--gray); font-weight: 500;
+      font-size: 12px; color: var(--gray); font-weight: 500;
     }
 
     .btn-ir-ata-la {
-      padding: 12px 20px;
-      background: var(--orange); border: none; border-radius: 12px;
+      padding: 10px 14px;
+      background: var(--orange); border: none; border-radius: 10px;
       color: var(--white); font-family: 'Inter', sans-serif;
-      font-size: 15px; font-weight: 700;
+      font-size: 13px; font-weight: 700;
       cursor: pointer; flex-shrink: 0;
-      transition: opacity 0.2s;
+      transition: opacity 0.2s; white-space: nowrap;
     }
     .btn-ir-ata-la:active { opacity: 0.85; }
 
@@ -2231,7 +2232,11 @@ export function getAppHTML(firebaseScripts: string): string {
     const dist = p.distancia ? p.distancia.toFixed(1) + ' km' : '-';
     const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '-';
 
-    document.getElementById('map-card-logo').textContent = getEmoji(p.bandeira || p.nome);
+    const logoEl = document.getElementById('map-card-logo');
+    const bandInfo = getBandeiraCor(p.bandeira || p.nome);
+    logoEl.textContent = bandInfo.emoji;
+    logoEl.style.background = bandInfo.bg;
+    logoEl.style.borderColor = bandInfo.border;
     document.getElementById('map-card-nome').textContent = p.nome;
     document.getElementById('map-card-preco').textContent = precoFmt;
     document.getElementById('map-card-dist').textContent = dist + ' • ' + tempo;
@@ -2894,7 +2899,8 @@ export function getAppHTML(firebaseScripts: string): string {
       const precoFmt = preco ? 'R$&nbsp;' + preco.toFixed(2).replace('.', ',') : '-';
       const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '-';
       const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '-';
-      const emoji = getEmoji(p.bandeira || p.nome);
+      const bandInfo = getBandeiraCor(p.bandeira || p.nome);
+      const emoji = bandInfo.emoji;
       const isBest = i === 0;
 
       // ── Badge de fonte do preço ──
@@ -2918,7 +2924,7 @@ export function getAppHTML(firebaseScripts: string): string {
       const ratingStr = p.rating ? '<span style="font-size:10px;color:#F59E0B;margin-left:3px;">★' + p.rating.toFixed(1) + '</span>' : '';
 
       return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
-        + '<div class="posto-brand-logo">' + emoji + '</div>'
+        + '<div class="posto-brand-logo" style="background:' + bandInfo.bg + ';border-color:' + bandInfo.border + ';font-size:20px">' + emoji + '</div>'
         + '<div class="posto-item-info">'
         +   '<div class="posto-item-nome">' + p.nome + '</div>'
         +   '<div style="display:flex;align-items:center;gap:2px;margin-top:2px;">'
@@ -3108,12 +3114,31 @@ export function getAppHTML(firebaseScripts: string): string {
     if (n.includes('SHELL')) return '🐚';
     if (n.includes('IPIRANGA')) return '🔵';
     if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR') return '🟢';
-    if (n.includes('RAIZEN') || n.includes('RAÍZEN')) return '🟣';
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN')) return '⛽';
     if (n.includes('ALE') || n.includes('ALÉ')) return '🔴';
     if (n.includes('TEXACO')) return '⭐';
     if (n.includes('ESSO')) return '🔷';
     if (n.includes('BANDEIRANTE')) return '🏁';
     return '⛽';
+  }
+
+  function getBandeiraCor(nome) {
+    if (!nome) return { emoji: '⛽', bg: '#F5F5F5', border: '#E0E0E0' };
+    const n = nome.toUpperCase();
+    if (n.includes('SHELL'))     return { emoji: '🐚', bg: '#FFF3E0', border: '#FFB300' };
+    if (n.includes('IPIRANGA')) return { emoji: '🔵', bg: '#E3F2FD', border: '#1565C0' };
+    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR')
+                                 return { emoji: '🟢', bg: '#E8F5E9', border: '#2E7D32' };
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN'))
+                                 return { emoji: '⛽', bg: '#F3E5F5', border: '#7B1FA2' };
+    if (n.includes('ALE') || n.includes('ALÉ'))
+                                 return { emoji: '⛽', bg: '#FFEBEE', border: '#E53935' };
+    if (n.includes('TEXACO'))    return { emoji: '⭐', bg: '#FFFDE7', border: '#F9A825' };
+    if (n.includes('ESSO'))      return { emoji: '⛽', bg: '#E3F2FD', border: '#1565C0' };
+    if (n.includes('BANDEIRANTE')) return { emoji: '🏁', bg: '#F5F5F5', border: '#616161' };
+    // Posto independente — inicial do nome
+    const inicial = nome.trim().charAt(0).toUpperCase();
+    return { emoji: inicial, bg: '#FFF3E0', border: '#FF6D00' };
   }
 
   function getDemoPostos() {
