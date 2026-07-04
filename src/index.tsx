@@ -1724,6 +1724,308 @@ app.get('/parcerias', (c) => c.html(getParceriasLandingHTML()))
 app.get('/parcerias/empresa', (c) => c.html(getPainelEmpresaHTML()))
 app.get('/parcerias/validar', (c) => c.html(getValidadorHTML()))
 
+// ── GET /api/posto/:id — dados públicos do posto ──────────────────────────────
+app.get('/api/posto/:id', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const id = c.req.param('id')
+    const parceiro = await kvGetParceiro(kv, id) as Record<string, unknown> | null
+    if (!parceiro) return c.json({ ok: false, erro: 'Posto não encontrado' }, 404)
+    const precos = await kvGetPrecos(kv, id)
+    const promos = kv ? JSON.parse(await kv.get(`promos:${id}`) || '[]') : []
+    // Expor só campos públicos
+    return c.json({
+      ok: true,
+      posto: {
+        id: parceiro.id,
+        nomePosto: parceiro.nomePosto,
+        bandeira: parceiro.bandeira,
+        cidade: parceiro.cidade,
+        whatsapp: parceiro.whatsapp,
+        horario: parceiro.horario || '',
+        servicos: parceiro.servicos || [],
+        seloVerificado: parceiro.seloVerificado || false,
+        cuponsAtivos: parceiro.cuponsAtivos || false,
+        foto: parceiro.foto || '',
+        descricao: parceiro.descricao || '',
+        lat: parceiro.lat || null,
+        lng: parceiro.lng || null,
+      },
+      precos: precos || {},
+      promocoes: promos,
+    })
+  } catch (e) {
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── GET /posto/:id — página pública do posto (marketplace) ───────────────────
+app.get('/posto/:id', async (c) => {
+  const id = c.req.param('id')
+  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const parceiro = await kvGetParceiro(kv, id) as Record<string, unknown> | null
+  const nomePosto = (parceiro?.nomePosto as string) || 'Posto Parceiro RotaPosto'
+  const bandeira  = (parceiro?.bandeira  as string) || ''
+  const cidade    = (parceiro?.cidade    as string) || ''
+  return c.html(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>${nomePosto} — RotaPosto</title>
+  <meta name="description" content="Veja preços, promoções e cupons do ${nomePosto}${cidade ? ' em ' + cidade : ''} no RotaPosto."/>
+  <meta property="og:title" content="${nomePosto} — RotaPosto"/>
+  <meta property="og:description" content="Preços, promoções e cupons exclusivos no RotaPosto"/>
+  <meta property="og:image" content="https://rotaposto.com.br/logo-rotaposto.png"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:#F5F5F5;color:#1A1A1A;min-height:100vh}
+    :root{--laranja:#FF6D00;--laranja-claro:#FFF3E0;--verde:#2E7D32;--border:#E8E8E8}
+
+    /* Header */
+    .header{background:linear-gradient(135deg,#FF6D00,#FF8C42);padding:20px 16px 32px;color:#fff;position:relative}
+    .header-top{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .header-back{background:rgba(255,255,255,0.2);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+    .posto-logo{width:64px;height:64px;border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+    .posto-info{flex:1}
+    .posto-nome{font-size:20px;font-weight:800;line-height:1.2;margin-bottom:4px}
+    .posto-sub{font-size:13px;opacity:0.85;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .badge-selo{background:rgba(255,255,255,0.25);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+    .share-btn{background:rgba(255,255,255,0.2);border:none;color:#fff;padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
+
+    /* Cards */
+    .content{padding:16px;max-width:600px;margin:0 auto}
+    .card{background:#fff;border-radius:16px;padding:20px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+    .card-title{font-size:14px;font-weight:700;color:#555;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+    /* Preços */
+    .preco-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+    .preco-row:last-child{border-bottom:none;padding-bottom:0}
+    .preco-comb{font-size:14px;font-weight:600;color:#333}
+    .preco-vals{text-align:right}
+    .preco-bomba{font-size:12px;color:#999;text-decoration:line-through}
+    .preco-final{font-size:18px;font-weight:800;color:var(--laranja)}
+    .preco-desc{font-size:11px;color:var(--verde);font-weight:600}
+    .preco-sem-desc{font-size:18px;font-weight:800;color:#333}
+
+    /* Promoções */
+    .promo-item{background:linear-gradient(135deg,#FFF3E0,#FFF8F0);border:1.5px solid #FFD0A0;border-radius:14px;padding:16px;margin-bottom:10px}
+    .promo-titulo{font-size:15px;font-weight:800;color:#E65100;margin-bottom:4px}
+    .promo-desc{font-size:13px;color:#555;margin-bottom:8px;line-height:1.5}
+    .promo-footer{display:flex;justify-content:space-between;align-items:center}
+    .promo-validade{font-size:11px;color:#999;display:flex;align-items:center;gap:4px}
+    .promo-badge{background:#FF6D00;color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700}
+
+    /* Ações */
+    .acoes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+    .btn-acao{padding:14px;border-radius:14px;border:none;font-size:14px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:opacity .15s}
+    .btn-acao:active{opacity:.8}
+    .btn-acao i{font-size:20px}
+    .btn-cupom{background:var(--laranja);color:#fff}
+    .btn-wpp{background:#25D366;color:#fff}
+    .btn-mapa{background:#1565C0;color:#fff}
+    .btn-app{background:#1A1A1A;color:#fff}
+
+    /* Info */
+    .info-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;color:#444}
+    .info-row:last-child{border-bottom:none;padding-bottom:0}
+    .info-row i{width:20px;color:#FF6D00;text-align:center}
+    .servicos-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+    .servico-chip{background:#F5F5F5;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500;color:#555}
+
+    /* Footer */
+    .footer-rp{text-align:center;padding:24px 16px;color:#999;font-size:12px}
+    .footer-rp a{color:var(--laranja);text-decoration:none;font-weight:600}
+
+    /* Loader */
+    .loader{text-align:center;padding:40px;color:#999}
+    .spinner{display:inline-block;width:32px;height:32px;border:3px solid #eee;border-top-color:var(--laranja);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:12px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Empty */
+    .empty{text-align:center;padding:24px;color:#bbb;font-size:13px}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <button class="header-back" onclick="history.back()">←</button>
+    <div class="posto-logo" id="posto-logo">⛽</div>
+    <div class="posto-info">
+      <div class="posto-nome" id="posto-nome">Carregando...</div>
+      <div class="posto-sub" id="posto-sub"></div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:flex-end">
+    <button class="share-btn" onclick="compartilhar()"><i class="fas fa-share-alt"></i> Compartilhar</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- Ações rápidas -->
+  <div class="acoes" id="acoes-wrap">
+    <button class="btn-acao btn-cupom" onclick="abrirCupom()"><i class="fas fa-ticket-alt"></i>Gerar Cupom</button>
+    <button class="btn-acao btn-wpp"   id="btn-wpp" onclick="abrirWpp()"><i class="fab fa-whatsapp"></i>WhatsApp</button>
+    <button class="btn-acao btn-mapa"  onclick="abrirMapa()"><i class="fas fa-map-marker-alt"></i>Ver no Mapa</button>
+    <button class="btn-acao btn-app"   onclick="window.location.href='/app'"><i class="fas fa-gas-pump"></i>Abrir App</button>
+  </div>
+
+  <!-- Preços -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-tag" style="color:var(--laranja)"></i> Preços hoje</div>
+    <div id="precos-wrap"><div class="loader"><div class="spinner"></div><br>Carregando preços...</div></div>
+  </div>
+
+  <!-- Promoções -->
+  <div class="card" id="card-promos" style="display:none">
+    <div class="card-title"><i class="fas fa-percentage" style="color:var(--laranja)"></i> Promoções ativas</div>
+    <div id="promos-wrap"></div>
+  </div>
+
+  <!-- Info do posto -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-store" style="color:var(--laranja)"></i> Informações</div>
+    <div id="info-wrap"><div class="loader"><div class="spinner"></div></div></div>
+  </div>
+
+  <div class="footer-rp">
+    Dados fornecidos pelo próprio posto via <a href="/parcerias">RotaPosto Parceiro</a><br/>
+    <a href="/app">⛽ Abrir o RotaPosto e ver todos os postos</a>
+  </div>
+</div>
+
+<!-- Modal Cupom -->
+<div id="modal-cupom" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.6);display:none;align-items:flex-end">
+  <div style="background:#fff;border-radius:24px 24px 0 0;width:100%;padding:24px;text-align:center">
+    <div style="font-size:32px;margin-bottom:8px">🎟️</div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:6px">Cupom de Desconto</div>
+    <div style="font-size:13px;color:#666;margin-bottom:20px">Para usar este cupom, abra o RotaPosto e gere o código diretamente no app.</div>
+    <a href="/app" style="display:block;padding:14px;background:var(--laranja);color:#fff;border-radius:14px;font-weight:700;text-decoration:none;margin-bottom:10px;font-size:15px">
+      <i class="fas fa-mobile-alt"></i> Abrir RotaPosto App
+    </a>
+    <button onclick="document.getElementById('modal-cupom').style.display='none'" style="width:100%;padding:12px;background:#f5f5f5;border:none;border-radius:14px;font-size:14px;color:#555;cursor:pointer;font-weight:600">Fechar</button>
+  </div>
+</div>
+
+<script>
+var POSTO_ID = '${id}';
+var _posto = null;
+
+// Carregar dados do posto
+fetch('/api/posto/' + POSTO_ID)
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (!data.ok) { document.getElementById('posto-nome').textContent = 'Posto não encontrado'; return; }
+    _posto = data.posto;
+    renderHeader(data.posto);
+    renderPrecos(data.precos, data.posto);
+    renderPromos(data.promocoes);
+    renderInfo(data.posto);
+  })
+  .catch(function(){ document.getElementById('precos-wrap').innerHTML = '<div class="empty">Erro ao carregar. Tente novamente.</div>'; });
+
+function renderHeader(p) {
+  document.getElementById('posto-nome').textContent = p.nomePosto;
+  document.title = p.nomePosto + ' — RotaPosto';
+  var sub = document.getElementById('posto-sub');
+  var parts = [];
+  if (p.bandeira && p.bandeira !== 'Independente') parts.push(p.bandeira);
+  if (p.cidade) parts.push('<i class="fas fa-map-marker-alt"></i> ' + p.cidade);
+  if (p.seloVerificado) parts.push('<span class="badge-selo">✓ Verificado</span>');
+  sub.innerHTML = parts.join(' · ');
+  if (p.bandeira) {
+    var logos = { 'Petrobras BR':'🟢', 'Shell':'🔴', 'Ipiranga':'🟡', 'Ale':'🔵' };
+    document.getElementById('posto-logo').textContent = logos[p.bandeira] || '⛽';
+  }
+  if (!p.whatsapp) document.getElementById('btn-wpp').style.display = 'none';
+}
+
+function renderPrecos(precos, posto) {
+  var wrap = document.getElementById('precos-wrap');
+  var combs = ['Gasolina Comum','Gasolina Aditivada','Etanol','Diesel S10','Diesel Comum','GNV'];
+  var rows = combs.filter(function(c){ return precos && precos[c]; }).map(function(c) {
+    var d = precos[c];
+    var temDesc = d.desconto > 0;
+    return '<div class="preco-row">'
+      + '<div class="preco-comb">⛽ ' + c + '</div>'
+      + '<div class="preco-vals">'
+      + (temDesc ? '<div class="preco-bomba">R$ ' + d.precoBomba.toFixed(3) + '</div>' : '')
+      + '<div class="' + (temDesc ? 'preco-final' : 'preco-sem-desc') + '">R$ ' + (d.precoFinal || d.precoBomba).toFixed(3) + '</div>'
+      + (temDesc ? '<div class="preco-desc">-R$ ' + d.desconto.toFixed(2) + ' c/ cupom Premium</div>' : '')
+      + '</div></div>';
+  });
+  if (rows.length === 0) {
+    wrap.innerHTML = '<div class="empty">⛽ Preços não informados ainda.<br>Consulte o posto pelo WhatsApp.</div>';
+  } else {
+    wrap.innerHTML = rows.join('');
+  }
+}
+
+function renderPromos(promos) {
+  if (!promos || promos.length === 0) return;
+  var ativas = promos.filter(function(p){ return !p.validade || new Date(p.validade) >= new Date(); });
+  if (ativas.length === 0) return;
+  document.getElementById('card-promos').style.display = 'block';
+  var wrap = document.getElementById('promos-wrap');
+  wrap.innerHTML = ativas.map(function(p) {
+    var validadeStr = p.validade ? 'Válido até ' + new Date(p.validade).toLocaleDateString('pt-BR') : 'Sem prazo';
+    return '<div class="promo-item">'
+      + '<div class="promo-titulo">🏷️ ' + (p.titulo || 'Promoção') + '</div>'
+      + '<div class="promo-desc">' + (p.descricao || '') + '</div>'
+      + '<div class="promo-footer">'
+      + '<div class="promo-validade"><i class="fas fa-clock"></i> ' + validadeStr + '</div>'
+      + (p.destaque ? '<div class="promo-badge">Destaque</div>' : '')
+      + '</div></div>';
+  }).join('');
+}
+
+function renderInfo(p) {
+  var wrap = document.getElementById('info-wrap');
+  var rows = '';
+  if (p.horario) rows += '<div class="info-row"><i class="fas fa-clock"></i> ' + p.horario + '</div>';
+  if (p.cidade)  rows += '<div class="info-row"><i class="fas fa-map-marker-alt"></i> ' + p.cidade + '</div>';
+  if (p.whatsapp) rows += '<div class="info-row"><i class="fab fa-whatsapp"></i> ' + p.whatsapp + '</div>';
+  if (p.descricao) rows += '<div class="info-row"><i class="fas fa-info-circle"></i> ' + p.descricao + '</div>';
+  if (p.servicos && p.servicos.length > 0) {
+    rows += '<div class="info-row"><i class="fas fa-tools"></i>'
+      + '<div><div style="margin-bottom:6px">Serviços</div>'
+      + '<div class="servicos-wrap">' + p.servicos.map(function(s){ return '<span class="servico-chip">' + s + '</span>'; }).join('') + '</div>'
+      + '</div></div>';
+  }
+  wrap.innerHTML = rows || '<div class="empty">Informações não cadastradas ainda.</div>';
+}
+
+function abrirCupom() {
+  document.getElementById('modal-cupom').style.display = 'flex';
+}
+function abrirWpp() {
+  if (!_posto || !_posto.whatsapp) return;
+  var num = _posto.whatsapp.replace(/\\D/g,'');
+  window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
+}
+function abrirMapa() {
+  if (_posto && _posto.lat && _posto.lng) {
+    window.open('https://www.google.com/maps?q=' + _posto.lat + ',' + _posto.lng,'_blank');
+  } else {
+    window.open('https://www.google.com/maps/search/' + encodeURIComponent((_posto?.nomePosto||'posto') + ' ' + (_posto?.cidade||'')),'_blank');
+  }
+}
+function compartilhar() {
+  var url = window.location.href;
+  var txt = 'Veja os preços do ' + ((_posto&&_posto.nomePosto)||'posto') + ' no RotaPosto: ' + url;
+  if (navigator.share) { navigator.share({title:'RotaPosto',text:txt,url:url}); }
+  else if (navigator.clipboard) { navigator.clipboard.writeText(url).then(function(){ alert('Link copiado!'); }); }
+}
+</script>
+</body>
+</html>`)
+})
+
 // ══════════════════════════════════════════════════════
 //  Página de Privacidade (exigida pelo Facebook e Google)
 // ══════════════════════════════════════════════════════
@@ -6636,6 +6938,73 @@ app.post('/api/parceiros/notificacoes/enviar', async (c) => {
     })
   } catch (e) {
     console.error('[parceiros/notificacoes]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── GET /api/parceiros/promocoes ─────────────────────────────────────────────
+app.get('/api/parceiros/promocoes', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    let postoId = c.req.query('postoId') || ''
+
+    if (!postoId && token && kv) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      if (sess && (sess.exp as number) > Date.now()) postoId = String(sess.parceiroId)
+    }
+    if (!postoId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+
+    let promos: unknown[] = []
+    try { promos = JSON.parse(await kv?.get(`promos:${postoId}`) || '[]') } catch {}
+
+    // Filtrar expiradas
+    const hoje = new Date().toISOString().slice(0, 10)
+    const ativas = promos.filter((p: unknown) => {
+      const pObj = p as Record<string, string>
+      return !pObj.validade || pObj.validade >= hoje
+    })
+
+    return c.json({ ok: true, promocoes: ativas })
+  } catch (e) {
+    console.error('[parceiros/promocoes GET]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/promocoes ────────────────────────────────────────────
+// Adiciona uma promoção ou substitui o array inteiro (cuando body.promocoes presente)
+app.post('/api/parceiros/promocoes', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const body = await c.req.json() as Record<string, unknown>
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    let postoId = (body.postoId as string) || ''
+
+    if (!postoId && token && kv) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      if (sess && (sess.exp as number) > Date.now()) postoId = String(sess.parceiroId)
+    }
+    if (!postoId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+
+    let promos: unknown[] = []
+    try { promos = JSON.parse(await kv?.get(`promos:${postoId}`) || '[]') } catch {}
+
+    if (body.promocoes !== undefined) {
+      // Substituição completa do array (usado ao excluir)
+      promos = body.promocoes as unknown[]
+    } else if (body.promocao) {
+      // Adicionar nova promoção no início
+      promos = [body.promocao, ...promos]
+      // Limitar a 20 promoções
+      if (promos.length > 20) promos = promos.slice(0, 20)
+    }
+
+    if (kv) await kv.put(`promos:${postoId}`, JSON.stringify(promos), { expirationTtl: 7776000 }) // 90 dias
+
+    return c.json({ ok: true, promocoes: promos })
+  } catch (e) {
+    console.error('[parceiros/promocoes POST]', e)
     return c.json({ ok: false, erro: 'Erro interno' }, 500)
   }
 })

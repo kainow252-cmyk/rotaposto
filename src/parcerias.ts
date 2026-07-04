@@ -923,6 +923,7 @@ export function getPainelEmpresaHTML(): string {
       <div class="nav-item" onclick="irPara('precos')"><i class="fas fa-gas-pump"></i> Preços e Desconto</div>
       <div class="nav-item" onclick="irPara('cupons')"><i class="fas fa-ticket-alt"></i> Histórico de Cupons</div>
       <div class="nav-item" onclick="irPara('notificacoes')"><i class="fas fa-bell"></i> Notificações</div>
+      <div class="nav-item" onclick="irPara('promocoes')"><i class="fas fa-percentage"></i> Promoções</div>
       <div class="nav-group-label">Conta</div>
       <div class="nav-item" onclick="irPara('perfil')"><i class="fas fa-store"></i> Perfil do Posto</div>
       <div class="nav-item" onclick="irPara('configuracoes')"><i class="fas fa-cog"></i> Configurações</div>
@@ -1207,6 +1208,53 @@ export function getPainelEmpresaHTML(): string {
         </div>
       </div>
 
+      <!-- ── PROMOÇÕES ── -->
+      <div id="page-promocoes" style="display:none">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-titulo">🏷️ Nova Promoção</div>
+          </div>
+          <p style="font-size:14px;color:var(--sub);line-height:1.7;margin-bottom:16px">Cadastre promoções especiais que aparecem na sua página pública e no app. Motoristas verão o destaque ao buscar seu posto.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div style="grid-column:1/-1">
+              <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px">Título da promoção</label>
+              <input id="promo-titulo" class="login-input" type="text" style="margin-bottom:0" placeholder="Ex: Gasolina aditivada com 10 centavos de desconto!"/>
+            </div>
+            <div style="grid-column:1/-1">
+              <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px">Descrição</label>
+              <textarea id="promo-descricao" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;resize:vertical;min-height:72px;font-family:'Inter',sans-serif" placeholder="Detalhes da promoção, condições, combustíveis incluídos..."></textarea>
+            </div>
+            <div>
+              <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px">Válido até</label>
+              <input id="promo-validade" class="login-input" type="date" style="margin-bottom:0"/>
+            </div>
+            <div style="display:flex;align-items:flex-end;padding-bottom:2px">
+              <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;cursor:pointer">
+                <input id="promo-destaque" type="checkbox" style="width:18px;height:18px;accent-color:var(--laranja);cursor:pointer"/>
+                <span>Marcar como destaque ⭐</span>
+              </label>
+            </div>
+          </div>
+          <button onclick="salvarPromocao()" style="padding:13px 26px;background:var(--laranja);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">
+            <i class="fas fa-plus"></i> Publicar promoção
+          </button>
+          <span id="promo-msg" style="margin-left:12px;font-size:13px;color:var(--verde);display:none"><i class="fas fa-check-circle"></i> Promoção publicada!</span>
+          <span id="promo-erro" style="margin-left:12px;font-size:13px;color:#d32f2f;display:none"></span>
+        </div>
+
+        <div class="table-card" style="margin-top:20px">
+          <div class="table-header">
+            <div class="table-titulo">Promoções ativas</div>
+            <button onclick="carregarPromocoes()" style="background:none;border:1.5px solid var(--border);padding:7px 14px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;color:var(--sub)">
+              <i class="fas fa-sync"></i> Atualizar
+            </button>
+          </div>
+          <div id="lista-promocoes" style="padding:8px 0">
+            <div style="text-align:center;padding:32px;color:#aaa"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+          </div>
+        </div>
+      </div>
+
     </div><!-- .page-content -->
   </main>
 </div>
@@ -1278,8 +1326,8 @@ function fazerLogout() {
 function abrirRecuperarSenha() { alert('Em breve. Entre em contato pelo WhatsApp do RotaPosto.'); }
 
 // ── Navegação ──────────────────────────────────────────
-const PAGES = ['dashboard','validar','precos','cupons','notificacoes','perfil','configuracoes'];
-const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', cupons:'Histórico de Cupons', notificacoes:'Notificações', perfil:'Perfil do Posto', configuracoes:'Configurações' };
+const PAGES = ['dashboard','validar','precos','cupons','notificacoes','promocoes','perfil','configuracoes'];
+const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', cupons:'Histórico de Cupons', notificacoes:'Notificações', promocoes:'Promoções', perfil:'Perfil do Posto', configuracoes:'Configurações' };
 
 function irPara(pg) {
   PAGES.forEach(p => {
@@ -1297,6 +1345,7 @@ function irPara(pg) {
   if (pg === 'cupons')    carregarHistoricoCupons();
   if (pg === 'perfil')    carregarPerfil();
   if (pg === 'notificacoes') carregarNotifConfig();
+  if (pg === 'promocoes')    carregarPromocoes();
 }
 
 function abrirSidebar() {
@@ -1619,6 +1668,102 @@ function toggleServico(s, btn) {
 function salvarPerfil() {
   const msg = document.getElementById('perfil-msg');
   msg.style.display='inline'; setTimeout(()=>msg.style.display='none',3000);
+}
+
+// ── Promoções ──────────────────────────────────────────
+let _promocoes = [];
+
+async function carregarPromocoes() {
+  const lista = document.getElementById('lista-promocoes');
+  if (!lista) return;
+  lista.innerHTML = '<div style="text-align:center;padding:32px;color:#aaa"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
+  try {
+    const r = await fetch('/api/parceiros/promocoes?postoId=' + (_sessao?.postoId||''), {
+      headers: { 'Authorization': 'Bearer ' + (_sessao?.token||'') }
+    });
+    const d = await r.json();
+    _promocoes = d.promocoes || [];
+  } catch {
+    _promocoes = JSON.parse(localStorage.getItem('rp_empresa_promos_' + (_sessao?.postoId||'')) || '[]');
+  }
+  renderListaPromocoes();
+}
+
+function renderListaPromocoes() {
+  const lista = document.getElementById('lista-promocoes');
+  if (!lista) return;
+  const hoje = new Date().toISOString().slice(0,10);
+  const ativas = _promocoes.filter(p => !p.validade || p.validade >= hoje);
+  if (!ativas.length) {
+    lista.innerHTML = '<div style="text-align:center;padding:32px;color:#aaa">Nenhuma promoção ativa. Crie a primeira acima!</div>';
+    return;
+  }
+  lista.innerHTML = ativas.map((p, i) => {
+    const dataFmt = p.validade ? new Date(p.validade + 'T12:00:00').toLocaleDateString('pt-BR') : 'Sem validade';
+    return '<div style="display:flex;align-items:flex-start;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border)">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+          (p.destaque ? '<span style="font-size:12px;background:#FFF3E0;color:var(--laranja);font-weight:700;padding:2px 10px;border-radius:20px">⭐ Destaque</span>' : '') +
+          '<span style="font-size:15px;font-weight:700;color:var(--texto)">' + (p.titulo||'Sem título') + '</span>' +
+        '</div>' +
+        '<div style="font-size:13px;color:var(--sub);margin-bottom:6px;line-height:1.5">' + (p.descricao||'') + '</div>' +
+        '<div style="font-size:12px;color:#999"><i class="fas fa-clock"></i> Válido até: ' + dataFmt + '</div>' +
+      '</div>' +
+      '<button onclick="excluirPromocao(' + i + ')" style="flex-shrink:0;padding:7px 14px;background:#FFEBEE;color:#d32f2f;border:1.5px solid #FFCDD2;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer">' +
+        '<i class="fas fa-trash"></i>' +
+      '</button>' +
+    '</div>';
+  }).join('');
+}
+
+async function salvarPromocao() {
+  const titulo    = (document.getElementById('promo-titulo')?.value || '').trim();
+  const descricao = (document.getElementById('promo-descricao')?.value || '').trim();
+  const validade  = document.getElementById('promo-validade')?.value || '';
+  const destaque  = document.getElementById('promo-destaque')?.checked || false;
+  const msgOk  = document.getElementById('promo-msg');
+  const msgErr = document.getElementById('promo-erro');
+  msgOk.style.display='none'; msgErr.style.display='none';
+  if (!titulo) { msgErr.textContent='Informe o título da promoção.'; msgErr.style.display='inline'; return; }
+  const novaPromo = { titulo, descricao, validade, destaque, criadaEm: new Date().toISOString() };
+  try {
+    const r = await fetch('/api/parceiros/promocoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_sessao?.token||'') },
+      body: JSON.stringify({ postoId: _sessao?.postoId, promocao: novaPromo })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.erro || 'Erro ao salvar');
+    _promocoes = d.promocoes || [novaPromo, ..._promocoes];
+  } catch {
+    _promocoes = [novaPromo, ..._promocoes];
+    localStorage.setItem('rp_empresa_promos_' + (_sessao?.postoId||''), JSON.stringify(_promocoes));
+  }
+  document.getElementById('promo-titulo').value = '';
+  document.getElementById('promo-descricao').value = '';
+  document.getElementById('promo-validade').value = '';
+  document.getElementById('promo-destaque').checked = false;
+  renderListaPromocoes();
+  msgOk.style.display='inline'; setTimeout(()=>msgOk.style.display='none',3000);
+}
+
+async function excluirPromocao(idx) {
+  if (!confirm('Remover esta promoção?')) return;
+  const hoje = new Date().toISOString().slice(0,10);
+  const ativas = _promocoes.filter(p => !p.validade || p.validade >= hoje);
+  const promoRemovida = ativas[idx];
+  if (!promoRemovida) return;
+  _promocoes = _promocoes.filter(p => p !== promoRemovida);
+  try {
+    await fetch('/api/parceiros/promocoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_sessao?.token||'') },
+      body: JSON.stringify({ postoId: _sessao?.postoId, promocoes: _promocoes })
+    });
+  } catch {
+    localStorage.setItem('rp_empresa_promos_' + (_sessao?.postoId||''), JSON.stringify(_promocoes));
+  }
+  renderListaPromocoes();
 }
 
 // ── Configs ────────────────────────────────────────────
