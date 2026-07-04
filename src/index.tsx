@@ -1373,17 +1373,8 @@ app.post('/api/sos/servicos', async (c) => {
       signal: AbortSignal.timeout(8000)
     })
 
-    if (!gRes.ok) {
-      const errText = await gRes.text()
-      console.warn('[SOS] Google Places erro:', gRes.status, errText.slice(0, 200))
-      return c.json({ erro: 'Erro na busca. Tente novamente.' }, 500)
-    }
-
-    const gJson = await gRes.json() as any
-    const places: any[] = gJson.places || []
-
-    // ── Calcular distância Haversine ─────────────────────────────────────────
-    const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    // ── Haversine local ──────────────────────────────────────────────────────
+    const haversineLocal = (lat1: number, lon1: number, lat2: number, lon2: number) => {
       const R = 6371
       const dLat = (lat2 - lat1) * Math.PI / 180
       const dLon = (lon2 - lon1) * Math.PI / 180
@@ -1393,10 +1384,71 @@ app.post('/api/sos/servicos', async (c) => {
       return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1))
     }
 
+    // ── Fallback Nominatim quando Google falha ───────────────────────────────
+    const buscarSOSviaNominatim = async (latF: number, lngF: number, tipoF: string) => {
+      const queryMap: Record<string, string> = {
+        guincho:     'guincho reboque',
+        borracheiro: 'borracheiro pneu',
+        mecanica:    'mecânica automóvel',
+        todos:       'guincho borracheiro mecânica',
+      }
+      const q = queryMap[tipoF] || queryMap['todos']
+      const emojiMap: Record<string, string> = { guincho: '🚛', borracheiro: '🔧', mecanica: '🔩', todos: '🛠️' }
+      const emoji = emojiMap[tipoF] || '🛠️'
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=15&countrycodes=br&lat=${latF}&lon=${lngF}&bounded=0`
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'RotaPosto/1.0 (rotaposto.app)' },
+          signal: AbortSignal.timeout(8000)
+        })
+        if (!res.ok) return []
+        const items = await res.json() as any[]
+        return items.map((el: any) => {
+          const eLat = parseFloat(el.lat)
+          const eLng = parseFloat(el.lon)
+          const dist = haversineLocal(latF, lngF, eLat, eLng)
+          return {
+            id: String(el.place_id),
+            nome: el.name || el.display_name?.split(',')[0] || 'Serviço',
+            endereco: el.display_name?.split(',').slice(1, 3).join(',').trim() || '',
+            lat: eLat,
+            lng: eLng,
+            distancia_km: dist,
+            telefone: null,
+            avaliacao: null,
+            total_avaliacoes: 0,
+            aberto: null,
+            status: 'OPERATIONAL',
+            emoji
+          }
+        }).filter((s: any) => s.distancia_km <= 15)
+          .sort((a: any, b: any) => a.distancia_km - b.distancia_km)
+          .slice(0, 15)
+      } catch { return [] }
+    }
+
+    let places: any[] = []
+
+    if (!gRes.ok) {
+      const errText = await gRes.text()
+      console.warn('[SOS] Google Places erro:', gRes.status, '→ usando Nominatim fallback')
+      // Tentar Nominatim como fallback
+      const nomResults = await buscarSOSviaNominatim(lat, lng, tipo)
+      if (nomResults.length === 0) {
+        return c.json({ erro: 'Serviço temporariamente indisponível. Tente novamente em instantes.' }, 503)
+      }
+      // Registrar uso e retornar dados Nominatim
+      if (kv) await kv.put(sessionKey, String(usosCount + 1), { expirationTtl: 30 * 24 * 3600 })
+      return c.json({ sucesso: true, servicos: nomResults, usos: usosCount + 1, degustacao: usosCount === 0, fonte: 'osm' })
+    }
+
+    const gJson = await gRes.json() as any
+    places = gJson.places || []
+
     const servicos = places.map((p: any) => {
       const pLat = p.location?.latitude ?? lat
       const pLng = p.location?.longitude ?? lng
-      const distancia = haversine(lat, lng, pLat, pLng)
+      const distancia = haversineLocal(lat, lng, pLat, pLng)
       const aberto = p.currentOpeningHours?.openNow
       const tel = p.internationalPhoneNumber || p.nationalPhoneNumber || null
 
