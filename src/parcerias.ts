@@ -699,7 +699,7 @@ export function getParceriasLandingHTML(): string {
 `;
 }
 
-getPainelEmpresaHTML(): string {
+export function getPainelEmpresaHTML(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
