@@ -325,7 +325,7 @@ export function getParceriasLandingHTML(): string {
       <div class="phone-glow"></div>
       <div class="phone-wrap">
         <img class="phone-img"
-          src="/static/phone-mockup.png"
+          src="/static/phone-mockup.jpg"
           alt="App RotaPosto — mapa com preços em tempo real"
           loading="eager"
         />
