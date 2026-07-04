@@ -18,43 +18,20 @@ export function getParceriasLandingHTML(): string {
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    html,body{
-      font-family:'Raleway',sans-serif;color:#fff;background:#07111C;
-      height:100%
-    }
+    body{font-family:'Raleway',sans-serif;color:#fff;background:#07111C}
     a{text-decoration:none;color:inherit}
 
-    /* ═══ SHELL ═══ */
-    .shell{
-      min-height:100vh;display:flex;flex-direction:column;
-      background:#07111C;position:relative;overflow:hidden
-    }
-
-    /* ── fundo suave ── */
-    .bg-photo{
-      position:fixed;inset:0;z-index:0;
-      background-image:url('https://sspark.genspark.ai/cfimages?u1=IA8DeFGtRQVLbnYzv7Y25Qf7ALF6cxomL1C9HwocxEjAPu3AifSULIf%2FHuMrmxm9ufW8ib6vBJrZlwnLgzg2pIbRBmSXSsdo6rWoAL%2FnTKrFJVBAOu6NnD4%2FLmOMKZAY6UL%2FgydLIUw%3D&u2=LfnlD%2F5XKdLkNxPa&width=2560');
-      background-size:cover;background-position:center 30%;
-      opacity:0.15;pointer-events:none
-    }
-    .bg-photo::after{
-      content:'';position:absolute;inset:0;
-      background:radial-gradient(ellipse 80% 60% at 60% 40%,rgba(255,109,0,0.06) 0%,transparent 70%),
-                linear-gradient(160deg,rgba(7,17,28,0.5) 0%,rgba(7,17,28,0.92) 60%)
-    }
-
-    /* ═══ NAV ═══ */
+    /* NAV */
     nav{
       position:sticky;top:0;z-index:100;
-      height:60px;
-      background:rgba(7,17,28,0.96);
+      height:64px;background:rgba(7,17,28,0.97);
       backdrop-filter:blur(16px);
       border-bottom:1px solid rgba(255,255,255,0.07);
       display:flex;align-items:center;
       justify-content:space-between;
-      padding:0 48px;gap:16px;flex-shrink:0
+      padding:0 48px
     }
-    .n-logo{display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0}
+    .n-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
     .n-logo-icon{color:#FF6D00;font-size:22px}
     .n-logo-name{font-size:20px;font-weight:900}
     .n-logo-name span{color:#FF6D00}
@@ -64,154 +41,130 @@ export function getParceriasLandingHTML(): string {
       border:1px solid rgba(255,109,0,0.3);
       padding:2px 7px;border-radius:20px
     }
-    .n-parceiro{
-      display:flex;align-items:center;gap:7px;
+    .nav-btns{display:flex;align-items:center;gap:10px}
+    .btn-ghost{
       padding:9px 22px;background:transparent;color:#FF6D00;
       border-radius:9px;font-size:13px;font-weight:800;
       border:1.5px solid #FF6D00;cursor:pointer;
-      font-family:'Raleway',sans-serif;transition:all .18s;flex-shrink:0
+      font-family:'Raleway',sans-serif;transition:all .18s
     }
-    .n-parceiro:hover{background:rgba(255,109,0,0.12)}
-    .n-cta{
-      display:flex;align-items:center;gap:7px;
+    .btn-ghost:hover{background:rgba(255,109,0,0.12)}
+    .btn-solid{
       padding:9px 22px;background:#FF6D00;color:#fff;
       border-radius:9px;font-size:13px;font-weight:800;
-      border:none;cursor:pointer;font-family:'Raleway',sans-serif;
-      flex-shrink:0;transition:background .15s
+      border:none;cursor:pointer;
+      font-family:'Raleway',sans-serif;transition:background .15s
     }
-    .n-cta:hover{background:#E65100}
+    .btn-solid:hover{background:#E65100}
 
-    /* ═══ HERO SECTION ═══ */
-    .hero-section{
-      position:relative;z-index:2;
-      display:grid;
-      grid-template-columns:1fr 420px;
-      align-items:start;
-      padding:48px 48px 40px;
-      gap:40px
+    /* HERO */
+    .hero{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:64px 48px 0;
+      gap:48px;
+      max-width:1280px;
+      margin:0 auto;
+      width:100%
     }
-
-    /* lado esquerdo */
-    .hero-left{
-      display:flex;flex-direction:column;
-      justify-content:flex-start;
-      max-width:640px
-    }
-    .hero-eyebrow{
+    .hero-text{flex:1;max-width:580px}
+    .eyebrow{
       display:inline-flex;align-items:center;gap:8px;
-      font-size:12px;font-weight:800;letter-spacing:2px;
+      font-size:11px;font-weight:800;letter-spacing:2px;
       text-transform:uppercase;color:#FF6D00;
       margin-bottom:20px
     }
-    .hero-eyebrow::before{
-      content:'';width:28px;height:2px;background:#FF6D00;
-      border-radius:2px;flex-shrink:0
+    .eyebrow::before{
+      content:'';width:28px;height:2px;
+      background:#FF6D00;border-radius:2px
     }
-    .hero-h1{
-      font-size:clamp(36px,3.8vw,60px);
-      font-weight:900;line-height:1.08;
-      letter-spacing:-1.5px;
-      margin-bottom:20px;
-      color:#fff
+    h1{
+      font-size:clamp(40px,4vw,64px);
+      font-weight:900;line-height:1.05;
+      letter-spacing:-2px;margin-bottom:20px
     }
-    .hero-h1 .hl{color:#FF6D00}
-    .hero-p{
-      font-size:clamp(15px,1.2vw,18px);
-      color:rgba(255,255,255,0.6);
-      line-height:1.6;font-weight:500;
-      margin-bottom:36px;
-      max-width:520px
+    h1 span{color:#FF6D00}
+    .sub{
+      font-size:17px;color:rgba(255,255,255,0.6);
+      line-height:1.65;font-weight:500;margin-bottom:36px
     }
-    .hero-p em{color:rgba(255,180,100,0.9);font-style:normal}
-    .hero-btns{display:flex;gap:14px;flex-wrap:wrap}
-    .btn-p{
+    .sub em{color:rgba(255,180,80,0.9);font-style:normal}
+    .ctas{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:48px}
+    .cta-primary{
       display:inline-flex;align-items:center;gap:9px;
-      padding:15px 32px;background:#FF6D00;color:#fff;
+      padding:16px 32px;background:#FF6D00;color:#fff;
       border-radius:12px;font-size:16px;font-weight:800;
       border:none;cursor:pointer;font-family:'Raleway',sans-serif;
-      transition:all .18s;white-space:nowrap
+      transition:all .18s
     }
-    .btn-p:hover{background:#E65100;transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,109,0,0.35)}
-    .btn-s{
+    .cta-primary:hover{background:#E65100;transform:translateY(-2px);box-shadow:0 12px 32px rgba(255,109,0,0.4)}
+    .cta-secondary{
       display:inline-flex;align-items:center;gap:9px;
-      padding:15px 26px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85);
-      border-radius:12px;font-size:16px;font-weight:700;
-      border:1px solid rgba(255,255,255,0.15);
-      cursor:pointer;font-family:'Raleway',sans-serif;
-      transition:all .18s;white-space:nowrap
+      padding:16px 26px;background:rgba(255,255,255,0.07);
+      color:rgba(255,255,255,0.85);border-radius:12px;font-size:16px;
+      font-weight:700;border:1px solid rgba(255,255,255,0.15);
+      cursor:pointer;font-family:'Raleway',sans-serif;transition:all .18s
     }
-    .btn-s:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.3)}
+    .cta-secondary:hover{background:rgba(255,255,255,0.12)}
     .play-dot{
-      width:32px;height:32px;
-      background:rgba(255,255,255,0.14);border-radius:50%;
+      width:32px;height:32px;border-radius:50%;
+      background:rgba(255,255,255,0.15);
       display:inline-flex;align-items:center;justify-content:center;
-      font-size:10px;flex-shrink:0
+      font-size:10px
     }
 
-    /* cards de features no hero */
-    .feat-row{
-      display:grid;grid-template-columns:repeat(4,1fr);
-      gap:12px;margin-top:40px
+    /* 4 CARDS */
+    .feat-grid{
+      display:grid;grid-template-columns:repeat(4,1fr);gap:12px
     }
     .feat-card{
       background:rgba(255,255,255,0.04);
-      border:1px solid rgba(255,255,255,0.09);
-      border-radius:14px;padding:18px;
-      display:flex;flex-direction:column;gap:10px;
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:14px;padding:16px;
       transition:all .2s
     }
-    .feat-card:hover{background:rgba(255,255,255,0.07);border-color:rgba(255,109,0,0.3);transform:translateY(-2px)}
+    .feat-card:hover{background:rgba(255,255,255,0.07);border-color:rgba(255,109,0,0.3)}
     .feat-ico{
-      width:38px;height:38px;border-radius:10px;
+      width:36px;height:36px;border-radius:10px;
       background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:15px;flex-shrink:0
+      color:#FF6D00;font-size:14px;margin-bottom:10px
     }
-    .feat-card h4{font-size:14px;font-weight:800;color:#fff;margin:0}
-    .feat-card p{font-size:12px;color:rgba(255,255,255,0.48);line-height:1.5;font-weight:500;margin:0}
+    .feat-card h4{font-size:13px;font-weight:800;margin-bottom:5px}
+    .feat-card p{font-size:11.5px;color:rgba(255,255,255,0.45);line-height:1.5}
 
-    /* lado direito — celular */
-    .hero-right{
+    /* PHONE */
+    .hero-phone{
+      flex-shrink:0;
+      width:320px;
       display:flex;align-items:flex-start;justify-content:center;
-      position:sticky;
-      top:72px;
-      height:fit-content
+      padding-top:8px
     }
-    .phone-halo{
-      position:absolute;
-      width:400px;height:400px;
-      background:radial-gradient(circle,rgba(255,109,0,0.2) 0%,transparent 65%);
-      pointer-events:none;top:50%;left:50%;
-      transform:translate(-50%,-50%)
+    .hero-phone img{
+      width:100%;height:auto;display:block;
+      filter:drop-shadow(0 40px 80px rgba(0,0,0,0.9))
+             drop-shadow(0 0 60px rgba(255,109,0,0.3))
     }
-    .phone-wrap{
-      position:relative;z-index:2;
-      width:min(380px,95%);
-      filter:drop-shadow(0 40px 70px rgba(0,0,0,0.9)) drop-shadow(0 0 60px rgba(255,109,0,0.25));
-    }
-    .phone-wrap img{width:100%;height:auto;display:block}
 
-    /* ═══ RECURSOS + CTA ═══ */
-    .bottom-section{
-      position:relative;z-index:2;
-      display:grid;
-      grid-template-columns:1fr 280px;
-      gap:16px;
-      padding:0 48px 40px;
-      align-items:stretch
+    /* RECURSOS + CTA */
+    .bottom{
+      display:flex;gap:16px;
+      padding:32px 48px 40px;
+      max-width:1280px;margin:0 auto;width:100%
     }
     .recursos{
+      flex:1;
       background:rgba(255,255,255,0.035);
       border:1px solid rgba(255,255,255,0.08);
       border-radius:18px;padding:24px 28px
     }
-    .recursos-title{
-      font-size:11px;font-weight:800;color:rgba(255,255,255,0.35);
+    .rec-title{
+      font-size:10px;font-weight:800;
+      color:rgba(255,255,255,0.3);
       text-transform:uppercase;letter-spacing:1.5px;margin-bottom:20px
     }
-    .recursos-grid{
-      display:grid;grid-template-columns:repeat(4,1fr);gap:0
-    }
+    .rec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
     .rec{
       padding:0 20px;
       border-right:1px solid rgba(255,255,255,0.07)
@@ -219,419 +172,314 @@ export function getParceriasLandingHTML(): string {
     .rec:first-child{padding-left:0}
     .rec:last-child{border-right:none;padding-right:0}
     .rec-ico{
-      width:36px;height:36px;border-radius:10px;
+      width:34px;height:34px;border-radius:9px;
       background:rgba(255,109,0,0.1);border:1px solid rgba(255,109,0,0.18);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:14px;margin-bottom:10px
+      color:#FF6D00;font-size:13px;margin-bottom:9px
     }
-    .rec h5{font-size:13.5px;font-weight:800;color:#fff;margin-bottom:5px}
-    .rec p{font-size:12px;color:rgba(255,255,255,0.45);line-height:1.5;font-weight:500}
+    .rec h5{font-size:13px;font-weight:800;margin-bottom:4px}
+    .rec p{font-size:11.5px;color:rgba(255,255,255,0.42);line-height:1.5}
 
-    .cta-block{
-      background:linear-gradient(135deg,rgba(255,109,0,0.16) 0%,rgba(255,109,0,0.05) 100%);
+    .cta-box{
+      width:260px;flex-shrink:0;
+      background:linear-gradient(135deg,rgba(255,109,0,0.15),rgba(255,109,0,0.04));
       border:1px solid rgba(255,109,0,0.3);
       border-radius:18px;padding:24px;
-      display:flex;flex-direction:column;justify-content:space-between;
-      gap:16px
+      display:flex;flex-direction:column;gap:14px
     }
-    .cta-ico{
+    .cta-box-ico{
       width:44px;height:44px;border-radius:12px;
       background:rgba(255,109,0,0.2);border:1px solid rgba(255,109,0,0.35);
       display:flex;align-items:center;justify-content:center;
       color:#FF6D00;font-size:20px
     }
-    .cta-text h3{font-size:16px;font-weight:900;color:#fff;margin-bottom:6px;line-height:1.3}
-    .cta-text p{font-size:12.5px;color:rgba(255,255,255,0.5);font-weight:500;line-height:1.5}
-    .cta-badges{display:flex;flex-direction:column;gap:7px;margin-top:4px}
-    .cbadge{
-      display:flex;align-items:center;gap:6px;
-      font-size:11.5px;font-weight:700;color:rgba(255,255,255,0.65)
-    }
-    .cbadge i{color:#FF6D00;font-size:10px}
-    .cta-btn{
+    .cta-box h3{font-size:16px;font-weight:900;line-height:1.3}
+    .cta-box p{font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5}
+    .cta-checks{display:flex;flex-direction:column;gap:6px}
+    .chk{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:rgba(255,255,255,0.7)}
+    .chk i{color:#FF6D00;font-size:10px}
+    .cta-box-btn{
       display:flex;align-items:center;justify-content:center;gap:8px;
-      width:100%;padding:13px;background:#FF6D00;color:#fff;
+      padding:13px;background:#FF6D00;color:#fff;border:none;
       border-radius:11px;font-size:14px;font-weight:800;
-      border:none;cursor:pointer;font-family:'Raleway',sans-serif;
-      transition:background .15s;white-space:nowrap
+      cursor:pointer;font-family:'Raleway',sans-serif;transition:background .15s
     }
-    .cta-btn:hover{background:#E65100}
+    .cta-box-btn:hover{background:#E65100}
 
-    /* ═══ MODAL ═══ */
-    .modal-ov{
-      display:none;position:fixed;inset:0;z-index:9999;
-      background:rgba(0,0,0,0.72);backdrop-filter:blur(8px);
-      align-items:center;justify-content:center;padding:20px
-    }
-    .modal-ov.open{display:flex}
-    .modal-box{
-      background:#0D1B2A;border:1px solid rgba(255,255,255,0.1);
-      border-radius:20px;width:100%;max-width:460px;
-      padding:30px;position:relative;max-height:92vh;overflow-y:auto
-    }
-    .m-close{
-      position:absolute;top:14px;right:14px;
-      background:rgba(255,255,255,0.07);border:none;cursor:pointer;
-      color:rgba(255,255,255,0.4);width:30px;height:30px;
-      border-radius:8px;font-size:15px;
-      display:flex;align-items:center;justify-content:center;transition:all .2s
-    }
-    .m-close:hover{background:rgba(255,255,255,0.13);color:#fff}
-    .m-title{font-size:20px;font-weight:900;color:#fff;margin-bottom:3px}
-    .m-sub{font-size:12.5px;color:rgba(255,255,255,0.4);margin-bottom:22px;font-weight:500}
-    .fg{margin-bottom:13px}
-    .fl{display:block;font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.45);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
-    .fi{
-      width:100%;padding:11px 13px;
-      background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.1);
-      border-radius:9px;color:#fff;font-size:13.5px;
-      font-family:'Raleway',sans-serif;font-weight:600;
-      outline:none;transition:border-color .2s
-    }
-    .fi:focus{border-color:#FF6D00}
-    .fi::placeholder{color:rgba(255,255,255,0.22)}
-    .fr{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-    .fsel{
-      width:100%;padding:11px 13px;
-      background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);
-      border-radius:9px;color:#fff;font-size:13.5px;
-      font-family:'Raleway',sans-serif;font-weight:600;
-      outline:none;cursor:pointer
-    }
-    .fsel:focus{border-color:#FF6D00}
-    .fsub{
-      width:100%;padding:13px;background:#FF6D00;color:#fff;border:none;
-      border-radius:11px;font-size:14.5px;font-weight:800;cursor:pointer;
-      font-family:'Raleway',sans-serif;margin-top:5px;transition:background .2s
-    }
-    .fsub:hover{background:#E65100}
-    .fterms{text-align:center;font-size:10.5px;color:rgba(255,255,255,0.28);margin:8px 0}
-    .fterms a{color:#FF6D00}
-    .ferr{
-      background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.2);
-      border-radius:8px;padding:9px 13px;font-size:11.5px;color:#FF5252;
-      font-weight:700;margin-bottom:11px;display:none
-    }
-    .fok{
-      background:rgba(0,200,83,0.08);border:1px solid rgba(0,200,83,0.22);
-      border-radius:11px;padding:20px;text-align:center;display:none
-    }
-    .fok h4{font-size:17px;font-weight:900;color:#69F0AE;margin-bottom:7px}
-    .fok p{font-size:12.5px;color:rgba(255,255,255,0.55);line-height:1.6}
-
-    /* ═══ RODAPÉ ═══ */
-    .footer{
-      position:relative;z-index:10;
-      background:rgba(5,12,20,0.98);
+    /* FOOTER */
+    footer{
+      background:rgba(3,9,16,0.98);
       border-top:1px solid rgba(255,255,255,0.07);
-      padding:28px 48px 0;
-      margin-top:auto
+      padding:28px 48px 0
     }
     .footer-inner{
-      display:grid;
-      grid-template-columns:1.4fr 2fr auto;
+      display:grid;grid-template-columns:1.4fr 2fr auto;
       gap:40px;align-items:start;
       padding-bottom:20px;
-      border-bottom:1px solid rgba(255,255,255,0.06)
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      max-width:1280px;margin:0 auto
     }
-    .footer-logo{
-      display:flex;align-items:center;gap:7px;
-      cursor:pointer;margin-bottom:10px
-    }
-    .footer-logo-name{font-size:17px;font-weight:900;color:#fff}
-    .footer-tag{
+    .f-logo{display:flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:10px}
+    .f-logo-name{font-size:17px;font-weight:900}
+    .f-logo-name span{color:#FF6D00}
+    .f-tag{
       font-size:7px;font-weight:800;letter-spacing:.6px;
       color:#FF6D00;background:rgba(255,109,0,0.12);
       border:1px solid rgba(255,109,0,0.3);
       padding:2px 6px;border-radius:20px
     }
-    .footer-desc{
-      font-size:12px;color:rgba(255,255,255,0.38);
-      line-height:1.6;font-weight:500
-    }
-    .footer-links{
-      display:grid;grid-template-columns:repeat(3,1fr);gap:24px
-    }
-    .footer-col{display:flex;flex-direction:column;gap:7px}
-    .footer-col-title{
+    .f-desc{font-size:11.5px;color:rgba(255,255,255,0.35);line-height:1.7}
+    .f-links{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+    .f-col{display:flex;flex-direction:column;gap:7px}
+    .f-col-title{
       font-size:10px;font-weight:800;
-      color:rgba(255,255,255,0.35);
-      text-transform:uppercase;letter-spacing:1px;
-      margin-bottom:4px
+      color:rgba(255,255,255,0.3);
+      text-transform:uppercase;letter-spacing:1px;margin-bottom:4px
     }
-    .footer-col a{
-      font-size:12px;color:rgba(255,255,255,0.45);
-      font-weight:500;transition:color .15s;cursor:pointer
-    }
-    .footer-col a:hover{color:#FF6D00}
-    .footer-cta-col{
-      display:flex;flex-direction:column;align-items:flex-end;gap:14px
-    }
-    .footer-cta-btn{
+    .f-col a{font-size:12px;color:rgba(255,255,255,0.42);font-weight:500;transition:color .15s}
+    .f-col a:hover{color:#FF6D00}
+    .f-cta{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+    .f-cta-btn{
       display:flex;align-items:center;gap:8px;
-      padding:12px 24px;background:#FF6D00;color:#fff;
+      padding:12px 22px;background:#FF6D00;color:#fff;
       border-radius:10px;font-size:13px;font-weight:800;
-      border:none;cursor:pointer;font-family:'Raleway',sans-serif;
-      transition:background .15s;white-space:nowrap
+      border:none;cursor:pointer;font-family:'Raleway',sans-serif;transition:background .15s
     }
-    .footer-cta-btn:hover{background:#E65100}
-    .footer-social{display:flex;gap:8px}
-    .soc-btn{
+    .f-cta-btn:hover{background:#E65100}
+    .f-social{display:flex;gap:8px}
+    .soc{
       width:34px;height:34px;border-radius:9px;
       background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
       display:flex;align-items:center;justify-content:center;
-      color:rgba(255,255,255,0.5);font-size:14px;
-      transition:all .15s;cursor:pointer
+      color:rgba(255,255,255,0.45);font-size:14px;transition:all .15s
     }
-    .soc-btn:hover{background:rgba(255,109,0,0.15);border-color:rgba(255,109,0,0.3);color:#FF6D00}
-    .footer-bottom{
+    .soc:hover{background:rgba(255,109,0,0.15);border-color:rgba(255,109,0,0.3);color:#FF6D00}
+    .f-bottom{
       display:flex;justify-content:space-between;align-items:center;
-      padding:12px 0;
-      font-size:11px;color:rgba(255,255,255,0.25);font-weight:500
+      padding:12px 0;font-size:11px;color:rgba(255,255,255,0.22);
+      max-width:1280px;margin:0 auto
     }
+
+    /* MODAL */
+    .modal-ov{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px}
+    .modal-ov.open{display:flex}
+    .modal-box{background:#0D1B2A;border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:460px;padding:30px;position:relative;max-height:92vh;overflow-y:auto}
+    .m-close{position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.07);border:none;cursor:pointer;color:rgba(255,255,255,0.4);width:30px;height:30px;border-radius:8px;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+    .m-close:hover{background:rgba(255,255,255,0.13);color:#fff}
+    .m-title{font-size:20px;font-weight:900;color:#fff;margin-bottom:3px}
+    .m-sub{font-size:12.5px;color:rgba(255,255,255,0.4);margin-bottom:22px;font-weight:500}
+    .fg{margin-bottom:13px}
+    .fl{display:block;font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.45);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+    .fi{width:100%;padding:11px 13px;background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.1);border-radius:9px;color:#fff;font-size:13.5px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;transition:border-color .2s}
+    .fi:focus{border-color:#FF6D00}
+    .fi::placeholder{color:rgba(255,255,255,0.22)}
+    .fr{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .fsel{width:100%;padding:11px 13px;background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:9px;color:#fff;font-size:13.5px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer}
+    .fsel:focus{border-color:#FF6D00}
+    .fsub{width:100%;padding:13px;background:#FF6D00;color:#fff;border:none;border-radius:11px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:'Raleway',sans-serif;margin-top:5px;transition:background .2s}
+    .fsub:hover{background:#E65100}
+    .fterms{text-align:center;font-size:10.5px;color:rgba(255,255,255,0.28);margin:8px 0}
+    .fterms a{color:#FF6D00}
+    .ferr{background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.2);border-radius:8px;padding:9px 13px;font-size:11.5px;color:#FF5252;font-weight:700;margin-bottom:11px;display:none}
+    .fok{background:rgba(0,200,83,0.08);border:1px solid rgba(0,200,83,0.22);border-radius:11px;padding:20px;text-align:center;display:none}
+    .fok h4{font-size:17px;font-weight:900;color:#69F0AE;margin-bottom:7px}
+    .fok p{font-size:12.5px;color:rgba(255,255,255,0.55);line-height:1.6}
   </style>
 </head>
 <body>
-<div class="shell">
-  <div class="bg-photo"></div>
 
-  <!-- NAV -->
-  <nav>
-    <div class="n-logo" onclick="location.href='/'">
-      <i class="fas fa-location-dot n-logo-icon"></i>
-      <div class="n-logo-name">Rota<span>Posto</span></div>
-      <div class="n-tag">EMPRESAS</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-      <button class="n-parceiro" onclick="openM('premium')">
-        <i class="fas fa-handshake"></i> Quero ser parceiro
-      </button>
-      <button class="n-cta" onclick="location.href='/parcerias/empresa'">
-        <i class="fas fa-arrow-right"></i> Acessar Painel
-      </button>
-    </div>
-  </nav>
-
-  <!-- HERO SECTION -->
-  <section class="hero-section">
-
-    <!-- Esquerda: texto + features -->
-    <div class="hero-left">
-      <div class="hero-eyebrow">Novo canal de vendas para postos</div>
-      <h1 class="hero-h1">
-        Pronto para <span class="hl">acelerar</span><br>seus resultados?
-      </h1>
-      <p class="hero-p">
-        Cadastre seu posto e conecte-se a milhares de motoristas todos os dias,<br>com <em>preços em tempo real</em> e <em>destaque no mapa</em>.
-      </p>
-      <div class="hero-btns">
-        <button class="btn-p" onclick="openM('premium')">
-          <i class="fas fa-handshake"></i> Quero ser parceiro
-        </button>
-        <button class="btn-s" onclick="openM('premium')">
-          <div class="play-dot"><i class="fas fa-play"></i></div>
-          Conhecer a plataforma
-        </button>
-      </div>
-
-      <!-- 4 cards de features -->
-      <div class="feat-row">
-        <div class="feat-card">
-          <div class="feat-ico"><i class="fas fa-map-location-dot"></i></div>
-          <div>
-            <h4>Destaque no mapa</h4>
-            <p>Seu posto aparece primeiro para motoristas na sua região.</p>
-          </div>
-        </div>
-        <div class="feat-card">
-          <div class="feat-ico"><i class="fas fa-tag"></i></div>
-          <div>
-            <h4>Preços atualizados</h4>
-            <p>Atualize preços em segundos e mantenha-se competitivo.</p>
-          </div>
-        </div>
-        <div class="feat-card">
-          <div class="feat-ico"><i class="fas fa-users"></i></div>
-          <div>
-            <h4>Mais clientes</h4>
-            <p>Atraia novos motoristas e aumente o movimento.</p>
-          </div>
-        </div>
-        <div class="feat-card">
-          <div class="feat-ico"><i class="fas fa-chart-bar"></i></div>
-          <div>
-            <h4>Gestão completa</h4>
-            <p>Painel simples com tudo que você precisa acompanhar.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Direita: celular -->
-    <div class="hero-right">
-      <div class="phone-halo"></div>
-      <div class="phone-wrap">
-        <img src="/static/phone-mockup.png" alt="App RotaPosto" loading="eager"/>
-      </div>
-    </div>
-
-  </section>
-
-  <!-- RECURSOS + CTA -->
-  <div class="bottom-section">
-
-    <div class="recursos">
-      <div class="recursos-title">Recursos inclusos</div>
-      <div class="recursos-grid">
-        <div class="rec">
-          <div class="rec-ico"><i class="fas fa-map-pin"></i></div>
-          <h5>Destaque inteligente</h5>
-          <p>Evidência no mapa para milhares de motoristas locais.</p>
-        </div>
-        <div class="rec">
-          <div class="rec-ico"><i class="fas fa-rotate"></i></div>
-          <h5>Preços em tempo real</h5>
-          <p>Atualize quando quiser e lidere a concorrência.</p>
-        </div>
-        <div class="rec">
-          <div class="rec-ico"><i class="fas fa-ticket"></i></div>
-          <h5>Cupons e promoções</h5>
-          <p>Crie ofertas exclusivas e atraia clientes com desconto.</p>
-        </div>
-        <div class="rec">
-          <div class="rec-ico"><i class="fas fa-chart-line"></i></div>
-          <h5>Relatórios e análises</h5>
-          <p>Acompanhe o desempenho do posto facilmente.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="cta-block">
-      <div class="cta-ico"><i class="fas fa-rocket"></i></div>
-      <div class="cta-text">
-        <h3>Pronto para acelerar seus resultados?</h3>
-        <p>Cadastre seu posto e receba mais clientes hoje.</p>
-      </div>
-      <div class="cta-badges">
-        <div class="cbadge"><i class="fas fa-check-circle"></i> Cadastro rápido</div>
-        <div class="cbadge"><i class="fas fa-check-circle"></i> Mensalidade acessível</div>
-        <div class="cbadge"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
-      </div>
-      <button class="cta-btn" onclick="openM('premium')">
-        <i class="fas fa-handshake"></i> Quero ser parceiro
-      </button>
-    </div>
-
+<!-- NAV -->
+<nav>
+  <div class="n-logo" onclick="location.href='/'">
+    <i class="fas fa-location-dot n-logo-icon"></i>
+    <div class="n-logo-name">Rota<span>Posto</span></div>
+    <div class="n-tag">EMPRESAS</div>
   </div>
+  <div class="nav-btns">
+    <button class="btn-ghost" onclick="openM('premium')">
+      <i class="fas fa-handshake"></i> Quero ser parceiro
+    </button>
+    <button class="btn-solid" onclick="location.href='/parcerias/empresa'">
+      <i class="fas fa-arrow-right"></i> Acessar Painel
+    </button>
+  </div>
+</nav>
 
-  <!-- MODAL -->
-  <div class="modal-ov" id="modal-cad">
-    <div class="modal-box">
-      <button class="m-close" onclick="closeM()"><i class="fas fa-times"></i></button>
-      <div class="m-title">Cadastrar posto</div>
-      <div class="m-sub">Preencha os dados e entraremos em contato em até 24h.</div>
-      <div class="ferr" id="f-err"></div>
-      <div class="fok" id="f-ok">
-        <h4>Cadastro enviado!</h4>
-        <p>Nossa equipe entrará em contato em até 24h úteis.</p>
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-text">
+    <div class="eyebrow">Novo canal de vendas para postos</div>
+    <h1>Pronto para <span>acelerar</span><br>seus resultados?</h1>
+    <p class="sub">
+      Cadastre seu posto e conecte-se a milhares de motoristas<br>
+      com <em>preços em tempo real</em> e <em>destaque no mapa</em>.
+    </p>
+    <div class="ctas">
+      <button class="cta-primary" onclick="openM('premium')">
+        <i class="fas fa-handshake"></i> Quero ser parceiro
+      </button>
+      <button class="cta-secondary" onclick="openM('premium')">
+        <div class="play-dot"><i class="fas fa-play"></i></div>
+        Conhecer a plataforma
+      </button>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="feat-ico"><i class="fas fa-map-location-dot"></i></div>
+        <h4>Destaque no mapa</h4>
+        <p>Seu posto aparece primeiro para motoristas na sua região.</p>
       </div>
-      <div id="f-body">
-        <div class="fg">
-          <label class="fl">Nome do responsável</label>
-          <input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name"/>
-        </div>
-        <div class="fr">
-          <div class="fg">
-            <label class="fl">E-mail</label>
-            <input class="fi" id="f-email" type="email" placeholder="joao@posto.com"/>
-          </div>
-          <div class="fg">
-            <label class="fl">WhatsApp</label>
-            <input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)"/>
-          </div>
-        </div>
-        <div class="fg">
-          <label class="fl">Nome do posto</label>
-          <input class="fi" id="f-posto" placeholder="Posto São João"/>
-        </div>
-        <div class="fr">
-          <div class="fg">
-            <label class="fl">CNPJ</label>
-            <input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)"/>
-          </div>
-          <div class="fg">
-            <label class="fl">Cidade</label>
-            <input class="fi" id="f-cidade" placeholder="Vitória"/>
-          </div>
-        </div>
-        <div class="fg">
-          <label class="fl">Plano de interesse</label>
-          <select class="fsel" id="f-plano">
-            <option value="basico">Básico (Grátis)</option>
-            <option value="premium" selected>Profissional (R$197/mês)</option>
-            <option value="enterprise">Enterprise (Personalizado)</option>
-          </select>
-        </div>
-        <div class="fterms">Ao cadastrar você concorda com os <a href="#">Termos de Uso</a></div>
-        <button class="fsub" onclick="submitF()">
-          <span id="f-btn"><i class="fas fa-rocket"></i> &nbsp;Enviar cadastro</span>
-        </button>
+      <div class="feat-card">
+        <div class="feat-ico"><i class="fas fa-tag"></i></div>
+        <h4>Preços atualizados</h4>
+        <p>Atualize preços em segundos e mantenha-se competitivo.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><i class="fas fa-users"></i></div>
+        <h4>Mais clientes</h4>
+        <p>Atraia novos motoristas e aumente o movimento.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><i class="fas fa-chart-bar"></i></div>
+        <h4>Gestão completa</h4>
+        <p>Painel simples com tudo que você precisa acompanhar.</p>
       </div>
     </div>
   </div>
 
-  <!-- RODAPÉ -->
-  <footer class="footer">
-    <div class="footer-inner">
-      <div>
-        <div class="footer-logo" onclick="location.href='/'">
-          <i class="fas fa-location-dot" style="color:#FF6D00;font-size:16px"></i>
-          <span class="footer-logo-name">Rota<span style="color:#FF6D00">Posto</span></span>
-          <span class="footer-tag">EMPRESAS</span>
-        </div>
-        <p class="footer-desc">Conectando postos a motoristas.<br>A plataforma mais inteligente para seu negócio crescer.</p>
-      </div>
-      <div class="footer-links">
-        <div class="footer-col">
-          <div class="footer-col-title">Produto</div>
-          <a href="#" onclick="openM('premium')">Como funciona</a>
-          <a href="#" onclick="openM('premium')">Recursos</a>
-          <a href="#" onclick="openM('premium')">Planos e preços</a>
-          <a href="#" onclick="openM('premium')">Depoimentos</a>
-        </div>
-        <div class="footer-col">
-          <div class="footer-col-title">Empresa</div>
-          <a href="#" onclick="openM('premium')">Sobre nós</a>
-          <a href="#" onclick="openM('premium')">Blog</a>
-          <a href="#" onclick="openM('premium')">Contato</a>
-          <a href="#" onclick="openM('premium')">Termos de uso</a>
-        </div>
-        <div class="footer-col">
-          <div class="footer-col-title">Suporte</div>
-          <a href="#" onclick="openM('premium')">Central de ajuda</a>
-          <a href="#" onclick="openM('premium')">WhatsApp</a>
-          <a href="#" onclick="openM('premium')">E-mail</a>
-          <a href="tel:+5527999999999">+55 (27) 9 9999-9999</a>
-        </div>
-      </div>
-      <div class="footer-cta-col">
-        <button class="footer-cta-btn" onclick="openM('premium')">
-          <i class="fas fa-handshake"></i> Quero ser parceiro
-        </button>
-        <div class="footer-social">
-          <a href="#" class="soc-btn"><i class="fab fa-instagram"></i></a>
-          <a href="#" class="soc-btn"><i class="fab fa-whatsapp"></i></a>
-          <a href="#" class="soc-btn"><i class="fab fa-linkedin"></i></a>
-        </div>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <span>© 2025 RotaPosto. Todos os direitos reservados.</span>
-      <span>Feito com <i class="fas fa-heart" style="color:#FF6D00;font-size:10px"></i> no Brasil</span>
-    </div>
-  </footer>
+  <div class="hero-phone">
+    <img src="/static/phone-mockup.png" alt="App RotaPosto"/>
+  </div>
+</div>
 
-</div><!-- /shell -->
+<!-- RECURSOS + CTA -->
+<div class="bottom">
+  <div class="recursos">
+    <div class="rec-title">Recursos inclusos</div>
+    <div class="rec-grid">
+      <div class="rec">
+        <div class="rec-ico"><i class="fas fa-map-pin"></i></div>
+        <h5>Destaque inteligente</h5>
+        <p>Evidência no mapa para milhares de motoristas locais.</p>
+      </div>
+      <div class="rec">
+        <div class="rec-ico"><i class="fas fa-rotate"></i></div>
+        <h5>Preços em tempo real</h5>
+        <p>Atualize quando quiser e lidere a concorrência.</p>
+      </div>
+      <div class="rec">
+        <div class="rec-ico"><i class="fas fa-ticket"></i></div>
+        <h5>Cupons e promoções</h5>
+        <p>Crie ofertas exclusivas e atraia clientes com desconto.</p>
+      </div>
+      <div class="rec">
+        <div class="rec-ico"><i class="fas fa-chart-line"></i></div>
+        <h5>Relatórios e análises</h5>
+        <p>Acompanhe o desempenho do posto facilmente.</p>
+      </div>
+    </div>
+  </div>
+  <div class="cta-box">
+    <div class="cta-box-ico"><i class="fas fa-rocket"></i></div>
+    <h3>Pronto para acelerar seus resultados?</h3>
+    <p>Cadastre seu posto e receba mais clientes hoje.</p>
+    <div class="cta-checks">
+      <div class="chk"><i class="fas fa-check-circle"></i> Cadastro rápido</div>
+      <div class="chk"><i class="fas fa-check-circle"></i> Mensalidade acessível</div>
+      <div class="chk"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
+    </div>
+    <button class="cta-box-btn" onclick="openM('premium')">
+      <i class="fas fa-handshake"></i> Quero ser parceiro
+    </button>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-ov" id="modal-cad">
+  <div class="modal-box">
+    <button class="m-close" onclick="closeM()"><i class="fas fa-times"></i></button>
+    <div class="m-title">Cadastrar posto</div>
+    <div class="m-sub">Preencha os dados e entraremos em contato em até 24h.</div>
+    <div class="ferr" id="f-err"></div>
+    <div class="fok" id="f-ok">
+      <h4>Cadastro enviado!</h4>
+      <p>Nossa equipe entrará em contato em até 24h úteis.</p>
+    </div>
+    <div id="f-body">
+      <div class="fg"><label class="fl">Nome do responsável</label><input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name"/></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">E-mail</label><input class="fi" id="f-email" type="email" placeholder="joao@posto.com"/></div>
+        <div class="fg"><label class="fl">WhatsApp</label><input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)"/></div>
+      </div>
+      <div class="fg"><label class="fl">Nome do posto</label><input class="fi" id="f-posto" placeholder="Posto São João"/></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">CNPJ</label><input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)"/></div>
+        <div class="fg"><label class="fl">Cidade</label><input class="fi" id="f-cidade" placeholder="Vitória"/></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Plano de interesse</label>
+        <select class="fsel" id="f-plano">
+          <option value="basico">Básico (Grátis)</option>
+          <option value="premium" selected>Profissional (R$197/mês)</option>
+          <option value="enterprise">Enterprise (Personalizado)</option>
+        </select>
+      </div>
+      <div class="fterms">Ao cadastrar você concorda com os <a href="#">Termos de Uso</a></div>
+      <button class="fsub" onclick="submitF()"><span id="f-btn"><i class="fas fa-rocket"></i> &nbsp;Enviar cadastro</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="f-logo" onclick="location.href='/'">
+        <i class="fas fa-location-dot" style="color:#FF6D00;font-size:16px"></i>
+        <span class="f-logo-name">Rota<span>Posto</span></span>
+        <span class="f-tag">EMPRESAS</span>
+      </div>
+      <p class="f-desc">Conectando postos a motoristas.<br>A plataforma mais inteligente para seu negócio crescer.</p>
+    </div>
+    <div class="f-links">
+      <div class="f-col">
+        <div class="f-col-title">Produto</div>
+        <a href="#" onclick="openM('premium')">Como funciona</a>
+        <a href="#" onclick="openM('premium')">Recursos</a>
+        <a href="#" onclick="openM('premium')">Planos e preços</a>
+        <a href="#" onclick="openM('premium')">Depoimentos</a>
+      </div>
+      <div class="f-col">
+        <div class="f-col-title">Empresa</div>
+        <a href="#" onclick="openM('premium')">Sobre nós</a>
+        <a href="#" onclick="openM('premium')">Blog</a>
+        <a href="#" onclick="openM('premium')">Contato</a>
+        <a href="#" onclick="openM('premium')">Termos de uso</a>
+      </div>
+      <div class="f-col">
+        <div class="f-col-title">Suporte</div>
+        <a href="#" onclick="openM('premium')">Central de ajuda</a>
+        <a href="#" onclick="openM('premium')">WhatsApp</a>
+        <a href="#" onclick="openM('premium')">E-mail</a>
+        <a href="tel:+5527999999999">+55 (27) 9 9999-9999</a>
+      </div>
+    </div>
+    <div class="f-cta">
+      <button class="f-cta-btn" onclick="openM('premium')">
+        <i class="fas fa-handshake"></i> Quero ser parceiro
+      </button>
+      <div class="f-social">
+        <a href="#" class="soc"><i class="fab fa-instagram"></i></a>
+        <a href="#" class="soc"><i class="fab fa-whatsapp"></i></a>
+        <a href="#" class="soc"><i class="fab fa-linkedin"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="f-bottom">
+    <span>© 2025 RotaPosto. Todos os direitos reservados.</span>
+    <span>Feito com <i class="fas fa-heart" style="color:#FF6D00;font-size:10px"></i> no Brasil</span>
+  </div>
+</footer>
 
 <script>
   function openM(plano){
@@ -692,6 +540,7 @@ export function getParceriasLandingHTML(): string {
     }
   }
 </script>
+
 
 </body>
 </html>
