@@ -12,517 +12,598 @@ export function getParceriasLandingHTML(): string {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>RotaPosto Empresas — Mais clientes para seu posto</title>
-  <meta name="description" content="Conecte seu posto a milhares de motoristas. Destaque no mapa, precos em tempo real, cupons e relatorios."/>
   <link rel="icon" href="/favicon.ico"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    html,body{font-family:'Raleway',sans-serif;color:#fff;background:#07111C;height:100%;overflow:hidden}
+    html,body{
+      font-family:'Raleway',sans-serif;color:#fff;background:#07111C;
+      height:100%;overflow:hidden
+    }
     a{text-decoration:none;color:inherit}
 
-    /* LAYOUT PRINCIPAL */
-    .page-shell{
+    /* ═══ SHELL ═══ */
+    .shell{
+      height:100vh;display:grid;
+      grid-template-rows:56px 1fr;
+      overflow:hidden;background:#07111C;position:relative
+    }
+
+    /* ── foto de fundo suave ── */
+    .bg-photo{
+      position:absolute;inset:0;z-index:0;
+      background-image:url('https://sspark.genspark.ai/cfimages?u1=IA8DeFGtRQVLbnYzv7Y25Qf7ALF6cxomL1C9HwocxEjAPu3AifSULIf%2FHuMrmxm9ufW8ib6vBJrZlwnLgzg2pIbRBmSXSsdo6rWoAL%2FnTKrFJVBAOu6NnD4%2FLmOMKZAY6UL%2FgydLIUw%3D&u2=LfnlD%2F5XKdLkNxPa&width=2560');
+      background-size:cover;background-position:center 30%;
+      opacity:0.18
+    }
+    .bg-photo::after{
+      content:'';position:absolute;inset:0;
+      background:radial-gradient(ellipse 80% 60% at 60% 40%,rgba(255,109,0,0.06) 0%,transparent 70%),
+                linear-gradient(160deg,rgba(7,17,28,0.6) 0%,rgba(7,17,28,0.95) 60%)
+    }
+
+    /* ═══ NAV ═══ */
+    nav{
+      position:relative;z-index:20;
+      height:56px;
+      background:rgba(7,17,28,0.96);
+      backdrop-filter:blur(16px);
+      border-bottom:1px solid rgba(255,255,255,0.07);
+      display:flex;align-items:center;
+      justify-content:space-between;
+      padding:0 40px;gap:16px
+    }
+    .n-logo{display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0}
+    .n-logo-icon{color:#FF6D00;font-size:20px}
+    .n-logo-name{font-size:18px;font-weight:900}
+    .n-logo-name span{color:#FF6D00}
+    .n-tag{
+      font-size:8px;font-weight:800;letter-spacing:.6px;
+      color:#FF6D00;background:rgba(255,109,0,0.12);
+      border:1px solid rgba(255,109,0,0.3);
+      padding:2px 7px;border-radius:20px
+    }
+    .n-links{display:flex;gap:2px}
+    .n-btn{
+      padding:6px 13px;border-radius:8px;
+      font-size:12.5px;font-weight:600;
+      color:rgba(255,255,255,0.55);
+      border:none;background:none;cursor:pointer;
+      font-family:'Raleway',sans-serif;
+      transition:color .15s
+    }
+    .n-btn:hover{color:#fff}
+    .n-cta{
+      display:flex;align-items:center;gap:7px;
+      padding:9px 20px;background:#FF6D00;color:#fff;
+      border-radius:9px;font-size:12.5px;font-weight:800;
+      border:none;cursor:pointer;font-family:'Raleway',sans-serif;
+      flex-shrink:0;transition:background .15s
+    }
+    .n-cta:hover{background:#E65100}
+    @media(max-width:780px){nav{padding:0 20px}.n-links{display:none}}
+
+    /* ═══ BODY AREA ═══ */
+    .body{
+      position:relative;z-index:2;
+      display:grid;
+      grid-template-columns:1fr 380px;
+      grid-template-rows:1fr auto auto;
+      gap:0;overflow:hidden;
+      padding:32px 40px 24px
+    }
+    @media(max-width:1100px){
+      .body{grid-template-columns:1fr;grid-template-rows:auto auto auto}
+    }
+
+    /* ═══ HERO ═══ */
+    .hero{
+      grid-column:1;grid-row:1;
       display:flex;flex-direction:column;
-      height:100vh;overflow:hidden;
-      background:#07111C;
+      justify-content:center;
+      padding-right:32px;
+    }
+    @media(max-width:1100px){.hero{padding-right:0;grid-row:1}}
+
+    .hero-eyebrow{
+      display:inline-flex;align-items:center;gap:8px;
+      font-size:10px;font-weight:800;letter-spacing:2px;
+      text-transform:uppercase;color:#FF6D00;
+      margin-bottom:18px
+    }
+    .hero-eyebrow::before{
+      content:'';width:24px;height:2px;background:#FF6D00;
+      border-radius:2px;flex-shrink:0
+    }
+    .hero-h1{
+      font-size:clamp(28px,3.2vw,52px);
+      font-weight:900;line-height:1.07;
+      letter-spacing:-1px;
+      margin-bottom:18px
+    }
+    .hero-h1 .hl{color:#FF6D00}
+    .hero-p{
+      font-size:clamp(13px,1.2vw,16px);
+      color:rgba(255,255,255,0.58);
+      line-height:1.65;font-weight:500;
+      max-width:500px;margin-bottom:28px
+    }
+    .hero-p em{color:rgba(255,180,100,0.9);font-style:normal}
+    .hero-btns{display:flex;gap:12px;flex-wrap:wrap}
+    .btn-p{
+      display:inline-flex;align-items:center;gap:9px;
+      padding:13px 26px;background:#FF6D00;color:#fff;
+      border-radius:11px;font-size:14px;font-weight:800;
+      border:none;cursor:pointer;font-family:'Raleway',sans-serif;
+      transition:all .18s;white-space:nowrap
+    }
+    .btn-p:hover{background:#E65100;transform:translateY(-1px);box-shadow:0 8px 24px rgba(255,109,0,0.3)}
+    .btn-s{
+      display:inline-flex;align-items:center;gap:9px;
+      padding:13px 22px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85);
+      border-radius:11px;font-size:14px;font-weight:700;
+      border:1px solid rgba(255,255,255,0.15);
+      cursor:pointer;font-family:'Raleway',sans-serif;
+      transition:all .18s;white-space:nowrap;backdrop-filter:blur(4px)
+    }
+    .btn-s:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.3)}
+    .play-dot{
+      width:30px;height:30px;
+      background:rgba(255,255,255,0.14);border-radius:50%;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-size:10px;flex-shrink:0
+    }
+
+    /* ═══ PHONE ═══ */
+    .phone-col{
+      grid-column:2;grid-row:1/3;
+      display:flex;align-items:center;justify-content:center;
       position:relative
     }
-    .page-bg{
-      position:absolute;inset:0;
-      background-image:url('https://sspark.genspark.ai/cfimages?u1=IA8DeFGtRQVLbnYzv7Y25Qf7ALF6cxomL1C9HwocxEjAPu3AifSULIf%2FHuMrmxm9ufW8ib6vBJrZlwnLgzg2pIbRBmSXSsdo6rWoAL%2FnTKrFJVBAOu6NnD4%2FLmOMKZAY6UL%2FgydLIUw%3D&u2=LfnlD%2F5XKdLkNxPa&width=2560');
-      background-size:cover;background-position:center 40%;
-      opacity:0.3;pointer-events:none;z-index:0
+    .phone-halo{
+      position:absolute;
+      width:340px;height:340px;
+      background:radial-gradient(circle,rgba(255,109,0,0.18) 0%,transparent 65%);
+      pointer-events:none
     }
-    .page-bg::after{
-      content:'';position:absolute;inset:0;
-      background:linear-gradient(180deg,rgba(7,17,28,0.65) 0%,rgba(7,17,28,0.92) 55%,rgba(7,17,28,1) 100%)
-    }
-
-    /* NAV */
-    nav{
-      position:relative;z-index:10;height:52px;flex-shrink:0;
-      background:rgba(7,17,28,0.95);backdrop-filter:blur(12px);
-      border-bottom:1px solid rgba(255,255,255,0.07);
-      display:flex;align-items:center;justify-content:space-between;padding:0 32px;gap:12px
-    }
-    .n-logo{display:flex;align-items:center;gap:7px;font-size:18px;font-weight:900;cursor:pointer;flex-shrink:0}
-    .n-logo-icon{color:#FF6D00;font-size:19px}
-    .n-logo-text{color:#fff}.n-logo-text span{color:#FF6D00}
-    .n-tag{font-size:8px;font-weight:800;color:#FF6D00;background:rgba(255,109,0,0.15);border:1px solid rgba(255,109,0,0.3);padding:2px 7px;border-radius:20px;letter-spacing:0.5px}
-    .n-links{display:flex;align-items:center;gap:2px}
-    .n-btn{padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.6);cursor:pointer;border:none;background:transparent;font-family:'Raleway',sans-serif;white-space:nowrap;transition:color 0.2s}
-    .n-btn:hover{color:#fff}
-    .n-acc{display:flex;align-items:center;gap:7px;padding:8px 18px;background:#FF6D00;color:#fff;border-radius:9px;font-size:12px;font-weight:800;border:none;cursor:pointer;font-family:'Raleway',sans-serif;flex-shrink:0;transition:background 0.2s}
-    .n-acc:hover{background:#E65100}
-    @media(max-width:768px){nav{padding:0 16px}.n-links{display:none}}
-
-    /* CONTEUDO CENTRAL */
-    .main-content{
-      position:relative;z-index:2;
-      flex:1;display:flex;flex-direction:column;
-      overflow:hidden;padding:14px 32px 12px
-    }
-
-    /* HERO GRID */
-    .hero-grid{
-      display:grid;grid-template-columns:1fr auto;gap:20px;
-      align-items:center;margin-bottom:12px
-    }
-    .hero-label{
-      display:inline-flex;align-items:center;gap:7px;
-      color:#FF6D00;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
-      margin-bottom:8px
-    }
-    .hero-label::before{content:'';display:inline-block;width:22px;height:2px;background:#FF6D00}
-    .hero-h1{font-size:clamp(20px,2.6vw,40px);font-weight:900;line-height:1.08;margin-bottom:8px;letter-spacing:-0.5px}
-    .hero-h1 .orange{color:#FF6D00}
-    .hero-sub{
-      font-size:clamp(11px,1vw,14px);color:rgba(255,255,255,0.62);
-      line-height:1.55;margin-bottom:12px;font-weight:500;max-width:460px
-    }
-    .hero-sub em{color:#FF6D00;font-style:normal}
-    .hero-btns{display:flex;gap:10px;flex-wrap:wrap}
-    .btn-primary{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:10px 20px;background:#FF6D00;color:#fff;
-      border-radius:10px;font-size:13px;font-weight:800;border:none;cursor:pointer;
-      font-family:'Raleway',sans-serif;transition:all 0.2s;white-space:nowrap
-    }
-    .btn-primary:hover{background:#E65100;transform:translateY(-1px);box-shadow:0 6px 20px rgba(255,109,0,0.35)}
-    .btn-secondary{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:10px 18px;background:rgba(255,255,255,0.08);color:#fff;
-      border-radius:10px;font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,0.2);
-      cursor:pointer;font-family:'Raleway',sans-serif;transition:all 0.2s;white-space:nowrap;backdrop-filter:blur(4px)
-    }
-    .btn-secondary:hover{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.4)}
-    .btn-play{
-      width:28px;height:28px;background:rgba(255,255,255,0.15);border-radius:50%;
-      display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0
-    }
-
-    /* PHONE MOCKUP */
-    .hero-right{display:flex;justify-content:center;align-items:center;position:relative;flex-shrink:0}
     .phone-wrap{
-      position:relative;width:120px;
-      filter:drop-shadow(0 16px 32px rgba(0,0,0,0.7)) drop-shadow(0 0 24px rgba(255,109,0,0.25));
+      position:relative;z-index:2;
+      width:200px;
+      filter:drop-shadow(0 32px 60px rgba(0,0,0,0.8)) drop-shadow(0 0 40px rgba(255,109,0,0.2));
     }
-    .phone-img{width:100%;height:auto;display:block}
-    .phone-glow{
-      position:absolute;width:200px;height:200px;
-      background:radial-gradient(circle,rgba(255,109,0,0.2) 0%,transparent 65%);
-      top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:-1
-    }
-    @media(max-width:700px){.hero-right{display:none}}
+    .phone-wrap img{width:100%;height:auto;display:block}
+    @media(max-width:1100px){.phone-col{display:none}}
 
-    /* FEATURES BAR */
-    .features-bar{
+    /* ═══ FEATURES ═══ */
+    .feat-row{
+      grid-column:1;grid-row:2;
+      display:grid;grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      padding-right:32px;
+      margin-top:20px
+    }
+    @media(max-width:1100px){.feat-row{padding-right:0;grid-row:2;margin-top:12px}}
+    @media(max-width:860px){.feat-row{grid-template-columns:1fr 1fr;gap:8px}}
+
+    .feat-card{
       background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.09);
+      border-radius:14px;padding:16px;
+      display:flex;flex-direction:column;gap:10px;
+      transition:background .18s,border-color .18s
+    }
+    .feat-card:hover{background:rgba(255,255,255,0.07);border-color:rgba(255,109,0,0.25)}
+    .feat-ico{
+      width:36px;height:36px;border-radius:10px;
+      background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
+      display:flex;align-items:center;justify-content:center;
+      color:#FF6D00;font-size:15px;flex-shrink:0
+    }
+    .feat-card h4{font-size:12.5px;font-weight:800;color:#fff;margin:0}
+    .feat-card p{font-size:11px;color:rgba(255,255,255,0.42);line-height:1.5;font-weight:500;margin:0}
+
+    /* ═══ BOTTOM ROW (cards + cta) ═══ */
+    .bottom-row{
+      grid-column:1/3;grid-row:3;
+      display:grid;grid-template-columns:1fr auto;
+      gap:12px;align-items:stretch;
+      margin-top:12px
+    }
+    @media(max-width:1100px){.bottom-row{grid-template-columns:1fr;grid-row:3}}
+
+    /* recursos grid */
+    .recursos{
+      background:rgba(255,255,255,0.035);
       border:1px solid rgba(255,255,255,0.08);
-      border-radius:12px;padding:10px 18px;
-      margin-bottom:10px;flex-shrink:0
+      border-radius:16px;padding:18px 22px
     }
-    .features-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
-    .feat{
-      padding:0 14px;display:flex;align-items:center;gap:10px;
-      border-right:1px solid rgba(255,255,255,0.08)
+    .recursos-title{
+      font-size:11px;font-weight:800;color:rgba(255,255,255,0.35);
+      text-transform:uppercase;letter-spacing:1px;margin-bottom:14px
     }
-    .feat:first-child{padding-left:0}
-    .feat:last-child{border-right:none;padding-right:0}
-    .feat-icon{
-      width:32px;height:32px;border-radius:9px;flex-shrink:0;
-      background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
-      display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:13px
+    .recursos-grid{
+      display:grid;grid-template-columns:repeat(4,1fr);gap:0
     }
-    .feat-text h4{font-size:11px;font-weight:800;color:#fff;margin-bottom:1px}
-    .feat-text p{font-size:10px;color:rgba(255,255,255,0.45);line-height:1.3;font-weight:500}
-    @media(max-width:900px){
-      .features-grid{grid-template-columns:1fr 1fr;gap:8px}
-      .feat{border-right:none;padding:0}
+    .rec{
+      padding:0 16px;
+      border-right:1px solid rgba(255,255,255,0.07)
     }
-
-    /* CARDS RECURSOS */
-    .section-wrap{
-      background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);
-      border-radius:12px;padding:12px 18px;
-      margin-bottom:10px;flex-shrink:0
-    }
-    .section-title{
-      font-size:12px;font-weight:900;color:#fff;
-      margin-bottom:10px;text-align:center
-    }
-    .cards-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
-    .card{
-      padding:0 14px;
-      border-right:1px solid rgba(255,255,255,0.08)
-    }
-    .card:first-child{padding-left:0}
-    .card:last-child{border-right:none;padding-right:0}
-    .card-icon{
+    .rec:first-child{padding-left:0}
+    .rec:last-child{border-right:none;padding-right:0}
+    .rec-ico{
       width:32px;height:32px;border-radius:9px;
-      background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
+      background:rgba(255,109,0,0.1);border:1px solid rgba(255,109,0,0.18);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:13px;margin-bottom:6px
+      color:#FF6D00;font-size:13px;margin-bottom:8px
     }
-    .card h4{font-size:11px;font-weight:800;color:#fff;margin-bottom:3px}
-    .card p{font-size:10px;color:rgba(255,255,255,0.45);line-height:1.4;font-weight:500}
-    @media(max-width:900px){
-      .cards-grid{grid-template-columns:1fr 1fr;gap:10px}
-      .card{border-right:none;padding:0}
+    .rec h5{font-size:12px;font-weight:800;color:#fff;margin-bottom:3px}
+    .rec p{font-size:10.5px;color:rgba(255,255,255,0.4);line-height:1.45;font-weight:500}
+    @media(max-width:860px){
+      .recursos-grid{grid-template-columns:1fr 1fr;gap:12px}
+      .rec{border-right:none;padding:0}
     }
 
-    /* CTA BANNER */
-    .cta-banner{
-      background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
-      border-radius:12px;padding:12px 18px;
-      display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
-      flex-shrink:0
+    /* cta block */
+    .cta-block{
+      background:linear-gradient(135deg,rgba(255,109,0,0.12) 0%,rgba(255,109,0,0.04) 100%);
+      border:1px solid rgba(255,109,0,0.2);
+      border-radius:16px;padding:20px 22px;
+      display:flex;flex-direction:column;justify-content:space-between;
+      min-width:240px;max-width:260px
     }
-    .cta-left{display:flex;align-items:center;gap:12px}
-    .cta-rocket{
-      width:36px;height:36px;border-radius:10px;flex-shrink:0;
-      background:rgba(255,109,0,0.15);border:1px solid rgba(255,109,0,0.3);
+    @media(max-width:1100px){.cta-block{max-width:100%;flex-direction:row;align-items:center;gap:16px}}
+    .cta-ico{
+      width:40px;height:40px;border-radius:12px;
+      background:rgba(255,109,0,0.2);border:1px solid rgba(255,109,0,0.35);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:16px
+      color:#FF6D00;font-size:18px;margin-bottom:12px;flex-shrink:0
     }
-    .cta-text h3{font-size:12px;font-weight:900;color:#fff;margin-bottom:1px}
-    .cta-text p{font-size:10px;color:rgba(255,255,255,0.45);font-weight:500}
-    .cta-badges{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-    .cta-badge{display:flex;align-items:center;gap:5px;font-size:10px;color:rgba(255,255,255,0.6);font-weight:600;white-space:nowrap}
-    .cta-badge i{color:#FF6D00;font-size:10px}
-    @media(max-width:900px){
-      .cta-banner{flex-direction:column;align-items:flex-start;padding:14px}
-      .cta-badges{gap:8px}
+    @media(max-width:1100px){.cta-ico{margin-bottom:0}}
+    .cta-text{flex:1}
+    .cta-text h3{font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;line-height:1.3}
+    .cta-text p{font-size:11px;color:rgba(255,255,255,0.45);font-weight:500;line-height:1.4}
+    .cta-badges{
+      display:flex;flex-wrap:wrap;gap:6px;
+      margin:12px 0;
     }
+    @media(max-width:1100px){.cta-badges{display:none}}
+    .cbadge{
+      display:flex;align-items:center;gap:5px;
+      font-size:10px;font-weight:700;color:rgba(255,255,255,0.55)
+    }
+    .cbadge i{color:#FF6D00;font-size:9px}
+    .cta-btn{
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      width:100%;padding:11px;background:#FF6D00;color:#fff;
+      border-radius:10px;font-size:13px;font-weight:800;
+      border:none;cursor:pointer;font-family:'Raleway',sans-serif;
+      transition:background .15s;white-space:nowrap;flex-shrink:0
+    }
+    .cta-btn:hover{background:#E65100}
+    @media(max-width:1100px){.cta-btn{width:auto;padding:11px 22px}}
 
-    /* MODAL */
-    .modal-overlay{
+    /* ═══ MODAL ═══ */
+    .modal-ov{
       display:none;position:fixed;inset:0;z-index:9999;
-      background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);
+      background:rgba(0,0,0,0.72);backdrop-filter:blur(8px);
       align-items:center;justify-content:center;padding:20px
     }
-    .modal-overlay.open{display:flex}
+    .modal-ov.open{display:flex}
     .modal-box{
-      background:#0D1B2A;border:1px solid rgba(255,255,255,0.12);
-      border-radius:20px;width:100%;max-width:480px;
-      padding:32px;position:relative;max-height:90vh;overflow-y:auto
+      background:#0D1B2A;border:1px solid rgba(255,255,255,0.1);
+      border-radius:20px;width:100%;max-width:460px;
+      padding:30px;position:relative;max-height:92vh;overflow-y:auto
     }
-    .modal-close{
-      position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);
-      border:none;cursor:pointer;color:rgba(255,255,255,0.5);
-      width:32px;height:32px;border-radius:8px;font-size:16px;
-      display:flex;align-items:center;justify-content:center;transition:all 0.2s
+    .m-close{
+      position:absolute;top:14px;right:14px;
+      background:rgba(255,255,255,0.07);border:none;cursor:pointer;
+      color:rgba(255,255,255,0.4);width:30px;height:30px;
+      border-radius:8px;font-size:15px;
+      display:flex;align-items:center;justify-content:center;transition:all .2s
     }
-    .modal-close:hover{background:rgba(255,255,255,0.14);color:#fff}
-    .modal-title{font-size:22px;font-weight:900;color:#fff;margin-bottom:4px}
-    .modal-sub{font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:24px;font-weight:500}
-    .form-group{margin-bottom:14px}
-    .form-label{display:block;font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
-    .form-input{
-      width:100%;padding:12px 14px;
+    .m-close:hover{background:rgba(255,255,255,0.13);color:#fff}
+    .m-title{font-size:20px;font-weight:900;color:#fff;margin-bottom:3px}
+    .m-sub{font-size:12.5px;color:rgba(255,255,255,0.4);margin-bottom:22px;font-weight:500}
+    .fg{margin-bottom:13px}
+    .fl{display:block;font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.45);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+    .fi{
+      width:100%;padding:11px 13px;
       background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.1);
-      border-radius:10px;color:#fff;font-size:14px;font-family:'Raleway',sans-serif;
-      font-weight:600;outline:none;transition:border-color 0.2s
+      border-radius:9px;color:#fff;font-size:13.5px;
+      font-family:'Raleway',sans-serif;font-weight:600;
+      outline:none;transition:border-color .2s
     }
-    .form-input:focus{border-color:#FF6D00}
-    .form-input::placeholder{color:rgba(255,255,255,0.25)}
-    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .form-select{
-      width:100%;padding:12px 14px;
+    .fi:focus{border-color:#FF6D00}
+    .fi::placeholder{color:rgba(255,255,255,0.22)}
+    .fr{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .fsel{
+      width:100%;padding:11px 13px;
       background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);
-      border-radius:10px;color:#fff;font-size:14px;font-family:'Raleway',sans-serif;
-      font-weight:600;outline:none;cursor:pointer
+      border-radius:9px;color:#fff;font-size:13.5px;
+      font-family:'Raleway',sans-serif;font-weight:600;
+      outline:none;cursor:pointer
     }
-    .form-select:focus{border-color:#FF6D00}
-    .form-submit{
-      width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;
-      border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;
-      font-family:'Raleway',sans-serif;margin-top:6px;transition:background 0.2s
+    .fsel:focus{border-color:#FF6D00}
+    .fsub{
+      width:100%;padding:13px;background:#FF6D00;color:#fff;border:none;
+      border-radius:11px;font-size:14.5px;font-weight:800;cursor:pointer;
+      font-family:'Raleway',sans-serif;margin-top:5px;transition:background .2s
     }
-    .form-submit:hover{background:#E65100}
-    .form-terms{text-align:center;font-size:11px;color:rgba(255,255,255,0.3);margin:10px 0}
-    .form-terms a{color:#FF6D00}
-    .form-error{
-      background:rgba(255,82,82,0.12);border:1px solid rgba(255,82,82,0.25);
-      border-radius:8px;padding:10px 14px;font-size:12px;color:#FF5252;
-      font-weight:700;margin-bottom:12px;display:none
+    .fsub:hover{background:#E65100}
+    .fterms{text-align:center;font-size:10.5px;color:rgba(255,255,255,0.28);margin:8px 0}
+    .fterms a{color:#FF6D00}
+    .ferr{
+      background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.2);
+      border-radius:8px;padding:9px 13px;font-size:11.5px;color:#FF5252;
+      font-weight:700;margin-bottom:11px;display:none
     }
-    .form-success{
-      background:rgba(0,200,83,0.1);border:1px solid rgba(0,200,83,0.25);
-      border-radius:12px;padding:20px;text-align:center;display:none
+    .fok{
+      background:rgba(0,200,83,0.08);border:1px solid rgba(0,200,83,0.22);
+      border-radius:11px;padding:20px;text-align:center;display:none
     }
-    .form-success h4{font-size:18px;font-weight:900;color:#69F0AE;margin-bottom:8px}
-    .form-success p{font-size:13px;color:rgba(255,255,255,0.6);line-height:1.6}
+    .fok h4{font-size:17px;font-weight:900;color:#69F0AE;margin-bottom:7px}
+    .fok p{font-size:12.5px;color:rgba(255,255,255,0.55);line-height:1.6}
   </style>
 </head>
 <body>
-
-<div class="page-shell">
-  <div class="page-bg"></div>
+<div class="shell">
+  <div class="bg-photo"></div>
 
   <!-- NAV -->
   <nav>
     <div class="n-logo" onclick="location.href='/'">
       <i class="fas fa-location-dot n-logo-icon"></i>
-      <div class="n-logo-text">Rota<span>Posto</span></div>
+      <div class="n-logo-name">Rota<span>Posto</span></div>
       <div class="n-tag">EMPRESAS</div>
     </div>
     <div class="n-links">
       <button class="n-btn">Como funciona</button>
       <button class="n-btn">Recursos</button>
-      <button class="n-btn" onclick="openModal('premium')">Depoimentos</button>
-      <button class="n-btn" onclick="openModal('premium')">Blog</button>
-      <button class="n-btn" onclick="openModal('premium')">Contato</button>
+      <button class="n-btn" onclick="openM('premium')">Depoimentos</button>
+      <button class="n-btn" onclick="openM('premium')">Blog</button>
+      <button class="n-btn" onclick="openM('premium')">Contato</button>
     </div>
-    <button class="n-acc" onclick="location.href='/parcerias/empresa'">
+    <button class="n-cta" onclick="location.href='/parcerias/empresa'">
       <i class="fas fa-arrow-right"></i> Acessar Painel
     </button>
   </nav>
 
-  <!-- CONTEUDO PRINCIPAL -->
-  <div class="main-content">
+  <!-- BODY -->
+  <div class="body">
 
-    <!-- HERO: texto + phone -->
-    <div class="hero-grid">
-      <div class="hero-left">
-        <div class="hero-label">Novo canal de vendas para postos</div>
-        <h1 class="hero-h1">
-          Mais visibilidade.<br>
-          <span class="orange">Mais clientes.</span><br>
-          Mais resultados.
-        </h1>
-        <p class="hero-sub">
-          Conecte seu posto a milhares de motoristas todos os dias,
-          com precos atualizados em <em>tempo real</em> e <em>destaque no mapa</em>
-          quando o motorista mais precisa.
-        </p>
-        <div class="hero-btns">
-          <button class="btn-primary" onclick="openModal('premium')">
-            <i class="fas fa-handshake"></i> Quero ser parceiro
-          </button>
-          <button class="btn-secondary" onclick="openModal('premium')">
-            <div class="btn-play"><i class="fas fa-play"></i></div>
-            Conhecer a plataforma
-          </button>
+    <!-- PHONE -->
+    <div class="phone-col">
+      <div class="phone-halo"></div>
+      <div class="phone-wrap">
+        <img src="/static/phone-mockup.jpg" alt="App RotaPosto" loading="eager"/>
+      </div>
+    </div>
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-eyebrow">Novo canal de vendas para postos</div>
+      <h1 class="hero-h1">
+        Mais visibilidade.<br>
+        <span class="hl">Mais clientes.</span><br>
+        Mais resultados.
+      </h1>
+      <p class="hero-p">
+        Conecte seu posto a milhares de motoristas todos os dias,
+        com precos em <em>tempo real</em> e <em>destaque no mapa</em>
+        quando o cliente mais precisa.
+      </p>
+      <div class="hero-btns">
+        <button class="btn-p" onclick="openM('premium')">
+          <i class="fas fa-handshake"></i> Quero ser parceiro
+        </button>
+        <button class="btn-s" onclick="openM('premium')">
+          <div class="play-dot"><i class="fas fa-play"></i></div>
+          Conhecer a plataforma
+        </button>
+      </div>
+    </div>
+
+    <!-- FEATURES 4 cards -->
+    <div class="feat-row">
+      <div class="feat-card">
+        <div class="feat-ico"><i class="fas fa-map-location-dot"></i></div>
+        <div>
+          <h4>Destaque no mapa</h4>
+          <p>Seu posto aparece primeiro para motoristas na sua regiao.</p>
         </div>
       </div>
-      <div class="hero-right">
-        <div class="phone-glow"></div>
-        <div class="phone-wrap">
-          <img class="phone-img"
-            src="/static/phone-mockup.jpg"
-            alt="App RotaPosto mapa com precos em tempo real"
-            loading="eager"
-          />
+      <div class="feat-card">
+        <div class="feat-ico"><i class="fas fa-tag"></i></div>
+        <div>
+          <h4>Precos atualizados</h4>
+          <p>Atualize precos em segundos e mantenha-se competitivo.</p>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><i class="fas fa-users"></i></div>
+        <div>
+          <h4>Mais clientes</h4>
+          <p>Atraia novos motoristas e aumente o movimento.</p>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><i class="fas fa-chart-bar"></i></div>
+        <div>
+          <h4>Gestao completa</h4>
+          <p>Painel simples com tudo que voce precisa acompanhar.</p>
         </div>
       </div>
     </div>
 
-    <!-- FEATURES BAR -->
-    <div class="features-bar">
-      <div class="features-grid">
-        <div class="feat">
-          <div class="feat-icon"><i class="fas fa-map-location-dot"></i></div>
-          <div class="feat-text">
-            <h4>Destaque no mapa</h4>
-            <p>Seu posto aparece para motoristas na hora da escolha.</p>
+    <!-- BOTTOM ROW -->
+    <div class="bottom-row">
+
+      <!-- recursos -->
+      <div class="recursos">
+        <div class="recursos-title">Recursos inclusos</div>
+        <div class="recursos-grid">
+          <div class="rec">
+            <div class="rec-ico"><i class="fas fa-map-pin"></i></div>
+            <h5>Destaque inteligente</h5>
+            <p>Evidencia no mapa para milhares de motoristas locais.</p>
+          </div>
+          <div class="rec">
+            <div class="rec-ico"><i class="fas fa-rotate"></i></div>
+            <h5>Precos em tempo real</h5>
+            <p>Atualize quando quiser e lidere a concorrencia.</p>
+          </div>
+          <div class="rec">
+            <div class="rec-ico"><i class="fas fa-ticket"></i></div>
+            <h5>Cupons e promocoes</h5>
+            <p>Crie ofertas exclusivas e atraia clientes com desconto.</p>
+          </div>
+          <div class="rec">
+            <div class="rec-ico"><i class="fas fa-chart-line"></i></div>
+            <h5>Relatorios e analises</h5>
+            <p>Acompanhe o desempenho do posto facilmente.</p>
           </div>
         </div>
-        <div class="feat">
-          <div class="feat-icon"><i class="fas fa-tag"></i></div>
-          <div class="feat-text">
-            <h4>Precos atualizados</h4>
-            <p>Atualize precos em segundos e mantenha sempre competitivo.</p>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-block">
+        <div>
+          <div class="cta-ico"><i class="fas fa-rocket"></i></div>
+          <div class="cta-text">
+            <h3>Pronto para acelerar seus resultados?</h3>
+            <p>Cadastre seu posto e receba mais clientes hoje.</p>
+          </div>
+          <div class="cta-badges">
+            <div class="cbadge"><i class="fas fa-check-circle"></i> Cadastro rapido</div>
+            <div class="cbadge"><i class="fas fa-check-circle"></i> Mensalidade acessivel</div>
+            <div class="cbadge"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
           </div>
         </div>
-        <div class="feat">
-          <div class="feat-icon"><i class="fas fa-users"></i></div>
-          <div class="feat-text">
-            <h4>Mais clientes</h4>
-            <p>Atraia novos motoristas e aumente o movimento do seu posto.</p>
+        <button class="cta-btn" onclick="openM('premium')">
+          <i class="fas fa-arrow-right"></i> Quero ser parceiro
+        </button>
+      </div>
+
+    </div><!-- /bottom-row -->
+
+  </div><!-- /body -->
+
+  <!-- MODAL -->
+  <div class="modal-ov" id="modal-cad">
+    <div class="modal-box">
+      <button class="m-close" onclick="closeM()"><i class="fas fa-times"></i></button>
+      <div class="m-title">Cadastrar posto</div>
+      <div class="m-sub">Preencha os dados e entraremos em contato em ate 24h.</div>
+      <div class="ferr" id="f-err"></div>
+      <div class="fok" id="f-ok">
+        <h4>Cadastro enviado!</h4>
+        <p>Nossa equipe entrara em contato em ate 24h uteis.</p>
+      </div>
+      <div id="f-body">
+        <div class="fg">
+          <label class="fl">Nome do responsavel</label>
+          <input class="fi" id="f-nome" placeholder="Joao Silva" autocomplete="name"/>
+        </div>
+        <div class="fr">
+          <div class="fg">
+            <label class="fl">E-mail</label>
+            <input class="fi" id="f-email" type="email" placeholder="joao@posto.com"/>
+          </div>
+          <div class="fg">
+            <label class="fl">WhatsApp</label>
+            <input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)"/>
           </div>
         </div>
-        <div class="feat">
-          <div class="feat-icon"><i class="fas fa-chart-bar"></i></div>
-          <div class="feat-text">
-            <h4>Gestao completa</h4>
-            <p>Acompanhe tudo em um painel simples e intuitivo.</p>
+        <div class="fg">
+          <label class="fl">Nome do posto</label>
+          <input class="fi" id="f-posto" placeholder="Posto Sao Joao"/>
+        </div>
+        <div class="fr">
+          <div class="fg">
+            <label class="fl">CNPJ</label>
+            <input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)"/>
+          </div>
+          <div class="fg">
+            <label class="fl">Cidade</label>
+            <input class="fi" id="f-cidade" placeholder="Vitoria"/>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- CARDS RECURSOS -->
-    <div class="section-wrap">
-      <div class="section-title">Tudo o que seu posto precisa para vender mais</div>
-      <div class="cards-grid">
-        <div class="card">
-          <div class="card-icon"><i class="fas fa-map-pin"></i></div>
-          <h4>Destaque inteligente</h4>
-          <p>Seu posto em evidencia no mapa para milhares de motoristas na sua regiao.</p>
+        <div class="fg">
+          <label class="fl">Plano de interesse</label>
+          <select class="fsel" id="f-plano">
+            <option value="basico">Basico (Gratis)</option>
+            <option value="premium" selected>Profissional (R$197/mes)</option>
+            <option value="enterprise">Enterprise (Personalizado)</option>
+          </select>
         </div>
-        <div class="card">
-          <div class="card-icon"><i class="fas fa-rotate"></i></div>
-          <h4>Precos em tempo real</h4>
-          <p>Atualize seus precos a qualquer momento e mantenha-se sempre competitivo.</p>
-        </div>
-        <div class="card">
-          <div class="card-icon"><i class="fas fa-ticket"></i></div>
-          <h4>Cupons e promocoes</h4>
-          <p>Crie ofertas exclusivas e atraia mais clientes com cupons personalizados.</p>
-        </div>
-        <div class="card">
-          <div class="card-icon"><i class="fas fa-chart-line"></i></div>
-          <h4>Relatorios e analises</h4>
-          <p>Acompanhe o desempenho do seu posto com relatorios simples e completos.</p>
-        </div>
+        <div class="fterms">Ao cadastrar voce concorda com os <a href="#">Termos de Uso</a></div>
+        <button class="fsub" onclick="submitF()">
+          <span id="f-btn"><i class="fas fa-rocket"></i> &nbsp;Enviar cadastro</span>
+        </button>
       </div>
-    </div>
-
-    <!-- CTA BANNER -->
-    <div class="cta-banner">
-      <div class="cta-left">
-        <div class="cta-rocket"><i class="fas fa-rocket"></i></div>
-        <div class="cta-text">
-          <h3>Pronto para acelerar seus resultados?</h3>
-          <p>Cadastre seu posto e comece a receber mais clientes hoje mesmo.</p>
-        </div>
-      </div>
-      <div class="cta-badges">
-        <div class="cta-badge"><i class="fas fa-check-circle"></i> Cadastro rapido</div>
-        <div class="cta-badge"><i class="fas fa-check-circle"></i> Mensalidade que cabe no bolso</div>
-        <div class="cta-badge"><i class="fas fa-check-circle"></i> Painel simples e intuitivo</div>
-        <div class="cta-badge"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
-      </div>
-      <button class="btn-primary" onclick="openModal('premium')">
-        <i class="fas fa-arrow-right"></i> Quero ser parceiro
-      </button>
-    </div>
-
-  </div>
-</div>
-
-<!-- MODAL CADASTRO -->
-<div class="modal-overlay" id="modal-cadastro">
-  <div class="modal-box">
-    <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
-    <div class="modal-title">Cadastrar posto</div>
-    <div class="modal-sub">Preencha os dados e entraremos em contato em ate 24h.</div>
-    <div class="form-error" id="form-err"></div>
-    <div class="form-success" id="form-ok">
-      <h4>Cadastro enviado!</h4>
-      <p>Nossa equipe entrara em contato em ate 24h uteis para finalizar o cadastro do seu posto.</p>
-    </div>
-    <div id="form-body">
-      <div class="form-group">
-        <label class="form-label">Nome do responsavel</label>
-        <input class="form-input" id="f-nome" placeholder="Joao Silva" autocomplete="name"/>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">E-mail</label>
-          <input class="form-input" id="f-email" type="email" placeholder="joao@posto.com"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">WhatsApp</label>
-          <input class="form-input" id="f-tel" placeholder="(27) 99999-9999" oninput="maskTel(this)"/>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Nome do posto</label>
-        <input class="form-input" id="f-posto" placeholder="Posto Sao Joao"/>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">CNPJ</label>
-          <input class="form-input" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="maskCNPJ(this)"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Cidade</label>
-          <input class="form-input" id="f-cidade" placeholder="Vitoria"/>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Plano de interesse</label>
-        <select class="form-select" id="f-plano">
-          <option value="basico">Basico (Gratis)</option>
-          <option value="premium" selected>Profissional (R$197/mes)</option>
-          <option value="enterprise">Enterprise (Personalizado)</option>
-        </select>
-      </div>
-      <div class="form-terms">Ao cadastrar voce concorda com os <a href="#">Termos de Uso</a></div>
-      <button class="form-submit" onclick="submitForm()">
-        <span id="f-btn"><i class="fas fa-rocket"></i> &nbsp;Enviar cadastro</span>
-      </button>
     </div>
   </div>
-</div>
+
+</div><!-- /shell -->
 
 <script>
-  function openModal(plano) {
-    const el = document.getElementById('f-plano');
-    if (el && plano) el.value = plano;
-    document.getElementById('modal-cadastro').classList.add('open');
+  function openM(plano){
+    const s=document.getElementById('f-plano');
+    if(s&&plano)s.value=plano;
+    document.getElementById('modal-cad').classList.add('open');
   }
-  function closeModal() {
-    document.getElementById('modal-cadastro').classList.remove('open');
+  function closeM(){document.getElementById('modal-cad').classList.remove('open')}
+  document.getElementById('modal-cad').addEventListener('click',function(e){if(e.target===this)closeM()});
+  function mTel(i){
+    let v=i.value.replace(/\D/g,'').slice(0,11);
+    if(v.length>7)i.value='('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
+    else if(v.length>2)i.value='('+v.slice(0,2)+') '+v.slice(2);
+    else if(v.length)i.value='('+v;
   }
-  document.getElementById('modal-cadastro').addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
-  });
-  function maskTel(i) {
-    let v = i.value.replace(/\D/g,'').slice(0,11);
-    if (v.length > 7) i.value = '('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
-    else if (v.length > 2) i.value = '('+v.slice(0,2)+') '+v.slice(2);
-    else if (v.length) i.value = '('+v;
+  function mCNPJ(i){
+    let v=i.value.replace(/\D/g,'').slice(0,14);
+    if(v.length>12)i.value=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
+    else if(v.length>8)i.value=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
+    else if(v.length>5)i.value=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
+    else if(v.length>2)i.value=v.slice(0,2)+'.'+v.slice(2);
+    else i.value=v;
   }
-  function maskCNPJ(i) {
-    let v = i.value.replace(/\D/g,'').slice(0,14);
-    if (v.length > 12) i.value = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
-    else if (v.length > 8) i.value = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
-    else if (v.length > 5) i.value = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
-    else if (v.length > 2) i.value = v.slice(0,2)+'.'+v.slice(2);
-    else i.value = v;
-  }
-  async function submitForm() {
-    const nome  = document.getElementById('f-nome').value.trim();
-    const email = document.getElementById('f-email').value.trim();
-    const tel   = document.getElementById('f-tel').value.trim();
-    const posto = document.getElementById('f-posto').value.trim();
-    const cnpj  = document.getElementById('f-cnpj').value.trim();
-    const cidade= document.getElementById('f-cidade').value.trim();
-    const plano = document.getElementById('f-plano').value;
-    const err   = document.getElementById('form-err');
-    err.style.display = 'none';
-    if (!nome || !email || !tel || !posto) {
-      err.textContent = 'Preencha nome, e-mail, WhatsApp e nome do posto.';
-      err.style.display = 'block';
-      return;
+  async function submitF(){
+    const nome=document.getElementById('f-nome').value.trim();
+    const email=document.getElementById('f-email').value.trim();
+    const tel=document.getElementById('f-tel').value.trim();
+    const posto=document.getElementById('f-posto').value.trim();
+    const cnpj=document.getElementById('f-cnpj').value.trim();
+    const cidade=document.getElementById('f-cidade').value.trim();
+    const plano=document.getElementById('f-plano').value;
+    const err=document.getElementById('f-err');
+    err.style.display='none';
+    if(!nome||!email||!tel||!posto){
+      err.textContent='Preencha nome, e-mail, WhatsApp e nome do posto.';
+      err.style.display='block';return;
     }
-    const btn = document.getElementById('f-btn');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> &nbsp;Enviando...';
-    try {
-      const r = await fetch('/api/parceiro/cadastrar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, email, tel, nomePosto: posto, cnpj, cidade, plano })
+    const btn=document.getElementById('f-btn');
+    btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> &nbsp;Enviando...';
+    try{
+      const r=await fetch('/api/parceiro/cadastrar',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({nome,email,tel,nomePosto:posto,cnpj,cidade,plano})
       });
-      const d = await r.json();
-      if (r.ok) {
-        document.getElementById('form-body').style.display = 'none';
-        document.getElementById('form-ok').style.display = 'block';
-      } else {
-        err.textContent = d.erro || 'Erro ao enviar. Tente novamente.';
-        err.style.display = 'block';
-        btn.innerHTML = '<i class="fas fa-rocket"></i> &nbsp;Enviar cadastro';
+      const d=await r.json();
+      if(r.ok){
+        document.getElementById('f-body').style.display='none';
+        document.getElementById('f-ok').style.display='block';
+      }else{
+        err.textContent=d.erro||'Erro ao enviar. Tente novamente.';
+        err.style.display='block';
+        btn.innerHTML='<i class="fas fa-rocket"></i> &nbsp;Enviar cadastro';
       }
-    } catch(e) {
-      err.textContent = 'Erro de conexao. Verifique sua internet.';
-      err.style.display = 'block';
-      btn.innerHTML = '<i class="fas fa-rocket"></i> &nbsp;Enviar cadastro';
+    }catch(e){
+      err.textContent='Erro de conexao. Verifique sua internet.';
+      err.style.display='block';
+      btn.innerHTML='<i class="fas fa-rocket"></i> &nbsp;Enviar cadastro';
     }
   }
 </script>
