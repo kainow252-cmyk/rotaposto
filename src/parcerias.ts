@@ -77,9 +77,10 @@ export function getParceriasLandingHTML(): string {
     .n-btn:hover{color:#fff}
     .n-parceiro{
       display:flex;align-items:center;gap:7px;
-      padding:9px 20px;background:rgba(255,109,0,0.15);color:#FF6D00;
+      padding:9px 20px;background:transparent;color:#FF6D00;
       border-radius:9px;font-size:12.5px;font-weight:800;
-      border:1.5px solid rgba(255,109,0,0.4);cursor:pointer;
+      border:1.5px solid #FF6D00;cursor:pointer;
+      font-family:'Raleway',sans-serif;transition:all .18s;
       font-family:'Raleway',sans-serif;flex-shrink:0;transition:all .15s
     }
     .n-parceiro:hover{background:rgba(255,109,0,0.25);border-color:#FF6D00}
@@ -138,9 +139,9 @@ export function getParceriasLandingHTML(): string {
       color:rgba(255,255,255,0.62);
       line-height:1.5;font-weight:500;
       max-width:none;margin-bottom:24px;
-      white-space:nowrap
+      white-space:nowrap;text-decoration:none
     }
-    .hero-p em{color:rgba(255,180,100,0.9);font-style:normal}
+    .hero-p em{color:rgba(255,180,100,0.9);font-style:normal;text-decoration:none}
     .hero-btns{display:flex;gap:12px;flex-wrap:wrap}
     .btn-p{
       display:inline-flex;align-items:center;gap:9px;
@@ -180,7 +181,7 @@ export function getParceriasLandingHTML(): string {
     }
     .phone-wrap{
       position:relative;z-index:2;
-      width:220px;
+      width:min(300px,85%);
       filter:drop-shadow(0 32px 60px rgba(0,0,0,0.85)) drop-shadow(0 0 50px rgba(255,109,0,0.22));
     }
     .phone-wrap img{width:100%;height:auto;display:block}
