@@ -109,25 +109,25 @@ export function getParceriasLandingHTML(): string {
 
     .hero-eyebrow{
       display:inline-flex;align-items:center;gap:8px;
-      font-size:10px;font-weight:800;letter-spacing:2px;
+      font-size:12px;font-weight:800;letter-spacing:2px;
       text-transform:uppercase;color:#FF6D00;
-      margin-bottom:18px
+      margin-bottom:16px
     }
     .hero-eyebrow::before{
       content:'';width:24px;height:2px;background:#FF6D00;
       border-radius:2px;flex-shrink:0
     }
     .hero-h1{
-      font-size:clamp(20px,2.2vw,38px);
+      font-size:clamp(26px,2.8vw,48px);
       font-weight:900;line-height:1.1;
-      letter-spacing:-0.5px;
+      letter-spacing:-1px;
       margin-bottom:16px;
       white-space:nowrap
     }
     .hero-h1 .hl{color:#FF6D00}
     .hero-p{
-      font-size:clamp(11px,1vw,14px);
-      color:rgba(255,255,255,0.58);
+      font-size:clamp(13px,1.15vw,16px);
+      color:rgba(255,255,255,0.62);
       line-height:1.5;font-weight:500;
       max-width:none;margin-bottom:24px;
       white-space:nowrap
@@ -136,16 +136,16 @@ export function getParceriasLandingHTML(): string {
     .hero-btns{display:flex;gap:12px;flex-wrap:wrap}
     .btn-p{
       display:inline-flex;align-items:center;gap:9px;
-      padding:13px 26px;background:#FF6D00;color:#fff;
-      border-radius:11px;font-size:14px;font-weight:800;
+      padding:14px 28px;background:#FF6D00;color:#fff;
+      border-radius:11px;font-size:15px;font-weight:800;
       border:none;cursor:pointer;font-family:'Raleway',sans-serif;
       transition:all .18s;white-space:nowrap
     }
     .btn-p:hover{background:#E65100;transform:translateY(-1px);box-shadow:0 8px 24px rgba(255,109,0,0.3)}
     .btn-s{
       display:inline-flex;align-items:center;gap:9px;
-      padding:13px 22px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85);
-      border-radius:11px;font-size:14px;font-weight:700;
+      padding:14px 24px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85);
+      border-radius:11px;font-size:15px;font-weight:700;
       border:1px solid rgba(255,255,255,0.15);
       cursor:pointer;font-family:'Raleway',sans-serif;
       transition:all .18s;white-space:nowrap;backdrop-filter:blur(4px)
@@ -175,7 +175,7 @@ export function getParceriasLandingHTML(): string {
       width:200px;
       filter:drop-shadow(0 32px 60px rgba(0,0,0,0.8)) drop-shadow(0 0 40px rgba(255,109,0,0.2));
     }
-    .phone-wrap img{width:100%;height:auto;display:block;mix-blend-mode:lighten}
+    .phone-wrap img{width:100%;height:auto;display:block;mix-blend-mode:screen;filter:brightness(1.4) contrast(1.1) saturate(1.1)}
     @media(max-width:1100px){.phone-col{display:none}}
 
     /* ═══ FEATURES ═══ */
@@ -203,8 +203,8 @@ export function getParceriasLandingHTML(): string {
       display:flex;align-items:center;justify-content:center;
       color:#FF6D00;font-size:15px;flex-shrink:0
     }
-    .feat-card h4{font-size:12.5px;font-weight:800;color:#fff;margin:0}
-    .feat-card p{font-size:11px;color:rgba(255,255,255,0.42);line-height:1.5;font-weight:500;margin:0}
+    .feat-card h4{font-size:14px;font-weight:800;color:#fff;margin:0}
+    .feat-card p{font-size:12px;color:rgba(255,255,255,0.48);line-height:1.5;font-weight:500;margin:0}
 
     /* ═══ BOTTOM ROW (cards + cta) ═══ */
     .bottom-row{
@@ -222,7 +222,7 @@ export function getParceriasLandingHTML(): string {
       border-radius:16px;padding:18px 22px
     }
     .recursos-title{
-      font-size:11px;font-weight:800;color:rgba(255,255,255,0.35);
+      font-size:12px;font-weight:800;color:rgba(255,255,255,0.4);
       text-transform:uppercase;letter-spacing:1px;margin-bottom:14px
     }
     .recursos-grid{
@@ -240,8 +240,8 @@ export function getParceriasLandingHTML(): string {
       display:flex;align-items:center;justify-content:center;
       color:#FF6D00;font-size:13px;margin-bottom:8px
     }
-    .rec h5{font-size:12px;font-weight:800;color:#fff;margin-bottom:3px}
-    .rec p{font-size:10.5px;color:rgba(255,255,255,0.4);line-height:1.45;font-weight:500}
+    .rec h5{font-size:13px;font-weight:800;color:#fff;margin-bottom:4px}
+    .rec p{font-size:11.5px;color:rgba(255,255,255,0.45);line-height:1.45;font-weight:500}
     @media(max-width:860px){
       .recursos-grid{grid-template-columns:1fr 1fr;gap:12px}
       .rec{border-right:none;padding:0}
@@ -264,8 +264,8 @@ export function getParceriasLandingHTML(): string {
     }
     @media(max-width:1100px){.cta-ico{margin-bottom:0}}
     .cta-text{flex:1}
-    .cta-text h3{font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;line-height:1.3}
-    .cta-text p{font-size:11px;color:rgba(255,255,255,0.45);font-weight:500;line-height:1.4}
+    .cta-text h3{font-size:15px;font-weight:900;color:#fff;margin-bottom:4px;line-height:1.3}
+    .cta-text p{font-size:12px;color:rgba(255,255,255,0.5);font-weight:500;line-height:1.4}
     .cta-badges{
       display:flex;flex-wrap:wrap;gap:6px;
       margin:12px 0;
@@ -273,13 +273,13 @@ export function getParceriasLandingHTML(): string {
     @media(max-width:1100px){.cta-badges{display:none}}
     .cbadge{
       display:flex;align-items:center;gap:5px;
-      font-size:10px;font-weight:700;color:rgba(255,255,255,0.55)
+      font-size:11px;font-weight:700;color:rgba(255,255,255,0.6)
     }
     .cbadge i{color:#FF6D00;font-size:9px}
     .cta-btn{
       display:flex;align-items:center;justify-content:center;gap:8px;
-      width:100%;padding:11px;background:#FF6D00;color:#fff;
-      border-radius:10px;font-size:13px;font-weight:800;
+      width:100%;padding:12px;background:#FF6D00;color:#fff;
+      border-radius:10px;font-size:14px;font-weight:800;
       border:none;cursor:pointer;font-family:'Raleway',sans-serif;
       transition:background .15s;white-space:nowrap;flex-shrink:0
     }
