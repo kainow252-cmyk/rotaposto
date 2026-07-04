@@ -138,11 +138,12 @@ export function getAppHTML(firebaseScripts: string): string {
     }
     .search-input::placeholder { color: var(--gray-light); }
     .btn-filter {
-      width: 42px; height: 42px; flex-shrink: 0;
+      width: 42px; height: 42px; flex-shrink: 0; position: relative;
       display: flex; align-items: center; justify-content: center;
       background: none; border: 1px solid var(--border);
       border-radius: 10px; cursor: pointer; color: var(--gray-dark);
     }
+    .btn-filter.ativo { border-color: var(--orange); color: var(--orange); background: #FFF5EE; }
 
     /* Chips combustível */
     .chips-row {
@@ -495,7 +496,7 @@ export function getAppHTML(firebaseScripts: string): string {
     }
     .route-field {
       display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px;
+      padding: 14px 16px; min-height: 52px; max-height: 60px;
     }
     .route-field + .route-field {
       border-top: 1px solid var(--border);
@@ -658,13 +659,14 @@ export function getAppHTML(firebaseScripts: string): string {
     }
 
     /* ── Campo de busca livre de destino ── */
-    #plan-dest-wrap { flex: 1; position: relative; }
+    #plan-dest-wrap { flex: 1; min-width: 0; position: relative; overflow: hidden; }
     #plan-dest-val {
-      font-size: 15px; font-weight: 600; color: var(--black);
+      font-size: 14px; font-weight: 600; color: var(--black);
       cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      line-height: 1.4; max-height: 1.4em;
     }
     #plan-dest-val.placeholder { color: var(--gray); font-weight: 400; }
-    #plan-dest-input { display: none; }
+    #plan-dest-input { display: none !important; height: 0 !important; width: 0 !important; opacity: 0 !important; position: absolute !important; pointer-events: none !important; }
     .plan-dest-label { font-size: 12px; color: var(--gray); margin-bottom: 2px; }
 
     /* ── Overlay de busca fullscreen ── */
@@ -1329,8 +1331,9 @@ export function getAppHTML(firebaseScripts: string): string {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" class="search-input" id="search-input" placeholder="Buscar cidade ou endereço" oninput="onSearchInput(this.value)" onkeydown="if(event.key==='Enter') doSearch()"/>
       </div>
-      <button class="btn-filter" onclick="showToast('Filtros em breve')">
+      <button class="btn-filter" id="btn-filtros" onclick="abrirPainelFiltros()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+        <span id="filtros-badge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;background:#FF6D00;border-radius:50%;"></span>
       </button>
     </div>
     <div class="chips-row" id="chips-row">
@@ -1499,10 +1502,9 @@ export function getAppHTML(firebaseScripts: string): string {
           </div>
           <div class="route-field">
             <div class="route-dot-dest"></div>
-            <div id="plan-dest-wrap">
+            <div id="plan-dest-wrap" onclick="abrirBuscaDestino()">
               <div class="plan-dest-label">Para</div>
-              <div id="plan-dest-val" class="placeholder" onclick="abrirBuscaDestino()">Cidade, endereço, shopping…</div>
-              <input id="plan-dest-input" type="text" style="display:none"/>
+              <div id="plan-dest-val" class="placeholder">Cidade, endereço, shopping…</div>
             </div>
             <div id="plan-dest-searching"></div>
             <button class="btn-target" onclick="abrirBuscaDestino()" title="Buscar destino" id="btn-dest-buscar">
@@ -1917,6 +1919,16 @@ export function getAppHTML(firebaseScripts: string): string {
   let selectedPosto = null;
   let currentMonthIdx = 4; // Maio 2024
   const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  // ── Estado dos filtros ────────────────────────────────────────────────────
+  let filtros = {
+    raioKm: 5,
+    ordenar: 'preco',       // 'preco' | 'distancia' | 'avaliacao'
+    somenteAbertos: false,
+    somentePrecoReal: false,
+    avaliacaoMin: 0,        // 0 = todos, 3 = 3+, 4 = 4+
+    somenteComDesconto: false
+  };
   const MONTHS_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   // ── Usuário logado ──
@@ -2631,12 +2643,227 @@ export function getAppHTML(firebaseScripts: string): string {
   }
   //  LISTA DE POSTOS (Tela 8)
   // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════
+  //  FILTROS — painel e aplicação
+  // ══════════════════════════════════════════════════════
+
+  function _contarFiltrosAtivos() {
+    var n = 0;
+    if (filtros.raioKm !== 5) n++;
+    if (filtros.ordenar !== 'preco') n++;
+    if (filtros.somenteAbertos) n++;
+    if (filtros.somentePrecoReal) n++;
+    if (filtros.avaliacaoMin > 0) n++;
+    if (filtros.somenteComDesconto) n++;
+    return n;
+  }
+
+  function _atualizarBadgeFiltros() {
+    var badge = document.getElementById('filtros-badge');
+    var btn = document.getElementById('btn-filtros');
+    var n = _contarFiltrosAtivos();
+    if (badge) badge.style.display = n > 0 ? 'block' : 'none';
+    if (btn) btn.classList.toggle('ativo', n > 0);
+  }
+
+  function abrirPainelFiltros() {
+    var el = document.getElementById('modal-filtros');
+    if (el) { el.remove(); }
+
+    var f = filtros;
+
+    function optRaio(v, label) {
+      return '<button onclick="window._tmpFiltros.raioKm=' + v + ';window._tmpFiltros._render()" '
+        + 'style="padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid ' + (f.raioKm===v ? 'var(--orange)' : '#e0e0e0') + ';background:' + (f.raioKm===v ? '#FFF5EE' : '#fff') + ';color:' + (f.raioKm===v ? 'var(--orange)' : '#555') + ';">' + label + '</button>';
+    }
+    function optOrdenar(v, label) {
+      return '<button onclick="window._tmpFiltros.ordenar=\'' + v + '\';window._tmpFiltros._render()" '
+        + 'style="padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid ' + (f.ordenar===v ? 'var(--orange)' : '#e0e0e0') + ';background:' + (f.ordenar===v ? '#FFF5EE' : '#fff') + ';color:' + (f.ordenar===v ? 'var(--orange)' : '#555') + ';">' + label + '</button>';
+    }
+    function optAval(v, label) {
+      return '<button onclick="window._tmpFiltros.avaliacaoMin=' + v + ';window._tmpFiltros._render()" '
+        + 'style="padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid ' + (f.avaliacaoMin===v ? 'var(--orange)' : '#e0e0e0') + ';background:' + (f.avaliacaoMin===v ? '#FFF5EE' : '#fff') + ';color:' + (f.avaliacaoMin===v ? 'var(--orange)' : '#555') + ';">' + label + '</button>';
+    }
+    function togSwitch(campo, valor) {
+      return '<div onclick="window._tmpFiltros.' + campo + '=!' + valor + ';window._tmpFiltros._render()" '
+        + 'style="width:44px;height:24px;border-radius:12px;background:' + (valor ? 'var(--orange)' : '#ccc') + ';position:relative;cursor:pointer;flex-shrink:0;">'
+        + '<div style="position:absolute;top:3px;' + (valor ? 'right:3px' : 'left:3px') + ';width:18px;height:18px;border-radius:50%;background:#fff;transition:all .2s;"></div></div>';
+    }
+
+    function renderModalContent() {
+      var f2 = window['_tmpFiltros'];
+      var n = [f2.raioKm !== 5, f2.ordenar !== 'preco', f2.somenteAbertos, f2.somentePrecoReal, f2.avaliacaoMin > 0, f2.somenteComDesconto].filter(Boolean).length;
+      var modal = document.getElementById('modal-filtros');
+      if (!modal) return;
+
+      modal.innerHTML = '<div style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-height:88vh;overflow-y:auto;">'
+        // Handle
+        + '<div style="width:36px;height:4px;background:#E0E0E0;border-radius:2px;margin:12px auto 0;"></div>'
+        // Header
+        + '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;">'
+        + '<div style="font-size:17px;font-weight:800;color:#1A1A1A;">Filtros</div>'
+        + (n > 0 ? '<button onclick="window._tmpFiltros._resetar()" style="font-size:13px;color:var(--orange);font-weight:700;background:none;border:none;cursor:pointer;">Limpar filtros (' + n + ')</button>' : '<div style="width:80px;"></div>')
+        + '</div>'
+        // Seção raio
+        + '<div style="padding:0 20px 16px;">'
+        + '<div style="font-size:13px;font-weight:700;color:#555;margin-bottom:10px;">📍 Raio de busca</div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+        + _optRaio(f2.raioKm, 2, '2 km') + _optRaio(f2.raioKm, 5, '5 km') + _optRaio(f2.raioKm, 10, '10 km') + _optRaio(f2.raioKm, 20, '20 km') + _optRaio(f2.raioKm, 50, '50 km')
+        + '</div></div>'
+        // Seção ordenar
+        + '<div style="padding:0 20px 16px;">'
+        + '<div style="font-size:13px;font-weight:700;color:#555;margin-bottom:10px;">↕️ Ordenar por</div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+        + _optOrdenar(f2.ordenar, 'preco', '💰 Menor preço') + _optOrdenar(f2.ordenar, 'distancia', '📍 Mais próximo') + _optOrdenar(f2.ordenar, 'avaliacao', '⭐ Melhor avaliação')
+        + '</div></div>'
+        // Avaliação mínima
+        + '<div style="padding:0 20px 16px;">'
+        + '<div style="font-size:13px;font-weight:700;color:#555;margin-bottom:10px;">⭐ Avaliação mínima</div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+        + _optAval(f2.avaliacaoMin, 0, 'Todos') + _optAval(f2.avaliacaoMin, 3, '3+ ★') + _optAval(f2.avaliacaoMin, 4, '4+ ★') + _optAval(f2.avaliacaoMin, 4.5, '4.5+ ★')
+        + '</div></div>'
+        // Toggles
+        + '<div style="padding:0 20px 16px;display:grid;gap:12px;">'
+        + _togRow('somenteAbertos', f2.somenteAbertos, '🟢 Somente postos abertos agora')
+        + _togRow('somentePrecoReal', f2.somentePrecoReal, '✅ Somente com preço confirmado')
+        + _togRow('somenteComDesconto', f2.somenteComDesconto, '🎟️ Somente postos com cupom')
+        + '</div>'
+        // Botão aplicar
+        + '<div style="padding:0 20px 20px;">'
+        + '<button onclick="fecharPainelFiltros(true)" style="width:100%;padding:15px;background:var(--orange);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;">Ver resultados</button>'
+        + '</div>'
+        + '</div>';
+    }
+
+    function _optRaio(atual, v, label) {
+      var sel = atual === v;
+      return '<button onclick="window._tmpFiltros.raioKm=' + v + ';window._tmpFiltros._render()" '
+        + 'style="padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid ' + (sel ? 'var(--orange)' : '#e0e0e0') + ';background:' + (sel ? '#FFF5EE' : '#fff') + ';color:' + (sel ? 'var(--orange)' : '#555') + ';">' + label + '</button>';
+    }
+    function _optOrdenar(atual, v, label) {
+      var sel = atual === v;
+      return '<button onclick="window._tmpFiltros.ordenar=\'' + v + '\';window._tmpFiltros._render()" '
+        + 'style="padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid ' + (sel ? 'var(--orange)' : '#e0e0e0') + ';background:' + (sel ? '#FFF5EE' : '#fff') + ';color:' + (sel ? 'var(--orange)' : '#555') + ';">' + label + '</button>';
+    }
+    function _optAval(atual, v, label) {
+      var sel = atual === v;
+      return '<button onclick="window._tmpFiltros.avaliacaoMin=' + v + ';window._tmpFiltros._render()" '
+        + 'style="padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid ' + (sel ? 'var(--orange)' : '#e0e0e0') + ';background:' + (sel ? '#FFF5EE' : '#fff') + ';color:' + (sel ? 'var(--orange)' : '#555') + ';">' + label + '</button>';
+    }
+    function _togRow(campo, valor, label) {
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;" onclick="window._tmpFiltros.' + campo + '=!window._tmpFiltros.' + campo + ';window._tmpFiltros._render()" style="cursor:pointer;">'
+        + '<span style="font-size:14px;color:#333;">' + label + '</span>'
+        + '<div style="width:44px;height:24px;border-radius:12px;background:' + (valor ? 'var(--orange)' : '#ccc') + ';position:relative;flex-shrink:0;cursor:pointer;">'
+        + '<div style="position:absolute;top:3px;' + (valor ? 'right:3px' : 'left:3px') + ';width:18px;height:18px;border-radius:50%;background:#fff;transition:all .2s;"></div></div>'
+        + '</div>';
+    }
+
+    // Estado temporário para edição sem aplicar
+    window['_tmpFiltros'] = Object.assign({}, filtros, {
+      _render: renderModalContent,
+      _resetar: function() {
+        var t = window['_tmpFiltros'];
+        t.raioKm = 5; t.ordenar = 'preco'; t.somenteAbertos = false;
+        t.somentePrecoReal = false; t.avaliacaoMin = 0; t.somenteComDesconto = false;
+        renderModalContent();
+      }
+    });
+
+    var modal = document.createElement('div');
+    modal.id = 'modal-filtros';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9990;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;';
+    modal.onclick = function(e) { if (e.target === this) fecharPainelFiltros(false); };
+    document.body.appendChild(modal);
+
+    renderModalContent();
+  }
+
+  function fecharPainelFiltros(aplicar) {
+    if (aplicar && window['_tmpFiltros']) {
+      var t = window['_tmpFiltros'];
+      filtros.raioKm            = t.raioKm;
+      filtros.ordenar           = t.ordenar;
+      filtros.somenteAbertos    = t.somenteAbertos;
+      filtros.somentePrecoReal  = t.somentePrecoReal;
+      filtros.avaliacaoMin      = t.avaliacaoMin;
+      filtros.somenteComDesconto = t.somenteComDesconto;
+      _atualizarBadgeFiltros();
+      renderLista();
+      // Re-buscar com novo raio se necessário
+      if (postosData.length === 0 || filtros.raioKm !== t.raioKm) {
+        if (userLat && userLng) loadPostos();
+      }
+    }
+    var el = document.getElementById('modal-filtros');
+    if (el) el.remove();
+    delete window['_tmpFiltros'];
+  }
+
+  function limparFiltros() {
+    filtros = { raioKm: 5, ordenar: 'preco', somenteAbertos: false, somentePrecoReal: false, avaliacaoMin: 0, somenteComDesconto: false };
+    _atualizarBadgeFiltros();
+    renderLista();
+  }
+
   function renderLista() {
     const container = document.getElementById('lista-postos');
     const empty = document.getElementById('lista-empty');
-    const postos = postosData.length > 0 ? postosData : getDemoPostos();
+    let postos = postosData.length > 0 ? [...postosData] : getDemoPostos();
 
-    if (postos.length === 0) { empty.style.display = 'block'; container.innerHTML = ''; return; }
+    // ── Aplicar filtros ──────────────────────────────────────────────────────
+    if (filtros.somenteAbertos) {
+      postos = postos.filter(p => p.aberto === true);
+    }
+    if (filtros.somentePrecoReal) {
+      postos = postos.filter(p => p.fontePreco === 'anp' || p.fontePreco === 'colaborativo');
+    }
+    if (filtros.avaliacaoMin > 0) {
+      postos = postos.filter(p => p.rating && p.rating >= filtros.avaliacaoMin);
+    }
+    if (filtros.raioKm && filtros.raioKm !== 5) {
+      postos = postos.filter(p => !p.distancia || p.distancia <= filtros.raioKm);
+    }
+    // Ordenar
+    if (filtros.ordenar === 'distancia') {
+      postos.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
+    } else if (filtros.ordenar === 'avaliacao') {
+      postos.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    } else {
+      // Padrão: menor preço
+      postos.sort((a, b) => {
+        const pa = a.preco || a.precos?.[selectedFuel] || 999;
+        const pb = b.preco || b.precos?.[selectedFuel] || 999;
+        return pa - pb;
+      });
+    }
+    // Badge de filtros ativos na lista
+    var nFiltros = _contarFiltrosAtivos();
+    if (nFiltros > 0) {
+      var badgeInfo = document.getElementById('lista-filtros-info');
+      if (!badgeInfo) {
+        badgeInfo = document.createElement('div');
+        badgeInfo.id = 'lista-filtros-info';
+        badgeInfo.style.cssText = 'margin:0 0 10px;padding:8px 14px;background:#FFF5EE;border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;';
+        container.parentElement?.insertBefore(badgeInfo, container);
+      }
+      badgeInfo.innerHTML = '<span style="color:#FF6D00;font-weight:700;">🔍 ' + nFiltros + ' filtro' + (nFiltros > 1 ? 's' : '') + ' ativo' + (nFiltros > 1 ? 's' : '') + ' · ' + postos.length + ' posto' + (postos.length !== 1 ? 's' : '') + '</span>'
+        + '<button onclick="limparFiltros()" style="font-size:12px;color:#888;background:none;border:none;cursor:pointer;font-weight:600;">Limpar</button>';
+    } else {
+      var bi = document.getElementById('lista-filtros-info');
+      if (bi) bi.remove();
+    }
+
+    if (postos.length === 0) {
+      empty.style.display = 'block';
+      empty.innerHTML = '<div style="text-align:center;padding:40px 20px;">'
+        + '<div style="font-size:40px;margin-bottom:12px;">🔍</div>'
+        + '<div style="font-size:16px;font-weight:700;color:#333;margin-bottom:8px;">Nenhum posto encontrado</div>'
+        + '<div style="font-size:14px;color:#888;margin-bottom:16px;">Tente remover alguns filtros para ver mais resultados.</div>'
+        + '<button onclick="limparFiltros()" style="padding:10px 20px;background:var(--orange);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Limpar filtros</button>'
+        + '</div>';
+      container.innerHTML = '';
+      return;
+    }
     empty.style.display = 'none';
 
     // ── Classificar fontes ──
