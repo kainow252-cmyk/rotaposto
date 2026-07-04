@@ -129,22 +129,27 @@ export function getParceriasLandingHTML(): string {
     .rec-cols{
       display:grid;
       grid-template-columns:repeat(4,1fr);
-      gap:0;
+      gap:14px;
       padding-bottom:32px
     }
     .rec-col{
-      padding:0 16px;
-      border-right:1px solid rgba(255,255,255,0.07)
+      background:rgba(255,255,255,0.045);
+      border:1px solid rgba(255,255,255,0.09);
+      border-radius:12px;
+      padding:14px;
+      transition:all .2s
     }
-    .rec-col:first-child{padding-left:0}
-    .rec-col:last-child{border-right:none;padding-right:0}
+    .rec-col:hover{
+      background:rgba(255,255,255,0.07);
+      border-color:rgba(255,109,0,0.35)
+    }
     .rec-ico{
-      width:28px;height:28px;border-radius:8px;
+      width:30px;height:30px;border-radius:8px;
       background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:12px;margin-bottom:8px
+      color:#FF6D00;font-size:13px;margin-bottom:8px
     }
-    .rec-col h5{font-size:14px;font-weight:800;margin-bottom:6px}
+    .rec-col h5{font-size:14px;font-weight:800;margin-bottom:7px}
     .rec-col p{font-size:12px;color:rgba(255,255,255,0.42);line-height:1.6}
 
     /* ── FEATURE CARDS ── */
@@ -299,9 +304,7 @@ export function getParceriasLandingHTML(): string {
       .hero-wrap{padding:16px 32px}
       h1{font-size:clamp(28px,4vw,56px)}
       .recursos-wrap,.cards-wrap{padding-left:24px;padding-right:24px}
-      .rec-cols{grid-template-columns:repeat(2,1fr);gap:16px}
-      .rec-col{border-right:none;padding:0 0 16px;border-bottom:1px solid rgba(255,255,255,0.07)}
-      .rec-col:nth-child(odd){padding-right:16px;border-right:1px solid rgba(255,255,255,0.07)}
+      .rec-cols{grid-template-columns:repeat(2,1fr);gap:12px}
       .cards-grid{grid-template-columns:repeat(2,1fr)}
       .footer-inner{grid-template-columns:1fr 1fr;gap:24px}
       .f-social-col{grid-column:1/-1;flex-direction:row;justify-content:flex-start;align-items:center}
@@ -321,9 +324,8 @@ export function getParceriasLandingHTML(): string {
       h1{font-size:clamp(24px,7vw,40px);letter-spacing:-1px}
       .hero-sub{font-size:14px}
       .recursos-wrap{padding:16px 16px 0}
-      .rec-cols{grid-template-columns:1fr;gap:0}
-      .rec-col{padding:12px 0;border-right:none;border-bottom:1px solid rgba(255,255,255,0.07)}
-      .rec-col:last-child{border-bottom:none}
+      .rec-cols{grid-template-columns:1fr 1fr;gap:10px}
+      .rec-col:last-child{}
       .cards-wrap{padding:0 16px 16px}
       .cards-grid{grid-template-columns:1fr 1fr;gap:10px}
       .feat-card{padding:12px}
@@ -1151,9 +1153,7 @@ export function getPainelEmpresaHTML(): string {
       .hero-wrap{padding:16px 32px}
       h1{font-size:clamp(28px,4vw,56px)}
       .recursos-wrap,.cards-wrap{padding-left:24px;padding-right:24px}
-      .rec-cols{grid-template-columns:repeat(2,1fr);gap:16px}
-      .rec-col{border-right:none;padding:0 0 16px;border-bottom:1px solid rgba(255,255,255,0.07)}
-      .rec-col:nth-child(odd){padding-right:16px;border-right:1px solid rgba(255,255,255,0.07)}
+      .rec-cols{grid-template-columns:repeat(2,1fr);gap:12px}
       .cards-grid{grid-template-columns:repeat(2,1fr)}
       .footer-inner{grid-template-columns:1fr 1fr;gap:24px}
       .f-social-col{grid-column:1/-1;flex-direction:row;justify-content:flex-start;align-items:center}
@@ -1173,9 +1173,8 @@ export function getPainelEmpresaHTML(): string {
       h1{font-size:clamp(24px,7vw,40px);letter-spacing:-1px}
       .hero-sub{font-size:14px}
       .recursos-wrap{padding:16px 16px 0}
-      .rec-cols{grid-template-columns:1fr;gap:0}
-      .rec-col{padding:12px 0;border-right:none;border-bottom:1px solid rgba(255,255,255,0.07)}
-      .rec-col:last-child{border-bottom:none}
+      .rec-cols{grid-template-columns:1fr 1fr;gap:10px}
+      .rec-col:last-child{}
       .cards-wrap{padding:0 16px 16px}
       .cards-grid{grid-template-columns:1fr 1fr;gap:10px}
       .feat-card{padding:12px}
@@ -2161,9 +2160,7 @@ export function getValidadorHTML(): string {
       .hero-wrap{padding:16px 32px}
       h1{font-size:clamp(28px,4vw,56px)}
       .recursos-wrap,.cards-wrap{padding-left:24px;padding-right:24px}
-      .rec-cols{grid-template-columns:repeat(2,1fr);gap:16px}
-      .rec-col{border-right:none;padding:0 0 16px;border-bottom:1px solid rgba(255,255,255,0.07)}
-      .rec-col:nth-child(odd){padding-right:16px;border-right:1px solid rgba(255,255,255,0.07)}
+      .rec-cols{grid-template-columns:repeat(2,1fr);gap:12px}
       .cards-grid{grid-template-columns:repeat(2,1fr)}
       .footer-inner{grid-template-columns:1fr 1fr;gap:24px}
       .f-social-col{grid-column:1/-1;flex-direction:row;justify-content:flex-start;align-items:center}
@@ -2183,9 +2180,8 @@ export function getValidadorHTML(): string {
       h1{font-size:clamp(24px,7vw,40px);letter-spacing:-1px}
       .hero-sub{font-size:14px}
       .recursos-wrap{padding:16px 16px 0}
-      .rec-cols{grid-template-columns:1fr;gap:0}
-      .rec-col{padding:12px 0;border-right:none;border-bottom:1px solid rgba(255,255,255,0.07)}
-      .rec-col:last-child{border-bottom:none}
+      .rec-cols{grid-template-columns:1fr 1fr;gap:10px}
+      .rec-col:last-child{}
       .cards-wrap{padding:0 16px 16px}
       .cards-grid{grid-template-columns:1fr 1fr;gap:10px}
       .feat-card{padding:12px}
