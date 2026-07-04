@@ -1897,6 +1897,7 @@ export function getAppHTML(firebaseScripts: string): string {
   let mapMain = null, mapPlan = null;
   let userLat = -23.5505, userLng = -46.6333;
   let postosData = [];
+  let semanaANP = '';   // semana de referência ANP — preenchida pela API
   let selectedFuel = 'gasolina';
   let selectedPosto = null;
   let currentMonthIdx = 4; // Maio 2024
@@ -2182,6 +2183,7 @@ export function getAppHTML(firebaseScripts: string): string {
       const data = await resp.json();
       if (data.postos && data.postos.length > 0) {
         postosData = data.postos;
+        if (data.estatisticas?.semanaANP) semanaANP = data.estatisticas.semanaANP;
         addMapMarkers();
         updateMapCard(data.postos[0]);
       }
@@ -2872,8 +2874,9 @@ export function getAppHTML(firebaseScripts: string): string {
       banner = '<div style="margin:0 0 10px;padding:9px 14px;background:#F0FFF4;border-radius:12px;border-left:3px solid #00A651;display:flex;align-items:center;gap:8px;">'
         + '<span style="font-size:14px;">✅</span>'
         + '<div style="font-size:12px;color:#1A6B35;line-height:1.4;">'
-        + '<b>' + totalReal + ' posto' + (totalReal > 1 ? 's' : '') + ' com preço real</b> da coleta ANP (semana 21-27/jun)'
-        + (totalEstimado > 0 ? ' · ' + totalEstimado + ' c/ média municipal' : '')
+        + '<b>' + totalReal + ' posto' + (totalReal > 1 ? 's' : '') + ' com preço atualizado via ANP</b>'
+        + (semanaANP ? ' · semana ' + semanaANP : '')
+        + (totalEstimado > 0 ? '<br><span style="opacity:.75">' + totalEstimado + ' c/ preço estimado pela média da cidade</span>' : '')
         + '</div>'
         + '</div>';
     } else if (todosIguais) {
@@ -3012,7 +3015,7 @@ export function getAppHTML(firebaseScripts: string): string {
     ].filter(function(f) { return f[1]; });
 
     var fonteLabel = isReal
-      ? '<div style="font-size:10px;color:#1565C0;margin-top:8px;">✓ Preços coletados pela ANP · semana 21-27/jun/2026</div>'
+      ? '<div style="font-size:10px;color:#1565C0;margin-top:8px;">✅ Preço atualizado via ANP' + (semanaANP ? ' · semana ' + semanaANP : '') + '</div>'
       : isColab
         ? '<div style="font-size:10px;color:#00A651;margin-top:8px;">👥 Preço informado por usuário</div>'
         : '<div style="font-size:10px;color:#FFA000;margin-top:8px;">~ Média municipal ANP · pode variar</div>';

@@ -188,6 +188,12 @@ app.get('/api/postos', async (c) => {
     if (geo?.uf) uf = geo.uf
     if (geo?.cidade) municipio = geo.cidade
 
+    // Semana ANP dinâmica (KV tem prioridade, fallback calcula pela data atual)
+    const kvForSemana = getKV(c.env) || undefined
+    const metaSemana = kvForSemana ? await kvForSemana.get('anp:meta', 'json') as any : null
+    const semanaANP = metaSemana?.semana
+      || (() => { const s = getSemanaANPAtual(); return `${s.inicio} a ${s.fim}` })()
+
     // 2. Checar cache
     const cacheKey = `${uf}:${municipio}`
     let postosBase = getCached(cacheKey)
@@ -296,7 +302,8 @@ app.get('/api/postos', async (c) => {
           combustivel,
           cidade: municipio,
           uf,
-          fonte
+          fonte,
+          semanaANP
         }
       })
     }

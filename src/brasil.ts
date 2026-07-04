@@ -124,8 +124,8 @@ export async function buscarTodosPostosANP(
 // 27 UFs + 382 municípios — preços em R$/litro (GLP em R$/13kg)
 
 export const ANP_SEMANA = {
-  inicio: '2026-06-21',
-  fim: '2026-06-27',
+  inicio: '2026-06-28',
+  fim: '2026-07-04',
   fonte: 'ANP Levantamento de Preços de Combustíveis',
 }
 
