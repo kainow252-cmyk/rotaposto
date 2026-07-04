@@ -957,7 +957,7 @@ export function getAppHTML(firebaseScripts: string): string {
        SUB-TELA CHEIA (substitui modais do menu)
     ══════════════════════════════════════════════ */
     #rp-subtela {
-      position: fixed; inset: 0; z-index: 9000;
+      position: fixed; inset: 0; z-index: 99999;
       background: var(--gray-bg);
       display: flex; flex-direction: column;
       transform: translateX(100%);
@@ -3212,7 +3212,13 @@ export function getAppHTML(firebaseScripts: string): string {
   // ── Modal helpers ──────────────────────────────────────────────────────────
   function fecharTela() {
     var el = document.getElementById('rp-subtela');
-    if (el) el.classList.remove('aberta');
+    if (!el) return;
+    el.classList.remove('aberta');
+    // Devolver ao app-root depois da animação
+    setTimeout(function() {
+      var root = document.getElementById('app-root');
+      if (root && el.parentNode !== root) root.appendChild(el);
+    }, 300);
   }
 
   function fecharModal() { fecharTela(); }  // compatibilidade
@@ -3222,8 +3228,12 @@ export function getAppHTML(firebaseScripts: string): string {
     var tit = document.getElementById('rp-subtela-titulo');
     var body = document.getElementById('rp-subtela-body');
     if (!el || !tit || !body) return;
+    // Mover para document.body para escapar do overflow:hidden do #app-root
+    if (el.parentNode !== document.body) document.body.appendChild(el);
     tit.textContent = titulo;
     body.innerHTML = conteudoHTML;
+    // Forçar reflow antes de adicionar classe para garantir transição
+    el.offsetHeight;
     el.classList.add('aberta');
     body.scrollTop = 0;
   }
