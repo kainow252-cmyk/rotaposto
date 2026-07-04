@@ -10,7 +10,7 @@ export function getParceriasLandingHTML(): string {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>RotaPosto Empresas — Atraia mais clientes para seu posto</title>
   <meta name="description" content="Transforme o RotaPosto em um canal de vendas para o seu posto. Destaque no mapa, cupons de desconto e métricas reais."/>
   <link rel="icon" href="/favicon.ico"/>
@@ -18,587 +18,536 @@ export function getParceriasLandingHTML(): string {
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <style>
-    :root {
-      --laranja: #FF6D00;
-      --laranja-escuro: #E65100;
-      --laranja-claro: #FFF3E0;
-      --azul: #1565C0;
-      --verde: #00C853;
-      --cinza: #F5F5F5;
-      --texto: #1A1A1A;
-      --sub: #616161;
-      --border: #E0E0E0;
-    }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Inter',sans-serif; color:var(--texto); background:#fff; }
-    a { text-decoration:none; color:inherit; }
+    :root{--laranja:#FF6D00;--laranja-e:#E65100;--laranja-c:#FFF3E0;--verde:#00C853;--cinza:#F5F7FA;--texto:#1A1A1A;--sub:#616161;--brd:#E0E0E0}
+    *{margin:0;padding:0;box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{font-family:'Inter',sans-serif;color:var(--texto);background:#fff;overflow-x:hidden}
+    a{text-decoration:none;color:inherit}
 
     /* ── HEADER ── */
-    .emp-header {
-      position:sticky; top:0; z-index:100;
-      background:#fff; border-bottom:1px solid var(--border);
-      padding:0 24px; height:64px;
-      display:flex; align-items:center; justify-content:space-between;
+    .hdr{position:sticky;top:0;z-index:200;background:#fff;border-bottom:1px solid var(--brd);
+      height:56px;padding:0 20px;display:flex;align-items:center;justify-content:space-between}
+    .hdr-logo{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800}
+    .hdr-logo span{color:var(--laranja)}
+    .hdr-logo-tag{font-size:10px;font-weight:700;color:var(--laranja);background:var(--laranja-c);padding:2px 7px;border-radius:20px;margin-left:2px}
+    .hdr-nav{display:flex;align-items:center;gap:14px}
+    .hdr-nav a{font-size:13px;font-weight:500;color:var(--sub);transition:color .2s}
+    .hdr-nav a:hover{color:var(--laranja)}
+    .btn-entrar{padding:8px 18px;background:var(--laranja);color:#fff;border-radius:9px;
+      font-size:13px;font-weight:700;border:none;cursor:pointer;transition:background .2s;white-space:nowrap}
+    .btn-entrar:hover{background:var(--laranja-e)}
+
+    /* ── LAYOUT PRINCIPAL: hero esquerda + tabs direita ── */
+    .main-wrap{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      min-height:calc(100vh - 56px);
     }
-    .emp-logo { display:flex; align-items:center; gap:10px; }
-    .emp-logo-icon { width:36px; height:36px; background:var(--laranja); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; }
-    .emp-logo-nome { font-size:17px; font-weight:800; color:var(--texto); }
-    .emp-logo-tag { font-size:11px; font-weight:700; color:var(--laranja); background:var(--laranja-claro); padding:2px 8px; border-radius:20px; margin-left:4px; }
-    .emp-header-nav { display:flex; align-items:center; gap:16px; }
-    .emp-header-nav a { font-size:14px; font-weight:500; color:var(--sub); transition:color .2s; }
-    .emp-header-nav a:hover { color:var(--laranja); }
-    .emp-btn-entrar { padding:9px 20px; background:var(--laranja); color:#fff; border-radius:10px; font-size:14px; font-weight:700; border:none; cursor:pointer; transition:background .2s; }
-    .emp-btn-entrar:hover { background:var(--laranja-escuro); }
 
     /* ── HERO ── */
-    .hero {
-      background:linear-gradient(135deg, #FF6D00 0%, #E65100 50%, #BF360C 100%);
-      padding:80px 24px 100px;
-      text-align:center; position:relative; overflow:hidden;
+    .hero{
+      background:linear-gradient(145deg,#FF6D00 0%,#E65100 55%,#BF360C 100%);
+      padding:clamp(24px,4vh,48px) clamp(20px,4vw,48px);
+      display:flex;flex-direction:column;justify-content:center;
+      position:relative;overflow:hidden;
     }
-    .hero::before {
-      content:''; position:absolute; inset:0;
-      background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    .hero::before{
+      content:'';position:absolute;inset:0;
+      background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23fff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      pointer-events:none;
     }
-    .hero-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3); color:#fff; padding:6px 16px; border-radius:20px; font-size:13px; font-weight:600; margin-bottom:20px; }
-    .hero h1 { font-size:clamp(28px,5vw,52px); font-weight:900; color:#fff; line-height:1.15; margin-bottom:16px; }
-    .hero h1 span { color:#FFE082; }
-    .hero p { font-size:clamp(15px,2vw,18px); color:rgba(255,255,255,.85); max-width:560px; margin:0 auto 32px; line-height:1.7; }
-    .hero-btns { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
-    .btn-hero-primary { padding:16px 32px; background:#fff; color:var(--laranja); border-radius:14px; font-size:16px; font-weight:800; cursor:pointer; border:none; transition:transform .2s, box-shadow .2s; }
-    .btn-hero-primary:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.2); }
-    .btn-hero-sec { padding:16px 32px; background:transparent; color:#fff; border:2px solid rgba(255,255,255,.5); border-radius:14px; font-size:16px; font-weight:700; cursor:pointer; transition:border-color .2s; }
-    .btn-hero-sec:hover { border-color:#fff; }
-    .hero-stats { display:flex; gap:32px; justify-content:center; flex-wrap:wrap; margin-top:48px; }
-    .hero-stat { text-align:center; }
-    .hero-stat-num { font-size:28px; font-weight:900; color:#FFE082; }
-    .hero-stat-label { font-size:12px; color:rgba(255,255,255,.7); margin-top:2px; }
+    .hero-inner{position:relative;z-index:1;max-width:520px}
+    .hero-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);
+      border:1px solid rgba(255,255,255,.3);color:#fff;padding:5px 14px;border-radius:20px;
+      font-size:12px;font-weight:600;margin-bottom:clamp(10px,2vh,18px)}
+    .hero h1{font-size:clamp(22px,3.2vw,42px);font-weight:900;color:#fff;line-height:1.15;
+      margin-bottom:clamp(8px,1.5vh,14px)}
+    .hero h1 em{color:#FFE082;font-style:normal}
+    .hero-sub{font-size:clamp(13px,1.4vw,16px);color:rgba(255,255,255,.88);line-height:1.65;
+      margin-bottom:clamp(14px,2.5vh,24px);max-width:440px}
+    .hero-btns{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:clamp(16px,3vh,32px)}
+    .btn-p{padding:12px 24px;background:#fff;color:var(--laranja);border-radius:12px;
+      font-size:14px;font-weight:800;cursor:pointer;border:none;transition:transform .2s,box-shadow .2s;white-space:nowrap}
+    .btn-p:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.2)}
+    .btn-s{padding:12px 24px;background:transparent;color:#fff;border:2px solid rgba(255,255,255,.5);
+      border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:border-color .2s;white-space:nowrap}
+    .btn-s:hover{border-color:#fff}
+    .hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .h-stat{background:rgba(255,255,255,.1);border-radius:12px;padding:10px 8px;text-align:center}
+    .h-stat-num{font-size:clamp(14px,2vw,22px);font-weight:900;color:#FFE082;line-height:1}
+    .h-stat-lbl{font-size:10px;color:rgba(255,255,255,.7);margin-top:3px;line-height:1.2}
 
-    /* ── SECTIONS ── */
-    .section { padding:80px 24px; }
-    .section-alt { background:var(--cinza); }
-    .container { max-width:1080px; margin:0 auto; }
-    .section-label { font-size:12px; font-weight:700; color:var(--laranja); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:10px; }
-    .section-title { font-size:clamp(24px,4vw,38px); font-weight:900; color:var(--texto); margin-bottom:12px; line-height:1.2; }
-    .section-sub { font-size:16px; color:var(--sub); max-width:560px; line-height:1.7; }
+    /* ── PAINEL DE TABS (direita) ── */
+    .tabs-panel{background:var(--cinza);display:flex;flex-direction:column;overflow:hidden}
+    .tabs-nav{display:flex;background:#fff;border-bottom:1px solid var(--brd);overflow-x:auto;flex-shrink:0}
+    .tabs-nav::-webkit-scrollbar{height:2px}
+    .tabs-nav::-webkit-scrollbar-thumb{background:var(--laranja)}
+    .tab-btn{padding:12px 16px;font-size:12px;font-weight:700;color:var(--sub);
+      cursor:pointer;border:none;background:transparent;white-space:nowrap;
+      border-bottom:2px solid transparent;transition:color .2s,border-color .2s;flex-shrink:0}
+    .tab-btn.active{color:var(--laranja);border-bottom-color:var(--laranja)}
+    .tab-content{flex:1;overflow-y:auto;padding:clamp(16px,2.5vh,28px) clamp(16px,2.5vw,28px)}
+    .tab-pane{display:none}
+    .tab-pane.active{display:block}
 
-    /* ── PLANOS ── */
-    .planos-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; margin-top:48px; }
-    .plano-card {
-      background:#fff; border:2px solid var(--border); border-radius:20px;
-      padding:32px 28px; position:relative; transition:border-color .2s, box-shadow .2s;
-    }
-    .plano-card:hover { border-color:var(--laranja); box-shadow:0 8px 32px rgba(255,109,0,.1); }
-    .plano-card.destaque { border-color:var(--laranja); background:linear-gradient(160deg, #FFF8F5 0%, #fff 100%); }
-    .plano-popular { position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--laranja); color:#fff; font-size:11px; font-weight:800; padding:4px 16px; border-radius:20px; white-space:nowrap; }
-    .plano-icon { font-size:32px; margin-bottom:12px; }
-    .plano-nome { font-size:18px; font-weight:800; color:var(--texto); margin-bottom:4px; }
-    .plano-desc { font-size:13px; color:var(--sub); margin-bottom:20px; line-height:1.6; }
-    .plano-preco { display:flex; align-items:baseline; gap:4px; margin-bottom:6px; }
-    .plano-val { font-size:36px; font-weight:900; color:var(--laranja); }
-    .plano-periodo { font-size:14px; color:var(--sub); }
-    .plano-economia { font-size:12px; color:var(--verde); font-weight:600; margin-bottom:24px; }
-    .plano-features { list-style:none; display:flex; flex-direction:column; gap:10px; margin-bottom:28px; }
-    .plano-features li { display:flex; align-items:center; gap:10px; font-size:14px; color:#424242; }
-    .plano-features li i { color:var(--verde); width:16px; }
-    .btn-plano { width:100%; padding:14px; background:var(--laranja); color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; transition:background .2s; }
-    .btn-plano:hover { background:var(--laranja-escuro); }
-    .btn-plano-sec { background:#fff; color:var(--laranja); border:2px solid var(--laranja); }
-    .btn-plano-sec:hover { background:var(--laranja-claro); }
+    /* ── COMO FUNCIONA (tab) ── */
+    .steps{display:flex;flex-direction:column;gap:14px}
+    .step{display:flex;gap:14px;align-items:flex-start}
+    .step-num{width:34px;height:34px;background:var(--laranja);color:#fff;border-radius:50%;
+      font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+    .step-body h4{font-size:14px;font-weight:800;margin-bottom:4px}
+    .step-body p{font-size:12px;color:var(--sub);line-height:1.6}
 
-    /* ── COMO FUNCIONA ── */
-    .como-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:28px; margin-top:48px; }
-    .como-step { text-align:center; padding:28px 20px; }
-    .como-num { width:52px; height:52px; background:var(--laranja); color:#fff; border-radius:50%; font-size:20px; font-weight:900; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
-    .como-titulo { font-size:16px; font-weight:800; margin-bottom:8px; }
-    .como-desc { font-size:14px; color:var(--sub); line-height:1.7; }
+    /* ── PLANOS (tab) ── */
+    .planos{display:flex;flex-direction:column;gap:10px}
+    .plano{border:1.5px solid var(--brd);border-radius:14px;padding:14px 16px;background:#fff;
+      transition:border-color .2s,box-shadow .2s;cursor:pointer}
+    .plano:hover{border-color:var(--laranja);box-shadow:0 4px 16px rgba(255,109,0,.1)}
+    .plano.dest{border-color:var(--laranja);background:linear-gradient(160deg,#FFF8F5,#fff)}
+    .plano-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .plano-hd-left{display:flex;align-items:center;gap:8px}
+    .plano-icon2{font-size:18px}
+    .plano-nm{font-size:14px;font-weight:800}
+    .plano-tag{font-size:10px;font-weight:700;background:var(--laranja);color:#fff;
+      padding:2px 8px;border-radius:10px}
+    .plano-prc{font-size:18px;font-weight:900;color:var(--laranja)}
+    .plano-prc span{font-size:12px;font-weight:500;color:var(--sub)}
+    .plano-ft{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .plano-ft-item{font-size:11px;color:#424242;display:flex;align-items:center;gap:4px;width:calc(50% - 3px)}
+    .plano-ft-item i{color:var(--verde);font-size:10px;flex-shrink:0}
+    .plano-ft-item.off{color:#bbb}
+    .plano-ft-item.off i{color:#bbb}
+    .btn-plano2{margin-top:10px;width:100%;padding:10px;background:var(--laranja);color:#fff;
+      border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s}
+    .btn-plano2:hover{background:var(--laranja-e)}
+    .btn-plano2-sec{background:#fff;color:var(--laranja);border:1.5px solid var(--laranja)}
+    .btn-plano2-sec:hover{background:var(--laranja-c)}
 
-    /* ── FEATURES ── */
-    .features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:24px; margin-top:48px; }
-    .feature-card { background:#fff; border:1.5px solid var(--border); border-radius:16px; padding:24px; display:flex; gap:16px; transition:box-shadow .2s; }
-    .feature-card:hover { box-shadow:0 4px 20px rgba(0,0,0,.07); }
-    .feature-icon { width:48px; height:48px; background:var(--laranja-claro); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
-    .feature-body h3 { font-size:15px; font-weight:800; margin-bottom:6px; }
-    .feature-body p { font-size:13px; color:var(--sub); line-height:1.7; }
+    /* ── RECURSOS (tab) ── */
+    .recursos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .rec{background:#fff;border:1.5px solid var(--brd);border-radius:12px;padding:14px;
+      display:flex;gap:10px;transition:box-shadow .2s}
+    .rec:hover{box-shadow:0 3px 12px rgba(0,0,0,.07)}
+    .rec-icon{width:36px;height:36px;background:var(--laranja-c);border-radius:10px;
+      display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .rec-body h4{font-size:12px;font-weight:800;margin-bottom:3px}
+    .rec-body p{font-size:11px;color:var(--sub);line-height:1.5}
 
-    /* ── CUPOM DEMO ── */
-    .cupom-demo { background:var(--laranja); border-radius:20px; padding:32px; color:#fff; text-align:center; max-width:360px; margin:0 auto; }
-    .cupom-demo-header { font-size:13px; font-weight:700; opacity:.8; margin-bottom:8px; }
-    .cupom-demo-nome { font-size:20px; font-weight:900; margin-bottom:4px; }
-    .cupom-demo-posto { font-size:14px; opacity:.8; margin-bottom:20px; }
-    .cupom-qr { background:#fff; width:140px; height:140px; border-radius:12px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center; font-size:80px; }
-    .cupom-codigo { background:rgba(255,255,255,.2); border-radius:10px; padding:12px 24px; font-size:28px; font-weight:900; letter-spacing:8px; margin-bottom:12px; }
-    .cupom-timer { font-size:12px; opacity:.7; }
-    .cupom-desc { margin-top:16px; background:rgba(255,255,255,.15); border-radius:10px; padding:12px 16px; }
-    .cupom-desc-val { font-size:22px; font-weight:900; color:#FFE082; }
-    .cupom-desc-txt { font-size:12px; opacity:.8; }
+    /* ── FAQ (tab) ── */
+    .faq-list{display:flex;flex-direction:column;gap:8px}
+    .faq-item{border:1.5px solid var(--brd);border-radius:12px;overflow:hidden}
+    .faq-q{padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;
+      display:flex;justify-content:space-between;align-items:center;gap:12px;transition:background .2s}
+    .faq-q:hover{background:#fff}
+    .faq-q i{color:var(--laranja);font-size:12px;transition:transform .3s;flex-shrink:0}
+    .faq-a{display:none;padding:0 16px 12px;font-size:12px;color:var(--sub);line-height:1.7}
+    .faq-item.open .faq-a{display:block}
+    .faq-item.open .faq-q i{transform:rotate(180deg)}
 
-    /* ── DEPOIMENTOS ── */
-    .dep-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; margin-top:48px; }
-    .dep-card { background:#fff; border:1.5px solid var(--border); border-radius:16px; padding:24px; }
-    .dep-stars { color:#FFC107; font-size:14px; margin-bottom:12px; }
-    .dep-texto { font-size:14px; color:var(--sub); line-height:1.7; margin-bottom:16px; font-style:italic; }
-    .dep-autor { display:flex; align-items:center; gap:10px; }
-    .dep-avatar { width:40px; height:40px; border-radius:50%; font-size:18px; display:flex; align-items:center; justify-content:center; }
-    .dep-nome { font-size:14px; font-weight:700; }
-    .dep-cargo { font-size:12px; color:var(--sub); }
-
-    /* ── FAQ ── */
-    .faq-list { display:flex; flex-direction:column; gap:12px; margin-top:40px; max-width:720px; margin-left:auto; margin-right:auto; }
-    .faq-item { border:1.5px solid var(--border); border-radius:14px; overflow:hidden; }
-    .faq-q { padding:18px 20px; font-size:15px; font-weight:700; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:16px; }
-    .faq-q:hover { background:var(--cinza); }
-    .faq-q i { color:var(--laranja); font-size:14px; transition:transform .3s; flex-shrink:0; }
-    .faq-a { display:none; padding:0 20px 18px; font-size:14px; color:var(--sub); line-height:1.8; }
-    .faq-item.aberto .faq-a { display:block; }
-    .faq-item.aberto .faq-q i { transform:rotate(180deg); }
-
-    /* ── CTA FINAL ── */
-    .cta-final { background:linear-gradient(135deg, #1A1A1A 0%, #333 100%); padding:80px 24px; text-align:center; }
-    .cta-final h2 { font-size:clamp(24px,4vw,40px); font-weight:900; color:#fff; margin-bottom:12px; }
-    .cta-final p { font-size:16px; color:rgba(255,255,255,.7); max-width:500px; margin:0 auto 32px; line-height:1.7; }
-
-    /* ── FOOTER ── */
-    .emp-footer { background:#111; color:rgba(255,255,255,.5); padding:32px 24px; text-align:center; font-size:13px; }
-    .emp-footer a { color:var(--laranja); }
+    /* ── DEPOIMENTOS (tab) ── */
+    .deps{display:flex;flex-direction:column;gap:10px}
+    .dep{background:#fff;border:1.5px solid var(--brd);border-radius:12px;padding:14px}
+    .dep-stars{color:#FFC107;font-size:12px;margin-bottom:8px}
+    .dep-txt{font-size:12px;color:var(--sub);line-height:1.65;font-style:italic;margin-bottom:10px}
+    .dep-autor{display:flex;align-items:center;gap:8px}
+    .dep-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+    .dep-nm{font-size:13px;font-weight:700}
+    .dep-cg{font-size:11px;color:var(--sub)}
 
     /* ── MODAL CADASTRO ── */
-    .modal-bg { display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:16px; }
-    .modal-bg.aberto { display:flex; }
-    .modal-box { background:#fff; border-radius:20px; width:100%; max-width:480px; padding:32px; position:relative; max-height:90vh; overflow-y:auto; }
-    .modal-close { position:absolute; top:16px; right:16px; background:none; border:none; cursor:pointer; font-size:20px; color:#999; padding:4px; }
-    .modal-titulo { font-size:22px; font-weight:900; margin-bottom:4px; }
-    .modal-sub { font-size:14px; color:var(--sub); margin-bottom:24px; }
-    .form-group { margin-bottom:16px; }
-    .form-label { font-size:13px; font-weight:700; color:#555; display:block; margin-bottom:6px; }
-    .form-input { width:100%; padding:13px 14px; border:1.5px solid var(--border); border-radius:12px; font-size:15px; font-family:'Inter',sans-serif; transition:border-color .2s; }
-    .form-input:focus { outline:none; border-color:var(--laranja); }
-    .form-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .form-select { width:100%; padding:13px 14px; border:1.5px solid var(--border); border-radius:12px; font-size:15px; background:#fff; font-family:'Inter',sans-serif; }
-    .btn-form-submit { width:100%; padding:16px; background:var(--laranja); color:#fff; border:none; border-radius:14px; font-size:16px; font-weight:700; cursor:pointer; margin-top:8px; transition:background .2s; }
-    .btn-form-submit:hover { background:var(--laranja-escuro); }
-    .form-divider { text-align:center; font-size:13px; color:#999; margin:16px 0; }
-    .form-erro { background:#FFEBEE; color:#C62828; border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:12px; display:none; }
-    .form-sucesso { background:#E8F5E9; color:#1B5E20; border-radius:10px; padding:14px; font-size:14px; line-height:1.6; display:none; }
+    .modal-bg{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);
+      backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px}
+    .modal-bg.open{display:flex}
+    .modal-box{background:#fff;border-radius:20px;width:100%;max-width:480px;padding:28px;
+      position:relative;max-height:92vh;overflow-y:auto}
+    .modal-close{position:absolute;top:14px;right:14px;background:none;border:none;
+      cursor:pointer;font-size:20px;color:#999;padding:4px;line-height:1}
+    .modal-tit{font-size:20px;font-weight:900;margin-bottom:3px}
+    .modal-sub2{font-size:13px;color:var(--sub);margin-bottom:20px}
+    .fg{margin-bottom:13px}
+    .fl{font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:5px}
+    .fi{width:100%;padding:11px 13px;border:1.5px solid var(--brd);border-radius:10px;
+      font-size:14px;font-family:'Inter',sans-serif;transition:border-color .2s}
+    .fi:focus{outline:none;border-color:var(--laranja)}
+    .fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .fsel{width:100%;padding:11px 13px;border:1.5px solid var(--brd);border-radius:10px;
+      font-size:14px;background:#fff;font-family:'Inter',sans-serif}
+    .fsub{width:100%;padding:14px;background:var(--laranja);color:#fff;border:none;
+      border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;transition:background .2s}
+    .fsub:hover{background:var(--laranja-e)}
+    .fdiv{text-align:center;font-size:12px;color:#999;margin:12px 0}
+    .ferr{background:#FFEBEE;color:#C62828;border-radius:8px;padding:9px 13px;
+      font-size:12px;margin-bottom:10px;display:none}
+    .fsuc{background:#E8F5E9;color:#1B5E20;border-radius:8px;padding:12px;
+      font-size:13px;line-height:1.6;display:none}
+    @keyframes spin{to{transform:rotate(360deg)}}
 
-    @media (max-width:640px) {
-      .emp-header-nav { display:none; }
-      .hero { padding:56px 20px 72px; }
-      .form-grid2 { grid-template-columns:1fr; }
+    /* ── RESPONSIVO TABLET ── */
+    @media(max-width:900px){
+      .main-wrap{grid-template-columns:1fr;min-height:auto}
+      .hero{padding:clamp(20px,4vw,36px) clamp(16px,4vw,32px)}
+      .hero-stats{grid-template-columns:repeat(4,1fr)}
+      .tabs-panel{min-height:auto}
+      .recursos{grid-template-columns:1fr}
+      .hdr-nav{display:none}
+    }
+    /* ── RESPONSIVO MOBILE ── */
+    @media(max-width:540px){
+      .hdr{height:52px;padding:0 14px}
+      .hero-stats{grid-template-columns:repeat(2,1fr)}
+      .hero-btns{flex-direction:column}
+      .btn-p,.btn-s{width:100%;text-align:center}
+      .fg2{grid-template-columns:1fr}
+      .recursos{grid-template-columns:1fr}
+      .hdr-logo-tag{display:none}
     }
   </style>
 </head>
 <body>
 
 <!-- HEADER -->
-<header class="emp-header">
-  <div class="emp-logo">
-    <div class="emp-logo-icon">⛽</div>
-    <div>
-      <span class="emp-logo-nome">RotaPosto</span>
-      <span class="emp-logo-tag">EMPRESAS</span>
-    </div>
+<header class="hdr">
+  <div class="hdr-logo">
+    ⛽ Rota<span>Posto</span>
+    <span class="hdr-logo-tag">EMPRESAS</span>
   </div>
-  <nav class="emp-header-nav">
-    <a href="#planos">Planos</a>
-    <a href="#como-funciona">Como funciona</a>
-    <a href="#recursos">Recursos</a>
-    <a href="#faq">FAQ</a>
+  <nav class="hdr-nav">
+    <a href="#" onclick="showTab('planos');return false">Planos</a>
+    <a href="#" onclick="showTab('como');return false">Como funciona</a>
+    <a href="#" onclick="showTab('recursos');return false">Recursos</a>
+    <a href="#" onclick="showTab('faq');return false">FAQ</a>
     <a href="/app" target="_blank">App do Motorista</a>
   </nav>
-  <button class="emp-btn-entrar" onclick="abrirPainelEmpresa()">
+  <button class="btn-entrar" onclick="abrirPainelEmpresa()">
     <i class="fas fa-sign-in-alt"></i> Acessar Painel
   </button>
 </header>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-badge"><i class="fas fa-star"></i> Novo Canal de Vendas para Postos</div>
-  <h1>Seu posto visto por<br/><span>milhares de motoristas</span><br/>todos os dias</h1>
-  <p>O RotaPosto Empresas transforma o aplicativo mais usado por motoristas da Grande Vitória em um canal direto para o seu posto atrair, converter e fidelizar clientes.</p>
-  <div class="hero-btns">
-    <button class="btn-hero-primary" onclick="document.getElementById('modal-cadastro').classList.add('aberto')">
-      <i class="fas fa-rocket"></i> Quero ser parceiro
-    </button>
-    <button class="btn-hero-sec" onclick="document.getElementById('como-funciona').scrollIntoView({behavior:'smooth'})">
-      <i class="fas fa-play-circle"></i> Ver como funciona
-    </button>
-  </div>
-  <div class="hero-stats">
-    <div class="hero-stat"><div class="hero-stat-num">12.000+</div><div class="hero-stat-label">Motoristas ativos</div></div>
-    <div class="hero-stat"><div class="hero-stat-num">340+</div><div class="hero-stat-label">Postos cadastrados</div></div>
-    <div class="hero-stat"><div class="hero-stat-num">R$ 0,15</div><div class="hero-stat-label">Economia média/litro</div></div>
-    <div class="hero-stat"><div class="hero-stat-num">4.8★</div><div class="hero-stat-label">Avaliação na loja</div></div>
-  </div>
-</section>
+<!-- LAYOUT PRINCIPAL -->
+<div class="main-wrap">
 
-<!-- COMO FUNCIONA -->
-<section class="section" id="como-funciona">
-  <div class="container">
-    <div class="section-label">Processo simples</div>
-    <h2 class="section-title">Em 4 passos você já está no mapa</h2>
-    <p class="section-sub">Sem contratos longos, sem instalação de equipamentos. Tudo pelo celular em menos de 10 minutos.</p>
-    <div class="como-grid">
-      <div class="como-step">
-        <div class="como-num">1</div>
-        <div class="como-titulo">Cadastre seu posto</div>
-        <div class="como-desc">Preencha o CNPJ, endereço e os dados do seu estabelecimento. Verificamos e aprovamos em até 24h.</div>
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge"><i class="fas fa-star"></i> Novo Canal de Vendas para Postos</div>
+      <h1>Seu posto visto por<br/><em>milhares de motoristas</em><br/>todos os dias</h1>
+      <p class="hero-sub">O RotaPosto Empresas transforma o app mais usado por motoristas da Grande Vitória em um canal direto para <strong>atrair, converter e fidelizar clientes</strong>.</p>
+      <div class="hero-btns">
+        <button class="btn-p" onclick="document.getElementById('modal-cadastro').classList.add('open')">
+          <i class="fas fa-rocket"></i> Quero ser parceiro
+        </button>
+        <button class="btn-s" onclick="showTab('como')">
+          <i class="fas fa-play-circle"></i> Ver como funciona
+        </button>
       </div>
-      <div class="como-step">
-        <div class="como-num">2</div>
-        <div class="como-titulo">Configure seu perfil</div>
-        <div class="como-desc">Adicione bandeira, foto, serviços disponíveis e configure os preços que você pratica para cada combustível.</div>
-      </div>
-      <div class="como-step">
-        <div class="como-num">3</div>
-        <div class="como-titulo">Ative os benefícios</div>
-        <div class="como-desc">Escolha seu plano, configure o desconto para assinantes Premium e ative o destaque no mapa da região.</div>
-      </div>
-      <div class="como-step">
-        <div class="como-num">4</div>
-        <div class="como-titulo">Acompanhe os resultados</div>
-        <div class="como-desc">Veja em tempo real quantos motoristas clicaram, quantos descupons foram validados e qual é o ROI real.</div>
+      <div class="hero-stats">
+        <div class="h-stat"><div class="h-stat-num">12k+</div><div class="h-stat-lbl">Motoristas ativos</div></div>
+        <div class="h-stat"><div class="h-stat-num">340+</div><div class="h-stat-lbl">Postos cadastrados</div></div>
+        <div class="h-stat"><div class="h-stat-num">R$0,15</div><div class="h-stat-lbl">Economia/litro</div></div>
+        <div class="h-stat"><div class="h-stat-num">4.8★</div><div class="h-stat-lbl">Avaliação loja</div></div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- PLANOS -->
-<section class="section section-alt" id="planos">
-  <div class="container">
-    <div class="section-label">Planos e preços</div>
-    <h2 class="section-title">Escolha o plano ideal para o seu posto</h2>
-    <p class="section-sub">Sem fidelidade. Cancele quando quiser. O retorno aparece já no primeiro mês.</p>
-    <div class="planos-grid">
+  <!-- ── PAINEL DE TABS ── -->
+  <div class="tabs-panel">
+    <nav class="tabs-nav">
+      <button class="tab-btn active" onclick="showTab('como')" id="tab-como">🚀 Como funciona</button>
+      <button class="tab-btn" onclick="showTab('planos')" id="tab-planos">💰 Planos</button>
+      <button class="tab-btn" onclick="showTab('recursos')" id="tab-recursos">⚡ Recursos</button>
+      <button class="tab-btn" onclick="showTab('deps')" id="tab-deps">💬 Depoimentos</button>
+      <button class="tab-btn" onclick="showTab('faq')" id="tab-faq">❓ FAQ</button>
+    </nav>
 
-      <!-- Básico -->
-      <div class="plano-card">
-        <div class="plano-icon">📍</div>
-        <div class="plano-nome">Visibilidade</div>
-        <div class="plano-desc">Para postos que querem aparecer no app e validar o preço com o selo de verificado.</div>
-        <div class="plano-preco"><span class="plano-val">R$ 29</span><span class="plano-periodo">,90/mês</span></div>
-        <div class="plano-economia">Equivale a R$ 0,99/dia</div>
-        <ul class="plano-features">
-          <li><i class="fas fa-check-circle"></i> Perfil completo no mapa</li>
-          <li><i class="fas fa-check-circle"></i> Atualização de preços direta</li>
-          <li><i class="fas fa-check-circle"></i> Selo "Preço Verificado"</li>
-          <li><i class="fas fa-check-circle"></i> Fotos e serviços do posto</li>
-          <li><i class="fas fa-check-circle"></i> Relatório mensal básico</li>
-          <li style="color:#bbb"><i class="fas fa-times-circle" style="color:#bbb"></i> Destaque no mapa (pino dourado)</li>
-          <li style="color:#bbb"><i class="fas fa-times-circle" style="color:#bbb"></i> Sistema de cupons/descontos</li>
-        </ul>
-        <button class="btn-plano btn-plano-sec" onclick="abrirCadastro('visibilidade')">Começar grátis por 7 dias</button>
+    <div class="tab-content">
+
+      <!-- COMO FUNCIONA -->
+      <div class="tab-pane active" id="pane-como">
+        <div style="margin-bottom:16px">
+          <div style="font-size:11px;font-weight:700;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Processo simples</div>
+          <div style="font-size:16px;font-weight:900;margin-bottom:4px">Em 4 passos no mapa</div>
+          <div style="font-size:12px;color:var(--sub)">Sem contratos longos. Tudo pelo celular em menos de 10 minutos.</div>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body"><h4>Cadastre seu posto</h4><p>Preencha CNPJ, endereço e dados do estabelecimento. Aprovamos em até 24h.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body"><h4>Configure seu perfil</h4><p>Adicione bandeira, foto, serviços e configure os preços de cada combustível.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body"><h4>Ative os benefícios</h4><p>Escolha seu plano, configure o desconto Premium e ative o destaque no mapa.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-body"><h4>Acompanhe os resultados</h4><p>Veja em tempo real cliques, cupons validados e ROI real do seu investimento.</p></div>
+          </div>
+        </div>
+        <button class="btn-p" style="margin-top:20px;width:100%" onclick="document.getElementById('modal-cadastro').classList.add('open')">
+          <i class="fas fa-rocket"></i> Começar agora — 7 dias grátis
+        </button>
       </div>
 
-      <!-- Premium (destaque) -->
-      <div class="plano-card destaque">
-        <div class="plano-popular">⭐ MAIS ESCOLHIDO</div>
-        <div class="plano-icon">🥇</div>
-        <div class="plano-nome">Parceiro Premium</div>
-        <div class="plano-desc">Para postos que querem dominar a busca na região e atrair assinantes com desconto exclusivo.</div>
-        <div class="plano-preco"><span class="plano-val">R$ 49</span><span class="plano-periodo">,90/mês</span></div>
-        <div class="plano-economia">Estimativa: 80+ clientes/mês gerados</div>
-        <ul class="plano-features">
-          <li><i class="fas fa-check-circle"></i> Tudo do plano Visibilidade</li>
-          <li><i class="fas fa-check-circle"></i> 🗺️ Pino dourado no mapa</li>
-          <li><i class="fas fa-check-circle"></i> Topo na lista de busca</li>
-          <li><i class="fas fa-check-circle"></i> Sistema de cupons QR Code</li>
-          <li><i class="fas fa-check-circle"></i> Notificações push (geofencing)</li>
-          <li><i class="fas fa-check-circle"></i> Dashboard com métricas avançadas</li>
-          <li><i class="fas fa-check-circle"></i> Suporte prioritário WhatsApp</li>
-        </ul>
-        <button class="btn-plano" onclick="abrirCadastro('premium')">Quero atrair mais clientes</button>
-      </div>
+      <!-- PLANOS -->
+      <div class="tab-pane" id="pane-planos">
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Planos e preços</div>
+          <div style="font-size:16px;font-weight:900;margin-bottom:4px">Escolha o ideal para seu posto</div>
+          <div style="font-size:12px;color:var(--sub)">Sem fidelidade. Cancele quando quiser.</div>
+        </div>
+        <div class="planos">
 
-      <!-- Franqueado -->
-      <div class="plano-card">
-        <div class="plano-icon">🏢</div>
-        <div class="plano-nome">Rede / Bandeirado</div>
-        <div class="plano-desc">Para redes de postos, bandeiras e grupos com múltiplas unidades na Grande Vitória.</div>
-        <div class="plano-preco"><span class="plano-val">Sob</span><span class="plano-periodo"> consulta</span></div>
-        <div class="plano-economia">A partir de 3 unidades</div>
-        <ul class="plano-features">
-          <li><i class="fas fa-check-circle"></i> Tudo do plano Premium</li>
-          <li><i class="fas fa-check-circle"></i> Painel multi-unidade</li>
-          <li><i class="fas fa-check-circle"></i> Relatórios consolidados</li>
-          <li><i class="fas fa-check-circle"></i> Campanha de anúncio regional</li>
-          <li><i class="fas fa-check-circle"></i> API de integração com PDV</li>
-          <li><i class="fas fa-check-circle"></i> Gerente de conta dedicado</li>
-          <li><i class="fas fa-check-circle"></i> Preço especial por volume</li>
-        </ul>
-        <button class="btn-plano btn-plano-sec" onclick="abrirCadastro('rede')">Falar com comercial</button>
-      </div>
+          <div class="plano" onclick="abrirCadastro('visibilidade')">
+            <div class="plano-hd">
+              <div class="plano-hd-left"><span class="plano-icon2">📍</span><span class="plano-nm">Visibilidade</span></div>
+              <div><span class="plano-prc">R$ 29<span>,90/mês</span></span></div>
+            </div>
+            <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Para postos que querem aparecer no app com selo verificado.</div>
+            <div class="plano-ft">
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Perfil completo no mapa</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Atualização de preços</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Selo "Preço Verificado"</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Relatório mensal básico</div>
+              <div class="plano-ft-item off"><i class="fas fa-times-circle"></i>Pino dourado</div>
+              <div class="plano-ft-item off"><i class="fas fa-times-circle"></i>Sistema de cupons</div>
+            </div>
+            <button class="btn-plano2 btn-plano2-sec">Começar grátis por 7 dias</button>
+          </div>
 
-    </div>
-  </div>
-</section>
+          <div class="plano dest" onclick="abrirCadastro('premium')">
+            <div class="plano-hd">
+              <div class="plano-hd-left"><span class="plano-icon2">🥇</span><span class="plano-nm">Parceiro Premium</span><span class="plano-tag">⭐ + ESCOLHIDO</span></div>
+              <div><span class="plano-prc">R$ 49<span>,90/mês</span></span></div>
+            </div>
+            <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Domine a busca na região e atraia assinantes com desconto exclusivo.</div>
+            <div class="plano-ft">
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Tudo do Visibilidade</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>🗺️ Pino dourado</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Topo na busca</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Cupons QR Code</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Notif. geofencing</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Métricas avançadas</div>
+            </div>
+            <button class="btn-plano2">Quero atrair mais clientes</button>
+          </div>
 
-<!-- RECURSOS -->
-<section class="section" id="recursos">
-  <div class="container">
-    <div class="section-label">O que você ganha</div>
-    <h2 class="section-title">Tudo para transformar visibilidade em vendas</h2>
-    <p class="section-sub">Ferramentas reais que geram resultado mensurável, não apenas presença online.</p>
-    <div class="features-grid" style="margin-top:48px">
+          <div class="plano" onclick="abrirCadastro('rede')">
+            <div class="plano-hd">
+              <div class="plano-hd-left"><span class="plano-icon2">🏢</span><span class="plano-nm">Rede / Bandeirado</span></div>
+              <div><span class="plano-prc" style="font-size:14px">Sob consulta</span></div>
+            </div>
+            <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Redes com múltiplas unidades na Grande Vitória. A partir de 3 unidades.</div>
+            <div class="plano-ft">
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Tudo do Premium</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Painel multi-unidade</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>Gerente dedicado</div>
+              <div class="plano-ft-item"><i class="fas fa-check-circle"></i>API integração PDV</div>
+            </div>
+            <button class="btn-plano2 btn-plano2-sec">Falar com comercial</button>
+          </div>
 
-      <div class="feature-card">
-        <div class="feature-icon">🗺️</div>
-        <div class="feature-body">
-          <h3>Pino Dourado no Mapa</h3>
-          <p>Seu posto se destaca visualmente com um marcador exclusivo na cor dourada. Motoristas notam antes de qualquer outro posto da região.</p>
         </div>
       </div>
 
-      <div class="feature-card">
-        <div class="feature-icon">✅</div>
-        <div class="feature-body">
-          <h3>Selo "Preço Verificado"</h3>
-          <p>Seu preço aparece com um selo oficial de verificação. O motorista chega sabendo o que vai pagar — zero frustração, mais conversão.</p>
+      <!-- RECURSOS -->
+      <div class="tab-pane" id="pane-recursos">
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">O que você ganha</div>
+          <div style="font-size:16px;font-weight:900;margin-bottom:4px">Visibilidade que vira vendas</div>
+          <div style="font-size:12px;color:var(--sub)">Ferramentas reais com resultado mensurável.</div>
         </div>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🎟️</div>
-        <div class="feature-body">
-          <h3>Cupons QR Code Premium</h3>
-          <p>Assinantes do RotaPosto geram um QR Code exclusivo para resgatar o desconto no seu posto. Validação em 1 segundo pelo celular do frentista.</p>
-        </div>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">📍</div>
-        <div class="feature-body">
-          <h3>Notificação por Proximidade</h3>
-          <p>Quando um motorista passa a 800m do seu posto, ele recebe uma notificação personalizada com seu desconto. Marketing ultralocal em tempo real.</p>
-        </div>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">📊</div>
-        <div class="feature-body">
-          <h3>Métricas que Provam Retorno</h3>
-          <p>"Este mês, 340 motoristas clicaram em Ir até lá no seu posto." Dados reais para justificar o investimento e otimizar campanhas.</p>
-        </div>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
-        <div class="feature-body">
-          <h3>Integração Automática de Preços</h3>
-          <p>O gerente atualiza o preço no painel uma vez. O desconto é calculado automaticamente na hora da validação — sem contas manuais.</p>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- CUPOM DEMO -->
-<section class="section section-alt">
-  <div class="container">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center">
-      <div>
-        <div class="section-label">Sistema de cupons</div>
-        <h2 class="section-title">Desconto em 1 segundo, sem digitar nada</h2>
-        <p style="font-size:15px;color:var(--sub);line-height:1.8;margin-bottom:20px;">O assinante abre o app, gera o QR Code e mostra para o frentista. A câmera do celular lê e o sistema mostra automaticamente o preço com desconto na tela. Nenhuma digitação, nenhum erro.</p>
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <div style="display:flex;align-items:center;gap:12px;font-size:14px;color:#424242"><i class="fas fa-clock" style="color:var(--laranja);width:20px"></i> Validade de 5 minutos (anti-fraude)</div>
-          <div style="display:flex;align-items:center;gap:12px;font-size:14px;color:#424242"><i class="fas fa-shield-alt" style="color:var(--laranja);width:20px"></i> Hash única por geração, código expira após uso</div>
-          <div style="display:flex;align-items:center;gap:12px;font-size:14px;color:#424242"><i class="fas fa-calculator" style="color:var(--laranja);width:20px"></i> Desconto calculado automaticamente pela API</div>
-          <div style="display:flex;align-items:center;gap:12px;font-size:14px;color:#424242"><i class="fas fa-mobile-alt" style="color:var(--laranja);width:20px"></i> Funciona em qualquer celular, sem instalar app</div>
-        </div>
-      </div>
-      <div>
-        <div class="cupom-demo">
-          <div class="cupom-demo-header">⛽ RotaPosto Premium</div>
-          <div class="cupom-demo-nome">Luciano Santos</div>
-          <div class="cupom-demo-posto">Gasolina Aditivada · Posto Central</div>
-          <div class="cupom-qr">📱</div>
-          <div class="cupom-codigo">843 912</div>
-          <div class="cupom-timer">⏱ Expira em 4:42</div>
-          <div class="cupom-desc">
-            <div class="cupom-desc-val">R$ 5,80/L</div>
-            <div class="cupom-desc-txt">Preço original R$ 5,90 · Economia R$ 0,10/L</div>
+        <div class="recursos">
+          <div class="rec">
+            <div class="rec-icon">🗺️</div>
+            <div class="rec-body"><h4>Pino Dourado</h4><p>Destaque visual exclusivo no mapa. Motoristas notam antes de qualquer outro posto.</p></div>
+          </div>
+          <div class="rec">
+            <div class="rec-icon">✅</div>
+            <div class="rec-body"><h4>Preço Verificado</h4><p>Selo oficial de verificação. O motorista chega sabendo o que vai pagar.</p></div>
+          </div>
+          <div class="rec">
+            <div class="rec-icon">🎟️</div>
+            <div class="rec-body"><h4>Cupons QR Code</h4><p>Assinante gera QR Code, frentista escaneia. Desconto em 1 segundo.</p></div>
+          </div>
+          <div class="rec">
+            <div class="rec-icon">📍</div>
+            <div class="rec-body"><h4>Geofencing</h4><p>Motorista a 800m do posto recebe notificação push com seu desconto.</p></div>
+          </div>
+          <div class="rec">
+            <div class="rec-icon">📊</div>
+            <div class="rec-body"><h4>Métricas Reais</h4><p>Cliques, cupons validados e ROI real para justificar o investimento.</p></div>
+          </div>
+          <div class="rec">
+            <div class="rec-icon">⚡</div>
+            <div class="rec-body"><h4>Preços Automáticos</h4><p>Atualiza uma vez no painel. Desconto calculado automaticamente na validação.</p></div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-</section>
 
-<!-- DEPOIMENTOS -->
-<section class="section">
-  <div class="container">
-    <div class="section-label">Quem já é parceiro</div>
-    <h2 class="section-title">Resultados reais de postos parceiros</h2>
-    <div class="dep-grid">
-      <div class="dep-card">
-        <div class="dep-stars">★★★★★</div>
-        <div class="dep-texto">"No primeiro mês já tivemos 180 validações de cupom. Os motoristas de Uber vinham especificamente por causa do app. O investimento de R$ 49 paga sozinho."</div>
-        <div class="dep-autor">
-          <div class="dep-avatar" style="background:#FFF3E0">👨‍💼</div>
-          <div><div class="dep-nome">Carlos M.</div><div class="dep-cargo">Gerente · Posto Central de Carapina</div></div>
+      <!-- DEPOIMENTOS -->
+      <div class="tab-pane" id="pane-deps">
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Quem já é parceiro</div>
+          <div style="font-size:16px;font-weight:900">Resultados reais</div>
+        </div>
+        <div class="deps">
+          <div class="dep">
+            <div class="dep-stars">★★★★★</div>
+            <div class="dep-txt">"No primeiro mês já tivemos 180 validações de cupom. Os motoristas de Uber vinham especificamente por causa do app. O investimento de R$ 49 paga sozinho."</div>
+            <div class="dep-autor">
+              <div class="dep-av" style="background:#FFF3E0">👨‍💼</div>
+              <div><div class="dep-nm">Carlos M.</div><div class="dep-cg">Gerente · Posto Central de Carapina</div></div>
+            </div>
+          </div>
+          <div class="dep">
+            <div class="dep-stars">★★★★★</div>
+            <div class="dep-txt">"A notificação de proximidade é incrível. Às 6h da manhã os motoristas de app passam perto e recebem o alerta do nosso preço. Fila nas bombas toda manhã."</div>
+            <div class="dep-autor">
+              <div class="dep-av" style="background:#E8F5E9">👩‍💼</div>
+              <div><div class="dep-nm">Patrícia L.</div><div class="dep-cg">Proprietária · Posto Laranjeiras</div></div>
+            </div>
+          </div>
+          <div class="dep">
+            <div class="dep-stars">★★★★☆</div>
+            <div class="dep-txt">"O painel de métricas prova para o dono da rede que o RotaPosto traz retorno. Hoje temos 4 unidades e não cancelo por nada."</div>
+            <div class="dep-autor">
+              <div class="dep-av" style="background:#E3F2FD">🏢</div>
+              <div><div class="dep-nm">Roberto A.</div><div class="dep-cg">Gerente Regional · Rede AutoPosto ES</div></div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="dep-card">
-        <div class="dep-stars">★★★★★</div>
-        <div class="dep-texto">"A notificação de proximidade é incrível. Às 6h da manhã os motoristas de aplicativo passam perto e recebem o alerta do nosso preço. Fila nas bombas toda manhã."</div>
-        <div class="dep-autor">
-          <div class="dep-avatar" style="background:#E8F5E9">👩‍💼</div>
-          <div><div class="dep-nome">Patrícia L.</div><div class="dep-cargo">Proprietária · Posto Laranjeiras</div></div>
+
+      <!-- FAQ -->
+      <div class="tab-pane" id="pane-faq">
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--laranja);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Dúvidas frequentes</div>
+          <div style="font-size:16px;font-weight:900">FAQ</div>
+        </div>
+        <div class="faq-list">
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <div class="faq-q">Preciso instalar algum equipamento? <i class="fas fa-chevron-down"></i></div>
+            <div class="faq-a">Não. Tudo funciona pelo navegador do celular. O frentista acessa <strong>rotaposto.com.br/parcerias/validar</strong> e usa a câmera para ler o QR Code. Nenhuma instalação.</div>
+          </div>
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <div class="faq-q">Como funciona o desconto para o assinante? <i class="fas fa-chevron-down"></i></div>
+            <div class="faq-a">Você configura o desconto no painel (ex: R$ 0,10/litro). Quando o assinante gera o cupom e o frentista escaneia, o sistema calcula automaticamente o preço final.</div>
+          </div>
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <div class="faq-q">Posso cancelar quando quiser? <i class="fas fa-chevron-down"></i></div>
+            <div class="faq-a">Sim. Sem fidelidade mínima. Cancele a qualquer momento pelo painel ou via WhatsApp. Efetivo ao final do período vigente.</div>
+          </div>
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <div class="faq-q">Quantos motoristas usam o RotaPosto? <i class="fas fa-chevron-down"></i></div>
+            <div class="faq-a">Mais de 12.000 motoristas ativos na Grande Vitória, com forte presença de motoristas de app (Uber, 99, InDrive) que abastecem 3x mais que o motorista comum.</div>
+          </div>
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <div class="faq-q">Como é o pagamento? <i class="fas fa-chevron-down"></i></div>
+            <div class="faq-a">Via PIX recorrente mensal pela plataforma OpenPix/Woovi. 100% seguro, sem dados de cartão armazenados.</div>
+          </div>
         </div>
       </div>
-      <div class="dep-card">
-        <div class="dep-stars">★★★★☆</div>
-        <div class="dep-texto">"O painel de métricas prova para o dono da rede que o RotaPosto traz retorno. Hoje temos 4 unidades cadastradas e não cancelo por nada."</div>
-        <div class="dep-autor">
-          <div class="dep-avatar" style="background:#E3F2FD">🏢</div>
-          <div><div class="dep-nome">Roberto A.</div><div class="dep-cargo">Gerente Regional · Rede AutoPosto ES</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 
-<!-- FAQ -->
-<section class="section section-alt" id="faq">
-  <div class="container">
-    <div style="text-align:center">
-      <div class="section-label">Perguntas frequentes</div>
-      <h2 class="section-title">Dúvidas dos gerentes</h2>
-    </div>
-    <div class="faq-list">
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-q">Preciso instalar algum equipamento no posto? <i class="fas fa-chevron-down"></i></div>
-        <div class="faq-a">Não. Tudo funciona pelo navegador do celular. O frentista acessa <strong>rotaposto.com.br/parcerias/validar</strong> no celular dele e usa a câmera para ler o QR Code do cliente. Nenhuma instalação necessária.</div>
-      </div>
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-q">Como funciona o desconto para o assinante Premium? <i class="fas fa-chevron-down"></i></div>
-        <div class="faq-a">Você configura o desconto no seu painel (ex: R$ 0,10/litro). Quando o assinante gera o cupom e o frentista escaneia, o sistema calcula automaticamente o preço final e exibe na tela. O frentista só precisa digitar esse valor no caixa.</div>
-      </div>
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-q">Posso cancelar quando quiser? <i class="fas fa-chevron-down"></i></div>
-        <div class="faq-a">Sim. Não há fidelidade mínima. Você pode cancelar a qualquer momento pelo painel ou entrando em contato via WhatsApp. O cancelamento é efetivo ao final do período vigente.</div>
-      </div>
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-q">Quantos motoristas usam o RotaPosto na Grande Vitória? <i class="fas fa-chevron-down"></i></div>
-        <div class="faq-a">Atualmente mais de 12.000 motoristas ativos, com forte concentração de motoristas de aplicativo (Uber, 99, InDrive) e entregadores. Esse público abastece 3x mais que o motorista comum e toma decisões rápidas baseadas em preço.</div>
-      </div>
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-q">Como o pino dourado funciona na prática? <i class="fas fa-chevron-down"></i></div>
-        <div class="faq-a">No mapa do app, postos parceiros Premium aparecem com um marcador dourado com a logo da sua bandeira. Além disso, seu posto aparece primeiro na lista de resultados da região, independentemente do preço praticado.</div>
-      </div>
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-q">O pagamento é seguro? Como funciona? <i class="fas fa-chevron-down"></i></div>
-        <div class="faq-a">O pagamento é feito via PIX recorrente mensal através da plataforma OpenPix/Woovi, a mesma que o RotaPosto usa para as assinaturas de motoristas. 100% seguro e sem dados de cartão armazenados.</div>
-      </div>
-    </div>
-  </div>
-</section>
+    </div><!-- .tab-content -->
+  </div><!-- .tabs-panel -->
 
-<!-- CTA FINAL -->
-<section class="cta-final">
-  <div class="container">
-    <h2>Seu posto no mapa de 12.000 motoristas</h2>
-    <p>Comece com 7 dias grátis. Sem cartão, sem contrato. Veja o resultado antes de pagar.</p>
-    <div class="hero-btns">
-      <button class="btn-hero-primary" onclick="document.getElementById('modal-cadastro').classList.add('aberto')">
-        <i class="fas fa-rocket"></i> Cadastrar meu posto agora
-      </button>
-      <button class="btn-hero-sec" onclick="abrirPainelEmpresa()">
-        <i class="fas fa-sign-in-alt"></i> Já tenho conta
-      </button>
-    </div>
-  </div>
-</section>
-
-<!-- FOOTER -->
-<footer class="emp-footer">
-  <p>© 2025 RotaPosto Empresas · <a href="/privacidade">Privacidade</a> · <a href="/termos">Termos</a> · <a href="/app">App do Motorista</a></p>
-  <p style="margin-top:8px">RotaPosto CNPJ e dados da empresa · contato@rotaposto.com.br</p>
-</footer>
+</div><!-- .main-wrap -->
 
 <!-- MODAL CADASTRO -->
 <div class="modal-bg" id="modal-cadastro">
   <div class="modal-box">
-    <button class="modal-close" onclick="document.getElementById('modal-cadastro').classList.remove('aberto')">✕</button>
-    <div class="modal-titulo">Cadastrar meu posto</div>
-    <div class="modal-sub">Preencha os dados abaixo. Nossa equipe aprova em até 24h.</div>
-
-    <div class="form-erro" id="cad-erro"></div>
-    <div class="form-sucesso" id="cad-sucesso"></div>
-
+    <button class="modal-close" onclick="document.getElementById('modal-cadastro').classList.remove('open')">✕</button>
+    <div class="modal-tit">Cadastrar meu posto</div>
+    <div class="modal-sub2">Preencha os dados. Nossa equipe aprova em até 24h.</div>
+    <div class="ferr" id="cad-erro"></div>
+    <div class="fsuc" id="cad-sucesso"></div>
     <div id="form-cadastro-body">
-      <div class="form-group">
-        <label class="form-label">Nome do responsável *</label>
-        <input id="cad-nome" class="form-input" type="text" placeholder="João da Silva"/>
+      <div class="fg">
+        <label class="fl">Nome do responsável *</label>
+        <input id="cad-nome" class="fi" type="text" placeholder="João da Silva"/>
       </div>
-      <div class="form-grid2">
-        <div class="form-group">
-          <label class="form-label">WhatsApp *</label>
-          <input id="cad-tel" class="form-input" type="tel" placeholder="(27) 99999-9999" oninput="fmtTelEmp(this)"/>
+      <div class="fg2">
+        <div class="fg">
+          <label class="fl">WhatsApp *</label>
+          <input id="cad-tel" class="fi" type="tel" placeholder="(27) 99999-9999" oninput="fmtTelEmp(this)"/>
         </div>
-        <div class="form-group">
-          <label class="form-label">E-mail *</label>
-          <input id="cad-email" class="form-input" type="email" placeholder="contato@posto.com.br"/>
+        <div class="fg">
+          <label class="fl">E-mail *</label>
+          <input id="cad-email" class="fi" type="email" placeholder="contato@posto.com.br"/>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">CNPJ do posto *</label>
-        <input id="cad-cnpj" class="form-input" type="text" placeholder="00.000.000/0001-00" maxlength="18" oninput="fmtCNPJ(this)"/>
+      <div class="fg">
+        <label class="fl">CNPJ do posto *</label>
+        <input id="cad-cnpj" class="fi" type="text" placeholder="00.000.000/0001-00" maxlength="18" oninput="fmtCNPJ(this)"/>
       </div>
-      <div class="form-group">
-        <label class="form-label">Nome do posto *</label>
-        <input id="cad-posto-nome" class="form-input" type="text" placeholder="Posto Central de Carapina"/>
+      <div class="fg">
+        <label class="fl">Nome do posto *</label>
+        <input id="cad-posto-nome" class="fi" type="text" placeholder="Posto Central de Carapina"/>
       </div>
-      <div class="form-grid2">
-        <div class="form-group">
-          <label class="form-label">Bandeira</label>
-          <select id="cad-bandeira" class="form-select">
+      <div class="fg2">
+        <div class="fg">
+          <label class="fl">Bandeira</label>
+          <select id="cad-bandeira" class="fsel">
             <option value="">Selecionar...</option>
             <option>Sem bandeira (independente)</option>
             <option>Petrobras BR</option>
             <option>Shell</option>
             <option>Ipiranga</option>
-            <option>Raízen (Shell/Cosan)</option>
+            <option>Raízen</option>
             <option>Ale</option>
             <option>Vibra</option>
             <option>Outra</option>
           </select>
         </div>
-        <div class="form-group">
-          <label class="form-label">Plano de interesse</label>
-          <select id="cad-plano" class="form-select">
+        <div class="fg">
+          <label class="fl">Plano de interesse</label>
+          <select id="cad-plano" class="fsel">
             <option value="premium">Premium — R$ 49,90/mês</option>
             <option value="visibilidade">Visibilidade — R$ 29,90/mês</option>
             <option value="rede">Rede / Bandeirado</option>
           </select>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Cidade (ES)</label>
-        <input id="cad-cidade" class="form-input" type="text" placeholder="Serra, Vitória, Vila Velha, Cariacica..."/>
+      <div class="fg">
+        <label class="fl">Cidade (ES)</label>
+        <input id="cad-cidade" class="fi" type="text" placeholder="Serra, Vitória, Vila Velha..."/>
       </div>
-      <div class="form-group" style="display:flex;align-items:flex-start;gap:10px">
+      <div class="fg" style="display:flex;align-items:flex-start;gap:10px">
         <input type="checkbox" id="cad-termos" style="margin-top:3px;flex-shrink:0"/>
-        <label for="cad-termos" style="font-size:13px;color:var(--sub);cursor:pointer">Concordo com os <a href="/termos" target="_blank" style="color:var(--laranja)">Termos de Parceria</a> e <a href="/privacidade" target="_blank" style="color:var(--laranja)">Política de Privacidade</a></label>
+        <label for="cad-termos" style="font-size:12px;color:var(--sub);cursor:pointer">
+          Concordo com os <a href="/termos" target="_blank" style="color:var(--laranja)">Termos de Parceria</a> e <a href="/privacidade" target="_blank" style="color:var(--laranja)">Privacidade</a>
+        </label>
       </div>
-      <button class="btn-form-submit" onclick="enviarCadastroParceiro()">
+      <button class="fsub" onclick="enviarCadastroParceiro()">
         <i class="fas fa-rocket"></i> Enviar cadastro
       </button>
-      <div class="form-divider">Já tem conta? <a href="/parcerias/empresa" style="color:var(--laranja);font-weight:700">Acessar painel →</a></div>
+      <div class="fdiv">Já tem conta? <a href="/parcerias/empresa" style="color:var(--laranja);font-weight:700">Acessar painel →</a></div>
     </div>
   </div>
 </div>
 
 <script>
-  function toggleFaq(el) { el.classList.toggle('aberto'); }
+  function showTab(id) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + id)?.classList.add('active');
+    document.getElementById('pane-' + id)?.classList.add('active');
+    // No mobile, scroll para o painel de tabs
+    if (window.innerWidth <= 900) {
+      document.querySelector('.tabs-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+  }
+
+  function toggleFaq(el) { el.classList.toggle('open'); }
 
   function abrirPainelEmpresa() { window.location.href = '/parcerias/empresa'; }
 
   function abrirCadastro(plano) {
     document.getElementById('cad-plano').value = plano;
-    document.getElementById('modal-cadastro').classList.add('aberto');
+    document.getElementById('modal-cadastro').classList.add('open');
   }
 
   function fmtTelEmp(inp) {
@@ -620,19 +569,17 @@ export function getParceriasLandingHTML(): string {
   }
 
   async function enviarCadastroParceiro() {
-    const nome     = document.getElementById('cad-nome').value.trim();
-    const tel      = document.getElementById('cad-tel').value.trim();
-    const email    = document.getElementById('cad-email').value.trim();
-    const cnpj     = document.getElementById('cad-cnpj').value.trim();
-    const postoNome= document.getElementById('cad-posto-nome').value.trim();
-    const bandeira = document.getElementById('cad-bandeira').value;
-    const plano    = document.getElementById('cad-plano').value;
-    const cidade   = document.getElementById('cad-cidade').value.trim();
-    const termos   = document.getElementById('cad-termos').checked;
-
+    const nome      = document.getElementById('cad-nome').value.trim();
+    const tel       = document.getElementById('cad-tel').value.trim();
+    const email     = document.getElementById('cad-email').value.trim();
+    const cnpj      = document.getElementById('cad-cnpj').value.trim();
+    const postoNome = document.getElementById('cad-posto-nome').value.trim();
+    const bandeira  = document.getElementById('cad-bandeira').value;
+    const plano     = document.getElementById('cad-plano').value;
+    const cidade    = document.getElementById('cad-cidade').value.trim();
+    const termos    = document.getElementById('cad-termos').checked;
     const erro = document.getElementById('cad-erro');
     erro.style.display = 'none';
-
     if (!nome || !tel || !email || !cnpj || !postoNome) {
       erro.textContent = 'Preencha todos os campos obrigatórios (*)';
       erro.style.display = 'block'; return;
@@ -641,15 +588,12 @@ export function getParceriasLandingHTML(): string {
       erro.textContent = 'Você precisa aceitar os termos para continuar.';
       erro.style.display = 'block'; return;
     }
-
-    const btn = document.querySelector('.btn-form-submit');
+    const btn = document.querySelector('.fsub');
     btn.disabled = true;
-    btn.innerHTML = '<div style="width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto"></div>';
-
+    btn.innerHTML = '<div style="width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto"></div>';
     try {
       const res = await fetch('/api/parceiros/cadastro', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ nome, tel, email, cnpj, postoNome, bandeira, plano, cidade })
       });
       const d = await res.json();
@@ -657,7 +601,7 @@ export function getParceriasLandingHTML(): string {
         document.getElementById('form-cadastro-body').style.display = 'none';
         const suc = document.getElementById('cad-sucesso');
         suc.style.display = 'block';
-        suc.innerHTML = '✅ <strong>Cadastro enviado com sucesso!</strong><br>Nossa equipe entrará em contato pelo WhatsApp <strong>' + tel + '</strong> em até 24 horas para confirmar a parceria e liberar o acesso ao painel.<br><br>🎉 Bem-vindo à rede RotaPosto Empresas!';
+        suc.innerHTML = '✅ <strong>Cadastro enviado!</strong><br>Nossa equipe entrará em contato pelo WhatsApp <strong>' + tel + '</strong> em até 24h.<br><br>🎉 Bem-vindo à rede RotaPosto Empresas!';
       } else {
         erro.textContent = d.mensagem || 'Erro ao enviar cadastro.';
         erro.style.display = 'block';
@@ -672,12 +616,10 @@ export function getParceriasLandingHTML(): string {
     }
   }
 
-  // Fechar modal clicando fora
   document.getElementById('modal-cadastro').addEventListener('click', function(e) {
-    if (e.target === this) this.classList.remove('aberto');
+    if (e.target === this) this.classList.remove('open');
   });
 </script>
-<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 </body>
 </html>`
 }
