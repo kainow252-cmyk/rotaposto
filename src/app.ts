@@ -2176,7 +2176,8 @@ export function getAppHTML(firebaseScripts: string): string {
 
   async function loadPostos() {
     try {
-      const url = '/api/postos?lat='+userLat+'&lng='+userLng+'&raio=5&combustivel='+selectedFuel+'&litros=50&consumo=12';
+      const raio = filtros.raioKm || 5;
+      const url = '/api/postos?lat='+userLat+'&lng='+userLng+'&raio='+raio+'&combustivel='+selectedFuel+'&litros=50&consumo=12';
       const resp = await fetch(url);
       const data = await resp.json();
       if (data.postos && data.postos.length > 0) {
@@ -2765,6 +2766,7 @@ export function getAppHTML(firebaseScripts: string): string {
   function fecharPainelFiltros(aplicar) {
     if (aplicar && window['_tmpFiltros']) {
       var t = window['_tmpFiltros'];
+      var raioMudou = filtros.raioKm !== t.raioKm;
       filtros.raioKm            = t.raioKm;
       filtros.ordenar           = t.ordenar;
       filtros.somenteAbertos    = t.somenteAbertos;
@@ -2772,10 +2774,15 @@ export function getAppHTML(firebaseScripts: string): string {
       filtros.avaliacaoMin      = t.avaliacaoMin;
       filtros.somenteComDesconto = t.somenteComDesconto;
       _atualizarBadgeFiltros();
-      renderLista();
-      // Re-buscar com novo raio se necessário
-      if (postosData.length === 0 || filtros.raioKm !== t.raioKm) {
-        if (userLat && userLng) loadPostos();
+      // Re-buscar com novo raio sempre que raio mudou ou não há dados
+      if (raioMudou || postosData.length === 0) {
+        if (userLat && userLng) {
+          loadPostos().then(() => renderLista());
+        } else {
+          renderLista();
+        }
+      } else {
+        renderLista();
       }
     }
     var el = document.getElementById('modal-filtros');
@@ -2804,7 +2811,7 @@ export function getAppHTML(firebaseScripts: string): string {
     if (filtros.avaliacaoMin > 0) {
       postos = postos.filter(p => p.rating && p.rating >= filtros.avaliacaoMin);
     }
-    if (filtros.raioKm && filtros.raioKm !== 5) {
+    if (filtros.raioKm) {
       postos = postos.filter(p => !p.distancia || p.distancia <= filtros.raioKm);
     }
     // Ordenar

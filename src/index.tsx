@@ -199,8 +199,8 @@ app.get('/api/postos', async (c) => {
       // (sem restrição de referenciador HTTP — própria para chamadas server-side)
       // Fallback: GOOGLE_API_KEY hardcoded (restrita a referenciadores HTTP, pode falhar)
       const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
-      const raioGoogle = Math.min(raio * 1000, 20000) // máx 20km para Google
-      const raioOSM = Math.min(raio * 1000, 8000)
+      const raioGoogle = Math.min(raio * 1000, 50000) // até 50km para Google
+      const raioOSM = Math.min(raio * 1000, 50000)   // até 50km para OSM
 
       const [anpRes, googleRes, osmRes] = await Promise.allSettled([
         buscarPostosANP(uf, municipio, 1, kv),
@@ -227,7 +227,7 @@ app.get('/api/postos', async (c) => {
 
     if (noRaio.length === 0) {
       // Fallback: OSM sem filtro de cidade (busca por coordenadas)
-      const osmFallback = await buscarPostosOSM(lat, lng, Math.min(raio * 1000, 5000))
+      const osmFallback = await buscarPostosOSM(lat, lng, Math.min(raio * 1000, 50000))
       const fallbackComCombustivel = osmFallback.filter(p => p.precos[combustivel])
 
       if (fallbackComCombustivel.length === 0) {
