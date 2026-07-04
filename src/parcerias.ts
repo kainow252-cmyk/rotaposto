@@ -86,16 +86,16 @@ export function getParceriasLandingHTML(): string {
       position:relative;z-index:2;
       display:grid;
       grid-template-columns:1fr 420px;
-      align-items:center;
+      align-items:start;
       min-height:calc(100vh - 60px);
-      padding:60px 48px 40px;
+      padding:48px 48px 40px;
       gap:40px
     }
 
     /* lado esquerdo */
     .hero-left{
       display:flex;flex-direction:column;
-      justify-content:center;
+      justify-content:flex-start;
       max-width:640px
     }
     .hero-eyebrow{
@@ -173,10 +173,10 @@ export function getParceriasLandingHTML(): string {
 
     /* lado direito — celular */
     .hero-right{
-      display:flex;align-items:center;justify-content:center;
+      display:flex;align-items:flex-start;justify-content:center;
       position:relative;
       height:100%;
-      min-height:500px
+      padding-top:0
     }
     .phone-halo{
       position:absolute;
@@ -187,7 +187,7 @@ export function getParceriasLandingHTML(): string {
     }
     .phone-wrap{
       position:relative;z-index:2;
-      width:min(340px,90%);
+      width:min(380px,95%);
       filter:drop-shadow(0 40px 70px rgba(0,0,0,0.9)) drop-shadow(0 0 60px rgba(255,109,0,0.25));
     }
     .phone-wrap img{width:100%;height:auto;display:block}
