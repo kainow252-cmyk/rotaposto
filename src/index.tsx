@@ -1806,6 +1806,20 @@ app.delete('/api/auth/session', async (c) => {
   return c.json({ ok: true })
 })
 
+// ─── Digital Asset Links (TWA/Android) ───────────────────────────────────────
+app.get('/.well-known/assetlinks.json', (c) => {
+  return c.json([{
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "br.com.rotaposto.app",
+      "sha256_cert_fingerprints": [
+        "9C:27:9E:1F:5F:BE:A0:4D:93:CC:7D:E2:D0:3A:BA:47:41:59:18:29:1F:DA:5B:88:CB:F8:06:57:26:7C:DB:38"
+      ]
+    }
+  }])
+})
+
 // ─── Frontend Principal ───────────────────────────────────────────────────────
 // Rota raiz → onboarding (splash + login) como app nativo
 app.get('/', (c) => {
