@@ -70,22 +70,25 @@ export function getParceriasLandingHTML(): string {
     /* ── HERO ── */
     .hero-wrap{
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       width:100%;
-      padding:40px 0 0 40px;
+      padding:0 0 0 40px;
       gap:0;
-      overflow:hidden
+      overflow:hidden;
+      min-height:480px
     }
     .hero-left{
       flex:1;
       min-width:0;
-      padding-top:32px;
-      padding-right:32px;
-      padding-bottom:40px
+      padding-right:32px
     }
     .hero-right{
       flex-shrink:0;
-      width:360px
+      width:360px;
+      align-self:stretch;
+      overflow:hidden;
+      display:flex;
+      align-items:flex-end
     }
     .hero-right img{
       width:360px;
@@ -94,19 +97,36 @@ export function getParceriasLandingHTML(): string {
       filter:drop-shadow(-8px 0 40px rgba(255,109,0,0.2))
     }
     h1{
-      font-size:clamp(36px,4vw,66px);
+      font-size:clamp(48px,5.5vw,80px);
       font-weight:900;line-height:1.0;
-      letter-spacing:-2px;
-      margin-bottom:16px
+      letter-spacing:-3px;
+      margin-bottom:20px
     }
     h1 span{color:#FF6D00}
     .hero-sub{
-      font-size:16px;color:rgba(255,255,255,0.6);
+      font-size:17px;color:rgba(255,255,255,0.6);
       line-height:1.65;font-weight:500;
-      margin-bottom:0;
-      max-width:500px
+      margin-bottom:28px;
+      max-width:540px
     }
     .hero-sub em{color:rgba(255,180,80,0.9);font-style:normal}
+    .hero-ctas{display:flex;gap:14px;flex-wrap:wrap}
+    .cta-primary{
+      display:inline-flex;align-items:center;gap:9px;
+      padding:15px 30px;background:#FF6D00;color:#fff;
+      border-radius:12px;font-size:15px;font-weight:800;
+      border:none;cursor:pointer;font-family:'Raleway',sans-serif;
+      transition:all .18s
+    }
+    .cta-primary:hover{background:#E65100;transform:translateY(-2px);box-shadow:0 10px 28px rgba(255,109,0,0.4)}
+    .cta-secondary{
+      display:inline-flex;align-items:center;gap:9px;
+      padding:15px 24px;background:rgba(255,255,255,0.06);
+      color:rgba(255,255,255,0.85);border-radius:12px;font-size:15px;
+      font-weight:700;border:1px solid rgba(255,255,255,0.15);
+      cursor:pointer;font-family:'Raleway',sans-serif;transition:all .18s
+    }
+    .cta-secondary:hover{background:rgba(255,255,255,0.1)}
 
     /* ── RECURSOS INCLUSOS ── */
     .recursos-wrap{
@@ -280,6 +300,14 @@ export function getParceriasLandingHTML(): string {
       Cadastre seu posto e conecte-se a milhares de motoristas
       com <em>preços em tempo real</em> e <em>destaque no mapa</em>.
     </p>
+    <div class="hero-ctas">
+      <button class="cta-primary" onclick="openM('premium')">
+        <i class="fas fa-handshake"></i> Quero ser parceiro
+      </button>
+      <button class="cta-secondary" onclick="openM('premium')">
+        <i class="fas fa-play"></i> Conhecer a plataforma
+      </button>
+    </div>
   </div>
   <div class="hero-right">
     <img src="/static/phone-mockup.png" alt="App RotaPosto"/>
