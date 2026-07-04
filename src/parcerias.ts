@@ -53,7 +53,7 @@ export function getParceriasLandingHTML(): string {
       text-transform:uppercase;color:#FF6D00;
       text-align:center;white-space:nowrap
     }
-    .nav-btns{display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .nav-btns{display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:auto}
     .btn-ghost{
       padding:9px 20px;background:transparent;color:#FF6D00;
       border-radius:9px;font-size:13px;font-weight:800;
@@ -1030,7 +1030,7 @@ export function getPainelEmpresaHTML(): string {
     .page-content { padding:28px; flex:1; }
 
     /* ── LOGIN ── */
-    .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:linear-gradient(135deg,#FF6D00,#BF360C); }
+    .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:linear-gradient(135deg,#FF6D00,#BF360C); position:relative; }
     .login-card { background:#fff; border-radius:20px; padding:40px 36px; width:100%; max-width:400px; }
     .login-logo { text-align:center; margin-bottom:28px; }
     .login-logo-icon { width:52px; height:52px; background:var(--laranja); border-radius:14px; display:inline-flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:8px; }
@@ -1203,6 +1203,7 @@ export function getPainelEmpresaHTML(): string {
 
 <!-- ═══ TELA DE LOGIN ═══ -->
 <div id="tela-login" class="login-wrap">
+  <button onclick="location.href='/parcerias'" style="position:absolute;top:20px;left:20px;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.4);color:#fff;padding:8px 16px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Inter',sans-serif;backdrop-filter:blur(8px);transition:all .18s" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'"><i class="fas fa-arrow-left"></i> Voltar</button>
   <div class="login-card">
     <div class="login-logo">
       <div class="login-logo-icon">⛽</div>
