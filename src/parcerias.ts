@@ -474,10 +474,10 @@ export function getParceriasLandingHTML(): string {
     <div class="hero">
       <div class="hero-eyebrow">Novo canal de vendas para postos</div>
       <h1 class="hero-h1">
-        Mais visibilidade. <span class="hl">Mais clientes.</span> Mais resultados.
+        Pronto para <span class="hl">acelerar</span> seus resultados?
       </h1>
       <p class="hero-p">
-        Conecte seu posto a milhares de motoristas todos os dias, com precos em <em>tempo real</em> e <em>destaque no mapa</em> quando o cliente mais precisa.
+        Cadastre seu posto e conecte-se a milhares de motoristas todos os dias, com <em>preços em tempo real</em> e <em>destaque no mapa</em>.
       </p>
       <div class="hero-btns">
         <button class="btn-p" onclick="openM('premium')">
@@ -566,9 +566,6 @@ export function getParceriasLandingHTML(): string {
             <div class="cbadge"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
           </div>
         </div>
-        <button class="cta-btn" onclick="openM('premium')">
-          <i class="fas fa-arrow-right"></i> Quero ser parceiro
-        </button>
       </div>
 
     </div><!-- /bottom-row -->
