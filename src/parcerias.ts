@@ -20,7 +20,8 @@ export function getParceriasLandingHTML(): string {
   <style>
     :root{--o:#FF6D00;--oe:#E65100;--oc:#FFF3E0;--g:#00C853;--tx:#1A1A1A;--sb:#616161;--bd:#E0E0E0;--bg:#F5F7FA}
     *{margin:0;padding:0;box-sizing:border-box}
-    html,body{height:100vh;overflow:hidden;font-family:'Inter',sans-serif;color:var(--tx);background:#fff}
+    html,body{height:100%;height:100vh;max-height:100vh;overflow:hidden;font-family:'Inter',sans-serif;color:var(--tx);background:#fff}
+    html{position:fixed;width:100%}
     a{text-decoration:none;color:inherit}
 
     /* NAV */
@@ -51,7 +52,7 @@ export function getParceriasLandingHTML(): string {
 
     /* SLIDE BASE */
     .sl{position:absolute;left:0;right:0;height:calc(100vh - 56px);
-      display:flex;align-items:center;justify-content:center;padding:28px 40px;overflow:hidden}
+      display:flex;align-items:center;justify-content:center;padding:20px 40px;overflow:hidden}
 
     /* ---- SLIDE 0: HERO ---- */
     #s0{background:linear-gradient(145deg,#FF6D00 0%,#E65100 55%,#BF360C 100%);
@@ -61,13 +62,13 @@ export function getParceriasLandingHTML(): string {
     .h-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);
       border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 18px;border-radius:20px;
       font-size:12px;font-weight:600;margin-bottom:18px;position:relative;z-index:1}
-    #s0 h1{font-size:clamp(26px,4.2vw,58px);font-weight:900;color:#fff;line-height:1.12;
-      margin-bottom:14px;position:relative;z-index:1}
+    #s0 h1{font-size:clamp(24px,3.8vw,52px);font-weight:900;color:#fff;line-height:1.12;
+      margin-bottom:12px;position:relative;z-index:1}
     #s0 h1 em{color:#FFE082;font-style:normal}
-    #s0 .hsub{font-size:clamp(13px,1.5vw,17px);color:rgba(255,255,255,.88);line-height:1.65;
-      max-width:580px;margin:0 auto 24px;position:relative;z-index:1}
+    #s0 .hsub{font-size:clamp(12px,1.4vw,16px);color:rgba(255,255,255,.88);line-height:1.55;
+      max-width:580px;margin:0 auto 16px;position:relative;z-index:1}
     .hbtns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;
-      position:relative;z-index:1;margin-bottom:32px}
+      position:relative;z-index:1;margin-bottom:20px}
     .btn-w{padding:13px 26px;background:#fff;color:var(--o);border-radius:12px;
       font-size:14px;font-weight:800;cursor:pointer;border:none;transition:transform .2s,box-shadow .2s}
     .btn-w:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
@@ -76,14 +77,10 @@ export function getParceriasLandingHTML(): string {
     .btn-ol:hover{border-color:#fff}
     .hstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
       max-width:580px;width:100%;position:relative;z-index:1}
-    .hs{background:rgba(255,255,255,.12);backdrop-filter:blur(8px);border-radius:14px;padding:12px 8px;text-align:center}
+    .hs{background:rgba(255,255,255,.12);backdrop-filter:blur(8px);border-radius:14px;padding:10px 8px;text-align:center}
     .hs-n{font-size:clamp(16px,2.2vw,26px);font-weight:900;color:#FFE082;line-height:1}
     .hs-l{font-size:10px;color:rgba(255,255,255,.72);margin-top:4px;line-height:1.2}
-    .scroll-hint{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
-      color:rgba(255,255,255,.45);font-size:11px;font-weight:600;cursor:pointer;
-      display:flex;flex-direction:column;align-items:center;gap:3px;
-      animation:bob 2s infinite;z-index:1}
-    @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)}}
+    .scroll-hint{display:none!important}
 
     /* ---- SHARED SECTION STYLES ---- */
     .si{max-width:980px;width:100%}
@@ -265,7 +262,7 @@ export function getParceriasLandingHTML(): string {
       <div class="hs"><div class="hs-n">R$0,15</div><div class="hs-l">Economia/litro</div></div>
       <div class="hs"><div class="hs-n">4.8★</div><div class="hs-l">Avaliação loja</div></div>
     </div>
-    <div class="scroll-hint" onclick="go(1)"><i class="fas fa-chevron-down"></i>Role para ver mais</div>
+
   </div>
 
   <!-- S1: COMO FUNCIONA -->
@@ -515,14 +512,19 @@ export function getParceriasLandingHTML(): string {
     requestAnimationFrame(() => { sc.style.transition = ''; });
   });
 
+  // Bloqueia scroll nativo completamente
+  document.body.addEventListener('wheel', e => { e.preventDefault(); }, { passive: false });
+  document.body.addEventListener('touchmove', e => { e.preventDefault(); }, { passive: false });
+
   // Wheel
   let wcd = false;
   window.addEventListener('wheel', e => {
+    e.preventDefault();
     if (wcd) return; wcd = true;
     if (e.deltaY > 20) go(cur + 1);
     else if (e.deltaY < -20) go(cur - 1);
     setTimeout(() => { wcd = false; }, 750);
-  }, { passive: true });
+  }, { passive: false });
 
   // Keys
   window.addEventListener('keydown', e => {
