@@ -1,10 +1,9 @@
-// RotaPosto Service Worker v7.0
-// Auto-update silencioso + Cache inteligente + PWA install
-// v7: forçar refresh após remoção addScope('email') Facebook
+// RotaPosto Service Worker v8.0
+// v8: overlay fullscreen busca destino + campo placa veículo
 
-const VERSION = 'v7';
-const CACHE_STATIC = 'rp-static-v7';
-const CACHE_API    = 'rp-api-v7';
+const VERSION = 'v8';
+const CACHE_STATIC = 'rp-static-v8';
+const CACHE_API    = 'rp-api-v8';
 
 const PRECACHE = [
   '/manifest.json',

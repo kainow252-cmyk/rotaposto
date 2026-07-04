@@ -3074,7 +3074,70 @@ app.get('/app_old', (c) => {
   </div>
 </div>
 
-<!-- Header -->
+<!-- Modal Completar Perfil (pós login social) -->
+<div id="modal-completar-perfil" style="display:none;position:fixed;inset:0;z-index:19999;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;">
+  <div style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:0 0 32px;position:relative;max-height:92vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:center;padding:12px 0 0;">
+      <div style="width:40px;height:4px;background:#E0E0E0;border-radius:2px;"></div>
+    </div>
+    <div style="padding:20px 24px 0;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <div style="width:44px;height:44px;background:#FFF3E0;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">📋</div>
+        <div>
+          <h2 style="font-size:18px;font-weight:800;color:#1A1A1A;margin:0;">Complete seu perfil</h2>
+          <p style="font-size:13px;color:#757575;margin:0;">Adicione seu contato e endereço</p>
+        </div>
+      </div>
+
+      <div style="background:#F0FFF4;border:1.5px solid #C6F6D5;border-radius:12px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:#276749;">
+        📍 Isso nos ajuda a mostrar postos próximos à sua região padrão e facilitar o preenchimento de dados.
+      </div>
+
+      <!-- Telefone -->
+      <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">📱 Celular / WhatsApp <span style="font-weight:400;color:#AAA;">(opcional)</span></label>
+      <input id="cp-telefone" type="tel" placeholder="(11) 99999-9999" maxlength="15"
+        oninput="formatarTelefone(this)"
+        style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;margin-bottom:14px;font-family:inherit;">
+
+      <!-- CEP -->
+      <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">📮 CEP <span style="font-weight:400;color:#AAA;">(opcional)</span></label>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <input id="cp-cep" type="text" placeholder="00000-000" maxlength="9"
+          oninput="formatarCEP(this)"
+          style="flex:1;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;font-family:inherit;">
+        <button onclick="buscarCEP()" style="padding:13px 16px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Buscar</button>
+      </div>
+
+      <!-- Rua -->
+      <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">🏠 Rua / Endereço</label>
+      <input id="cp-rua" type="text" placeholder="Rua das Flores, 123"
+        style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;margin-bottom:14px;font-family:inherit;">
+
+      <!-- Cidade e Estado -->
+      <div style="display:grid;grid-template-columns:1fr 80px;gap:10px;margin-bottom:20px;">
+        <div>
+          <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">🏙️ Cidade</label>
+          <input id="cp-cidade" type="text" placeholder="São Paulo"
+            style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;font-family:inherit;">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">UF</label>
+          <input id="cp-estado" type="text" placeholder="SP" maxlength="2"
+            oninput="this.value=this.value.toUpperCase()"
+            style="width:100%;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;font-family:inherit;text-transform:uppercase;">
+        </div>
+      </div>
+
+      <!-- Botões -->
+      <button onclick="salvarCompletarPerfil()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;">
+        ✅ Salvar e continuar
+      </button>
+      <button onclick="pularCompletarPerfil()" style="width:100%;padding:14px;background:transparent;color:#888;border:none;border-radius:16px;font-size:14px;cursor:pointer;">
+        Pular por agora
+      </button>
+    </div>
+  </div>
+</div>
 <header id="header">
   <div class="top-row">
     <div class="logo">
@@ -4275,6 +4338,18 @@ function _configurarAuth() {
           fecharLogin();
           mostrarToast('👋 Olá, ' + (user.displayName || user.email || 'usuário') + '!');
           if (window.innerWidth >= 768) carregarPainelDesktop();
+
+          // Verificar se é login social (Google/Facebook) e se ainda não completou o perfil
+          const isSocial = user.providerData && user.providerData.some(
+            (p: any) => p.providerId === 'google.com' || p.providerId === 'facebook.com'
+          );
+          if (isSocial) {
+            const perfilCompleto = localStorage.getItem('rp_perfil_completo_' + user.uid);
+            if (!perfilCompleto) {
+              // Aguardar um momento e mostrar formulário de completar perfil
+              setTimeout(() => abrirModalCompletarPerfil(user), 1200);
+            }
+          }
         }
 
         // Verificar status de assinatura em background
@@ -4626,6 +4701,95 @@ function fecharLogin() {
   if (nomeEl)  nomeEl.value  = '';
   const erroEl = document.getElementById('auth-erro');
   if (erroEl) erroEl.textContent = '';
+}
+
+// ─── Completar Perfil (pós login social) ─────────────────────────────────────
+let _cpUser: any = null;
+
+function abrirModalCompletarPerfil(user: any) {
+  _cpUser = user;
+  const modal = document.getElementById('modal-completar-perfil');
+  if (!modal) return;
+  // Pré-preencher com dados salvos
+  const perfil = _getPerfilExtra(user.uid);
+  const tel  = document.getElementById('cp-telefone') as HTMLInputElement;
+  const cep  = document.getElementById('cp-cep')      as HTMLInputElement;
+  const rua  = document.getElementById('cp-rua')      as HTMLInputElement;
+  const cid  = document.getElementById('cp-cidade')   as HTMLInputElement;
+  const est  = document.getElementById('cp-estado')   as HTMLInputElement;
+  if (tel)  tel.value  = perfil.telefone || '';
+  if (cep)  cep.value  = perfil.cep      || '';
+  if (rua)  rua.value  = perfil.rua      || '';
+  if (cid)  cid.value  = perfil.cidade   || '';
+  if (est)  est.value  = perfil.estado   || '';
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function fecharModalCompletarPerfil() {
+  const modal = document.getElementById('modal-completar-perfil');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function pularCompletarPerfil() {
+  // Marcar como pulado (não pede de novo por 30 dias)
+  if (_cpUser) {
+    localStorage.setItem('rp_perfil_pulado_' + _cpUser.uid, Date.now().toString());
+  }
+  fecharModalCompletarPerfil();
+}
+
+function salvarCompletarPerfil() {
+  if (!_cpUser) { fecharModalCompletarPerfil(); return; }
+  const tel  = (document.getElementById('cp-telefone') as HTMLInputElement)?.value?.trim() || '';
+  const cep  = (document.getElementById('cp-cep')      as HTMLInputElement)?.value?.trim() || '';
+  const rua  = (document.getElementById('cp-rua')      as HTMLInputElement)?.value?.trim() || '';
+  const cid  = (document.getElementById('cp-cidade')   as HTMLInputElement)?.value?.trim() || '';
+  const est  = (document.getElementById('cp-estado')   as HTMLInputElement)?.value?.trim() || '';
+  const perfil = { telefone: tel, cep: cep, rua: rua, cidade: cid, estado: est };
+  localStorage.setItem('rp_perfil_extra_' + _cpUser.uid, JSON.stringify(perfil));
+  localStorage.setItem('rp_perfil_completo_' + _cpUser.uid, '1');
+  fecharModalCompletarPerfil();
+  mostrarToast('Perfil atualizado! ✓');
+}
+
+function _getPerfilExtra(uid: string) {
+  try { return JSON.parse(localStorage.getItem('rp_perfil_extra_' + uid) || '{}'); } catch { return {}; }
+}
+
+function formatarTelefone(input: HTMLInputElement) {
+  let v = input.value.replace(/\D/g,'');
+  if (v.length > 11) v = v.slice(0,11);
+  if (v.length > 7)      input.value = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
+  else if (v.length > 2) input.value = '(' + v.slice(0,2) + ') ' + v.slice(2);
+  else if (v.length > 0) input.value = '(' + v;
+}
+
+function formatarCEP(input: HTMLInputElement) {
+  let v = input.value.replace(/\D/g,'');
+  if (v.length > 8) v = v.slice(0,8);
+  if (v.length > 5) input.value = v.slice(0,5) + '-' + v.slice(5);
+  else input.value = v;
+}
+
+async function buscarCEP() {
+  const cepEl = document.getElementById('cp-cep') as HTMLInputElement;
+  if (!cepEl) return;
+  const cep = cepEl.value.replace(/\D/g,'');
+  if (cep.length !== 8) { mostrarToast('CEP inválido'); return; }
+  try {
+    const r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+    const d = await r.json();
+    if (d.erro) { mostrarToast('CEP não encontrado'); return; }
+    const rua  = document.getElementById('cp-rua')    as HTMLInputElement;
+    const cid  = document.getElementById('cp-cidade') as HTMLInputElement;
+    const est  = document.getElementById('cp-estado') as HTMLInputElement;
+    if (rua) rua.value   = (d.logradouro || '') + (d.bairro ? ', ' + d.bairro : '');
+    if (cid) cid.value   = d.localidade || '';
+    if (est) est.value   = d.uf         || '';
+    mostrarToast('Endereço preenchido! ✓');
+  } catch { mostrarToast('Erro ao buscar CEP'); }
 }
 
 // ─── Login com Google ─────────────────────────────────────────────────────────

@@ -1706,21 +1706,7 @@ export function getAppHTML(firebaseScripts: string): string {
   </div>
 
   <!-- BOTÃO SOS FLUTUANTE -->
-  <!-- Overlay de busca de destino fullscreen -->
-  <div id="plan-busca-overlay">
-    <div id="plan-busca-header">
-      <button id="plan-busca-back" onclick="fecharBuscaOverlay()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <input id="plan-busca-input" type="text" placeholder="Cidade, shopping, endereço…"
-        oninput="onBuscaOverlayInput(this.value)"
-        onkeydown="if(event.key==='Enter')buscarDestinoPlan(this.value)"
-        autocomplete="off" autocorrect="off" spellcheck="false"/>
-    </div>
-    <div id="plan-busca-lista">
-      <div class="plan-busca-loading">🔍 Digite o destino acima para buscar</div>
-    </div>
-  </div>
+  <!-- O overlay #plan-busca-overlay é criado dinamicamente no body por abrirBuscaDestino() -->
 
   <button id="btn-sos-float" onclick="abrirSOS()" title="SOS — Guinchos e Emergências">
     <svg viewBox="0 0 24 24" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -1766,8 +1752,8 @@ export function getAppHTML(firebaseScripts: string): string {
   </div>
 
   <!-- ══ MODAL ASSINATURA PIX ══ -->
-  <div id="modal-assinatura" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);overflow-y:auto;">
-    <div style="min-height:100%;display:flex;align-items:flex-end;justify-content:center;padding-top:60px;">
+  <div id="modal-assinatura" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);flex-direction:column;align-items:center;justify-content:flex-end;overflow-y:auto;">
+    <div style="min-height:100%;width:100%;display:flex;align-items:flex-end;justify-content:center;padding-top:60px;">
       <div id="assin-sheet" style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:0 0 40px;position:relative;">
 
         <!-- Handle bar -->
@@ -2440,17 +2426,33 @@ export function getAppHTML(firebaseScripts: string): string {
 
   // Abre o overlay fullscreen de busca
   function abrirBuscaDestino() {
+    // Garantir que o overlay existe no body (fora de qualquer container com overflow:hidden)
     var overlay = document.getElementById('plan-busca-overlay');
-    var inp     = document.getElementById('plan-busca-input');
-    if (!overlay || !inp) return;
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'plan-busca-overlay';
+      overlay.innerHTML = '<div id="plan-busca-header">'
+        + '<button id="plan-busca-back" onclick="fecharBuscaOverlay()" style="width:38px;height:38px;flex-shrink:0;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:50%;">'
+        + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>'
+        + '</button>'
+        + '<input id="plan-busca-input" type="text" placeholder="Cidade, shopping, endereço…"'
+        + ' oninput="onBuscaOverlayInput(this.value)"'
+        + ' onkeydown="if(event.key===\'Enter\')buscarDestinoPlan(this.value)"'
+        + ' autocomplete="off" autocorrect="off" spellcheck="false"/>'
+        + '</div>'
+        + '<div id="plan-busca-lista"><div class="plan-busca-loading">🔍 Digite o destino acima para buscar</div></div>';
+      document.body.appendChild(overlay);
+    }
+    var inp = document.getElementById('plan-busca-input');
     overlay.classList.add('aberto');
-    inp.value = (planDestNome && planDestNome !== 'Cidade, endereço, shopping…') ? planDestNome : '';
-    // Renderizar lista vazia inicial
+    if (inp) {
+      inp.value = (planDestNome && planDestNome !== 'Cidade, endereço, shopping…') ? planDestNome : '';
+    }
     document.getElementById('plan-busca-lista').innerHTML =
       '<div class="plan-busca-loading">🔍 Digite o destino acima para buscar</div>';
-    setTimeout(function() { inp.focus(); inp.select(); }, 80);
+    setTimeout(function() { if (inp) { inp.focus(); inp.select(); } }, 80);
     // Se já tem texto, busca imediato
-    if (inp.value.length >= 3) buscarDestinoPlan(inp.value);
+    if (inp && inp.value.length >= 3) buscarDestinoPlan(inp.value);
   }
 
   function fecharBuscaOverlay() {
@@ -2981,6 +2983,16 @@ export function getAppHTML(firebaseScripts: string): string {
     var email = u.email || '—';
     var foto = u.photo || localStorage.getItem('rp_foto_perfil_' + u.uid) || '';
     var provider = u.provider === 'google.com' ? 'Google' : u.provider === 'facebook.com' ? 'Facebook' : 'E-mail';
+
+    // Carregar dados extras de perfil
+    var perfilExtra = {};
+    try { perfilExtra = JSON.parse(localStorage.getItem('rp_perfil_extra_' + u.uid) || '{}'); } catch {}
+    var tel    = perfilExtra['telefone'] || '';
+    var cep    = perfilExtra['cep']      || '';
+    var rua    = perfilExtra['rua']      || '';
+    var cidade = perfilExtra['cidade']   || '';
+    var estado = perfilExtra['estado']   || '';
+
     var html = '<div style="text-align:center;margin-bottom:20px;padding:20px 0;">'
       + (foto ? '<img src="' + foto + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:12px;border:3px solid #FF6D00;">'
                : '<div style="width:80px;height:80px;border-radius:50%;background:#FF6D00;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:32px;color:#fff;font-weight:800;">' + nome.charAt(0).toUpperCase() + '</div>')
@@ -2991,8 +3003,76 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<div class="st-row"><span class="st-label">Login via</span><span class="st-value">' + provider + '</span></div>'
       + '<div class="st-row"><span class="st-label">ID da conta</span><span class="st-value" style="font-size:12px;">' + (u.uid || '—').slice(0,16) + '...</span></div>'
       + '</div>'
+      // Contato e endereço
+      + '<div class="st-card">'
+      + '<div style="font-size:13px;font-weight:800;color:#1A1A1A;margin-bottom:12px;">📋 Contato &amp; Endereço</div>'
+      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📱 Celular / WhatsApp</label>'
+      + '<input id="mc-telefone" type="tel" value="' + tel + '" placeholder="(11) 99999-9999" maxlength="15" oninput="formatarTelefoneConta(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;">'
+      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📮 CEP</label>'
+      + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
+      + '<input id="mc-cep" type="text" value="' + cep + '" placeholder="00000-000" maxlength="9" oninput="formatarCEPConta(this)" style="flex:1;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;font-family:inherit;">'
+      + '<button onclick="buscarCEPConta()" style="padding:11px 14px;background:#FF6D00;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">Buscar</button>'
+      + '</div>'
+      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏠 Rua / Endereço</label>'
+      + '<input id="mc-rua" type="text" value="' + rua + '" placeholder="Rua das Flores, 123" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;">'
+      + '<div style="display:grid;grid-template-columns:1fr 70px;gap:10px;">'
+      + '<div><label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏙️ Cidade</label>'
+      + '<input id="mc-cidade" type="text" value="' + cidade + '" placeholder="São Paulo" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;font-family:inherit;"></div>'
+      + '<div><label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">UF</label>'
+      + '<input id="mc-estado" type="text" value="' + estado + '" placeholder="SP" maxlength="2" oninput="this.value=this.value.toUpperCase()" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;font-family:inherit;text-transform:uppercase;"></div>'
+      + '</div>'
+      + '</div>'
+      + '<button class="st-btn" onclick="salvarContaConta()">💾 Salvar dados</button>'
       + '<button class="st-btn st-btn-danger" onclick="doLogout();fecharTela();">Sair da conta</button>';
     abrirTela('Minha Conta', html);
+  }
+
+  function salvarContaConta() {
+    var u = currentUser || {};
+    var tel    = (document.getElementById('mc-telefone') || {}).value || '';
+    var cep    = (document.getElementById('mc-cep')      || {}).value || '';
+    var rua    = (document.getElementById('mc-rua')      || {}).value || '';
+    var cidade = (document.getElementById('mc-cidade')   || {}).value || '';
+    var estado = (document.getElementById('mc-estado')   || {}).value || '';
+    var perfil = { telefone: tel, cep: cep, rua: rua, cidade: cidade, estado: estado };
+    localStorage.setItem('rp_perfil_extra_' + u.uid, JSON.stringify(perfil));
+    localStorage.setItem('rp_perfil_completo_' + u.uid, '1');
+    fecharTela();
+    showToast('Dados salvos! ✓');
+  }
+
+  function formatarTelefoneConta(input) {
+    var v = input.value.replace(/\D/g,'');
+    if (v.length > 11) v = v.slice(0,11);
+    if (v.length > 7)       input.value = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
+    else if (v.length > 2)  input.value = '(' + v.slice(0,2) + ') ' + v.slice(2);
+    else if (v.length > 0)  input.value = '(' + v;
+  }
+
+  function formatarCEPConta(input) {
+    var v = input.value.replace(/\D/g,'');
+    if (v.length > 8) v = v.slice(0,8);
+    if (v.length > 5) input.value = v.slice(0,5) + '-' + v.slice(5);
+    else input.value = v;
+  }
+
+  function buscarCEPConta() {
+    var cepEl = document.getElementById('mc-cep');
+    if (!cepEl) return;
+    var cep = cepEl.value.replace(/\D/g,'');
+    if (cep.length !== 8) { showToast('CEP inválido'); return; }
+    fetch('https://viacep.com.br/ws/' + cep + '/json/')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.erro) { showToast('CEP não encontrado'); return; }
+        var ruaEl    = document.getElementById('mc-rua');
+        var cidEl    = document.getElementById('mc-cidade');
+        var estEl    = document.getElementById('mc-estado');
+        if (ruaEl)    ruaEl.value    = (d.logradouro || '') + (d.bairro ? ', ' + d.bairro : '');
+        if (cidEl)    cidEl.value    = d.localidade || '';
+        if (estEl)    estEl.value    = d.uf         || '';
+        showToast('Endereço preenchido! ✓');
+      }).catch(function() { showToast('Erro ao buscar CEP'); });
   }
 
   // ── Upload de Foto de Perfil ──────────────────────────────────────────────
@@ -3189,10 +3269,35 @@ export function getAppHTML(firebaseScripts: string): string {
     var nome = nomeEl.value.trim() || tipoEl.value;
     var consumo = parseFloat(consumoEl.value) || 12;
     var tanque = parseInt(tanqueEl.value) || 50;
-    var placa = placaEl ? placaEl.value.trim().toUpperCase() : '';
+    var placa = placaEl ? placaEl.value.trim().toUpperCase().replace(/\s/g,'') : '';
     if (consumo < 1 || consumo > 100) { showToast('Consumo inválido'); return; }
 
     var lista = getVeiculos();
+
+    // Validar placa duplicada (formato e duplicidade)
+    if (placa) {
+      // Aceitar apenas formatos válidos: ABC-1234, ABC1234, ABC1D23 (Mercosul)
+      var placaLimpa = placa.replace('-','');
+      var placaValida = /^[A-Z]{3}[0-9]{4}$/.test(placaLimpa) || /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/.test(placaLimpa);
+      if (!placaValida) {
+        showToast('Placa inválida. Use ABC-1234 ou ABC1D23');
+        return;
+      }
+      // Verificar duplicidade em outro veículo
+      var placaDup = lista.find(function(x) { return x.id !== id && x.placa && x.placa.replace('-','').toUpperCase() === placaLimpa; });
+      if (placaDup) {
+        showToast('Placa já cadastrada em "' + placaDup.nome + '"');
+        return;
+      }
+    }
+
+    // Validar nome duplicado em outro veículo
+    var nomeDup = lista.find(function(x) { return x.id !== id && x.nome.toLowerCase() === nome.toLowerCase(); });
+    if (nomeDup) {
+      showToast('Já existe um veículo com este nome');
+      return;
+    }
+
     if (id) {
       // editar existente
       var idx = lista.findIndex(function(x) { return x.id === id; });
@@ -3401,7 +3506,8 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function abrirModalAssinatura() {
-    document.getElementById('modal-assinatura').style.display = 'block';
+    var el = document.getElementById('modal-assinatura');
+    if (el) { el.style.display = 'flex'; el.style.flexDirection = 'column'; }
     document.body.style.overflow = 'hidden';
     mostrarStep1();
   }
