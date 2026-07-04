@@ -18,249 +18,221 @@ export function getParceriasLandingHTML(): string {
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Raleway',sans-serif;color:#fff;background:#07111C}
+    html,body{width:100%;overflow-x:hidden}
+    body{font-family:'Raleway',sans-serif;color:#fff;background:#07111C;min-height:100vh}
     a{text-decoration:none;color:inherit}
 
-    /* NAV */
+    /* ── NAV ── */
     nav{
-      position:sticky;top:0;z-index:100;
-      height:64px;background:rgba(7,17,28,0.97);
-      backdrop-filter:blur(16px);
+      height:64px;background:#07111C;
       border-bottom:1px solid rgba(255,255,255,0.07);
       display:flex;align-items:center;
-      justify-content:space-between;
-      padding:0 48px
+      padding:0 40px;gap:0;
+      position:sticky;top:0;z-index:100;
+      backdrop-filter:blur(16px)
     }
-    .n-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
-    .n-logo-icon{color:#FF6D00;font-size:22px}
-    .n-logo-name{font-size:20px;font-weight:900}
+    .n-logo{display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0}
+    .n-logo-icon{color:#FF6D00;font-size:20px}
+    .n-logo-name{font-size:19px;font-weight:900}
     .n-logo-name span{color:#FF6D00}
     .n-tag{
       font-size:8px;font-weight:800;letter-spacing:.6px;
-      color:#FF6D00;background:rgba(255,109,0,0.12);
-      border:1px solid rgba(255,109,0,0.3);
-      padding:2px 7px;border-radius:20px
+      color:#FF6D00;background:transparent;
+      border:1px solid #FF6D00;
+      padding:2px 8px;border-radius:20px;flex-shrink:0
     }
-    .nav-btns{display:flex;align-items:center;gap:10px}
+    .n-center{
+      flex:1;display:flex;align-items:center;justify-content:center;gap:10px
+    }
+    .n-center-line{width:32px;height:2px;background:#FF6D00;border-radius:2px;flex-shrink:0}
+    .n-center-text{
+      font-size:11px;font-weight:800;letter-spacing:2px;
+      text-transform:uppercase;color:#FF6D00;white-space:nowrap
+    }
+    .nav-btns{display:flex;align-items:center;gap:10px;flex-shrink:0}
     .btn-ghost{
-      padding:9px 22px;background:transparent;color:#FF6D00;
+      padding:9px 20px;background:transparent;color:#FF6D00;
       border-radius:9px;font-size:13px;font-weight:800;
       border:1.5px solid #FF6D00;cursor:pointer;
-      font-family:'Raleway',sans-serif;transition:all .18s
+      font-family:'Raleway',sans-serif;transition:all .18s;
+      display:flex;align-items:center;gap:7px;white-space:nowrap
     }
-    .btn-ghost:hover{background:rgba(255,109,0,0.12)}
+    .btn-ghost:hover{background:rgba(255,109,0,0.1)}
     .btn-solid{
-      padding:9px 22px;background:#FF6D00;color:#fff;
+      padding:9px 20px;background:#FF6D00;color:#fff;
       border-radius:9px;font-size:13px;font-weight:800;
       border:none;cursor:pointer;
-      font-family:'Raleway',sans-serif;transition:background .15s
+      font-family:'Raleway',sans-serif;transition:background .15s;
+      display:flex;align-items:center;gap:7px;white-space:nowrap
     }
     .btn-solid:hover{background:#E65100}
 
-    /* HERO */
-    .hero{
+    /* ── HERO ── */
+    .hero-wrap{
       display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:64px 48px 0;
-      gap:48px;
-      max-width:1280px;
-      margin:0 auto;
-      width:100%
+      align-items:stretch;
+      max-width:100%;
+      min-height:calc(100vh - 64px);
+      overflow:hidden;
+      position:relative
     }
-    .hero-text{flex:1;max-width:580px}
-    .eyebrow{
-      display:inline-flex;align-items:center;gap:8px;
-      font-size:11px;font-weight:800;letter-spacing:2px;
-      text-transform:uppercase;color:#FF6D00;
-      margin-bottom:20px
+    .hero-left{
+      flex:0 0 62%;
+      padding:60px 40px 40px 40px;
+      display:flex;
+      flex-direction:column;
+      justify-content:flex-start
     }
-    .eyebrow::before{
-      content:'';width:28px;height:2px;
-      background:#FF6D00;border-radius:2px
+    .hero-right{
+      flex:0 0 38%;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding-top:0;
+      position:relative;
+      overflow:hidden
+    }
+    .hero-right img{
+      width:100%;
+      max-width:460px;
+      height:auto;
+      display:block;
+      object-fit:contain;
+      filter:drop-shadow(0 40px 80px rgba(0,0,0,0.9))
+             drop-shadow(0 0 60px rgba(255,109,0,0.25))
     }
     h1{
-      font-size:clamp(40px,4vw,64px);
-      font-weight:900;line-height:1.05;
-      letter-spacing:-2px;margin-bottom:20px
+      font-size:clamp(42px,5vw,76px);
+      font-weight:900;line-height:1.0;
+      letter-spacing:-2px;
+      margin-bottom:20px;
+      white-space:nowrap
     }
     h1 span{color:#FF6D00}
-    .sub{
+    .hero-sub{
       font-size:17px;color:rgba(255,255,255,0.6);
-      line-height:1.65;font-weight:500;margin-bottom:36px
+      line-height:1.65;font-weight:500;
+      margin-bottom:0;
+      max-width:560px
     }
-    .sub em{color:rgba(255,180,80,0.9);font-style:normal}
-    .ctas{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:48px}
-    .cta-primary{
-      display:inline-flex;align-items:center;gap:9px;
-      padding:16px 32px;background:#FF6D00;color:#fff;
-      border-radius:12px;font-size:16px;font-weight:800;
-      border:none;cursor:pointer;font-family:'Raleway',sans-serif;
-      transition:all .18s
-    }
-    .cta-primary:hover{background:#E65100;transform:translateY(-2px);box-shadow:0 12px 32px rgba(255,109,0,0.4)}
-    .cta-secondary{
-      display:inline-flex;align-items:center;gap:9px;
-      padding:16px 26px;background:rgba(255,255,255,0.07);
-      color:rgba(255,255,255,0.85);border-radius:12px;font-size:16px;
-      font-weight:700;border:1px solid rgba(255,255,255,0.15);
-      cursor:pointer;font-family:'Raleway',sans-serif;transition:all .18s
-    }
-    .cta-secondary:hover{background:rgba(255,255,255,0.12)}
-    .play-dot{
-      width:32px;height:32px;border-radius:50%;
-      background:rgba(255,255,255,0.15);
-      display:inline-flex;align-items:center;justify-content:center;
-      font-size:10px
-    }
+    .hero-sub em{color:rgba(255,180,80,0.9);font-style:normal}
 
-    /* 4 CARDS */
-    .feat-grid{
-      display:grid;grid-template-columns:repeat(4,1fr);gap:12px
+    /* ── RECURSOS INCLUSOS ── */
+    .recursos-wrap{
+      padding:40px 40px 0;
+      max-width:100%;
+      box-sizing:border-box
     }
-    .feat-card{
-      background:rgba(255,255,255,0.04);
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:14px;padding:16px;
-      transition:all .2s
+    .rec-label{
+      font-size:10px;font-weight:800;
+      color:rgba(255,255,255,0.3);
+      text-transform:uppercase;letter-spacing:2px;
+      margin-bottom:24px;
+      border-top:1px solid rgba(255,255,255,0.08);
+      padding-top:24px
     }
-    .feat-card:hover{background:rgba(255,255,255,0.07);border-color:rgba(255,109,0,0.3)}
-    .feat-ico{
+    .rec-cols{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:0;
+      padding-bottom:32px
+    }
+    .rec-col{
+      padding:0 24px;
+      border-right:1px solid rgba(255,255,255,0.07)
+    }
+    .rec-col:first-child{padding-left:0}
+    .rec-col:last-child{border-right:none;padding-right:0}
+    .rec-ico{
       width:36px;height:36px;border-radius:10px;
       background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:14px;margin-bottom:10px
+      color:#FF6D00;font-size:15px;margin-bottom:12px
     }
-    .feat-card h4{font-size:13px;font-weight:800;margin-bottom:5px}
-    .feat-card p{font-size:11.5px;color:rgba(255,255,255,0.45);line-height:1.5}
+    .rec-col h5{font-size:14px;font-weight:800;margin-bottom:6px}
+    .rec-col p{font-size:12px;color:rgba(255,255,255,0.42);line-height:1.6}
 
-    /* PHONE */
-    .hero-phone{
-      flex-shrink:0;
-      width:320px;
-      display:flex;align-items:flex-start;justify-content:center;
-      padding-top:8px
+    /* ── FEATURE CARDS ── */
+    .cards-wrap{
+      padding:0 40px 40px;
+      max-width:100%;
+      box-sizing:border-box
     }
-    .hero-phone img{
-      width:100%;height:auto;display:block;
-      filter:drop-shadow(0 40px 80px rgba(0,0,0,0.9))
-             drop-shadow(0 0 60px rgba(255,109,0,0.3))
+    .cards-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:14px
     }
-
-    /* RECURSOS + CTA */
-    .bottom{
-      display:flex;gap:16px;
-      padding:32px 48px 40px;
-      max-width:1280px;margin:0 auto;width:100%
+    .feat-card{
+      background:rgba(255,255,255,0.045);
+      border:1px solid rgba(255,255,255,0.09);
+      border-radius:16px;padding:22px;
+      transition:all .2s
     }
-    .recursos{
-      flex:1;
-      background:rgba(255,255,255,0.035);
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:18px;padding:24px 28px
+    .feat-card:hover{
+      background:rgba(255,255,255,0.07);
+      border-color:rgba(255,109,0,0.35)
     }
-    .rec-title{
-      font-size:10px;font-weight:800;
-      color:rgba(255,255,255,0.3);
-      text-transform:uppercase;letter-spacing:1.5px;margin-bottom:20px
-    }
-    .rec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
-    .rec{
-      padding:0 20px;
-      border-right:1px solid rgba(255,255,255,0.07)
-    }
-    .rec:first-child{padding-left:0}
-    .rec:last-child{border-right:none;padding-right:0}
-    .rec-ico{
-      width:34px;height:34px;border-radius:9px;
-      background:rgba(255,109,0,0.1);border:1px solid rgba(255,109,0,0.18);
+    .feat-ico{
+      width:40px;height:40px;border-radius:11px;
+      background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:13px;margin-bottom:9px
+      color:#FF6D00;font-size:16px;margin-bottom:14px
     }
-    .rec h5{font-size:13px;font-weight:800;margin-bottom:4px}
-    .rec p{font-size:11.5px;color:rgba(255,255,255,0.42);line-height:1.5}
+    .feat-card h4{font-size:14px;font-weight:800;margin-bottom:7px}
+    .feat-card p{font-size:12px;color:rgba(255,255,255,0.42);line-height:1.6}
 
-    .cta-box{
-      width:260px;flex-shrink:0;
-      background:linear-gradient(135deg,rgba(255,109,0,0.15),rgba(255,109,0,0.04));
-      border:1px solid rgba(255,109,0,0.3);
-      border-radius:18px;padding:24px;
-      display:flex;flex-direction:column;gap:14px
-    }
-    .cta-box-ico{
-      width:44px;height:44px;border-radius:12px;
-      background:rgba(255,109,0,0.2);border:1px solid rgba(255,109,0,0.35);
-      display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:20px
-    }
-    .cta-box h3{font-size:16px;font-weight:900;line-height:1.3}
-    .cta-box p{font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5}
-    .cta-checks{display:flex;flex-direction:column;gap:6px}
-    .chk{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:rgba(255,255,255,0.7)}
-    .chk i{color:#FF6D00;font-size:10px}
-    .cta-box-btn{
-      display:flex;align-items:center;justify-content:center;gap:8px;
-      padding:13px;background:#FF6D00;color:#fff;border:none;
-      border-radius:11px;font-size:14px;font-weight:800;
-      cursor:pointer;font-family:'Raleway',sans-serif;transition:background .15s
-    }
-    .cta-box-btn:hover{background:#E65100}
-
-    /* FOOTER */
+    /* ── FOOTER ── */
     footer{
       background:rgba(3,9,16,0.98);
       border-top:1px solid rgba(255,255,255,0.07);
-      padding:28px 48px 0
+      padding:32px 40px 0
     }
     .footer-inner{
-      display:grid;grid-template-columns:1.4fr 2fr auto;
-      gap:40px;align-items:start;
-      padding-bottom:20px;
-      border-bottom:1px solid rgba(255,255,255,0.06);
-      max-width:1280px;margin:0 auto
+      display:grid;
+      grid-template-columns:1.6fr 1fr 1fr 1fr auto;
+      gap:40px;
+      align-items:start;
+      padding-bottom:24px;
+      border-bottom:1px solid rgba(255,255,255,0.06)
     }
     .f-logo{display:flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:10px}
     .f-logo-name{font-size:17px;font-weight:900}
     .f-logo-name span{color:#FF6D00}
     .f-tag{
       font-size:7px;font-weight:800;letter-spacing:.6px;
-      color:#FF6D00;background:rgba(255,109,0,0.12);
-      border:1px solid rgba(255,109,0,0.3);
+      color:#FF6D00;
+      border:1px solid #FF6D00;
       padding:2px 6px;border-radius:20px
     }
-    .f-desc{font-size:11.5px;color:rgba(255,255,255,0.35);line-height:1.7}
-    .f-links{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-    .f-col{display:flex;flex-direction:column;gap:7px}
+    .f-desc{font-size:12px;color:rgba(255,255,255,0.35);line-height:1.8;margin-top:4px}
     .f-col-title{
       font-size:10px;font-weight:800;
       color:rgba(255,255,255,0.3);
-      text-transform:uppercase;letter-spacing:1px;margin-bottom:4px
+      text-transform:uppercase;letter-spacing:1px;
+      margin-bottom:14px
     }
-    .f-col a{font-size:12px;color:rgba(255,255,255,0.42);font-weight:500;transition:color .15s}
+    .f-col{display:flex;flex-direction:column;gap:9px}
+    .f-col a{
+      font-size:12.5px;color:rgba(255,255,255,0.42);
+      font-weight:500;transition:color .15s
+    }
     .f-col a:hover{color:#FF6D00}
-    .f-cta{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
-    .f-cta-btn{
-      display:flex;align-items:center;gap:8px;
-      padding:12px 22px;background:#FF6D00;color:#fff;
-      border-radius:10px;font-size:13px;font-weight:800;
-      border:none;cursor:pointer;font-family:'Raleway',sans-serif;transition:background .15s
-    }
-    .f-cta-btn:hover{background:#E65100}
+    .f-social-col{display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;gap:10px}
     .f-social{display:flex;gap:8px}
     .soc{
-      width:34px;height:34px;border-radius:9px;
+      width:36px;height:36px;border-radius:9px;
       background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
       display:flex;align-items:center;justify-content:center;
-      color:rgba(255,255,255,0.45);font-size:14px;transition:all .15s
+      color:rgba(255,255,255,0.45);font-size:15px;transition:all .15s
     }
     .soc:hover{background:rgba(255,109,0,0.15);border-color:rgba(255,109,0,0.3);color:#FF6D00}
     .f-bottom{
       display:flex;justify-content:space-between;align-items:center;
-      padding:12px 0;font-size:11px;color:rgba(255,255,255,0.22);
-      max-width:1280px;margin:0 auto
+      padding:14px 0;font-size:11px;color:rgba(255,255,255,0.22)
     }
 
-    /* MODAL */
+    /* ── MODAL ── */
     .modal-ov{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px}
     .modal-ov.open{display:flex}
     .modal-box{background:#0D1B2A;border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:460px;padding:30px;position:relative;max-height:92vh;overflow-y:auto}
@@ -295,6 +267,10 @@ export function getParceriasLandingHTML(): string {
     <div class="n-logo-name">Rota<span>Posto</span></div>
     <div class="n-tag">EMPRESAS</div>
   </div>
+  <div class="n-center">
+    <div class="n-center-line"></div>
+    <span class="n-center-text">Novo canal de vendas para postos</span>
+  </div>
   <div class="nav-btns">
     <button class="btn-ghost" onclick="openM('premium')">
       <i class="fas fa-handshake"></i> Quero ser parceiro
@@ -306,93 +282,123 @@ export function getParceriasLandingHTML(): string {
 </nav>
 
 <!-- HERO -->
-<div class="hero">
-  <div class="hero-text">
-    <div class="eyebrow">Novo canal de vendas para postos</div>
+<div class="hero-wrap">
+  <div class="hero-left">
     <h1>Pronto para <span>acelerar</span><br>seus resultados?</h1>
-    <p class="sub">
-      Cadastre seu posto e conecte-se a milhares de motoristas<br>
+    <p class="hero-sub">
+      Cadastre seu posto e conecte-se a milhares de motoristas
       com <em>preços em tempo real</em> e <em>destaque no mapa</em>.
     </p>
-    <div class="ctas">
-      <button class="cta-primary" onclick="openM('premium')">
-        <i class="fas fa-handshake"></i> Quero ser parceiro
-      </button>
-      <button class="cta-secondary" onclick="openM('premium')">
-        <div class="play-dot"><i class="fas fa-play"></i></div>
-        Conhecer a plataforma
-      </button>
-    </div>
-    <div class="feat-grid">
-      <div class="feat-card">
-        <div class="feat-ico"><i class="fas fa-map-location-dot"></i></div>
-        <h4>Destaque no mapa</h4>
-        <p>Seu posto aparece primeiro para motoristas na sua região.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-ico"><i class="fas fa-tag"></i></div>
-        <h4>Preços atualizados</h4>
-        <p>Atualize preços em segundos e mantenha-se competitivo.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-ico"><i class="fas fa-users"></i></div>
-        <h4>Mais clientes</h4>
-        <p>Atraia novos motoristas e aumente o movimento.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-ico"><i class="fas fa-chart-bar"></i></div>
-        <h4>Gestão completa</h4>
-        <p>Painel simples com tudo que você precisa acompanhar.</p>
-      </div>
-    </div>
   </div>
-
-  <div class="hero-phone">
+  <div class="hero-right">
     <img src="/static/phone-mockup.png" alt="App RotaPosto"/>
   </div>
 </div>
 
-<!-- RECURSOS + CTA -->
-<div class="bottom">
-  <div class="recursos">
-    <div class="rec-title">Recursos inclusos</div>
-    <div class="rec-grid">
-      <div class="rec">
-        <div class="rec-ico"><i class="fas fa-map-pin"></i></div>
-        <h5>Destaque inteligente</h5>
-        <p>Evidência no mapa para milhares de motoristas locais.</p>
-      </div>
-      <div class="rec">
-        <div class="rec-ico"><i class="fas fa-rotate"></i></div>
-        <h5>Preços em tempo real</h5>
-        <p>Atualize quando quiser e lidere a concorrência.</p>
-      </div>
-      <div class="rec">
-        <div class="rec-ico"><i class="fas fa-ticket"></i></div>
-        <h5>Cupons e promoções</h5>
-        <p>Crie ofertas exclusivas e atraia clientes com desconto.</p>
-      </div>
-      <div class="rec">
-        <div class="rec-ico"><i class="fas fa-chart-line"></i></div>
-        <h5>Relatórios e análises</h5>
-        <p>Acompanhe o desempenho do posto facilmente.</p>
-      </div>
+<!-- RECURSOS INCLUSOS -->
+<div class="recursos-wrap">
+  <div class="rec-label">Recursos inclusos</div>
+  <div class="rec-cols">
+    <div class="rec-col">
+      <div class="rec-ico"><i class="fas fa-map-pin"></i></div>
+      <h5>Destaque inteligente</h5>
+      <p>Evidência no mapa para milhares de motoristas locais.</p>
     </div>
-  </div>
-  <div class="cta-box">
-    <div class="cta-box-ico"><i class="fas fa-rocket"></i></div>
-    <h3>Pronto para acelerar seus resultados?</h3>
-    <p>Cadastre seu posto e receba mais clientes hoje.</p>
-    <div class="cta-checks">
-      <div class="chk"><i class="fas fa-check-circle"></i> Cadastro rápido</div>
-      <div class="chk"><i class="fas fa-check-circle"></i> Mensalidade acessível</div>
-      <div class="chk"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
+    <div class="rec-col">
+      <div class="rec-ico"><i class="fas fa-rotate"></i></div>
+      <h5>Preços em tempo real</h5>
+      <p>Atualize quando quiser e lidere a concorrência.</p>
     </div>
-    <button class="cta-box-btn" onclick="openM('premium')">
-      <i class="fas fa-handshake"></i> Quero ser parceiro
-    </button>
+    <div class="rec-col">
+      <div class="rec-ico"><i class="fas fa-ticket"></i></div>
+      <h5>Cupons e promoções</h5>
+      <p>Crie ofertas exclusivas e atraia clientes com desconto.</p>
+    </div>
+    <div class="rec-col">
+      <div class="rec-ico"><i class="fas fa-chart-line"></i></div>
+      <h5>Relatórios e análises</h5>
+      <p>Acompanhe o desempenho do posto facilmente.</p>
+    </div>
   </div>
 </div>
+
+<!-- FEATURE CARDS -->
+<div class="cards-wrap">
+  <div class="cards-grid">
+    <div class="feat-card">
+      <div class="feat-ico"><i class="fas fa-map-location-dot"></i></div>
+      <h4>Destaque no mapa</h4>
+      <p>Seu posto aparece primeiro para motoristas na sua região.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-ico"><i class="fas fa-tag"></i></div>
+      <h4>Preços atualizados</h4>
+      <p>Atualize preços em segundos e mantenha-se competitivo.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-ico"><i class="fas fa-users"></i></div>
+      <h4>Mais clientes</h4>
+      <p>Atraia novos motoristas e aumente o movimento.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-ico"><i class="fas fa-chart-bar"></i></div>
+      <h4>Gestão completa</h4>
+      <p>Painel simples com tudo que você precisa acompanhar.</p>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="f-logo" onclick="location.href='/'">
+        <i class="fas fa-location-dot" style="color:#FF6D00;font-size:15px"></i>
+        <span class="f-logo-name">Rota<span>Posto</span></span>
+        <span class="f-tag">EMPRESAS</span>
+      </div>
+      <p class="f-desc">Conectando postos a motoristas.<br>A plataforma mais inteligente para seu negócio crescer.</p>
+    </div>
+    <div>
+      <div class="f-col-title">Produto</div>
+      <div class="f-col">
+        <a href="#" onclick="openM('premium')">Como funciona</a>
+        <a href="#" onclick="openM('premium')">Recursos</a>
+        <a href="#" onclick="openM('premium')">Planos e preços</a>
+        <a href="#" onclick="openM('premium')">Depoimentos</a>
+      </div>
+    </div>
+    <div>
+      <div class="f-col-title">Empresa</div>
+      <div class="f-col">
+        <a href="#" onclick="openM('premium')">Sobre nós</a>
+        <a href="#" onclick="openM('premium')">Blog</a>
+        <a href="#" onclick="openM('premium')">Contato</a>
+        <a href="#" onclick="openM('premium')">Termos de uso</a>
+      </div>
+    </div>
+    <div>
+      <div class="f-col-title">Suporte</div>
+      <div class="f-col">
+        <a href="#" onclick="openM('premium')">Central de ajuda</a>
+        <a href="#" onclick="openM('premium')">WhatsApp</a>
+        <a href="#" onclick="openM('premium')">E-mail</a>
+        <a href="tel:+5527999999999">+55 (27) 9 9999-9999</a>
+      </div>
+    </div>
+    <div class="f-social-col">
+      <div class="f-social">
+        <a href="#" class="soc"><i class="fab fa-instagram"></i></a>
+        <a href="#" class="soc"><i class="fab fa-whatsapp"></i></a>
+        <a href="#" class="soc"><i class="fab fa-linkedin"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="f-bottom">
+    <span>© 2025 RotaPosto. Todos os direitos reservados.</span>
+    <span>Feito com <i class="fas fa-heart" style="color:#FF6D00;font-size:10px"></i> no Brasil</span>
+  </div>
+</footer>
 
 <!-- MODAL -->
 <div class="modal-ov" id="modal-cad">
@@ -429,57 +435,6 @@ export function getParceriasLandingHTML(): string {
     </div>
   </div>
 </div>
-
-<!-- FOOTER -->
-<footer>
-  <div class="footer-inner">
-    <div>
-      <div class="f-logo" onclick="location.href='/'">
-        <i class="fas fa-location-dot" style="color:#FF6D00;font-size:16px"></i>
-        <span class="f-logo-name">Rota<span>Posto</span></span>
-        <span class="f-tag">EMPRESAS</span>
-      </div>
-      <p class="f-desc">Conectando postos a motoristas.<br>A plataforma mais inteligente para seu negócio crescer.</p>
-    </div>
-    <div class="f-links">
-      <div class="f-col">
-        <div class="f-col-title">Produto</div>
-        <a href="#" onclick="openM('premium')">Como funciona</a>
-        <a href="#" onclick="openM('premium')">Recursos</a>
-        <a href="#" onclick="openM('premium')">Planos e preços</a>
-        <a href="#" onclick="openM('premium')">Depoimentos</a>
-      </div>
-      <div class="f-col">
-        <div class="f-col-title">Empresa</div>
-        <a href="#" onclick="openM('premium')">Sobre nós</a>
-        <a href="#" onclick="openM('premium')">Blog</a>
-        <a href="#" onclick="openM('premium')">Contato</a>
-        <a href="#" onclick="openM('premium')">Termos de uso</a>
-      </div>
-      <div class="f-col">
-        <div class="f-col-title">Suporte</div>
-        <a href="#" onclick="openM('premium')">Central de ajuda</a>
-        <a href="#" onclick="openM('premium')">WhatsApp</a>
-        <a href="#" onclick="openM('premium')">E-mail</a>
-        <a href="tel:+5527999999999">+55 (27) 9 9999-9999</a>
-      </div>
-    </div>
-    <div class="f-cta">
-      <button class="f-cta-btn" onclick="openM('premium')">
-        <i class="fas fa-handshake"></i> Quero ser parceiro
-      </button>
-      <div class="f-social">
-        <a href="#" class="soc"><i class="fab fa-instagram"></i></a>
-        <a href="#" class="soc"><i class="fab fa-whatsapp"></i></a>
-        <a href="#" class="soc"><i class="fab fa-linkedin"></i></a>
-      </div>
-    </div>
-  </div>
-  <div class="f-bottom">
-    <span>© 2025 RotaPosto. Todos os direitos reservados.</span>
-    <span>Feito com <i class="fas fa-heart" style="color:#FF6D00;font-size:10px"></i> no Brasil</span>
-  </div>
-</footer>
 
 <script>
   function openM(plano){
@@ -541,11 +496,11 @@ export function getParceriasLandingHTML(): string {
   }
 </script>
 
-
 </body>
 </html>
 `;
 }
+
 
 export function getPainelEmpresaHTML(): string {
   return `<!DOCTYPE html>
