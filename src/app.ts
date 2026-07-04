@@ -496,7 +496,7 @@ export function getAppHTML(firebaseScripts: string): string {
     }
     .route-field {
       display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px; min-height: 52px; max-height: 60px;
+      padding: 12px 16px; min-height: 56px;
     }
     .route-field + .route-field {
       border-top: 1px solid var(--border);
@@ -659,11 +659,11 @@ export function getAppHTML(firebaseScripts: string): string {
     }
 
     /* ── Campo de busca livre de destino ── */
-    #plan-dest-wrap { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+    #plan-dest-wrap { flex: 1; min-width: 0; position: relative; }
     #plan-dest-val {
       font-size: 14px; font-weight: 600; color: var(--black);
       cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      line-height: 1.4; max-height: 1.4em;
+      line-height: 1.3;
     }
     #plan-dest-val.placeholder { color: var(--gray); font-weight: 400; }
     #plan-dest-input { display: none !important; height: 0 !important; width: 0 !important; opacity: 0 !important; position: absolute !important; pointer-events: none !important; }
@@ -3768,7 +3768,10 @@ export function getAppHTML(firebaseScripts: string): string {
 
   function abrirModalAssinatura() {
     var el = document.getElementById('modal-assinatura');
-    if (el) { el.style.display = 'flex'; el.style.flexDirection = 'column'; }
+    if (!el) return;
+    // Mover para body para escapar de qualquer container com transform/overflow
+    if (el.parentNode !== document.body) document.body.appendChild(el);
+    el.style.display = 'flex'; el.style.flexDirection = 'column';
     document.body.style.overflow = 'hidden';
     mostrarStep1();
   }
