@@ -3283,7 +3283,7 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<div><div style="font-size:13px;font-weight:700;color:#FF6D00;">⭐ Pontos &amp; Níveis</div>'
       + '<div id="mc-gamif-info" style="font-size:12px;color:#888;margin-top:3px;">Carregando...</div></div>'
       + '<div style="font-size:20px;">›</div></div></div>'
-      + '<script>setTimeout(function(){var el=document.getElementById("mc-gamif-info");if(el&&typeof getPontosGamif==="function"){var pts=getPontosGamif();var nv=getNivelGamif();el.textContent=nv.icone+" "+pts+" pts • "+nv.nome;}},200);<\/script>'
+      + '<script>setTimeout(function(){var el=document.getElementById("mc-gamif-info");if(el&&typeof getPontosGamif==="function"){var pts=getPontosGamif();var nv=getNivelGamif();el.textContent=nv.icone+" "+pts+" pts \u2022 "+nv.nome;}},200);<' + '/script>'
       + '<button class="st-btn st-btn-danger" onclick="doLogout();fecharTela();">Sair da conta</button>';
     abrirTela('Minha Conta', html);
   }
