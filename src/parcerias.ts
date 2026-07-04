@@ -426,23 +426,48 @@ export function getParceriasLandingHTML(): string {
         <p>Nossa equipe entrará em contato em até 24h úteis.</p>
       </div>
       <div id="f-body">
-        <div class="fg"><label class="fl">Nome do responsável</label><input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name"/></div>
+        <div class="fg"><label class="fl">Nome do responsável *</label><input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name" required/></div>
         <div class="fr">
-          <div class="fg"><label class="fl">E-mail</label><input class="fi" id="f-email" type="email" placeholder="joao@posto.com"/></div>
-          <div class="fg"><label class="fl">WhatsApp</label><input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)"/></div>
+          <div class="fg"><label class="fl">E-mail *</label><input class="fi" id="f-email" type="email" placeholder="joao@posto.com" required/></div>
+          <div class="fg"><label class="fl">WhatsApp *</label><input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)" required/></div>
         </div>
-        <div class="fg"><label class="fl">Nome do posto</label><input class="fi" id="f-posto" placeholder="Posto São João"/></div>
+        <div class="fg"><label class="fl">Nome do posto *</label><input class="fi" id="f-posto" placeholder="Posto São João" required/></div>
         <div class="fr">
-          <div class="fg"><label class="fl">CNPJ</label><input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)"/></div>
-          <div class="fg"><label class="fl">Cidade</label><input class="fi" id="f-cidade" placeholder="Vitória"/></div>
+          <div class="fg"><label class="fl">CNPJ *</label><input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" required/></div>
+          <div class="fg"><label class="fl">Cidade *</label><input class="fi" id="f-cidade" placeholder="Vitória" required/></div>
         </div>
         <div class="fg">
-          <label class="fl">Plano de interesse</label>
-          <select class="fsel" id="f-plano">
+          <label class="fl">Estado *</label>
+          <select class="fsel" id="f-estado" required>
+            <option value="">Selecione o estado</option>
+            <option value="AC">Acre</option><option value="AL">Alagoas</option><option value="AP">Amapá</option>
+            <option value="AM">Amazonas</option><option value="BA">Bahia</option><option value="CE">Ceará</option>
+            <option value="DF">Distrito Federal</option><option value="ES">Espírito Santo</option>
+            <option value="GO">Goiás</option><option value="MA">Maranhão</option><option value="MT">Mato Grosso</option>
+            <option value="MS">Mato Grosso do Sul</option><option value="MG">Minas Gerais</option>
+            <option value="PA">Pará</option><option value="PB">Paraíba</option><option value="PR">Paraná</option>
+            <option value="PE">Pernambuco</option><option value="PI">Piauí</option>
+            <option value="RJ">Rio de Janeiro</option><option value="RN">Rio Grande do Norte</option>
+            <option value="RS">Rio Grande do Sul</option><option value="RO">Rondônia</option>
+            <option value="RR">Roraima</option><option value="SC">Santa Catarina</option>
+            <option value="SP">São Paulo</option><option value="SE">Sergipe</option><option value="TO">Tocantins</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Plano de interesse *</label>
+          <select class="fsel" id="f-plano" required>
             <option value="basico">Básico (Grátis)</option>
             <option value="premium" selected>Profissional (R$197/mês)</option>
             <option value="enterprise">Enterprise (Personalizado)</option>
           </select>
+        </div>
+        <div class="fg"><label class="fl">Combustíveis que vende *</label>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.6);cursor:pointer"><input type="checkbox" id="cb-gasolina" style="accent-color:#FF6D00"/> Gasolina</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.6);cursor:pointer"><input type="checkbox" id="cb-etanol" style="accent-color:#FF6D00"/> Etanol</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.6);cursor:pointer"><input type="checkbox" id="cb-diesel" style="accent-color:#FF6D00"/> Diesel</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.6);cursor:pointer"><input type="checkbox" id="cb-gnv" style="accent-color:#FF6D00"/> GNV</label>
+          </div>
         </div>
         <div class="fterms">Ao cadastrar você concorda com os <a href="#" onclick="abrirSP('termos')">Termos de Uso</a></div>
         <button class="fsub" onclick="submitF()"><span id="f-btn"><i class="fas fa-rocket"></i> &nbsp;Enviar cadastro</span></button>
@@ -666,8 +691,31 @@ export function getParceriasLandingHTML(): string {
     const plano=document.getElementById('f-plano').value;
     const err=document.getElementById('f-err');
     err.style.display='none';
-    if(!nome||!email||!tel||!posto){
-      err.textContent='Preencha nome, e-mail, WhatsApp e nome do posto.';
+    const estado=document.getElementById('f-estado').value;
+    const cbs=['cb-gasolina','cb-etanol','cb-diesel','cb-gnv'];
+    const combsSel=cbs.filter(id=>document.getElementById(id).checked);
+    // Limpar highlights
+    ['f-nome','f-email','f-tel','f-posto','f-cnpj','f-cidade','f-estado'].forEach(id=>{
+      document.getElementById(id).style.borderColor='';
+    });
+    const campos=[
+      {id:'f-nome',val:nome,label:'Nome do responsável'},
+      {id:'f-email',val:email,label:'E-mail'},
+      {id:'f-tel',val:tel,label:'WhatsApp'},
+      {id:'f-posto',val:posto,label:'Nome do posto'},
+      {id:'f-cnpj',val:cnpj,label:'CNPJ'},
+      {id:'f-cidade',val:cidade,label:'Cidade'},
+      {id:'f-estado',val:estado,label:'Estado'},
+    ];
+    const vazio=campos.find(c=>!c.val);
+    if(vazio){
+      document.getElementById(vazio.id).style.borderColor='#FF5252';
+      document.getElementById(vazio.id).focus();
+      err.textContent='Preencha o campo: '+vazio.label;
+      err.style.display='block';return;
+    }
+    if(combsSel.length===0){
+      err.textContent='Selecione ao menos um tipo de combustível.';
       err.style.display='block';return;
     }
     const btn=document.getElementById('f-btn');
@@ -675,7 +723,7 @@ export function getParceriasLandingHTML(): string {
     try{
       const r=await fetch('/api/parceiro/cadastrar',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({nome,email,tel,nomePosto:posto,cnpj,cidade,plano})
+        body:JSON.stringify({nome,email,tel,nomePosto:posto,cnpj,cidade,estado,plano,combustiveis:combsSel.map(id=>id.replace('cb-',''))})
       });
       const d=await r.json();
       if(r.ok){
