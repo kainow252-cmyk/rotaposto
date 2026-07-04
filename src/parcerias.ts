@@ -20,44 +20,43 @@ export function getParceriasLandingHTML(): string {
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{
       font-family:'Raleway',sans-serif;color:#fff;background:#07111C;
-      height:100%;overflow:hidden
+      height:100%
     }
     a{text-decoration:none;color:inherit}
 
     /* ═══ SHELL ═══ */
     .shell{
-      height:100vh;display:grid;
-      grid-template-rows:56px 1fr auto;
-      background:#07111C;position:relative
+      min-height:100vh;display:flex;flex-direction:column;
+      background:#07111C;position:relative;overflow:hidden
     }
 
-    /* ── foto de fundo suave ── */
+    /* ── fundo suave ── */
     .bg-photo{
-      position:absolute;inset:0;z-index:0;
+      position:fixed;inset:0;z-index:0;
       background-image:url('https://sspark.genspark.ai/cfimages?u1=IA8DeFGtRQVLbnYzv7Y25Qf7ALF6cxomL1C9HwocxEjAPu3AifSULIf%2FHuMrmxm9ufW8ib6vBJrZlwnLgzg2pIbRBmSXSsdo6rWoAL%2FnTKrFJVBAOu6NnD4%2FLmOMKZAY6UL%2FgydLIUw%3D&u2=LfnlD%2F5XKdLkNxPa&width=2560');
       background-size:cover;background-position:center 30%;
-      opacity:0.18
+      opacity:0.15;pointer-events:none
     }
     .bg-photo::after{
       content:'';position:absolute;inset:0;
       background:radial-gradient(ellipse 80% 60% at 60% 40%,rgba(255,109,0,0.06) 0%,transparent 70%),
-                linear-gradient(160deg,rgba(7,17,28,0.6) 0%,rgba(7,17,28,0.95) 60%)
+                linear-gradient(160deg,rgba(7,17,28,0.5) 0%,rgba(7,17,28,0.92) 60%)
     }
 
     /* ═══ NAV ═══ */
     nav{
-      position:relative;z-index:20;
-      height:56px;
+      position:sticky;top:0;z-index:100;
+      height:60px;
       background:rgba(7,17,28,0.96);
       backdrop-filter:blur(16px);
       border-bottom:1px solid rgba(255,255,255,0.07);
       display:flex;align-items:center;
       justify-content:space-between;
-      padding:0 40px;gap:16px
+      padding:0 48px;gap:16px;flex-shrink:0
     }
     .n-logo{display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0}
-    .n-logo-icon{color:#FF6D00;font-size:20px}
-    .n-logo-name{font-size:18px;font-weight:900}
+    .n-logo-icon{color:#FF6D00;font-size:22px}
+    .n-logo-name{font-size:20px;font-weight:900}
     .n-logo-name span{color:#FF6D00}
     .n-tag{
       font-size:8px;font-weight:800;letter-spacing:.6px;
@@ -65,149 +64,106 @@ export function getParceriasLandingHTML(): string {
       border:1px solid rgba(255,109,0,0.3);
       padding:2px 7px;border-radius:20px
     }
-    .n-links{display:flex;gap:2px}
-    .n-btn{
-      padding:6px 13px;border-radius:8px;
-      font-size:12.5px;font-weight:600;
-      color:rgba(255,255,255,0.55);
-      border:none;background:none;cursor:pointer;
-      font-family:'Raleway',sans-serif;
-      transition:color .15s
-    }
-    .n-btn:hover{color:#fff}
     .n-parceiro{
       display:flex;align-items:center;gap:7px;
-      padding:9px 20px;background:transparent;color:#FF6D00;
-      border-radius:9px;font-size:12.5px;font-weight:800;
+      padding:9px 22px;background:transparent;color:#FF6D00;
+      border-radius:9px;font-size:13px;font-weight:800;
       border:1.5px solid #FF6D00;cursor:pointer;
-      font-family:'Raleway',sans-serif;transition:all .18s;
-      font-family:'Raleway',sans-serif;flex-shrink:0;transition:all .15s
+      font-family:'Raleway',sans-serif;transition:all .18s;flex-shrink:0
     }
-    .n-parceiro:hover{background:rgba(255,109,0,0.25);border-color:#FF6D00}
+    .n-parceiro:hover{background:rgba(255,109,0,0.12)}
     .n-cta{
       display:flex;align-items:center;gap:7px;
-      padding:9px 20px;background:#FF6D00;color:#fff;
-      border-radius:9px;font-size:12.5px;font-weight:800;
+      padding:9px 22px;background:#FF6D00;color:#fff;
+      border-radius:9px;font-size:13px;font-weight:800;
       border:none;cursor:pointer;font-family:'Raleway',sans-serif;
       flex-shrink:0;transition:background .15s
     }
     .n-cta:hover{background:#E65100}
-    @media(max-width:780px){nav{padding:0 20px}.n-links{display:none}}
 
-    /* ═══ BODY AREA ═══ */
-    .body{
+    /* ═══ HERO SECTION ═══ */
+    .hero-section{
       position:relative;z-index:2;
       display:grid;
-      grid-template-columns:1fr 380px;
-      grid-template-rows:1fr auto 1fr;
-      gap:0;overflow:hidden;
-      padding:28px 40px 20px
-    }
-    @media(max-width:1100px){
-      .body{grid-template-columns:1fr;grid-template-rows:auto auto auto}
+      grid-template-columns:1fr 420px;
+      align-items:center;
+      min-height:calc(100vh - 60px);
+      padding:60px 48px 40px;
+      gap:40px
     }
 
-    /* ═══ HERO ═══ */
-    .hero{
-      grid-column:1;grid-row:1;
+    /* lado esquerdo */
+    .hero-left{
       display:flex;flex-direction:column;
       justify-content:center;
-      padding-right:32px;
+      max-width:640px
     }
-    @media(max-width:1100px){.hero{padding-right:0;grid-row:1}}
-
     .hero-eyebrow{
       display:inline-flex;align-items:center;gap:8px;
       font-size:12px;font-weight:800;letter-spacing:2px;
       text-transform:uppercase;color:#FF6D00;
-      margin-bottom:16px
+      margin-bottom:20px
     }
     .hero-eyebrow::before{
-      content:'';width:24px;height:2px;background:#FF6D00;
+      content:'';width:28px;height:2px;background:#FF6D00;
       border-radius:2px;flex-shrink:0
     }
     .hero-h1{
-      font-size:clamp(26px,2.8vw,48px);
-      font-weight:900;line-height:1.1;
-      letter-spacing:-1px;
-      margin-bottom:16px;
-      white-space:nowrap
+      font-size:clamp(36px,3.8vw,60px);
+      font-weight:900;line-height:1.08;
+      letter-spacing:-1.5px;
+      margin-bottom:20px;
+      color:#fff
     }
     .hero-h1 .hl{color:#FF6D00}
     .hero-p{
-      font-size:clamp(13px,1.15vw,16px);
-      color:rgba(255,255,255,0.62);
-      line-height:1.5;font-weight:500;
-      max-width:none;margin-bottom:24px;
-      white-space:nowrap;text-decoration:none
+      font-size:clamp(15px,1.2vw,18px);
+      color:rgba(255,255,255,0.6);
+      line-height:1.6;font-weight:500;
+      margin-bottom:36px;
+      max-width:520px
     }
-    .hero-p em{color:rgba(255,180,100,0.9);font-style:normal;text-decoration:none}
-    .hero-btns{display:flex;gap:12px;flex-wrap:wrap}
+    .hero-p em{color:rgba(255,180,100,0.9);font-style:normal}
+    .hero-btns{display:flex;gap:14px;flex-wrap:wrap}
     .btn-p{
       display:inline-flex;align-items:center;gap:9px;
-      padding:14px 28px;background:#FF6D00;color:#fff;
-      border-radius:11px;font-size:15px;font-weight:800;
+      padding:15px 32px;background:#FF6D00;color:#fff;
+      border-radius:12px;font-size:16px;font-weight:800;
       border:none;cursor:pointer;font-family:'Raleway',sans-serif;
       transition:all .18s;white-space:nowrap
     }
-    .btn-p:hover{background:#E65100;transform:translateY(-1px);box-shadow:0 8px 24px rgba(255,109,0,0.3)}
+    .btn-p:hover{background:#E65100;transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,109,0,0.35)}
     .btn-s{
       display:inline-flex;align-items:center;gap:9px;
-      padding:14px 24px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85);
-      border-radius:11px;font-size:15px;font-weight:700;
+      padding:15px 26px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85);
+      border-radius:12px;font-size:16px;font-weight:700;
       border:1px solid rgba(255,255,255,0.15);
       cursor:pointer;font-family:'Raleway',sans-serif;
-      transition:all .18s;white-space:nowrap;backdrop-filter:blur(4px)
+      transition:all .18s;white-space:nowrap
     }
     .btn-s:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.3)}
     .play-dot{
-      width:30px;height:30px;
+      width:32px;height:32px;
       background:rgba(255,255,255,0.14);border-radius:50%;
       display:inline-flex;align-items:center;justify-content:center;
       font-size:10px;flex-shrink:0
     }
 
-    /* ═══ PHONE ═══ */
-    .phone-col{
-      grid-column:2;grid-row:1/3;
-      display:flex;align-items:center;justify-content:center;
-      position:relative;overflow:hidden
-    }
-    .phone-halo{
-      position:absolute;
-      width:340px;height:340px;
-      background:radial-gradient(circle,rgba(255,109,0,0.18) 0%,transparent 65%);
-      pointer-events:none
-    }
-    .phone-wrap{
-      position:relative;z-index:2;
-      width:min(300px,85%);
-      filter:drop-shadow(0 32px 60px rgba(0,0,0,0.85)) drop-shadow(0 0 50px rgba(255,109,0,0.22));
-    }
-    .phone-wrap img{width:100%;height:auto;display:block}
-    @media(max-width:1100px){.phone-col{display:none}}
-
-    /* ═══ FEATURES ═══ */
+    /* cards de features no hero */
     .feat-row{
-      grid-column:1;grid-row:2;
       display:grid;grid-template-columns:repeat(4,1fr);
-      gap:10px;
-      padding-right:32px;
-      margin-top:20px
+      gap:12px;margin-top:40px
     }
-    @media(max-width:1100px){.feat-row{padding-right:0;grid-row:2;margin-top:12px}}
-    @media(max-width:860px){.feat-row{grid-template-columns:1fr 1fr;gap:8px}}
-
     .feat-card{
       background:rgba(255,255,255,0.04);
       border:1px solid rgba(255,255,255,0.09);
-      border-radius:14px;padding:16px;
+      border-radius:14px;padding:18px;
       display:flex;flex-direction:column;gap:10px;
-      transition:background .18s,border-color .18s
+      transition:all .2s
     }
-    .feat-card:hover{background:rgba(255,255,255,0.07);border-color:rgba(255,109,0,0.25)}
+    .feat-card:hover{background:rgba(255,255,255,0.07);border-color:rgba(255,109,0,0.3);transform:translateY(-2px)}
     .feat-ico{
-      width:36px;height:36px;border-radius:10px;
+      width:38px;height:38px;border-radius:10px;
       background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.2);
       display:flex;align-items:center;justify-content:center;
       color:#FF6D00;font-size:15px;flex-shrink:0
@@ -215,87 +171,92 @@ export function getParceriasLandingHTML(): string {
     .feat-card h4{font-size:14px;font-weight:800;color:#fff;margin:0}
     .feat-card p{font-size:12px;color:rgba(255,255,255,0.48);line-height:1.5;font-weight:500;margin:0}
 
-    /* ═══ BOTTOM ROW (cards + cta) ═══ */
-    .bottom-row{
-      grid-column:1/3;grid-row:3;
-      display:grid;grid-template-columns:1fr auto;
-      gap:12px;align-items:stretch;
-      margin-top:10px
+    /* lado direito — celular */
+    .hero-right{
+      display:flex;align-items:center;justify-content:center;
+      position:relative;
+      height:100%;
+      min-height:500px
     }
-    @media(max-width:1100px){.bottom-row{grid-template-columns:1fr;grid-row:3}}
+    .phone-halo{
+      position:absolute;
+      width:400px;height:400px;
+      background:radial-gradient(circle,rgba(255,109,0,0.2) 0%,transparent 65%);
+      pointer-events:none;top:50%;left:50%;
+      transform:translate(-50%,-50%)
+    }
+    .phone-wrap{
+      position:relative;z-index:2;
+      width:min(340px,90%);
+      filter:drop-shadow(0 40px 70px rgba(0,0,0,0.9)) drop-shadow(0 0 60px rgba(255,109,0,0.25));
+    }
+    .phone-wrap img{width:100%;height:auto;display:block}
 
-    /* recursos grid */
+    /* ═══ RECURSOS + CTA ═══ */
+    .bottom-section{
+      position:relative;z-index:2;
+      display:grid;
+      grid-template-columns:1fr 280px;
+      gap:16px;
+      padding:0 48px 40px;
+      align-items:stretch
+    }
     .recursos{
       background:rgba(255,255,255,0.035);
       border:1px solid rgba(255,255,255,0.08);
-      border-radius:16px;padding:18px 22px;
-      height:100%
+      border-radius:18px;padding:24px 28px
     }
     .recursos-title{
-      font-size:12px;font-weight:800;color:rgba(255,255,255,0.4);
-      text-transform:uppercase;letter-spacing:1px;margin-bottom:14px
+      font-size:11px;font-weight:800;color:rgba(255,255,255,0.35);
+      text-transform:uppercase;letter-spacing:1.5px;margin-bottom:20px
     }
     .recursos-grid{
       display:grid;grid-template-columns:repeat(4,1fr);gap:0
     }
     .rec{
-      padding:0 16px;
+      padding:0 20px;
       border-right:1px solid rgba(255,255,255,0.07)
     }
     .rec:first-child{padding-left:0}
     .rec:last-child{border-right:none;padding-right:0}
     .rec-ico{
-      width:32px;height:32px;border-radius:9px;
+      width:36px;height:36px;border-radius:10px;
       background:rgba(255,109,0,0.1);border:1px solid rgba(255,109,0,0.18);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:13px;margin-bottom:8px
+      color:#FF6D00;font-size:14px;margin-bottom:10px
     }
-    .rec h5{font-size:13px;font-weight:800;color:#fff;margin-bottom:4px}
-    .rec p{font-size:11.5px;color:rgba(255,255,255,0.45);line-height:1.45;font-weight:500}
-    @media(max-width:860px){
-      .recursos-grid{grid-template-columns:1fr 1fr;gap:12px}
-      .rec{border-right:none;padding:0}
-    }
+    .rec h5{font-size:13.5px;font-weight:800;color:#fff;margin-bottom:5px}
+    .rec p{font-size:12px;color:rgba(255,255,255,0.45);line-height:1.5;font-weight:500}
 
-    /* cta block */
     .cta-block{
-      background:linear-gradient(135deg,rgba(255,109,0,0.14) 0%,rgba(255,109,0,0.04) 100%);
-      border:1px solid rgba(255,109,0,0.25);
-      border-radius:16px;padding:20px 22px;
+      background:linear-gradient(135deg,rgba(255,109,0,0.16) 0%,rgba(255,109,0,0.05) 100%);
+      border:1px solid rgba(255,109,0,0.3);
+      border-radius:18px;padding:24px;
       display:flex;flex-direction:column;justify-content:space-between;
-      min-width:240px;max-width:260px;
-      height:100%
+      gap:16px
     }
-    @media(max-width:1100px){.cta-block{max-width:100%;flex-direction:row;align-items:center;gap:16px}}
     .cta-ico{
-      width:40px;height:40px;border-radius:12px;
+      width:44px;height:44px;border-radius:12px;
       background:rgba(255,109,0,0.2);border:1px solid rgba(255,109,0,0.35);
       display:flex;align-items:center;justify-content:center;
-      color:#FF6D00;font-size:18px;margin-bottom:12px;flex-shrink:0
+      color:#FF6D00;font-size:20px
     }
-    @media(max-width:1100px){.cta-ico{margin-bottom:0}}
-    .cta-text{flex:1}
-    .cta-text h3{font-size:15px;font-weight:900;color:#fff;margin-bottom:4px;line-height:1.3}
-    .cta-text p{font-size:12px;color:rgba(255,255,255,0.5);font-weight:500;line-height:1.4}
-    .cta-badges{
-      display:flex;flex-wrap:wrap;gap:6px;
-      margin:12px 0;
-    }
-    @media(max-width:1100px){.cta-badges{display:none}}
+    .cta-text h3{font-size:16px;font-weight:900;color:#fff;margin-bottom:6px;line-height:1.3}
+    .cta-text p{font-size:12.5px;color:rgba(255,255,255,0.5);font-weight:500;line-height:1.5}
+    .cta-badges{display:flex;flex-direction:column;gap:7px;margin-top:4px}
     .cbadge{
-      display:flex;align-items:center;gap:5px;
-      font-size:11px;font-weight:700;color:rgba(255,255,255,0.6)
+      display:flex;align-items:center;gap:6px;
+      font-size:11.5px;font-weight:700;color:rgba(255,255,255,0.65)
     }
-    .cbadge i{color:#FF6D00;font-size:9px}
+    .cbadge i{color:#FF6D00;font-size:10px}
     .cta-btn{
       display:flex;align-items:center;justify-content:center;gap:8px;
-      width:100%;padding:12px;background:#FF6D00;color:#fff;
-      border-radius:10px;font-size:14px;font-weight:800;
+      width:100%;padding:13px;background:#FF6D00;color:#fff;
+      border-radius:11px;font-size:14px;font-weight:800;
       border:none;cursor:pointer;font-family:'Raleway',sans-serif;
-      transition:background .15s;white-space:nowrap;flex-shrink:0
+      transition:background .15s;white-space:nowrap
     }
     .cta-btn:hover{background:#E65100}
-    @media(max-width:1100px){.cta-btn{width:auto;padding:11px 22px}}
 
     /* ═══ MODAL ═══ */
     .modal-ov{
@@ -362,24 +323,23 @@ export function getParceriasLandingHTML(): string {
     /* ═══ RODAPÉ ═══ */
     .footer{
       position:relative;z-index:10;
-      background:rgba(5,12,20,0.97);
+      background:rgba(5,12,20,0.98);
       border-top:1px solid rgba(255,255,255,0.07);
-      padding:20px 40px 0;
-      flex-shrink:0
+      padding:28px 48px 0;
+      margin-top:auto
     }
     .footer-inner{
       display:grid;
       grid-template-columns:1.4fr 2fr auto;
-      gap:32px;align-items:start;
-      padding-bottom:16px;
+      gap:40px;align-items:start;
+      padding-bottom:20px;
       border-bottom:1px solid rgba(255,255,255,0.06)
     }
-    .footer-brand{}
     .footer-logo{
       display:flex;align-items:center;gap:7px;
-      cursor:pointer;margin-bottom:8px
+      cursor:pointer;margin-bottom:10px
     }
-    .footer-logo-name{font-size:16px;font-weight:900;color:#fff}
+    .footer-logo-name{font-size:17px;font-weight:900;color:#fff}
     .footer-tag{
       font-size:7px;font-weight:800;letter-spacing:.6px;
       color:#FF6D00;background:rgba(255,109,0,0.12);
@@ -387,13 +347,13 @@ export function getParceriasLandingHTML(): string {
       padding:2px 6px;border-radius:20px
     }
     .footer-desc{
-      font-size:11px;color:rgba(255,255,255,0.38);
+      font-size:12px;color:rgba(255,255,255,0.38);
       line-height:1.6;font-weight:500
     }
     .footer-links{
-      display:grid;grid-template-columns:repeat(3,1fr);gap:20px
+      display:grid;grid-template-columns:repeat(3,1fr);gap:24px
     }
-    .footer-col{display:flex;flex-direction:column;gap:6px}
+    .footer-col{display:flex;flex-direction:column;gap:7px}
     .footer-col-title{
       font-size:10px;font-weight:800;
       color:rgba(255,255,255,0.35);
@@ -401,16 +361,16 @@ export function getParceriasLandingHTML(): string {
       margin-bottom:4px
     }
     .footer-col a{
-      font-size:11.5px;color:rgba(255,255,255,0.45);
+      font-size:12px;color:rgba(255,255,255,0.45);
       font-weight:500;transition:color .15s;cursor:pointer
     }
     .footer-col a:hover{color:#FF6D00}
     .footer-cta-col{
-      display:flex;flex-direction:column;align-items:flex-end;gap:12px
+      display:flex;flex-direction:column;align-items:flex-end;gap:14px
     }
     .footer-cta-btn{
       display:flex;align-items:center;gap:8px;
-      padding:11px 22px;background:#FF6D00;color:#fff;
+      padding:12px 24px;background:#FF6D00;color:#fff;
       border-radius:10px;font-size:13px;font-weight:800;
       border:none;cursor:pointer;font-family:'Raleway',sans-serif;
       transition:background .15s;white-space:nowrap
@@ -418,23 +378,17 @@ export function getParceriasLandingHTML(): string {
     .footer-cta-btn:hover{background:#E65100}
     .footer-social{display:flex;gap:8px}
     .soc-btn{
-      width:32px;height:32px;border-radius:8px;
+      width:34px;height:34px;border-radius:9px;
       background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
       display:flex;align-items:center;justify-content:center;
-      color:rgba(255,255,255,0.5);font-size:13px;
+      color:rgba(255,255,255,0.5);font-size:14px;
       transition:all .15s;cursor:pointer
     }
     .soc-btn:hover{background:rgba(255,109,0,0.15);border-color:rgba(255,109,0,0.3);color:#FF6D00}
     .footer-bottom{
       display:flex;justify-content:space-between;align-items:center;
-      padding:10px 0;
-      font-size:10.5px;color:rgba(255,255,255,0.25);font-weight:500
-    }
-    @media(max-width:900px){
-      .footer{padding:16px 20px 0}
-      .footer-inner{grid-template-columns:1fr;gap:20px}
-      .footer-cta-col{align-items:flex-start}
-      .footer-links{grid-template-columns:repeat(3,1fr)}
+      padding:12px 0;
+      font-size:11px;color:rgba(255,255,255,0.25);font-weight:500
     }
   </style>
 </head>
@@ -449,7 +403,6 @@ export function getParceriasLandingHTML(): string {
       <div class="n-logo-name">Rota<span>Posto</span></div>
       <div class="n-tag">EMPRESAS</div>
     </div>
-
     <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
       <button class="n-parceiro" onclick="openM('premium')">
         <i class="fas fa-handshake"></i> Quero ser parceiro
@@ -460,25 +413,17 @@ export function getParceriasLandingHTML(): string {
     </div>
   </nav>
 
-  <!-- BODY -->
-  <div class="body">
+  <!-- HERO SECTION -->
+  <section class="hero-section">
 
-    <!-- PHONE -->
-    <div class="phone-col">
-      <div class="phone-halo"></div>
-      <div class="phone-wrap">
-        <img src="/static/phone-mockup.png" alt="App RotaPosto" loading="eager"/>
-      </div>
-    </div>
-
-    <!-- HERO -->
-    <div class="hero">
+    <!-- Esquerda: texto + features -->
+    <div class="hero-left">
       <div class="hero-eyebrow">Novo canal de vendas para postos</div>
       <h1 class="hero-h1">
-        Pronto para <span class="hl">acelerar</span> seus resultados?
+        Pronto para <span class="hl">acelerar</span><br>seus resultados?
       </h1>
       <p class="hero-p">
-        Cadastre seu posto e conecte-se a milhares de motoristas todos os dias, com <em>preços em tempo real</em> e <em>destaque no mapa</em>.
+        Cadastre seu posto e conecte-se a milhares de motoristas todos os dias,<br>com <em>preços em tempo real</em> e <em>destaque no mapa</em>.
       </p>
       <div class="hero-btns">
         <button class="btn-p" onclick="openM('premium')">
@@ -489,105 +434,112 @@ export function getParceriasLandingHTML(): string {
           Conhecer a plataforma
         </button>
       </div>
+
+      <!-- 4 cards de features -->
+      <div class="feat-row">
+        <div class="feat-card">
+          <div class="feat-ico"><i class="fas fa-map-location-dot"></i></div>
+          <div>
+            <h4>Destaque no mapa</h4>
+            <p>Seu posto aparece primeiro para motoristas na sua região.</p>
+          </div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico"><i class="fas fa-tag"></i></div>
+          <div>
+            <h4>Preços atualizados</h4>
+            <p>Atualize preços em segundos e mantenha-se competitivo.</p>
+          </div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico"><i class="fas fa-users"></i></div>
+          <div>
+            <h4>Mais clientes</h4>
+            <p>Atraia novos motoristas e aumente o movimento.</p>
+          </div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-ico"><i class="fas fa-chart-bar"></i></div>
+          <div>
+            <h4>Gestão completa</h4>
+            <p>Painel simples com tudo que você precisa acompanhar.</p>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- FEATURES 4 cards -->
-    <div class="feat-row">
-      <div class="feat-card">
-        <div class="feat-ico"><i class="fas fa-map-location-dot"></i></div>
-        <div>
-          <h4>Destaque no mapa</h4>
-          <p>Seu posto aparece primeiro para motoristas na sua regiao.</p>
-        </div>
+    <!-- Direita: celular -->
+    <div class="hero-right">
+      <div class="phone-halo"></div>
+      <div class="phone-wrap">
+        <img src="/static/phone-mockup.png" alt="App RotaPosto" loading="eager"/>
       </div>
-      <div class="feat-card">
-        <div class="feat-ico"><i class="fas fa-tag"></i></div>
-        <div>
-          <h4>Precos atualizados</h4>
-          <p>Atualize precos em segundos e mantenha-se competitivo.</p>
+    </div>
+
+  </section>
+
+  <!-- RECURSOS + CTA -->
+  <div class="bottom-section">
+
+    <div class="recursos">
+      <div class="recursos-title">Recursos inclusos</div>
+      <div class="recursos-grid">
+        <div class="rec">
+          <div class="rec-ico"><i class="fas fa-map-pin"></i></div>
+          <h5>Destaque inteligente</h5>
+          <p>Evidência no mapa para milhares de motoristas locais.</p>
         </div>
-      </div>
-      <div class="feat-card">
-        <div class="feat-ico"><i class="fas fa-users"></i></div>
-        <div>
-          <h4>Mais clientes</h4>
-          <p>Atraia novos motoristas e aumente o movimento.</p>
+        <div class="rec">
+          <div class="rec-ico"><i class="fas fa-rotate"></i></div>
+          <h5>Preços em tempo real</h5>
+          <p>Atualize quando quiser e lidere a concorrência.</p>
         </div>
-      </div>
-      <div class="feat-card">
-        <div class="feat-ico"><i class="fas fa-chart-bar"></i></div>
-        <div>
-          <h4>Gestao completa</h4>
-          <p>Painel simples com tudo que voce precisa acompanhar.</p>
+        <div class="rec">
+          <div class="rec-ico"><i class="fas fa-ticket"></i></div>
+          <h5>Cupons e promoções</h5>
+          <p>Crie ofertas exclusivas e atraia clientes com desconto.</p>
+        </div>
+        <div class="rec">
+          <div class="rec-ico"><i class="fas fa-chart-line"></i></div>
+          <h5>Relatórios e análises</h5>
+          <p>Acompanhe o desempenho do posto facilmente.</p>
         </div>
       </div>
     </div>
 
-    <!-- BOTTOM ROW -->
-    <div class="bottom-row">
-
-      <!-- recursos -->
-      <div class="recursos">
-        <div class="recursos-title">Recursos inclusos</div>
-        <div class="recursos-grid">
-          <div class="rec">
-            <div class="rec-ico"><i class="fas fa-map-pin"></i></div>
-            <h5>Destaque inteligente</h5>
-            <p>Evidencia no mapa para milhares de motoristas locais.</p>
-          </div>
-          <div class="rec">
-            <div class="rec-ico"><i class="fas fa-rotate"></i></div>
-            <h5>Precos em tempo real</h5>
-            <p>Atualize quando quiser e lidere a concorrencia.</p>
-          </div>
-          <div class="rec">
-            <div class="rec-ico"><i class="fas fa-ticket"></i></div>
-            <h5>Cupons e promocoes</h5>
-            <p>Crie ofertas exclusivas e atraia clientes com desconto.</p>
-          </div>
-          <div class="rec">
-            <div class="rec-ico"><i class="fas fa-chart-line"></i></div>
-            <h5>Relatorios e analises</h5>
-            <p>Acompanhe o desempenho do posto facilmente.</p>
-          </div>
-        </div>
+    <div class="cta-block">
+      <div class="cta-ico"><i class="fas fa-rocket"></i></div>
+      <div class="cta-text">
+        <h3>Pronto para acelerar seus resultados?</h3>
+        <p>Cadastre seu posto e receba mais clientes hoje.</p>
       </div>
-
-      <!-- CTA -->
-      <div class="cta-block">
-        <div>
-          <div class="cta-ico"><i class="fas fa-rocket"></i></div>
-          <div class="cta-text">
-            <h3>Pronto para acelerar seus resultados?</h3>
-            <p>Cadastre seu posto e receba mais clientes hoje.</p>
-          </div>
-          <div class="cta-badges">
-            <div class="cbadge"><i class="fas fa-check-circle"></i> Cadastro rapido</div>
-            <div class="cbadge"><i class="fas fa-check-circle"></i> Mensalidade acessivel</div>
-            <div class="cbadge"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
-          </div>
-        </div>
+      <div class="cta-badges">
+        <div class="cbadge"><i class="fas fa-check-circle"></i> Cadastro rápido</div>
+        <div class="cbadge"><i class="fas fa-check-circle"></i> Mensalidade acessível</div>
+        <div class="cbadge"><i class="fas fa-check-circle"></i> Suporte dedicado</div>
       </div>
+      <button class="cta-btn" onclick="openM('premium')">
+        <i class="fas fa-handshake"></i> Quero ser parceiro
+      </button>
+    </div>
 
-    </div><!-- /bottom-row -->
-
-  </div><!-- /body -->
+  </div>
 
   <!-- MODAL -->
   <div class="modal-ov" id="modal-cad">
     <div class="modal-box">
       <button class="m-close" onclick="closeM()"><i class="fas fa-times"></i></button>
       <div class="m-title">Cadastrar posto</div>
-      <div class="m-sub">Preencha os dados e entraremos em contato em ate 24h.</div>
+      <div class="m-sub">Preencha os dados e entraremos em contato em até 24h.</div>
       <div class="ferr" id="f-err"></div>
       <div class="fok" id="f-ok">
         <h4>Cadastro enviado!</h4>
-        <p>Nossa equipe entrara em contato em ate 24h uteis.</p>
+        <p>Nossa equipe entrará em contato em até 24h úteis.</p>
       </div>
       <div id="f-body">
         <div class="fg">
-          <label class="fl">Nome do responsavel</label>
-          <input class="fi" id="f-nome" placeholder="Joao Silva" autocomplete="name"/>
+          <label class="fl">Nome do responsável</label>
+          <input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name"/>
         </div>
         <div class="fr">
           <div class="fg">
@@ -601,7 +553,7 @@ export function getParceriasLandingHTML(): string {
         </div>
         <div class="fg">
           <label class="fl">Nome do posto</label>
-          <input class="fi" id="f-posto" placeholder="Posto Sao Joao"/>
+          <input class="fi" id="f-posto" placeholder="Posto São João"/>
         </div>
         <div class="fr">
           <div class="fg">
@@ -610,18 +562,18 @@ export function getParceriasLandingHTML(): string {
           </div>
           <div class="fg">
             <label class="fl">Cidade</label>
-            <input class="fi" id="f-cidade" placeholder="Vitoria"/>
+            <input class="fi" id="f-cidade" placeholder="Vitória"/>
           </div>
         </div>
         <div class="fg">
           <label class="fl">Plano de interesse</label>
           <select class="fsel" id="f-plano">
-            <option value="basico">Basico (Gratis)</option>
-            <option value="premium" selected>Profissional (R$197/mes)</option>
+            <option value="basico">Básico (Grátis)</option>
+            <option value="premium" selected>Profissional (R$197/mês)</option>
             <option value="enterprise">Enterprise (Personalizado)</option>
           </select>
         </div>
-        <div class="fterms">Ao cadastrar voce concorda com os <a href="#">Termos de Uso</a></div>
+        <div class="fterms">Ao cadastrar você concorda com os <a href="#">Termos de Uso</a></div>
         <button class="fsub" onclick="submitF()">
           <span id="f-btn"><i class="fas fa-rocket"></i> &nbsp;Enviar cadastro</span>
         </button>
@@ -632,7 +584,7 @@ export function getParceriasLandingHTML(): string {
   <!-- RODAPÉ -->
   <footer class="footer">
     <div class="footer-inner">
-      <div class="footer-brand">
+      <div>
         <div class="footer-logo" onclick="location.href='/'">
           <i class="fas fa-location-dot" style="color:#FF6D00;font-size:16px"></i>
           <span class="footer-logo-name">Rota<span style="color:#FF6D00">Posto</span></span>
@@ -741,13 +693,13 @@ export function getParceriasLandingHTML(): string {
     }
   }
 </script>
+
 </body>
-</html>`
+</html>
+`;
 }
 
-
-
-export function getPainelEmpresaHTML(): string {
+getPainelEmpresaHTML(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
