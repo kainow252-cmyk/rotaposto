@@ -5878,7 +5878,124 @@ window.addEventListener('resize', () => {
 })
 
 // ─── Painel Administrativo ────────────────────────────────────────────────────
+// ─── GET /api/admin/usuarios ──────────────────────────────────────────────────
+// Lista todos os parceiros/postos cadastrados no R2 (prefixo parceiro--)
+app.get('/api/admin/usuarios', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+
+  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  if (!r2) return c.json({ erro: 'R2 não disponível' }, 500)
+
+  try {
+    const listed = await r2.list({ prefix: 'parceiro--' })
+    const parceiros: unknown[] = []
+
+    for (const obj of listed.objects) {
+      try {
+        const data = await r2Get(r2, obj.key.replace('parceiro--', 'parceiro:')) as Record<string, unknown> | null
+        if (data) {
+          parceiros.push({
+            id: obj.key.replace('parceiro--', ''),
+            nomePosto: data.nomePosto || data.nome || '—',
+            email: data.email || '—',
+            plano: data.plano || 'gratuito',
+            tel: data.tel || '—',
+            cidade: data.cidade || '—',
+            cnpj: data.cnpj || '—',
+            criadoEm: data.criadoEm || obj.uploaded?.toISOString() || '—',
+          })
+        }
+      } catch {}
+    }
+
+    return c.json({ total: parceiros.length, parceiros })
+  } catch (e) {
+    console.error('[admin/usuarios] erro:', e)
+    return c.json({ erro: 'Erro ao listar usuários', detalhes: String(e) }, 500)
+  }
+})
+
 app.get('/admin', (c) => {
+  const key = c.req.query('key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+
+  // ── Tela de Login ─────────────────────────────────────────────────────────
+  if (key !== ADMIN_PASS) {
+    const loginHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RotaPosto Admin — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Raleway',sans-serif;background:#0D1B2A;color:#E0E7EF;min-height:100vh;display:flex;align-items:center;justify-content:center}
+    .login-card{background:#112035;border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:48px 40px;width:100%;max-width:400px;text-align:center}
+    .logo{font-size:28px;font-weight:900;color:#fff;margin-bottom:4px}.logo span{color:#FF6D00}
+    .logo-sub{font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-bottom:32px}
+    h2{font-size:18px;font-weight:800;color:#fff;margin-bottom:6px}
+    p{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:28px}
+    .input-wrap{position:relative;margin-bottom:16px}
+    .input-wrap i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.3);font-size:14px}
+    input[type=password]{width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;padding:13px 14px 13px 40px;color:#fff;font-size:14px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;transition:border-color 0.2s}
+    input[type=password]:focus{border-color:#FF6D00}
+    input[type=password]::placeholder{color:rgba(255,255,255,0.25)}
+    .btn-login{width:100%;background:linear-gradient(135deg,#FF6D00,#e65100);color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:800;font-family:'Raleway',sans-serif;cursor:pointer;transition:opacity 0.2s;margin-top:4px}
+    .btn-login:hover{opacity:0.9}
+    .error-msg{background:rgba(255,82,82,0.12);border:1px solid rgba(255,82,82,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:#FF5252;font-weight:700;margin-bottom:16px;display:none}
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="logo">Rota<span>Posto</span></div>
+    <div class="logo-sub">PAINEL ADMINISTRATIVO</div>
+    <h2>Acesso Restrito</h2>
+    <p>Digite a senha para acessar o painel admin</p>
+    <div class="error-msg" id="error-msg"><i class="fas fa-exclamation-triangle"></i> Senha incorreta. Tente novamente.</div>
+    <form onsubmit="doLogin(event)">
+      <div class="input-wrap">
+        <i class="fas fa-lock"></i>
+        <input type="password" id="senha-input" placeholder="Senha do admin" autocomplete="current-password" autofocus/>
+      </div>
+      <button type="submit" class="btn-login"><i class="fas fa-sign-in-alt"></i> &nbsp;Entrar</button>
+    </form>
+  </div>
+  <script>
+    // Se já há um hash/key salvo, tenta logar
+    const saved = sessionStorage.getItem('admin_key');
+    if (saved) window.location.href = '/admin?key=' + encodeURIComponent(saved);
+
+    function doLogin(e) {
+      e.preventDefault();
+      const senha = document.getElementById('senha-input').value.trim();
+      if (!senha) return;
+      // Testa a senha fazendo um fetch para a API de usuários
+      fetch('/api/admin/usuarios?key=' + encodeURIComponent(senha))
+        .then(r => {
+          if (r.ok) {
+            sessionStorage.setItem('admin_key', senha);
+            window.location.href = '/admin?key=' + encodeURIComponent(senha);
+          } else {
+            document.getElementById('error-msg').style.display = 'block';
+            document.getElementById('senha-input').value = '';
+            document.getElementById('senha-input').focus();
+          }
+        })
+        .catch(() => {
+          document.getElementById('error-msg').style.display = 'block';
+        });
+    }
+  </script>
+</body>
+</html>`
+    return c.html(loginHtml)
+  }
+
+  const adminKey = encodeURIComponent(key)
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -6123,14 +6240,29 @@ app.get('/admin', (c) => {
     </div>
   </section>
 
-  <!-- Usuários (placeholder) -->
+  <!-- Usuários -->
   <section id="section-usuarios" style="display:none">
-    <div class="page-header"><h2>👥 Usuários</h2></div>
+    <div class="page-header">
+      <h2>👥 Usuários Cadastrados</h2>
+      <span id="usuarios-count" style="background:rgba(255,109,0,0.15);color:#FF6D00;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">Carregando...</span>
+    </div>
     <div class="section-card">
-      <div class="section-body" style="text-align:center;padding:60px">
-        <i class="fas fa-lock" style="font-size:48px;color:rgba(255,255,255,0.15);display:block;margin-bottom:16px"></i>
-        <h3 style="font-size:18px;font-weight:800;color:rgba(255,255,255,0.6)">Requer Firebase Auth</h3>
-        <p style="color:rgba(255,255,255,0.3);font-size:13px;margin-top:8px">Integração com Firebase Authentication em desenvolvimento</p>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
+              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Posto / Empresa</th>
+              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">E-mail</th>
+              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Plano</th>
+              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Cidade</th>
+              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Telefone</th>
+              <th style="text-align:left;padding:12px 16px;color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;text-transform:uppercase">Cadastrado em</th>
+            </tr>
+          </thead>
+          <tbody id="usuarios-tbody">
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando usuários...</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -6164,6 +6296,7 @@ app.get('/admin', (c) => {
 let adminMap = null;
 let chartPrecos = null;
 let currentSection = 'dashboard';
+const ADMIN_KEY = new URLSearchParams(window.location.search).get('key') || sessionStorage.getItem('admin_key') || '';
 
 function showSection(name) {
   document.querySelectorAll('main section').forEach(s => s.style.display = 'none');
@@ -6176,6 +6309,7 @@ function showSection(name) {
   if (name === 'postos') carregarPostos();
   if (name === 'precos') carregarReportes();
   if (name === 'dashboard') carregarDashboard();
+  if (name === 'usuarios') carregarUsuarios();
 }
 
 async function carregarDashboard() {
@@ -6374,6 +6508,51 @@ function iniciarMapaAdmin() {
           .bindPopup(\`<strong>\${p.nome}</strong><br>\${p.bandeira} · \${p.fonte?.toUpperCase()}<br>R$ \${p.preco?.toFixed(2)}\`);
       });
     });
+}
+
+async function carregarUsuarios() {
+  const tbody = document.getElementById('usuarios-tbody');
+  const countEl = document.getElementById('usuarios-count');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando usuários...</td></tr>';
+
+  try {
+    const res = await fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY));
+    if (!res.ok) throw new Error('Erro ' + res.status);
+    const data = await res.json();
+    const parceiros = data.parceiros || [];
+
+    if (countEl) countEl.textContent = parceiros.length + ' cadastrado(s)';
+
+    const planoBadge = (plano) => {
+      const cores = { premium: '#FFD600', basico: '#69F0AE', gratuito: 'rgba(255,255,255,0.3)', pro: '#FF6D00' };
+      const cor = cores[plano?.toLowerCase()] || 'rgba(255,255,255,0.3)';
+      return \`<span style="background:\${cor}20;color:\${cor};padding:3px 10px;border-radius:100px;font-size:11px;font-weight:800;text-transform:uppercase">\${plano || 'gratuito'}</span>\`;
+    };
+
+    const fmtData = (iso) => {
+      if (!iso || iso === '—') return '—';
+      try { return new Date(iso).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}); } catch { return iso; }
+    };
+
+    tbody.innerHTML = parceiros.length > 0
+      ? parceiros.map(u => \`<tr style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background=''">
+          <td style="padding:14px 16px">
+            <div style="font-weight:800;color:#fff;font-size:13px">\${u.nomePosto}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">ID: \${u.id}</div>
+          </td>
+          <td style="padding:14px 16px;color:rgba(255,255,255,0.6);font-size:12px">\${u.email}</td>
+          <td style="padding:14px 16px">\${planoBadge(u.plano)}</td>
+          <td style="padding:14px 16px;color:rgba(255,255,255,0.6);font-size:12px">\${u.cidade}</td>
+          <td style="padding:14px 16px;color:rgba(255,255,255,0.6);font-size:12px">\${u.tel}</td>
+          <td style="padding:14px 16px;color:rgba(255,255,255,0.4);font-size:11px">\${fmtData(u.criadoEm)}</td>
+        </tr>\`).join('')
+      : '<tr><td colspan="6" style="text-align:center;padding:48px;color:rgba(255,255,255,0.3)"><i class="fas fa-user-slash" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3"></i>Nenhum usuário cadastrado ainda</td></tr>';
+
+  } catch(e) {
+    tbody.innerHTML = \`<tr><td colspan="6" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro ao carregar usuários: \${e.message}</td></tr>\`;
+    if (countEl) countEl.textContent = 'Erro';
+  }
 }
 
 // Init
