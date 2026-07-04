@@ -61,6 +61,7 @@ const PRECOS_MEDIOS_UF = Object.fromEntries(
 // Assets estáticos servidos automaticamente pelo binding ASSETS
 type Bindings = {
   ROTAPOSTO_KV: KVNamespace
+  ROTAPOSTO_R2: R2Bucket
   [key: string]: unknown
 }
 
@@ -1728,10 +1729,11 @@ app.get('/parcerias/validar', (c) => c.html(getValidadorHTML()))
 app.get('/api/posto/:id', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const id = c.req.param('id')
-    const parceiro = await kvGetParceiro(kv, id) as Record<string, unknown> | null
+    const parceiro = await kvGetParceiro(kv, id, r2) as Record<string, unknown> | null
     if (!parceiro) return c.json({ ok: false, erro: 'Posto não encontrado' }, 404)
-    const precos = await kvGetPrecos(kv, id)
+    const precos = await kvGetPrecos(kv, id, r2)
     const promos = kv ? JSON.parse(await kv.get(`promos:${id}`) || '[]') : []
     // Expor só campos públicos
     return c.json({
@@ -1763,7 +1765,8 @@ app.get('/api/posto/:id', async (c) => {
 app.get('/posto/:id', async (c) => {
   const id = c.req.param('id')
   const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
-  const parceiro = await kvGetParceiro(kv, id) as Record<string, unknown> | null
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  const parceiro = await kvGetParceiro(kv, id, r2) as Record<string, unknown> | null
   const nomePosto = (parceiro?.nomePosto as string) || 'Posto Parceiro RotaPosto'
   const bandeira  = (parceiro?.bandeira  as string) || ''
   const cidade    = (parceiro?.cidade    as string) || ''
@@ -6467,28 +6470,60 @@ async function syncAnpScheduled(kv: KVNamespace | undefined): Promise<void> {
 //  APIs B2B Parcerias com Postos
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── Helpers KV Parcerias ──────────────────────────────────────────────────────
-async function kvGetParceiro(kv: KVNamespace | undefined, id: string) {
+// ── Helpers R2-as-KV (storage persistente via R2) ────────────────────────────
+// O binding ROTAPOSTO_R2 é um R2Bucket usado como key-value store
+// Chave → objeto JSON no R2. Funciona como KV sem TTL nativo.
+
+async function r2Get(r2: R2Bucket | undefined, key: string): Promise<unknown> {
+  if (!r2) return null
+  try {
+    const obj = await r2.get(key)
+    if (!obj) return null
+    return JSON.parse(await obj.text())
+  } catch { return null }
+}
+
+async function r2Put(r2: R2Bucket | undefined, key: string, data: unknown): Promise<void> {
+  if (!r2) return
+  await r2.put(key, JSON.stringify(data), { httpMetadata: { contentType: 'application/json' } })
+}
+
+async function r2Delete(r2: R2Bucket | undefined, key: string): Promise<void> {
+  if (!r2) return
+  try { await r2.delete(key) } catch {}
+}
+
+// Wrappers compatíveis com a interface KV anterior
+async function kvGetParceiro(kv: KVNamespace | undefined, id: string, r2?: R2Bucket) {
+  // Tenta R2 primeiro (storage principal), fallback para KV legado
+  const r2val = await r2Get(r2, `parceiro:${id}`)
+  if (r2val !== null) return r2val
   if (!kv) return null
   try { return JSON.parse(await kv.get(`parceiro:${id}`) || 'null') } catch { return null }
 }
-async function kvSetParceiro(kv: KVNamespace | undefined, id: string, data: Record<string, unknown>) {
-  if (!kv) return
-  await kv.put(`parceiro:${id}`, JSON.stringify(data))
+async function kvSetParceiro(kv: KVNamespace | undefined, id: string, data: Record<string, unknown>, _ttl?: number, r2?: R2Bucket) {
+  await r2Put(r2, `parceiro:${id}`, data)
+  if (kv) try { await kv.put(`parceiro:${id}`, JSON.stringify(data)) } catch {}
 }
-async function kvGetCupom(kv: KVNamespace | undefined, codigo: string) {
+async function kvGetCupom(kv: KVNamespace | undefined, codigo: string, r2?: R2Bucket) {
+  const r2val = await r2Get(r2, `cupom:${codigo}`)
+  if (r2val !== null) return r2val
   if (!kv) return null
   try { return JSON.parse(await kv.get(`cupom:${codigo}`) || 'null') } catch { return null }
 }
-async function kvSetCupom(kv: KVNamespace | undefined, codigo: string, data: Record<string, unknown>, ttl = 600) {
-  if (!kv) return
-  await kv.put(`cupom:${codigo}`, JSON.stringify(data), { expirationTtl: ttl })
+async function kvSetCupom(kv: KVNamespace | undefined, codigo: string, data: Record<string, unknown>, ttl = 600, r2?: R2Bucket) {
+  await r2Put(r2, `cupom:${codigo}`, data)
+  if (kv) try { await kv.put(`cupom:${codigo}`, JSON.stringify(data), { expirationTtl: ttl }) } catch {}
 }
-async function kvGetPrecos(kv: KVNamespace | undefined, postoId: string) {
+async function kvGetPrecos(kv: KVNamespace | undefined, postoId: string, r2?: R2Bucket) {
+  const r2val = await r2Get(r2, `precos:${postoId}`)
+  if (r2val !== null) return r2val
   if (!kv) return null
   try { return JSON.parse(await kv.get(`precos:${postoId}`) || 'null') } catch { return null }
 }
-async function kvGetLeads(kv: KVNamespace | undefined): Promise<unknown[]> {
+async function kvGetLeads(kv: KVNamespace | undefined, r2?: R2Bucket): Promise<unknown[]> {
+  const r2val = await r2Get(r2, 'parceiros:leads')
+  if (Array.isArray(r2val)) return r2val
   if (!kv) return []
   try { return JSON.parse(await kv.get('parceiros:leads') || '[]') } catch { return [] }
 }
@@ -6508,6 +6543,7 @@ function hashSimples(senha: string): string {
 app.post('/api/parceiros/cadastro', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, string>
     const { cnpj, nome, whatsapp, email, nomePosto, bandeira, plano, cidade, senha } = body
 
@@ -6517,7 +6553,7 @@ app.post('/api/parceiros/cadastro', async (c) => {
 
     // Verificar se CNPJ já cadastrado
     const cnpjKey = cnpj.replace(/\D/g, '')
-    const existente = await kvGetParceiro(kv, `cnpj_${cnpjKey}`)
+    const existente = await kvGetParceiro(kv, `cnpj_${cnpjKey}`, r2)
     if (existente) {
       return c.json({ ok: false, erro: 'CNPJ já cadastrado. Faça login no painel.' }, 409)
     }
@@ -6538,12 +6574,12 @@ app.post('/api/parceiros/cadastro', async (c) => {
       totalCliques: 0, totalCupons: 0, totalImpressoes: 0
     }
 
-    await kvSetParceiro(kv, id, parceiro)
+    await kvSetParceiro(kv, id, parceiro, undefined, r2)
     await kvSetParceiro(kv, `cnpj_${cnpjKey}`, { id, email })
     await kvSetParceiro(kv, `email_${email}`, { id, cnpj: cnpjKey })
 
     // Salvar no índice de leads para admin visualizar
-    const leads = await kvGetLeads(kv) as Record<string, unknown>[]
+    const leads = await kvGetLeads(kv, r2) as Record<string, unknown>[]
     leads.push({ id, nomePosto, cnpj: cnpjKey, email, plano, cidade, criadoEm: agora })
     if (kv) await kv.put('parceiros:leads', JSON.stringify(leads.slice(-500)))
 
@@ -6563,6 +6599,7 @@ app.post('/api/parceiros/cadastro', async (c) => {
 app.post('/api/parceiros/login', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, string>
     const { email, senha } = body
 
@@ -6592,12 +6629,12 @@ app.post('/api/parceiros/login', async (c) => {
       })
     }
 
-    const ref = await kvGetParceiro(kv, `email_${email}`)
+    const ref = await kvGetParceiro(kv, `email_${email}`, r2)
     if (!ref) {
       return c.json({ ok: false, erro: 'E-mail não encontrado. Cadastre seu posto primeiro.' }, 404)
     }
 
-    const parceiro = await kvGetParceiro(kv, (ref as Record<string, string>).id)
+    const parceiro = await kvGetParceiro(kv, (ref as Record<string, string>, r2).id)
     if (!parceiro) {
       return c.json({ ok: false, erro: 'Conta não encontrada' }, 404)
     }
@@ -6636,6 +6673,7 @@ app.post('/api/parceiros/login', async (c) => {
 app.get('/api/parceiros/dashboard', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const postoId = c.req.query('postoId') || ''
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token') || ''
 
@@ -6645,14 +6683,14 @@ app.get('/api/parceiros/dashboard', async (c) => {
 
     let parceiroId = postoId
     if (token && !postoId) {
-      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
       if (!sess || (sess.exp as number) < Date.now()) {
         return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
       }
       parceiroId = String(sess.parceiroId)
     }
 
-    const parceiro = await kvGetParceiro(kv, parceiroId) as Record<string, unknown> | null
+    const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
     if (!parceiro) {
       // Retornar dados demo se posto não encontrado (para teste do painel)
       return c.json({
@@ -6710,6 +6748,7 @@ app.get('/api/parceiros/dashboard', async (c) => {
 app.post('/api/parceiros/cupons/validar', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, string>
     const { codigo, postoId } = body
 
@@ -6718,7 +6757,7 @@ app.post('/api/parceiros/cupons/validar', async (c) => {
     }
 
     const codigoLimpo = codigo.replace(/\D/g, '').padStart(6, '0').slice(-6)
-    const cupom = await kvGetCupom(kv, codigoLimpo) as Record<string, unknown> | null
+    const cupom = await kvGetCupom(kv, codigoLimpo, r2) as Record<string, unknown> | null
 
     if (!cupom) {
       return c.json({ valido: false, mensagem: 'Cupom não encontrado ou expirado.' }, 404)
@@ -6742,12 +6781,12 @@ app.post('/api/parceiros/cupons/validar', async (c) => {
     const criadoEm = Number(cupom.criadoEm) || 0
     const deltaSegundos = (agora - criadoEm) / 1000
     if (deltaSegundos > 300) {
-      if (kv) await kvSetCupom(kv, codigoLimpo, { ...cupom, status: 'EXPIRADO' }, 3600)
+      if (kv) await kvSetCupom(kv, codigoLimpo, { ...cupom, status: 'EXPIRADO' }, 3600, r2)
       return c.json({ valido: false, mensagem: '⏰ Cupom expirado (5 minutos)! Peça ao cliente gerar outro.' }, 400)
     }
 
     // Buscar preços do posto para calcular desconto
-    const precos = postoId ? await kvGetPrecos(kv, postoId) as Record<string, unknown> | null : null
+    const precos = postoId ? await kvGetPrecos(kv, postoId, r2) as Record<string, unknown> | null : null
     const combustivel = String(cupom.combustivel || 'Gasolina Comum')
     let precoBomba = 5.90
     let desconto = 0.10
@@ -6765,7 +6804,7 @@ app.post('/api/parceiros/cupons/validar', async (c) => {
 
     // Marcar como utilizado
     const cupomAtualizado = { ...cupom, status: 'UTILIZADO', dataUso: new Date().toISOString(), postoId: postoId || '' }
-    await kvSetCupom(kv, codigoLimpo, cupomAtualizado, 86400)
+    await kvSetCupom(kv, codigoLimpo, cupomAtualizado, 86400, r2)
 
     // Registrar no histórico do posto
     if (postoId && kv) {
@@ -6816,13 +6855,14 @@ app.post('/api/parceiros/cupons/validar', async (c) => {
 app.get('/api/parceiros/cupons', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const postoId = c.req.query('postoId') || ''
     const status = c.req.query('status') || '' // GERADO | UTILIZADO | EXPIRADO
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token') || ''
 
     let parceiroId = postoId
     if (!parceiroId && token) {
-      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
       if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
     }
     if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
@@ -6853,13 +6893,14 @@ app.get('/api/parceiros/cupons', async (c) => {
 app.post('/api/parceiros/precos', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, unknown>
     const { postoId, token, precos } = body as { postoId: string; token: string; precos: Record<string, { precoBomba: number; desconto: number }> }
 
     // Autenticação
     let parceiroId = postoId
     if (!parceiroId && token) {
-      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
       if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
     }
     if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
@@ -6898,6 +6939,7 @@ app.post('/api/parceiros/precos', async (c) => {
 app.post('/api/parceiros/notificacoes/enviar', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, unknown>
     const { postoId, token, tipo, titulo, mensagem, raioKm, combustivel, preco } = body as {
       postoId: string; token: string; tipo: string
@@ -6908,12 +6950,12 @@ app.post('/api/parceiros/notificacoes/enviar', async (c) => {
     // Autenticação
     let parceiroId = postoId
     if (!parceiroId && token) {
-      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
       if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
     }
     if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
 
-    const parceiro = await kvGetParceiro(kv, parceiroId) as Record<string, unknown> | null
+    const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
     const nomePosto = parceiro?.nomePosto || 'Posto Parceiro'
 
     // Montar payload da notificação
@@ -6968,11 +7010,12 @@ app.post('/api/parceiros/notificacoes/enviar', async (c) => {
 app.get('/api/parceiros/promocoes', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
     let postoId = c.req.query('postoId') || ''
 
     if (!postoId && token && kv) {
-      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
       if (sess && (sess.exp as number) > Date.now()) postoId = String(sess.parceiroId)
     }
     if (!postoId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
@@ -6999,12 +7042,13 @@ app.get('/api/parceiros/promocoes', async (c) => {
 app.post('/api/parceiros/promocoes', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, unknown>
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
     let postoId = (body.postoId as string) || ''
 
     if (!postoId && token && kv) {
-      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
       if (sess && (sess.exp as number) > Date.now()) postoId = String(sess.parceiroId)
     }
     if (!postoId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
@@ -7036,6 +7080,7 @@ app.post('/api/parceiros/promocoes', async (c) => {
 app.post('/api/parceiros/cupons/gerar', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, string>
     const { uid, nomeUsuario, postoId, combustivel } = body
 
@@ -7049,7 +7094,7 @@ app.post('/api/parceiros/cupons/gerar', async (c) => {
 
     // Verificar se usuário já tem cupom ativo
     const cupomAtivoKey = `cupom_ativo:${uid}`
-    const cupomAtivo = await kvGetCupom(kv, `ativo_${uid}`)
+    const cupomAtivo = await kvGetCupom(kv, `ativo_${uid}`, r2)
     if (cupomAtivo && (cupomAtivo as Record<string, unknown>).status === 'GERADO') {
       return c.json({
         ok: false,
@@ -7074,8 +7119,8 @@ app.post('/api/parceiros/cupons/gerar', async (c) => {
     }
 
     // TTL 600s (10min) para dar margem extra além dos 5min
-    await kvSetCupom(kv, codigo, cupom, 600)
-    await kvSetCupom(kv, `ativo_${uid}`, cupom, 600)
+    await kvSetCupom(kv, codigo, cupom, 600, r2)
+    await kvSetCupom(kv, `ativo_${uid}`, cupom, 600, r2)
 
     // Incrementar métrica de cupons gerados do posto
     if (postoId && kv) {
@@ -7107,17 +7152,18 @@ app.post('/api/parceiros/cupons/gerar', async (c) => {
 app.get('/api/parceiros/config', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const postoId = c.req.query('postoId') || ''
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token') || ''
 
     let parceiroId = postoId
     if (!parceiroId && token) {
-      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
       if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
     }
     if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
 
-    const parceiro = await kvGetParceiro(kv, parceiroId) as Record<string, unknown> | null
+    const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
     if (!parceiro) return c.json({ ok: false, erro: 'Posto não encontrado' }, 404)
 
     return c.json({
@@ -7142,21 +7188,22 @@ app.get('/api/parceiros/config', async (c) => {
 app.post('/api/parceiros/config', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, unknown>
     const { postoId, token, config } = body as { postoId: string; token: string; config: Record<string, unknown> }
 
     let parceiroId = postoId
     if (!parceiroId && token) {
-      const sess = await kvGetParceiro(kv, `sess_${token}`) as Record<string, unknown> | null
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
       if (sess && (sess.exp as number) > Date.now()) parceiroId = String(sess.parceiroId)
     }
     if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
 
-    const parceiro = await kvGetParceiro(kv, parceiroId) as Record<string, unknown> | null
+    const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
     if (!parceiro) return c.json({ ok: false, erro: 'Posto não encontrado' }, 404)
 
     const atualizado = { ...parceiro, ...config, id: parceiroId }
-    await kvSetParceiro(kv, parceiroId, atualizado)
+    await kvSetParceiro(kv, parceiroId, atualizado, undefined, r2)
 
     return c.json({ ok: true, mensagem: 'Configurações salvas!' })
   } catch (e) {
@@ -7170,6 +7217,7 @@ export default {
   async scheduled(event: { cron: string; scheduledTime: number }, env: Record<string, unknown>, ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<void> {
     console.log(`[ANP Cron] Disparado: ${event.cron} às ${new Date(event.scheduledTime).toISOString()}`)
     const kv = (env?.ROTAPOSTO_KV as KVNamespace | undefined)
+    const r2 = (env?.ROTAPOSTO_R2 as R2Bucket | undefined)
     ctx.waitUntil(syncAnpScheduled(kv))
   }
 }

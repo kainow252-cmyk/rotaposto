@@ -5,8 +5,11 @@
   "compatibility_date": "2026-04-26",
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ROTAPOSTO_R2",
+      "bucket_name": "rotaposto-kv"
+    }
   ]
-  // KV removido: conta hospedada Genspark não usa o mesmo namespace
-  // O binding ROTAPOSTO_KV é injetado pela plataforma — getKV() retorna null se ausente
-  // e o sistema faz fallback para bundle estático de preços (precos_anp_posto.ts)
 }
