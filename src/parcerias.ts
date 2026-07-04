@@ -175,7 +175,7 @@ export function getParceriasLandingHTML(): string {
       width:220px;
       filter:drop-shadow(0 32px 60px rgba(0,0,0,0.85)) drop-shadow(0 0 50px rgba(255,109,0,0.22));
     }
-    .phone-wrap img{width:100%;height:auto;display:block;mix-blend-mode:screen;filter:brightness(1.5) contrast(1.05) saturate(1.1)}
+    .phone-wrap img{width:100%;height:auto;display:block}
     @media(max-width:1100px){.phone-col{display:none}}
 
     /* ═══ FEATURES ═══ */
@@ -375,7 +375,7 @@ export function getParceriasLandingHTML(): string {
     <div class="phone-col">
       <div class="phone-halo"></div>
       <div class="phone-wrap">
-        <img src="/static/phone-mockup.jpg" alt="App RotaPosto" loading="eager"/>
+        <img src="https://www.genspark.ai/api/files/s/bZ1AiNzN" alt="App RotaPosto" loading="eager"/>
       </div>
     </div>
 
