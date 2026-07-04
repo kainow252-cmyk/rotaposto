@@ -70,50 +70,51 @@ export function getParceriasLandingHTML(): string {
     /* ── HERO ── */
     .hero-wrap{
       display:flex;
-      align-items:stretch;
+      align-items:center;
       max-width:100%;
-      min-height:calc(100vh - 64px);
+      height:calc(100vh - 64px);
+      max-height:700px;
       overflow:hidden;
       position:relative
     }
     .hero-left{
-      flex:0 0 62%;
-      padding:60px 40px 40px 40px;
+      flex:0 0 58%;
+      padding:0 40px 0 40px;
       display:flex;
       flex-direction:column;
-      justify-content:flex-start
+      justify-content:center;
+      align-self:center
     }
     .hero-right{
-      flex:0 0 38%;
+      flex:0 0 42%;
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content:center;
-      padding-top:0;
-      position:relative;
+      height:100%;
       overflow:hidden
     }
     .hero-right img{
-      width:100%;
-      max-width:460px;
-      height:auto;
+      width:auto;
+      max-width:100%;
+      height:100%;
+      max-height:680px;
       display:block;
       object-fit:contain;
       filter:drop-shadow(0 40px 80px rgba(0,0,0,0.9))
              drop-shadow(0 0 60px rgba(255,109,0,0.25))
     }
     h1{
-      font-size:clamp(42px,5vw,76px);
+      font-size:clamp(40px,4.5vw,72px);
       font-weight:900;line-height:1.0;
       letter-spacing:-2px;
-      margin-bottom:20px;
-      white-space:nowrap
+      margin-bottom:20px
     }
     h1 span{color:#FF6D00}
     .hero-sub{
       font-size:17px;color:rgba(255,255,255,0.6);
       line-height:1.65;font-weight:500;
       margin-bottom:0;
-      max-width:560px
+      max-width:520px
     }
     .hero-sub em{color:rgba(255,180,80,0.9);font-style:normal}
 
