@@ -69,20 +69,39 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('*', cors())
 
-// ─── DEBUG: inspecionar bindings no runtime ──────────────────────────────────
+// ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 app.get('/api/debug/env', async (c) => {
   const env = c.env as Record<string, unknown>
   const keys = Object.keys(env || {})
-  const r2 = env?.ROTAPOSTO_R2
+  const r2 = env?.ROTAPOSTO_R2 as R2Bucket | undefined
   const kv = env?.ROTAPOSTO_KV
+
+  // Testa write + read no R2
+  let r2_write_ok = false
+  let r2_read_ok = false
+  let r2_write_error = ''
+  let r2_read_error = ''
+  if (r2) {
+    try {
+      await r2.put('debug--test', JSON.stringify({ ts: Date.now() }))
+      r2_write_ok = true
+    } catch (e) { r2_write_error = String(e) }
+    try {
+      const obj = await r2.get('debug--test')
+      r2_read_ok = obj !== null
+    } catch (e) { r2_read_error = String(e) }
+  }
+
   return c.json({
     env_keys: keys,
     ROTAPOSTO_R2_type: typeof r2,
-    ROTAPOSTO_R2_is_null: r2 === null,
     ROTAPOSTO_R2_is_undefined: r2 === undefined,
     ROTAPOSTO_R2_constructor: r2 ? (r2 as object).constructor?.name : null,
+    r2_write_ok,
+    r2_write_error,
+    r2_read_ok,
+    r2_read_error,
     ROTAPOSTO_KV_type: typeof kv,
-    ROTAPOSTO_KV_is_undefined: kv === undefined,
   })
 })
 
@@ -6491,18 +6510,31 @@ async function syncAnpScheduled(kv: KVNamespace | undefined): Promise<void> {
 // O binding ROTAPOSTO_R2 é um R2Bucket usado como key-value store
 // Chave → objeto JSON no R2. Funciona como KV sem TTL nativo.
 
+// Sanitiza chave para R2: substitui ':' por '--' (R2 aceita ':' mas pode causar problemas)
+function r2Key(key: string): string {
+  return key.replace(/:/g, '--')
+}
+
 async function r2Get(r2: R2Bucket | undefined, key: string): Promise<unknown> {
   if (!r2) return null
   try {
-    const obj = await r2.get(key)
+    const obj = await r2.get(r2Key(key))
     if (!obj) return null
-    return JSON.parse(await obj.text())
-  } catch { return null }
+    const text = await obj.text()
+    return JSON.parse(text)
+  } catch (e) {
+    console.error('[r2Get] erro key=' + key, e)
+    return null
+  }
 }
 
 async function r2Put(r2: R2Bucket | undefined, key: string, data: unknown): Promise<void> {
-  if (!r2) return
-  await r2.put(key, JSON.stringify(data), { httpMetadata: { contentType: 'application/json' } })
+  if (!r2) { console.warn('[r2Put] r2 undefined, pulando key=' + key); return }
+  try {
+    await r2.put(r2Key(key), JSON.stringify(data), { httpMetadata: { contentType: 'application/json' } })
+  } catch (e) {
+    console.error('[r2Put] erro key=' + key, e)
+  }
 }
 
 async function r2Delete(r2: R2Bucket | undefined, key: string): Promise<void> {
