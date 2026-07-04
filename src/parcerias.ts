@@ -87,7 +87,6 @@ export function getParceriasLandingHTML(): string {
       display:grid;
       grid-template-columns:1fr 420px;
       align-items:start;
-      min-height:calc(100vh - 60px);
       padding:48px 48px 40px;
       gap:40px
     }
@@ -174,9 +173,9 @@ export function getParceriasLandingHTML(): string {
     /* lado direito — celular */
     .hero-right{
       display:flex;align-items:flex-start;justify-content:center;
-      position:relative;
-      height:100%;
-      padding-top:0
+      position:sticky;
+      top:72px;
+      height:fit-content
     }
     .phone-halo{
       position:absolute;
