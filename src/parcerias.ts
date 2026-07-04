@@ -762,6 +762,10 @@ export function getParceriasLandingHTML(): string {
     document.getElementById('tela-cad').classList.add('open');
     document.body.style.overflow='hidden';
   }
+  // Abre cadastro direto se vier com #cadastro na URL
+  window.addEventListener('DOMContentLoaded',function(){
+    if(location.hash==='#cadastro'){openM('premium');history.replaceState(null,'','/parcerias');}
+  });
   function closeM(){
     document.getElementById('tela-cad').classList.remove('open');
     document.body.style.overflow='';
@@ -1218,7 +1222,7 @@ export function getPainelEmpresaHTML(): string {
       <i class="fas fa-sign-in-alt"></i> Entrar no painel
     </button>
     <div class="login-link">
-      Novo no RotaPosto Empresas? <a href="/parcerias">Cadastrar meu posto →</a>
+      Novo no RotaPosto Empresas? <a href="/parcerias#cadastro">Cadastrar meu posto →</a>
     </div>
     <div class="login-link" style="margin-top:8px">
       <a href="#" onclick="abrirRecuperarSenha()">Esqueci minha senha</a>
