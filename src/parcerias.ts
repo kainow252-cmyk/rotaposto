@@ -118,17 +118,19 @@ export function getParceriasLandingHTML(): string {
       border-radius:2px;flex-shrink:0
     }
     .hero-h1{
-      font-size:clamp(28px,3.2vw,52px);
-      font-weight:900;line-height:1.07;
-      letter-spacing:-1px;
-      margin-bottom:18px
+      font-size:clamp(20px,2.2vw,38px);
+      font-weight:900;line-height:1.1;
+      letter-spacing:-0.5px;
+      margin-bottom:16px;
+      white-space:nowrap
     }
     .hero-h1 .hl{color:#FF6D00}
     .hero-p{
-      font-size:clamp(13px,1.2vw,16px);
+      font-size:clamp(11px,1vw,14px);
       color:rgba(255,255,255,0.58);
-      line-height:1.65;font-weight:500;
-      max-width:500px;margin-bottom:28px
+      line-height:1.5;font-weight:500;
+      max-width:none;margin-bottom:24px;
+      white-space:nowrap
     }
     .hero-p em{color:rgba(255,180,100,0.9);font-style:normal}
     .hero-btns{display:flex;gap:12px;flex-wrap:wrap}
@@ -173,7 +175,7 @@ export function getParceriasLandingHTML(): string {
       width:200px;
       filter:drop-shadow(0 32px 60px rgba(0,0,0,0.8)) drop-shadow(0 0 40px rgba(255,109,0,0.2));
     }
-    .phone-wrap img{width:100%;height:auto;display:block}
+    .phone-wrap img{width:100%;height:auto;display:block;mix-blend-mode:lighten}
     @media(max-width:1100px){.phone-col{display:none}}
 
     /* ═══ FEATURES ═══ */
@@ -358,13 +360,7 @@ export function getParceriasLandingHTML(): string {
       <div class="n-logo-name">Rota<span>Posto</span></div>
       <div class="n-tag">EMPRESAS</div>
     </div>
-    <div class="n-links">
-      <button class="n-btn">Como funciona</button>
-      <button class="n-btn">Recursos</button>
-      <button class="n-btn" onclick="openM('premium')">Depoimentos</button>
-      <button class="n-btn" onclick="openM('premium')">Blog</button>
-      <button class="n-btn" onclick="openM('premium')">Contato</button>
-    </div>
+
     <button class="n-cta" onclick="location.href='/parcerias/empresa'">
       <i class="fas fa-arrow-right"></i> Acessar Painel
     </button>
@@ -385,14 +381,10 @@ export function getParceriasLandingHTML(): string {
     <div class="hero">
       <div class="hero-eyebrow">Novo canal de vendas para postos</div>
       <h1 class="hero-h1">
-        Mais visibilidade.<br>
-        <span class="hl">Mais clientes.</span><br>
-        Mais resultados.
+        Mais visibilidade. <span class="hl">Mais clientes.</span> Mais resultados.
       </h1>
       <p class="hero-p">
-        Conecte seu posto a milhares de motoristas todos os dias,
-        com precos em <em>tempo real</em> e <em>destaque no mapa</em>
-        quando o cliente mais precisa.
+        Conecte seu posto a milhares de motoristas todos os dias, com precos em <em>tempo real</em> e <em>destaque no mapa</em> quando o cliente mais precisa.
       </p>
       <div class="hero-btns">
         <button class="btn-p" onclick="openM('premium')">
