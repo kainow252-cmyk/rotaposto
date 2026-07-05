@@ -2040,6 +2040,13 @@ export function getAppHTML(firebaseScripts: string): string {
 
     currentView = viewId;
 
+    // Ao sair do mapa → resetar flag do card para não aparecer ao voltar
+    if (viewId !== 'mapa') {
+      _mapCardVisivel = false;
+      var cardEl = document.getElementById('map-card');
+      if (cardEl) cardEl.style.display = 'none';
+    }
+
     // Esconder/mostrar container Leaflet para evitar tiles vazando sobre outras views
     const mapLeaflet = document.getElementById('map-leaflet');
     if (mapLeaflet) mapLeaflet.style.visibility = (viewId === 'mapa') ? 'visible' : 'hidden';
@@ -4775,7 +4782,9 @@ export function getAppHTML(firebaseScripts: string): string {
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
     var cAge = Date.now() - cTs;
     // Cache válido por 60 min — suficiente para não pedir GPS a cada abertura
-    var temCache = !isNaN(cLat) && !isNaN(cLng) && cAge < 60 * 60 * 1000;
+    // IGNORAR cache se forem as coords padrão de São Paulo (provavelmente salvo por engano)
+    var isSPPadrao = Math.abs(cLat - (-23.5505)) < 0.001 && Math.abs(cLng - (-46.6333)) < 0.001;
+    var temCache = !isNaN(cLat) && !isNaN(cLng) && cAge < 60 * 60 * 1000 && !isSPPadrao;
 
     // ── Verificar se GPS foi negado recentemente no onboarding (<30 min) ──
     // Não pedir GPS de novo automaticamente — evita diálogo do Android na hora errada
