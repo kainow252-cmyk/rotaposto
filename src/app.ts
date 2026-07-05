@@ -3060,9 +3060,8 @@ export function getAppHTML(firebaseScripts: string): string {
       banner = '<div style="margin:0 0 10px;padding:9px 14px;background:#F0FFF4;border-radius:12px;border-left:3px solid #00A651;display:flex;align-items:center;gap:8px;">'
         + '<span style="font-size:14px;">✅</span>'
         + '<div style="font-size:12px;color:#1A6B35;line-height:1.4;">'
-        + '<b>' + totalReal + ' posto' + (totalReal > 1 ? 's' : '') + ' com preço atualizado via ANP</b>'
-        + (semanaANP ? ' · semana ' + semanaANP : '')
-        + (totalEstimado > 0 ? '<br><span style="opacity:.75">' + totalEstimado + ' c/ preço estimado pela média da cidade</span>' : '')
+        + '<b>Atualização via Agência Nacional do Petróleo, Gás Natural e Biocombustíveis</b>'
+        + (semanaANP ? '<br><span style="opacity:.8">Semana ' + semanaANP + '</span>' : '')
         + '</div>'
         + '</div>';
     } else if (todosIguais) {
@@ -3075,7 +3074,9 @@ export function getAppHTML(firebaseScripts: string): string {
         + '</div>';
     }
 
-    const cards = postos.slice(0, 15).map((p, i) => {
+    // ── Exibir somente postos com preço real (ANP ou colaborativo) ──
+    const postosExibidos = postos.filter(p => p.fontePreco === 'anp' || p.fontePreco === 'colaborativo');
+    const cards = (postosExibidos.length > 0 ? postosExibidos : postos).slice(0, 15).map((p, i) => {
       const preco = p.preco || p.precos?.[selectedFuel];
       const precoFmt = preco ? 'R$&nbsp;' + preco.toFixed(2).replace('.', ',') : '-';
       const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '-';
