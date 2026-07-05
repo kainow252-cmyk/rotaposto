@@ -4891,6 +4891,10 @@ export function getAppHTML(firebaseScripts: string): string {
     userLat = lat;
     userLng = lng;
 
+    // DEBUG: toast mostrando coords obtidas (remover após confirmar)
+    var src = gpsReal ? '📍GPS' : '💾Cache';
+    showToast(src + ' ' + lat.toFixed(4) + ', ' + lng.toFixed(4));
+
     // Salvar cache só se GPS real
     if (gpsReal) {
       localStorage.setItem('rp_lat', String(lat));
