@@ -4818,7 +4818,9 @@ export function getAppHTML(firebaseScripts: string): string {
     // ── Verificar se GPS foi negado recentemente no onboarding (<30 min) ──
     // Não pedir GPS de novo automaticamente — evita diálogo do Android na hora errada
     var geoDeniedTs = parseInt(localStorage.getItem('rp_geo_denied') || '0');
-    var geoDeniedRecente = geoDeniedTs > 1 && (Date.now() - geoDeniedTs) < 30 * 60 * 1000;
+    // No browser (não-TWA), não bloquear GPS pelo flag — usuário pode ter negado no app mas não no browser
+    var isTWA = document.referrer.includes('android-app://') || navigator.userAgent.includes('wv');
+    var geoDeniedRecente = isTWA && geoDeniedTs > 1 && (Date.now() - geoDeniedTs) < 30 * 60 * 1000;
 
     if (temCache) {
       // Exibe mapa imediatamente com cache, mas ainda busca GPS real
@@ -4863,6 +4865,13 @@ export function getAppHTML(firebaseScripts: string): string {
     // ── PASSO 4: mostrar overlay se não tem cache ──
     if (!temCache) {
       _mostrarOverlayGPS();
+      // Timeout de segurança: se GPS não responder em 12s, usar SP (evita tela travada no browser)
+      setTimeout(function() {
+        if (!_geoJaObtida) {
+          console.warn('[GPS] Timeout de segurança — usando SP padrão');
+          _usarSPPadrao();
+        }
+      }, 12000);
     } else {
       // Tem cache → iniciar mapa imediatamente
       initMapMain();
