@@ -1,9 +1,9 @@
-// RotaPosto Service Worker v11.0
-// v11: CRÍTICO — remove client.navigate() que fechava TWA; sem reload forçado
+// RotaPosto Service Worker v12.0
+// v12: card "Melhor posto" oculto por padrão — aparece só ao clicar em marcador ou botão Melhor
 
-const VERSION = 'v11.0';
-const CACHE_STATIC = 'rp-static-v11';
-const CACHE_API    = 'rp-api-v11';
+const VERSION = 'v12.0';
+const CACHE_STATIC = 'rp-static-v12';
+const CACHE_API    = 'rp-api-v12';
 
 const PRECACHE = [
   '/manifest.json',
@@ -28,7 +28,7 @@ self.addEventListener('activate', event => {
     caches.keys()
       .then(keys => Promise.all(
         keys
-          .filter(k => k !== CACHE_STATIC && k !== CACHE_API)
+          .filter(k => k !== CACHE_STATIC && k !== CACHE_API && !k.startsWith('rp-static-v12') && !k.startsWith('rp-api-v12'))
           .map(k => {
             console.log('[SW v11] Deletando cache antigo:', k);
             return caches.delete(k);
@@ -58,7 +58,7 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
 
   // Só origem própria
-  const isOwn = url.hostname.includes('rotaposto') || url.hostname === 'localhost';
+  const isOwn = url.hostname.includes('rotaposto') || url.hostname === 'localhost' || url.hostname.includes('gensparksite.com');
   if (!isOwn) return;
 
   const path = url.pathname;
