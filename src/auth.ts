@@ -24,7 +24,7 @@ export const FIREBASE_CONFIG = {
 export const GOOGLE_CLIENT_ID = "1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com"
 
 // Google API Key (Places API / Geocoding / Maps)
-export const GOOGLE_API_KEY = "AIzaSyAd6TcR2SUE2zWV7AWcND0VWDIK30km8Rk"
+export const GOOGLE_API_KEY = "AIzaSyBuPqI-hxHV33dqYbVC2G3LrM5uTCVol-8"
 
 // ─── HTML do Firebase Auth ────────────────────────────────────────────────────
 // signInWithPopup — sem redirect_uri_mismatch
