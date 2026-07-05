@@ -848,12 +848,18 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       function(err) {
         showLoading(false);
         // GPS negado ou indisponível → ir para login SILENCIOSAMENTE
-        // NUNCA mostrar toast de erro nesta tela — causa confusão
-        // Marcar como negado para o app principal não perguntar de novo por 30 min
-        localStorage.setItem('rp_geo_denied', String(Date.now()));
+        // Só marcar como negado se o usuário EXPLICITAMENTE bloqueou (code 1)
+        // Timeout (code 3) ou indisponível (code 2) NÃO devem bloquear GPS no app
+        if (err.code === 1) {
+          // PERMISSION_DENIED — usuário bloqueou conscientemente
+          localStorage.setItem('rp_geo_denied', String(Date.now()));
+        } else {
+          // Timeout ou indisponível: limpar flag para app tentar de novo
+          localStorage.removeItem('rp_geo_denied');
+        }
         goToScreen('login');
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      { timeout: 20000, enableHighAccuracy: true, maximumAge: 30000 }
     );
   }
 

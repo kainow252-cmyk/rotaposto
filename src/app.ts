@@ -4833,13 +4833,29 @@ export function getAppHTML(firebaseScripts: string): string {
       return;
     }
 
-    // ── PASSO 3: se GPS foi negado recentemente, usar cache ou SP padrão sem pedir ──
+    // ── PASSO 3: se GPS foi negado recentemente, checar Permissions API antes de desistir ──
     if (geoDeniedRecente) {
-      console.log('[RotaPosto] GPS negado recentemente no onboarding — usando cache/SP sem pedir');
-      if (temCache) {
-        initMapMain();
+      // Verificar via Permissions API se permissão já foi concedida
+      // (usuário pode ter ativado nas configurações do Android depois de negar)
+      if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+          if (result.state === 'granted') {
+            // Permissão concedida! Limpar flag e pedir GPS normalmente
+            console.log('[RotaPosto] Permissions API: geolocation granted — limpando flag e pedindo GPS');
+            localStorage.removeItem('rp_geo_denied');
+            _pedirGPSReal(temCache, cLat, cLng);
+          } else {
+            // Realmente negado
+            console.log('[RotaPosto] GPS negado recentemente e confirmado pela Permissions API:', result.state);
+            if (temCache) { initMapMain(); } else { _usarSPPadrao(); }
+          }
+        }).catch(function() {
+          // Permissions API falhou → tentar GPS mesmo assim
+          _pedirGPSReal(temCache, cLat, cLng);
+        });
       } else {
-        _usarSPPadrao();
+        // Sem Permissions API (iOS) → usar cache ou SP
+        if (temCache) { initMapMain(); } else { _usarSPPadrao(); }
       }
       return;
     }
@@ -4852,8 +4868,12 @@ export function getAppHTML(firebaseScripts: string): string {
       initMapMain();
     }
 
-    // ── PASSO 4: pedir GPS real com alta precisão ──
-    // maximumAge: aceita cache do sistema de até 60s para resposta mais rápida
+    _pedirGPSReal(temCache, cLat, cLng);
+  }
+
+  // ── Pede GPS real (extraído para ser reusado pelo Permissions API check) ──
+  function _pedirGPSReal(temCache, cLat, cLng) {
+    // maximumAge: 0 = nunca usar cache do SO — sempre posição fresca
     navigator.geolocation.getCurrentPosition(
       function(pos) {
         console.log('[RotaPosto] GPS real obtido:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
@@ -4909,7 +4929,7 @@ export function getAppHTML(firebaseScripts: string): string {
           }
         }
       },
-      { timeout: 20000, maximumAge: 60000, enableHighAccuracy: true }
+      { timeout: 25000, maximumAge: 0, enableHighAccuracy: true }
     );
   }
 
