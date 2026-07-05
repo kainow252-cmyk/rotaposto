@@ -4818,16 +4818,16 @@ export function getAppHTML(firebaseScripts: string): string {
     _geoJaObtida = false;
     _geoGPSConfirmado = false;
     var btn = document.getElementById('btn-gps-float');
-    if (btn) { btn.style.opacity = '0.5'; (btn as any).disabled = true; }
+    if (btn) { btn.style.opacity = '0.5'; btn.disabled = true; }
 
     function onOk(pos) {
-      if (btn) { btn.style.opacity = '1'; (btn as any).disabled = false; }
+      if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
       _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
     }
     function onFail(err) {
       if (err.code === 1) {
         // PERMISSION_DENIED — avisar e encerrar
-        if (btn) { btn.style.opacity = '1'; (btn as any).disabled = false; }
+        if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
         showToast('Ative a localização: Configurações → Apps → RotaPosto → Permissões → Localização');
         return;
       }
@@ -4835,7 +4835,7 @@ export function getAppHTML(firebaseScripts: string): string {
       navigator.geolocation.getCurrentPosition(
         onOk,
         function() {
-          if (btn) { btn.style.opacity = '1'; (btn as any).disabled = false; }
+          if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
           showToast('Localização indisponível. Verifique as permissões do app.');
         },
         { timeout: 10000, maximumAge: 60000, enableHighAccuracy: false }
