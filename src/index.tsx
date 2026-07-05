@@ -1814,6 +1814,9 @@ app.get('/.well-known/assetlinks.json', (c) => {
       "namespace": "android_app",
       "package_name": "br.com.rotaposto.app",
       "sha256_cert_fingerprints": [
+        // SHA-256 do Play App Signing (chave gerenciada pelo Google Play)
+        "C9:9C:C8:3E:46:B1:FC:A1:B3:D1:E2:D6:93:05:29:1E:5D:C0:A6:B8:72:79:57:28:7D:68:9E:EB:27:71:49:BF",
+        // SHA-256 do keystore local (debug/sideload direto)
         "9C:27:9E:1F:5F:BE:A0:4D:93:CC:7D:E2:D0:3A:BA:47:41:59:18:29:1F:DA:5B:88:CB:F8:06:57:26:7C:DB:38"
       ]
     }
