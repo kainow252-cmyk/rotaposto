@@ -178,7 +178,6 @@ export function getAppHTML(firebaseScripts: string): string {
     .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; overflow: hidden; }
     .view.active { display: flex; flex-direction: column; }
     /* Views com scroll próprio devem sobrescrever overflow: hidden */
-    #view-perfil.active,
     #view-lista.active,
     #view-relatorios.active,
     #view-sos.active { overflow-y: auto; overflow-x: hidden; }
@@ -914,15 +913,6 @@ export function getAppHTML(firebaseScripts: string): string {
     /* ══════════════════════════════════════════════
        TELA 12: PERFIL / MENU
     ══════════════════════════════════════════════ */
-    #view-perfil {
-      /* overflow-y gerenciado pela regra .view.active acima */
-      background: var(--gray-bg);
-    }
-
-    #perfil-menu-list {
-      padding-bottom: calc(var(--nav-h) + var(--sab) + 16px);
-    }
-
     /* Header dark perfil */
     #perfil-header {
       background: #1A1A2E;
@@ -979,6 +969,30 @@ export function getAppHTML(firebaseScripts: string): string {
       animation: spin360 0.8s linear infinite;
     }
     @keyframes spin360 { to { transform: rotate(360deg); } }
+
+    /* ══════════════════════════════════════════════
+       TELA PERFIL — position:fixed (igual rp-subtela)
+    ══════════════════════════════════════════════ */
+    #rp-perfil {
+      position: fixed; inset: 0; z-index: 9000;
+      background: var(--gray-bg);
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #rp-perfil.aberto { transform: translateX(0); }
+
+    #rp-perfil #perfil-header {
+      background: #1A1A2E;
+      padding: calc(var(--sat) + 28px) 56px 28px 20px;
+      display: flex; align-items: center; gap: 16px;
+      flex-shrink: 0; position: relative;
+    }
+    #rp-perfil #perfil-menu-list {
+      padding-bottom: calc(var(--sab) + 32px);
+    }
 
     /* ══════════════════════════════════════════════
        SUB-TELA CHEIA (substitui modais do menu)
@@ -1657,60 +1671,7 @@ export function getAppHTML(firebaseScripts: string): string {
       </div>
     </div>
 
-    <!-- TELA 12: PERFIL -->
-    <div id="view-perfil" class="view">
-      <div id="perfil-header">
-
-        <!-- Avatar clicável com ícone de câmera -->
-        <div id="perfil-avatar-wrap" onclick="document.getElementById('input-foto-perfil').click()" title="Alterar foto de perfil">
-          <img id="perfil-avatar" src="" alt="Foto perfil" style="display:none;"/>
-          <div id="perfil-avatar-inicial">G</div>
-          <div id="perfil-avatar-cam">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
-              <circle cx="12" cy="13" r="4"/>
-            </svg>
-          </div>
-          <div id="perfil-upload-spinner"></div>
-        </div>
-
-        <!-- Input file oculto — abre galeria/câmera no mobile -->
-        <input type="file" id="input-foto-perfil"
-               accept="image/*"
-               style="display:none;"
-               onchange="uploadFotoPerfil(this)"/>
-
-        <div id="perfil-info">
-          <div id="perfil-ola">Olá, <span id="perfil-nome">João</span>!</div>
-          <div id="perfil-badge-premium" class="badge-premium" style="display:none;">👑 Premium</div>
-          <div id="perfil-plano-status" style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px;">Conta gratuita</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:4px;">Toque na foto para alterar</div>
-        </div>
-      </div>
-
-      <div id="perfil-menu-list">
-        ${buildMenuItem('person', 'Minha conta', "abrirMinhaConta()")}
-        ${buildMenuItem('car', 'Meus veículos', "abrirMeusVeiculos()")}
-        ${buildMenuItem('card', 'Assinatura', "goToAssinatura()")}
-        ${buildMenuItem('creditcard', 'Formas de pagamento', "abrirFormasPagamento()")}
-        ${buildMenuItem('bell', 'Notificações', "abrirNotificacoes()")}
-        <div class="menu-item" onclick="abrirPainelGamificacao()">
-          <div class="menu-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
-          <div style="flex:1;"><span class="menu-item-label">Pontos &amp; Níveis</span><div id="gamif-pontos-preview" style="font-size:11px;color:#FF6D00;margin-top:1px;"></div></div>
-          <div class="menu-item-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
-        </div>
-        ${buildMenuItem('gift', 'Indique e ganhe', "abrirIndiqueGanhe()")}
-        ${buildMenuItem('help', 'Ajuda e suporte', "abrirAjuda()")}
-        ${buildMenuItem('settings', 'Configurações', "abrirConfiguracoes()")}
-        <div id="menu-item-instalar" style="display:none;">${buildMenuItem('download', 'Instalar app', "instalarOuMostrarPWA()")}</div>
-        <div class="menu-item menu-item-sair" onclick="doLogout()">
-          <div class="menu-item-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          </div>
-          <span class="menu-item-label">Sair</span>
-        </div>
-      </div>
-    </div>
+    <!-- TELA PERFIL removida daqui — agora é #rp-perfil (position:fixed, fora do app-content) -->
 
 
     <!-- TELA SOS: Guinchos, Borracheiros, Mecânicas — DENTRO do app-content -->
@@ -1902,6 +1863,55 @@ export function getAppHTML(firebaseScripts: string): string {
 </div>
 <!-- /TELA ASSINATURA -->
 
+<!-- ══ TELA PERFIL — position:fixed, fora do #app-root ══ -->
+<div id="rp-perfil">
+  <!-- Header escuro com avatar -->
+  <div id="perfil-header">
+    <button onclick="fecharPerfil()" style="position:absolute;top:calc(var(--sat) + 12px);right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1;">✕</button>
+    <div id="perfil-avatar-wrap" onclick="document.getElementById('input-foto-perfil').click()" title="Alterar foto">
+      <img id="perfil-avatar" src="" alt="Foto" style="display:none;"/>
+      <div id="perfil-avatar-inicial">?</div>
+      <div id="perfil-avatar-cam">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </div>
+      <div id="perfil-upload-spinner"></div>
+    </div>
+    <input type="file" id="input-foto-perfil" accept="image/*" style="display:none;" onchange="uploadFotoPerfil(this)"/>
+    <div id="perfil-info">
+      <div id="perfil-ola">Olá, <span id="perfil-nome">Usuário</span>!</div>
+      <div id="perfil-badge-premium" class="badge-premium" style="display:none;">👑 Premium</div>
+      <div id="perfil-plano-status" style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px;">Conta gratuita</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:4px;">Toque na foto para alterar</div>
+    </div>
+  </div>
+  <!-- Lista de itens do menu -->
+  <div id="perfil-menu-list">
+    ${buildMenuItem('person', 'Minha conta', "abrirMinhaConta()")}
+    ${buildMenuItem('car', 'Meus veículos', "abrirMeusVeiculos()")}
+    ${buildMenuItem('card', 'Assinatura', "goToAssinatura()")}
+    ${buildMenuItem('creditcard', 'Formas de pagamento', "abrirFormasPagamento()")}
+    ${buildMenuItem('bell', 'Notificações', "abrirNotificacoes()")}
+    <div class="menu-item" onclick="abrirPainelGamificacao()">
+      <div class="menu-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+      <div style="flex:1;"><span class="menu-item-label">Pontos &amp; Níveis</span><div id="gamif-pontos-preview" style="font-size:11px;color:#FF6D00;margin-top:1px;"></div></div>
+      <div class="menu-item-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    ${buildMenuItem('gift', 'Indique e ganhe', "abrirIndiqueGanhe()")}
+    ${buildMenuItem('help', 'Ajuda e suporte', "abrirAjuda()")}
+    ${buildMenuItem('settings', 'Configurações', "abrirConfiguracoes()")}
+    <div id="menu-item-instalar" style="display:none;">${buildMenuItem('download', 'Instalar app', "instalarOuMostrarPWA()")}</div>
+    <div class="menu-item menu-item-sair" onclick="doLogout()">
+      <div class="menu-item-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </div>
+      <span class="menu-item-label">Sair</span>
+    </div>
+  </div>
+</div>
+
 <!-- ══ SUB-TELA CHEIA (menu perfil) — FORA do #app-root para escapar de overflow:hidden ══ -->
 <div id="rp-subtela">
   <div id="rp-subtela-header">
@@ -1947,6 +1957,12 @@ export function getAppHTML(firebaseScripts: string): string {
   //  NAVEGAÇÃO
   // ══════════════════════════════════════════════════════
   function goToView(viewId) {
+    // Perfil é tela fixed separada — não usa o sistema de views
+    if (viewId === 'perfil') { abrirPerfil(); return; }
+
+    // Fechar perfil se estiver aberto
+    fecharPerfil();
+
     // Ocultar tudo
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
 
@@ -1975,7 +1991,7 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // Bottom nav: atualizar ativo
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    const navMap = { mapa: 'mapa', lista: 'lista', planejar: 'planejar', relatorios: 'perfil', perfil: 'perfil', detalhes: 'lista', sos: '' };
+    const navMap = { mapa: 'mapa', lista: 'lista', planejar: 'planejar', relatorios: 'perfil', detalhes: 'lista', sos: '' };
     const navId = navMap[viewId] || viewId;
     const navBtn = document.getElementById('nav-' + navId);
     if (navBtn) navBtn.classList.add('active');
@@ -3284,7 +3300,32 @@ export function getAppHTML(firebaseScripts: string): string {
     } catch { showLoading(false); showToast('Erro na busca'); }
   }
 
-  function toggleMenu() { goToView('perfil'); }
+  function toggleMenu() { abrirPerfil(); }
+
+  function abrirPerfil() {
+    var el = document.getElementById('rp-perfil');
+    if (!el) return;
+    // Atualizar nome/foto antes de abrir
+    if (currentUser) {
+      var nome = currentUser.name || currentUser.email?.split('@')[0] || 'Usuário';
+      var nomeEl = document.getElementById('perfil-nome');
+      if (nomeEl) nomeEl.textContent = nome;
+      var inicialEl = document.getElementById('perfil-avatar-inicial');
+      if (inicialEl) inicialEl.textContent = nome.charAt(0).toUpperCase();
+      var fotoLocal = localStorage.getItem('rp_foto_perfil_' + currentUser.uid);
+      atualizarAvatarUI(fotoLocal || currentUser.photo || '');
+      var badge = document.getElementById('perfil-badge-premium');
+      if (badge) badge.style.display = currentUser.premium ? 'block' : 'none';
+      var plano = document.getElementById('perfil-plano-status');
+      if (plano) plano.textContent = currentUser.premium ? '👑 Assinante Premium' : 'Conta gratuita';
+    }
+    el.classList.add('aberto');
+  }
+
+  function fecharPerfil() {
+    var el = document.getElementById('rp-perfil');
+    if (el) el.classList.remove('aberto');
+  }
 
   function goToVehicle() { abrirMeusVeiculos(); }
 
