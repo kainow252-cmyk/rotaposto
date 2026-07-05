@@ -4858,11 +4858,14 @@ export function getAppHTML(firebaseScripts: string): string {
       _fgConcluido = true;
       _fgRestoreBtn();
       console.warn('[GPS _forcarGPS] falhou tudo. code2:', err2.code, err2.message);
+      var isTWAdiag = document.referrer.includes('android-app://') || navigator.userAgent.includes('wv');
+      console.warn('[GPS] isTWA:', isTWAdiag, 'referrer:', document.referrer, 'UA:', navigator.userAgent.substring(0, 80));
       if (err2.code === 1) {
-        showToast('Ative a localização: Configurações → Apps → RotaPosto → Permissões → Localização');
+        showToast('Ative a localização: Configurações → Apps → RotaPosto → Permissões → Localização', 5000);
       } else {
-        // Código 2=POSITION_UNAVAILABLE, 3=TIMEOUT — problema físico, não de permissão
-        showToast('GPS indisponível. Vá para um local aberto e tente novamente.');
+        // Código 2=POSITION_UNAVAILABLE, 3=TIMEOUT — mostrar código para diagnóstico
+        var nomeErro = err2.code === 2 ? 'UNAVAILABLE' : err2.code === 3 ? 'TIMEOUT' : 'ERR' + err2.code;
+        showToast('GPS: ' + nomeErro + ' — Vá para local aberto ou verifique permissão de localização no Android.', 6000);
       }
     }
 
@@ -4873,8 +4876,13 @@ export function getAppHTML(firebaseScripts: string): string {
         // PERMISSION_DENIED — avisar e encerrar imediatamente
         _fgConcluido = true;
         _fgRestoreBtn();
-        showToast('Ative a localização: Configurações → Apps → RotaPosto → Permissões → Localização');
+        showToast('Permissão de localização negada. Ative em: Configurações → Apps → RotaPosto → Permissões', 5000);
         return;
+      }
+      if (err.code === 2) {
+        // POSITION_UNAVAILABLE imediato — serviço de localização desligado no Android
+        // Ir direto para baixa precisão com maximumAge alto (usa tower/IP)
+        console.warn('[GPS _forcarGPS] POSITION_UNAVAILABLE — tentando geoloc por rede...');
       }
       // TIMEOUT (3) ou POSITION_UNAVAILABLE (2) → tentar rede (WiFi/torre) sem alta precisão
       // maximumAge:300000 aceita leitura recente de 5min — mais rápido em ambientes fechados
@@ -4884,7 +4892,7 @@ export function getAppHTML(firebaseScripts: string): string {
     }
 
     // 1ª tentativa: GPS de alta precisão
-    // maximumAge:30000 aceita cache de 30s — evita esperar GPS frio desnecessariamente
+    // maximumAge:30000 aceita cache de 30s — evita GPS frio desnecessariamente
     navigator.geolocation.getCurrentPosition(onOk, onFail,
       { timeout: 15000, maximumAge: 30000, enableHighAccuracy: true }
     );
@@ -4897,6 +4905,11 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function _initLocalizacao() {
+    var _diagIsTWA = document.referrer.includes('android-app://') || navigator.userAgent.includes('wv');
+    var _diagStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    console.log('[GPS init] isTWA:', _diagIsTWA, '| standalone:', _diagStandalone, '| referrer:', document.referrer || '(vazio)');
+    console.log('[GPS init] geoloc suporte:', !!navigator.geolocation, '| UA:', navigator.userAgent.substring(0, 100));
+
     // ── LIMPEZA PREVENTIVA: remover cache de SP padrão salvo por versões antigas ──
     var _cleanLat = parseFloat(localStorage.getItem('rp_lat') || '');
     var _cleanLng = parseFloat(localStorage.getItem('rp_lng') || '');
