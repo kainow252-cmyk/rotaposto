@@ -2320,9 +2320,9 @@ export function getAppHTML(firebaseScripts: string): string {
     return mins + ' min';
   }
 
-  function updateMapCard(p, idx?) {
+  function updateMapCard(p, idx) {
     selectedPosto = p;
-    const _idx = idx !== undefined ? idx : postosData.indexOf(p);
+    const _idx = (idx !== undefined && idx !== null) ? idx : postosData.indexOf(p);
     const preco = p.preco || p.precos?.[selectedFuel];
     const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '-';
     const dist = p.distancia ? p.distancia.toFixed(1).replace('.', ',') + ' km' : '-';
@@ -3318,7 +3318,7 @@ export function getAppHTML(firebaseScripts: string): string {
     if (!_searchDropdownOpen) return;
     const dd = document.getElementById('search-dropdown');
     const inp = document.getElementById('search-input');
-    if (dd && !dd.contains(e.target as Node) && e.target !== inp) {
+    if (dd && !dd.contains(e.target) && e.target !== inp) {
       _fecharDropdownBusca();
     }
   });
@@ -3368,7 +3368,7 @@ export function getAppHTML(firebaseScripts: string): string {
     }, 350);
   }
 
-  function _aplicarGeocodeBusca(lat, lng, nome?) {
+  function _aplicarGeocodeBusca(lat, lng, nome) {
     userLat = lat; userLng = lng;
     showLoading(true);
     if (mapMain) {
@@ -3383,7 +3383,7 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   async function doSearch() {
-    const val = (document.getElementById('search-input') as HTMLInputElement).value.trim();
+    const val = (document.getElementById('search-input')).value.trim();
     if (!val) return;
     _fecharDropdownBusca();
     showLoading(true);
