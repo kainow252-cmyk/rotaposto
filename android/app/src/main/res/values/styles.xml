@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema principal — NÃO declarar windowIsTranslucent:
+         o androidbrowserhelper chama convertToTranslucent() internamente para o splash;
+         forçar false aqui quebra esse mecanismo e causa crash no Samsung/Android 12+ -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/backgroundColor</item>
+        <item name="android:statusBarColor">@color/colorPrimary</item>
+        <item name="android:navigationBarColor">@color/navigationColor</item>
+    </style>
+</resources>

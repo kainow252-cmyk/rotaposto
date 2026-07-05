@@ -1,0 +1,63 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'br.com.rotaposto.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "br.com.rotaposto.app"
+        minSdk 24
+        targetSdk 35
+        versionCode 44
+        versionName "1.1.0"
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('../rotaposto-keystore.jks')
+            storePassword 'rotaposto2024'
+            keyAlias 'rotaposto'
+            keyPassword 'rotaposto2024'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    // Força geração de APK universal também
+    bundle {
+        language { enableSplit = false }
+        density { enableSplit = false }
+        abi { enableSplit = false }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+
+}
+
+configurations.all {
+    resolutionStrategy {
+        // Resolver conflito de classes duplicadas do kotlin-stdlib
+        force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    // Forçar versão estável do androidx.browser compatível com AGP 8.5.2
+    implementation 'androidx.browser:browser:1.8.0'
+    // AppCompat necessário para Theme.AppCompat
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+}

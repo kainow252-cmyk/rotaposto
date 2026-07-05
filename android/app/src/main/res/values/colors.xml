@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Laranja RotaPosto -->
+    <color name="colorPrimary">#FF6D00</color>
+    <color name="colorPrimaryDark">#FF6D00</color>
+    <!-- Fundo escuro do app -->
+    <color name="backgroundColor">#0B121E</color>
+    <!-- Nav bar escura -->
+    <color name="navigationColor">#0B121E</color>
+    <color name="navigationColorDark">#0B121E</color>
+    <!-- Tema splash -->
+    <color name="splashBackground">#0B121E</color>
+</resources>

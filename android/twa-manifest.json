@@ -1,0 +1,49 @@
+{
+  "packageId": "br.com.rotaposto.app",
+  "host": "rotaposto.com.br",
+  "name": "RotaPosto",
+  "launcherName": "RotaPosto",
+  "display": "standalone",
+  "themeColor": "#FF6D00",
+  "navigationColor": "#0B121E",
+  "navigationColorDark": "#0B121E",
+  "navigationDividerColor": "#0B121E",
+  "navigationDividerColorDark": "#0B121E",
+  "backgroundColor": "#0B121E",
+  "enableNotifications": true,
+  "startUrl": "/launcher",
+  "iconUrl": "https://rotaposto.com.br/icons/icon-512x512.png",
+  "maskableIconUrl": "https://rotaposto.com.br/icons/icon-512x512.png",
+  "monochromeIconUrl": "https://rotaposto.com.br/icons/icon-512x512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./rotaposto-keystore.jks",
+    "alias": "rotaposto"
+  },
+  "appVersionCode": 2,
+  "appVersionName": "1.1.0",
+  "shortcuts": [
+    {
+      "name": "Buscar Postos",
+      "shortName": "Buscar",
+      "url": "/app#lista",
+      "icons": [{"src": "https://rotaposto.com.br/icons/icon-96x96.png", "sizes": "96x96"}],
+      "chosenIconUrl": "https://rotaposto.com.br/icons/icon-96x96.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://rotaposto.com.br/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {"enabled": true},
+    "playBilling": {"enabled": false}
+  },
+  "alphaDependencies": {"enabled": false},
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://rotaposto.com.br/",
+  "minSdkVersion": 24,
+  "orientation": "portrait",
+  "fingerprints": []
+}
