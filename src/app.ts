@@ -182,11 +182,16 @@ export function getAppHTML(firebaseScripts: string): string {
     ══════════════════════════════════════════════ */
     #view-mapa {
       position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
 
     #map-leaflet {
       flex: 1; width: 100%;
       min-height: 0;
+      /* Garantir que o Leaflet sempre tenha altura calculável */
+      height: 100%;
     }
 
     /* Card inferior: Melhor posto próximo */
@@ -1978,6 +1983,11 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // Init mapa quando necessário
     if (viewId === 'mapa' && !mapMain) initMapMain();
+    // Leaflet: forçar recalculo de tamanho sempre que a view mapa aparecer
+    // (container estava display:none → Leaflet não sabe o tamanho real → mapa branco)
+    if (viewId === 'mapa' && mapMain) {
+      setTimeout(() => mapMain.invalidateSize(), 50);
+    }
     if (viewId === 'planejar') {
       renderPlanCarTabs();
       // Tem destino livre digitado?
@@ -2192,6 +2202,11 @@ export function getAppHTML(firebaseScripts: string): string {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(mapMain);
+
+    // Forçar recalculo de tamanho após o container se tornar visível
+    // (Leaflet bug clássico: container estava display:none → tiles não carregam)
+    setTimeout(() => mapMain.invalidateSize(), 100);
+    setTimeout(() => mapMain.invalidateSize(), 400);
 
     // Ponto do usuário
     const userIcon = L.divIcon({
