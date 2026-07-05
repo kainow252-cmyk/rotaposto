@@ -64,7 +64,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       width: 100%; height: 100%;
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
-      align-items: center; justify-content: flex-end;
+      align-items: center; justify-content: flex-start;
       background: #1A1A2E;
       overflow: hidden;
     }
@@ -81,9 +81,12 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     #splash-content {
       position: relative; z-index: 1;
       width: 100%; padding: 0 32px;
+      padding-top: calc(var(--sat) + 80px);
       padding-bottom: calc(var(--sab) + 40px);
       display: flex; flex-direction: column;
       align-items: center;
+      flex: 1;
+      justify-content: flex-start;
     }
 
     /* Logo central */
@@ -109,7 +112,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       font-size: 15px; font-weight: 400;
       color: rgba(255,255,255,0.75);
       text-align: center; line-height: 1.5;
-      margin-bottom: 48px;
+      margin-bottom: 0;
     }
 
     .btn-splash-primary {
@@ -118,7 +121,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       border: none; border-radius: 14px;
       color: #fff; font-family: 'Inter', sans-serif;
       font-size: 17px; font-weight: 700;
-      cursor: pointer; margin-bottom: 16px;
+      cursor: pointer; margin-top: auto; margin-bottom: 16px;
       transition: opacity 0.2s;
     }
     .btn-splash-primary:active { opacity: 0.85; }
