@@ -2028,16 +2028,34 @@ export function getAppHTML(firebaseScripts: string): string {
     body.innerHTML = '<div class="sos-loading" id="sos-loading"><div class="sos-loading-spinner"></div>Obtendo sua localização…</div>';
 
     if (!navigator.geolocation) {
-      body.innerHTML = '<div class="sos-loading">Geolocalização não disponível no seu dispositivo.</div>';
+      // Fallback: usar coordenada do mapa (já obtida no init)
+      if (userLat && userLng) {
+        buscarServicosSOSAPI(userLat, userLng, tipo);
+      } else {
+        body.innerHTML = '<div class="sos-loading">⚠️ Geolocalização não disponível no seu dispositivo.</div>';
+      }
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (pos) => buscarServicosSOSAPI(pos.coords.latitude, pos.coords.longitude, tipo),
       (err) => {
-        body.innerHTML = '<div class="sos-loading">⚠️ Não foi possível obter sua localização.<br><br><small>Verifique as permissões de localização e tente novamente.</small></div>';
+        // Tentar fallback com coordenada do mapa (já obtida no init do app)
+        if (userLat && userLng) {
+          buscarServicosSOSAPI(userLat, userLng, tipo);
+          return;
+        }
+        var msgErro = '⚠️ Não foi possível obter sua localização.';
+        if (err.code === 1) { // PERMISSION_DENIED
+          msgErro = '🔒 Permissão de localização negada.<br><br><small>Vá em Configurações → Aplicativos → Chrome → Permissões → Localização → Permitir.</small>';
+        } else if (err.code === 3) { // TIMEOUT
+          msgErro = '⏱️ Timeout ao obter localização.<br><br><small>Verifique se o GPS está ativo e tente novamente.</small>';
+        }
+        body.innerHTML = '<div class="sos-loading">' + msgErro
+          + '<br><br><button onclick="buscarServicosSOSComLocalizacao(\'' + tipo + '\')" '
+          + 'style="margin-top:12px;padding:10px 20px;background:#FF6D00;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">🔄 Tentar novamente</button></div>';
       },
-      { timeout: 8000, maximumAge: 60000 }
+      { timeout: 15000, maximumAge: 120000, enableHighAccuracy: false }
     );
   }
 
@@ -4043,9 +4061,10 @@ export function getAppHTML(firebaseScripts: string): string {
       }
     } catch(e) {}
 
-    // No TWA (Android app), redirecionar para /app ao invés de / para manter no escopo
+    // No TWA (Android app), redirecionar para /onboarding (tela de login) — NÃO para /app
+    // Redirecionar para /app causava loop: localStorage vazio mas app carregava sem tela de login
     var isTWA = document.referrer.includes('android-app://') || window.matchMedia('(display-mode: standalone)').matches;
-    window.location.href = isTWA ? '/app' : '/';
+    window.location.href = isTWA ? '/onboarding' : '/';
   }
 
   function showToast(msg, dur = 2500) {
@@ -4252,10 +4271,10 @@ export function getAppHTML(firebaseScripts: string): string {
             localStorage.removeItem('rp_user');
             localStorage.removeItem('rp_session_token');
             localStorage.removeItem('rp_session_uid');
-            // Mostrar aviso e redirecionar (no TWA, manter no escopo)
+            // Mostrar aviso e redirecionar para tela de login (no TWA usar /onboarding)
             alert('Sua conta foi acessada em outro dispositivo. Por segurança, você foi desconectado.');
             var isTWA = document.referrer.includes('android-app://') || window.matchMedia('(display-mode: standalone)').matches;
-            window.location.href = isTWA ? '/app' : '/';
+            window.location.href = isTWA ? '/onboarding' : '/';
           }
         })
         .catch(function() { /* falha de rede: manter sessão local */ });
@@ -4284,6 +4303,19 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // Iniciar na view mapa (com header)
     goToView('mapa');
+
+    // No TWA: mostrar toast de boas-vindas se já estava logado (sessão herdada do Chrome)
+    // Isso evita o usuário achar que "logou sozinho sem pedir"
+    var _isTWAWelcome = document.referrer.indexOf('android-app://') === 0
+      || (window.matchMedia('(display-mode: standalone)').matches
+          && /Android/.test(navigator.userAgent)
+          && /Chrome/.test(navigator.userAgent));
+    if (_isTWAWelcome && currentUser) {
+      var _nomeWelcome = currentUser.name || currentUser.email?.split('@')[0] || 'usuário';
+      setTimeout(function() {
+        showToast('Bem-vindo de volta, ' + _nomeWelcome.split(' ')[0] + '! 👋', 3000);
+      }, 1500);
+    }
 
     // ── Drag vertical do botão SOS ─────────────────────────────────────────
     (function initSosDrag() {
