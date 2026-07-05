@@ -1900,24 +1900,30 @@ app.get('/launcher', (c) => {
 <p>Carregando versão mais recente...</p>
 <div class="bar"><div class="fill"></div></div>
 <script>
+// Garantia: redirecionar para /app em no máximo 2s independente de qualquer coisa
+var _redirecionado = false;
+function _irParaApp() {
+  if (_redirecionado) return;
+  _redirecionado = true;
+  window.location.replace('/app?v=' + Date.now());
+}
+setTimeout(_irParaApp, 2000);
+
+// Tentar limpar SW/cache antes, mas sem bloquear
 (async function() {
-  // 1. Desregistrar TODOS os service workers antigos
-  if ('serviceWorker' in navigator) {
-    try {
+  try {
+    if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
       for (const reg of regs) { await reg.unregister(); }
-    } catch(e) {}
-  }
-  // 2. Limpar TODOS os caches do browser
-  if ('caches' in window) {
-    try {
+    }
+  } catch(e) {}
+  try {
+    if ('caches' in window) {
       const keys = await caches.keys();
       await Promise.all(keys.map(k => caches.delete(k)));
-    } catch(e) {}
-  }
-  // 3. Ir para o app com cache busting na URL
-  const ts = Date.now();
-  window.location.replace('/app?v=' + ts);
+    }
+  } catch(e) {}
+  _irParaApp();
 })();
 </script>
 </body></html>`)
