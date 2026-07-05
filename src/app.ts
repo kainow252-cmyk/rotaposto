@@ -4779,7 +4779,6 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<div style="width:44px;height:44px;border:4px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin360 0.8s linear infinite;margin-bottom:16px;"></div>'
       + '<div style="font-size:15px;color:#444;font-weight:700;">Obtendo sua localização…</div>'
       + '<div style="font-size:12px;color:#999;margin-top:6px;text-align:center;padding:0 20px;">Permita o acesso à localização quando solicitado</div>'
-      + '<button onclick="_usarSPPadrao()" style="margin-top:20px;padding:11px 24px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(255,109,0,0.35);">Usar São Paulo (padrão)</button>'
       + '</div>';
   }
 
@@ -4905,7 +4904,7 @@ export function getAppHTML(firebaseScripts: string): string {
               + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
               + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Localização não autorizada</div>'
               + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Para ver postos próximos, ative nas configurações: <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
-              + '<button onclick="_usarSPPadrao()" style="padding:12px 28px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">Usar São Paulo por enquanto</button>'
+              + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#eee;color:#666;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">Continuar sem localização</button>'
               + '</div>';
           } else {
             // Sem overlay — se não tem cache, usar SP padrão
