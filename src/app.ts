@@ -2061,8 +2061,9 @@ export function getAppHTML(firebaseScripts: string): string {
         } else if (err.code === 3) { // TIMEOUT
           msgErro = '⏱️ Timeout ao obter localização.<br><br><small>Verifique se o GPS está ativo e tente novamente.</small>';
         }
+        // Usar sosTipoAtivo (variável global) para evitar problema de aspas no onclick inline
         body.innerHTML = '<div class="sos-loading">' + msgErro
-          + '<br><br><button onclick="buscarServicosSOSComLocalizacao(\'' + tipo + '\')" '
+          + '<br><br><button onclick="buscarServicosSOSComLocalizacao(sosTipoAtivo)" '
           + 'style="margin-top:12px;padding:10px 20px;background:#FF6D00;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">🔄 Tentar novamente</button></div>';
       },
       { timeout: 15000, maximumAge: 120000, enableHighAccuracy: false }
