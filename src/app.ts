@@ -177,10 +177,13 @@ export function getAppHTML(firebaseScripts: string): string {
 
     .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; overflow: hidden; }
     .view.active { display: flex; flex-direction: column; }
-    /* Views com scroll próprio devem sobrescrever overflow: hidden */
+    /* Views com scroll simples (página inteira faz scroll) */
     #view-lista.active,
     #view-relatorios.active,
-    #view-sos.active { overflow-y: auto; overflow-x: hidden; }
+    #view-planejar.active,
+    #view-detalhes.active { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+    /* SOS tem header fixo + body scrollável internamente — NÃO usar overflow na view */
+    #view-sos.active { overflow: hidden; }
 
     /* ══════════════════════════════════════════════
        TELA 7: MAPA
@@ -278,7 +281,7 @@ export function getAppHTML(firebaseScripts: string): string {
        TELA 8: LISTA DE POSTOS
     ══════════════════════════════════════════════ */
     #view-lista {
-      overflow-y: auto;
+      /* overflow-y gerenciado pelo seletor .active acima */
     }
 
     #lista-container {
@@ -348,7 +351,7 @@ export function getAppHTML(firebaseScripts: string): string {
        TELA 9: DETALHES DO POSTO
     ══════════════════════════════════════════════ */
     #view-detalhes {
-      overflow-y: auto;
+      /* overflow-y gerenciado pelo seletor .active acima */
       background: var(--white);
     }
 
@@ -385,7 +388,7 @@ export function getAppHTML(firebaseScripts: string): string {
     }
 
     #det-body {
-      padding: 36px 20px 20px;
+      padding: 36px 20px calc(var(--sab) + 80px);
     }
 
     #det-nome {
@@ -490,13 +493,16 @@ export function getAppHTML(firebaseScripts: string): string {
     ══════════════════════════════════════════════ */
     #view-planejar {
       background: var(--white);
-      overflow-y: auto;
+      /* overflow-y gerenciado pelo seletor .active acima */
     }
 
     #plan-header {
       display: flex; align-items: center; gap: 14px;
       padding: calc(var(--sat) + 16px) 20px 16px;
       border-bottom: 1px solid var(--border);
+      background: var(--white);
+      position: sticky; top: 0; z-index: 10;
+      flex-shrink: 0;
     }
     #plan-title {
       font-size: 18px; font-weight: 800; color: var(--black);
@@ -507,7 +513,7 @@ export function getAppHTML(firebaseScripts: string): string {
       background: none; border: none; cursor: pointer; color: var(--black);
     }
 
-    #plan-body { padding: 20px; }
+    #plan-body { padding: 20px 20px calc(var(--sab) + 80px); }
 
     /* Campos de rota */
     .route-fields {
@@ -817,12 +823,15 @@ export function getAppHTML(firebaseScripts: string): string {
        TELA 11: RELATÓRIOS
     ══════════════════════════════════════════════ */
     #view-relatorios {
-      overflow-y: auto; background: var(--white);
+      /* overflow-y gerenciado pelo seletor .active acima */
+      background: var(--white);
     }
 
     #rel-header {
       padding: calc(var(--sat) + 20px) 20px 0;
       text-align: center;
+      background: var(--white);
+      position: sticky; top: 0; z-index: 10;
     }
     #rel-title {
       font-size: 20px; font-weight: 800; color: var(--black);
@@ -1984,9 +1993,10 @@ export function getAppHTML(firebaseScripts: string): string {
     if (btnSos) {
       btnSos.style.display = viewId === 'sos' ? 'none' : 'flex';
       // Ajustar posição: sem nav nas telas fullscreen (planejar, detalhes, sos)
-      const semNav = viewId === 'planejar' || viewId === 'detalhes' || viewId === 'perfil';
+      // Nas telas sem nav bar (planejar, detalhes) o botão fica mais baixo
+      const semNav = viewId === 'planejar' || viewId === 'detalhes';
       btnSos.style.bottom = semNav
-        ? 'calc(var(--sab) + var(--nav-h) + 16px)'
+        ? 'calc(var(--sab) + 16px)'
         : 'calc(var(--sab) + var(--nav-h) + 16px)';
     }
 
@@ -4232,18 +4242,29 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function verificarMenuInstalar() {
+    var menuItem = document.getElementById('menu-item-instalar');
+    if (!menuItem) return;
+
+    // No TWA (já é app nativo Android) — nunca mostrar "Instalar app"
+    var isTWA = document.referrer.indexOf('android-app://') === 0
+      || (window.matchMedia('(display-mode: standalone)').matches
+          && /Android/.test(navigator.userAgent)
+          && /Chrome/.test(navigator.userAgent));
+    if (isTWA) {
+      menuItem.style.display = 'none';
+      return;
+    }
+
     // Verificar se app já está rodando como PWA instalado
-    const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+    var jaInstalado = window.matchMedia('(display-mode: standalone)').matches
       || (window.navigator['standalone'] === true)
       || localStorage.getItem('rp_pwa_instalado') === '1';
     if (jaInstalado) {
       // App já instalado: ocultar item do menu
-      const menuItem = document.getElementById('menu-item-instalar');
-      if (menuItem) menuItem.style.display = 'none';
+      menuItem.style.display = 'none';
     } else {
-      // Ainda não instalado: sempre mostrar item de instalar no menu perfil
-      const menuItem = document.getElementById('menu-item-instalar');
-      if (menuItem) menuItem.style.display = 'block';
+      // Ainda não instalado: mostrar apenas se prompt disponível
+      menuItem.style.display = _deferredPrompt ? 'block' : 'none';
     }
   }
 
@@ -4371,18 +4392,9 @@ export function getAppHTML(firebaseScripts: string): string {
     // Pedir localização logo no init — antes de qualquer coisa
     _initLocalizacao();
 
-    // No TWA: mostrar toast de boas-vindas se já estava logado (sessão herdada do Chrome)
-    // Isso evita o usuário achar que "logou sozinho sem pedir"
-    var _isTWAWelcome = document.referrer.indexOf('android-app://') === 0
-      || (window.matchMedia('(display-mode: standalone)').matches
-          && /Android/.test(navigator.userAgent)
-          && /Chrome/.test(navigator.userAgent));
-    if (_isTWAWelcome && currentUser) {
-      var _nomeWelcome = currentUser.name || currentUser.email?.split('@')[0] || 'usuário';
-      setTimeout(function() {
-        showToast('Bem-vindo de volta, ' + _nomeWelcome.split(' ')[0] + '! 👋', 3000);
-      }, 1500);
-    }
+    // No TWA: NÃO mostrar toast de boas-vindas — é confuso para o usuário
+    // (o app parece ter feito login sozinho sem avisar)
+    // Toast removido conforme feedback dos testes
 
     // ── Drag vertical do botão SOS ─────────────────────────────────────────
     (function initSosDrag() {
@@ -4393,7 +4405,8 @@ export function getAppHTML(firebaseScripts: string): string {
       var savedBottom = localStorage.getItem('rp_sos_bottom');
       if (savedBottom) btn.style.bottom = savedBottom + 'px';
 
-      var isDragging = false;
+      var _sosDragging = false;   // flag ativa DURANTE o drag
+      var _sosWasDragged = false; // flag que persiste até o próximo click
       var startY = 0;
       var startBottom = 0;
 
@@ -4403,20 +4416,20 @@ export function getAppHTML(firebaseScripts: string): string {
       }
 
       function onStart(e) {
-        // só inicia drag em long-press ou se não for clique rápido
-        isDragging = false;
+        _sosDragging = false;
+        _sosWasDragged = false;
         startY = e.touches ? e.touches[0].clientY : e.clientY;
         startBottom = getBottom();
-        var moved = false;
 
         function onMove(ev) {
           var curY = ev.touches ? ev.touches[0].clientY : ev.clientY;
           var dy = startY - curY;
-          if (!isDragging && Math.abs(dy) > 6) {
-            isDragging = true;
+          if (!_sosDragging && Math.abs(dy) > 8) {
+            _sosDragging = true;
+            _sosWasDragged = true;
             btn.classList.add('dragging');
           }
-          if (!isDragging) return;
+          if (!_sosDragging) return;
           ev.preventDefault();
           var newBottom = Math.max(60, Math.min(window.innerHeight - 80, startBottom + dy));
           btn.style.bottom = newBottom + 'px';
@@ -4424,13 +4437,13 @@ export function getAppHTML(firebaseScripts: string): string {
         }
 
         function onEnd() {
-          if (isDragging) {
+          if (_sosDragging) {
             var curBottom = getBottom();
             localStorage.setItem('rp_sos_bottom', Math.round(curBottom).toString());
             btn.classList.remove('dragging');
             btn.style.transition = '';
           }
-          isDragging = false;
+          _sosDragging = false;
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onEnd);
           document.removeEventListener('touchmove', onMove);
@@ -4446,9 +4459,13 @@ export function getAppHTML(firebaseScripts: string): string {
       btn.addEventListener('mousedown', onStart);
       btn.addEventListener('touchstart', onStart, { passive: true });
 
-      // Click só dispara se não houve drag
+      // Click só cancela se houve drag real neste toque
       btn.addEventListener('click', function(e) {
-        if (isDragging) { e.stopPropagation(); e.preventDefault(); }
+        if (_sosWasDragged) {
+          e.stopPropagation();
+          e.preventDefault();
+          _sosWasDragged = false; // resetar para próximo toque
+        }
       }, true);
     })();
 
