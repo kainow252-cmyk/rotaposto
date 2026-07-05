@@ -103,16 +103,23 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       width: 280px;
       max-width: 78vw;
       border-radius: 34px;
-      overflow: hidden;        /* corta os pixels brancos dos cantos */
+      overflow: hidden;
       margin-bottom: 24px;
       display: block;
-      line-height: 0;          /* elimina gap inline sob a imagem */
+      line-height: 0;
       flex-shrink: 0;
+      /* Sombra inset escura cobre a linha branca de anti-aliasing do PNG */
+      box-shadow: inset 0 0 0 3px #0d1117;
+      /* Isola o contexto de composição para o overflow funcionar 100% */
+      isolation: isolate;
     }
     #splash-logo-img {
       width: 100%;
       height: auto;
       display: block;
+      /* Escala micro para dentro — esconde 1-2px de borda branca */
+      transform: scale(1.04);
+      transform-origin: center center;
     }
 
     #splash-sub {
