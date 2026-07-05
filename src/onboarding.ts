@@ -98,18 +98,15 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       padding-bottom: 24px;
     }
 
-    /* Ícone SVG: igual ao ícone do app */
-    .splash-icon {
-      width: 110px; height: 110px; margin-bottom: 24px;
+    /* Logo completo (imagem substitui ícone + nome) */
+    #splash-logo-img {
+      width: 280px;
+      max-width: 78vw;
+      height: auto;
+      margin-bottom: 24px;
+      border-radius: 32px;
+      display: block;
     }
-
-    #splash-brand {
-      font-size: 44px; font-weight: 900;
-      letter-spacing: -1px; margin-bottom: 12px;
-      line-height: 1;
-    }
-    #splash-brand .rota { color: #fff; }
-    #splash-brand .posto { color: var(--orange); }
 
     #splash-sub {
       font-size: 15px; font-weight: 400;
@@ -558,29 +555,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     <div id="splash-bg"></div>
     <div id="splash-content">
       <div id="splash-logo-wrap">
-        <!-- Ícone: fundo dark squircle + bico gasolina inclinado + pin gota laranja -->
-        <svg class="splash-icon" viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Fundo squircle azul-escuro, igual ao ícone do app -->
-          <rect width="110" height="110" rx="26" fill="#1A1A2E"/>
-
-          <!-- ── PIN DE LOCALIZAÇÃO (gota laranja apontando para baixo) ── -->
-          <!-- Corpo da gota: parte circular em cima + ponta em baixo -->
-          <path d="M56 82C56 82 35 63 35 48C35 37.0 44.5 28 56 28C67.5 28 77 37.0 77 48C77 63 56 82 56 82Z" fill="#FF6D00"/>
-          <!-- Buraco interno branco do pin (simula o 'r' ou circular vazio) -->
-          <circle cx="56" cy="47" r="9.5" fill="#1A1A2E"/>
-
-          <!-- ── BICO DE GASOLINA (inclinado ~45° acima e à esquerda) ── -->
-          <!-- Cabo/corpo principal do bico — retângulo inclinado -->
-          <rect x="20" y="28" width="30" height="12" rx="6" fill="#FF6D00" transform="rotate(-42 20 28)"/>
-          <!-- Ponteira/cano fino horizontal saindo para a direita -->
-          <path d="M44 20 L66 20 Q70 20 70 24 L70 28 Q70 32 66 32 L56 32" stroke="#FF6D00" stroke-width="9" stroke-linecap="round" fill="none"/>
-          <!-- Gatilho do bico (pequeno bloco perpendicular) -->
-          <rect x="28" y="28" width="7" height="12" rx="3.5" fill="#E65100" transform="rotate(-42 28 28)"/>
-        </svg>
-
-        <h1 id="splash-brand">
-          <span class="rota">Rota</span><span class="posto">Posto</span>
-        </h1>
+        <img id="splash-logo-img" src="/icons/logo-splash.png" alt="RotaPosto" />
         <p id="splash-sub">O caminho mais inteligente<br/>para economizar combustível</p>
       </div>
 
