@@ -2272,7 +2272,8 @@ export function getAppHTML(firebaseScripts: string): string {
       html: '<div style="width:16px;height:16px;border-radius:50%;background:#1565C0;border:3px solid white;box-shadow:0 0 0 6px rgba(21,101,192,0.2)"></div>',
       iconSize: [16, 16], iconAnchor: [8, 8]
     });
-    L.marker([userLat, userLng], { icon: userIcon }).addTo(mapMain);
+    var userMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(mapMain);
+    userMarker._isUserMarker = true;
 
     // Carregar postos
     loadPostos();
@@ -2573,24 +2574,18 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function usarLocalizacaoAtual() {
-    document.getElementById('plan-origin').textContent = 'Minha localização';
-    showToast('📍 Usando sua localização atual');
-    // Reobter GPS para atualizar
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        function(pos) {
-          userLat = pos.coords.latitude;
-          userLng = pos.coords.longitude;
-          localStorage.setItem('rp_lat', String(userLat));
-          localStorage.setItem('rp_lng', String(userLng));
-          localStorage.setItem('rp_loc_ts', String(Date.now()));
-          if (mapMain) mapMain.setView([userLat, userLng], 14);
-          showToast('📍 Localização atualizada!');
-        },
-        function() { showToast('Não foi possível obter sua localização'); },
-        { timeout: 8000, enableHighAccuracy: true }
-      );
-    }
+    var el = document.getElementById('plan-origin');
+    if (el) el.textContent = 'Minha localização';
+    showToast('📍 Buscando localização…');
+    if (!navigator.geolocation) { showToast('GPS não disponível'); return; }
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+        showToast('📍 Localização atualizada!');
+      },
+      function() { showToast('Não foi possível obter localização real'); },
+      { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
+    );
   }
 
   // ── Destino livre no Planejar — overlay fullscreen ───────────────────────
@@ -4650,96 +4645,147 @@ export function getAppHTML(firebaseScripts: string): string {
 
   // ── Geolocalização — chamada no init E quando mapa abre ──────────────────
 
-  // ── Watcher GPS ativo ────────────────────────────────────────────────────
+  // ── GPS ─────────────────────────────────────────────────────────────────
   var _geoWatchId = null;
+  var _geoGPSConfirmado = false; // true só após GPS real (não cache)
+
+  function _mostrarOverlayGPS() {
+    var mapEl = document.getElementById('map-leaflet');
+    if (!mapEl || mapMain) return;
+    // Só mostra se não tem overlay já
+    if (document.getElementById('geo-loading-overlay')) return;
+    mapEl.innerHTML = '<div id="geo-loading-overlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f5f5f5;z-index:999;">'
+      + '<div style="width:44px;height:44px;border:4px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin360 0.8s linear infinite;margin-bottom:16px;"></div>'
+      + '<div style="font-size:15px;color:#444;font-weight:700;">Obtendo sua localização…</div>'
+      + '<div style="font-size:12px;color:#999;margin-top:6px;text-align:center;padding:0 20px;">Permita o acesso à localização quando solicitado</div>'
+      + '<button onclick="_usarSPPadrao()" style="margin-top:20px;padding:11px 24px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(255,109,0,0.35);">Usar São Paulo (padrão)</button>'
+      + '</div>';
+  }
+
+  function _usarSPPadrao() {
+    // -23.5505, -46.6333 = centro de SP
+    _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+  }
+
+  function _haversineFast(la1, lo1, la2, lo2) {
+    var R=6371, dLa=(la2-la1)*Math.PI/180, dLo=(lo2-lo1)*Math.PI/180;
+    var a=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)*Math.sin(dLo/2);
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
 
   function _initLocalizacao() {
-    // 1. Carregar última posição salva imediatamente (evita tela em branco)
-    var cachedLat = parseFloat(localStorage.getItem('rp_lat') || '');
-    var cachedLng = parseFloat(localStorage.getItem('rp_lng') || '');
-    var cachedTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
-    var cacheAge  = Date.now() - cachedTs;
+    // ── PASSO 1: cache recente (<5 min) → mostrar imediatamente SEM marcar como confirmado ──
+    var cLat = parseFloat(localStorage.getItem('rp_lat') || '');
+    var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
+    var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
+    var cAge = Date.now() - cTs;
+    var temCache = !isNaN(cLat) && !isNaN(cLng) && cAge < 5 * 60 * 1000;
 
-    if (!isNaN(cachedLat) && !isNaN(cachedLng) && cacheAge < 30 * 60 * 1000) {
-      // Cache < 30 min → usar imediatamente e refinar depois
-      _aplicarLocalizacao(cachedLat, cachedLng, false);
+    if (temCache) {
+      // Exibe mapa imediatamente com cache, mas ainda busca GPS real
+      userLat = cLat; userLng = cLng;
+      _geoJaObtida = true; // permite renderizar o mapa
+      // NÃO seta _geoGPSConfirmado — ainda vai buscar GPS real
     }
 
+    // ── PASSO 2: verificar suporte ──
     if (!navigator.geolocation) {
-      if (!_geoJaObtida) _aplicarLocalizacao(userLat, userLng, true);
+      if (!temCache) _usarSPPadrao();
       return;
     }
 
-    // Mostrar indicador de carregando no mapa apenas se não há cache
-    var mapEl = document.getElementById('map-leaflet');
-    if (mapEl && !mapMain && !_geoJaObtida) {
-      mapEl.innerHTML = '<div id="geo-loading-overlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8f8f8;z-index:999;">'
-        + '<div style="width:40px;height:40px;border:4px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin360 0.8s linear infinite;margin-bottom:16px;"></div>'
-        + '<div style="font-size:14px;color:#666;font-weight:600;">Obtendo sua localização…</div>'
-        + '<div style="font-size:12px;color:#aaa;margin-top:6px;">Aguarde ou toque para continuar</div>'
-        + '<button onclick="_aplicarLocalizacao(' + userLat + ',' + userLng + ',true)" '
-        + 'style="margin-top:16px;padding:10px 20px;background:#FF6D00;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Usar SP (padrão)</button>'
-        + '</div>';
+    // ── PASSO 3: mostrar overlay se não tem cache ──
+    if (!temCache) {
+      _mostrarOverlayGPS();
+    } else {
+      // Tem cache → iniciar mapa imediatamente
+      initMapMain();
     }
 
-    // 2. getCurrentPosition com alta precisão
+    // ── PASSO 4: pedir GPS real com alta precisão ──
+    // maximumAge: 0 → NUNCA aceitar cache do sistema, sempre GPS fresco
     navigator.geolocation.getCurrentPosition(
       function(pos) {
-        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true);
-        // 3. watchPosition para atualizar continuamente no app
+        console.log('[RotaPosto] GPS real obtido:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
+        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+
+        // ── PASSO 5: watchPosition — atualiza se mover >50m ──
         if (_geoWatchId === null) {
           _geoWatchId = navigator.geolocation.watchPosition(
             function(wp) {
-              // Só atualiza se moveu mais de 100m
               var d = _haversineFast(userLat, userLng, wp.coords.latitude, wp.coords.longitude);
-              if (d > 0.1) {
-                _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, false);
+              if (d > 0.05) { // >50m
+                _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, d > 0.5, true);
               }
             },
-            function() { /* silencioso */ },
-            { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 }
+            function(e) { console.warn('[RotaPosto] watch erro:', e.code); },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 60000 }
           );
         }
       },
       function(err) {
-        console.warn('[RotaPosto] Geo erro:', err.code, err.message);
-        if (!_geoJaObtida) {
-          // Tentar com baixa precisão como fallback
+        console.warn('[RotaPosto] GPS erro:', err.code, err.message);
+        if (err.code === 1) {
+          // PERMISSION_DENIED — mostrar mensagem clara
+          var ov = document.getElementById('geo-loading-overlay');
+          if (ov) ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
+            + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
+            + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Permissão negada</div>'
+            + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Para usar sua localização real, ative nas configurações do Android: <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
+            + '<button onclick="_usarSPPadrao()" style="padding:12px 28px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">Usar São Paulo por enquanto</button>'
+            + '</div>';
+          if (!temCache) { userLat = -23.5505; userLng = -46.6333; }
+        } else {
+          // TIMEOUT ou POSITION_UNAVAILABLE — fallback baixa precisão
           navigator.geolocation.getCurrentPosition(
-            function(pos) { _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true); },
-            function() { _aplicarLocalizacao(userLat, userLng, true); },
-            { timeout: 10000, maximumAge: 60000, enableHighAccuracy: false }
+            function(pos) { _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true); },
+            function() {
+              // Último recurso: usar cache ou SP padrão
+              if (!temCache) _usarSPPadrao();
+              else _aplicarLocalizacao(cLat, cLng, true, false);
+            },
+            { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
           );
         }
       },
-      { timeout: 10000, maximumAge: 30000, enableHighAccuracy: true }
+      { timeout: 15000, maximumAge: 0, enableHighAccuracy: true }
     );
   }
 
-  function _haversineFast(lat1, lng1, lat2, lng2) {
-    var R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
-    var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  }
-
-  function _aplicarLocalizacao(lat, lng, recarregarPostos) {
+  // lat, lng = coordenadas | recarregarPostos = buscar postos novamente | gpsReal = veio do GPS (não cache)
+  function _aplicarLocalizacao(lat, lng, recarregarPostos, gpsReal) {
     _geoJaObtida = true;
+    if (gpsReal) _geoGPSConfirmado = true;
     userLat = lat;
     userLng = lng;
 
-    // Salvar no cache local
-    localStorage.setItem('rp_lat', String(lat));
-    localStorage.setItem('rp_lng', String(lng));
-    localStorage.setItem('rp_loc_ts', String(Date.now()));
+    // Salvar cache só se GPS real
+    if (gpsReal) {
+      localStorage.setItem('rp_lat', String(lat));
+      localStorage.setItem('rp_lng', String(lng));
+      localStorage.setItem('rp_loc_ts', String(Date.now()));
+    }
 
-    // Limpar overlay de carregando se existir
+    // Remover overlay de loading
     var overlay = document.getElementById('geo-loading-overlay');
     if (overlay) overlay.remove();
 
     if (!mapMain) {
       initMapMain();
     } else {
-      mapMain.setView([lat, lng], 14);
+      // Suavemente mover mapa para nova posição
+      mapMain.setView([lat, lng], 14, { animate: true });
+      // Atualizar marcador do usuário
+      mapMain.eachLayer(function(l) {
+        if (l._isUserMarker) { mapMain.removeLayer(l); }
+      });
+      var userIcon = L.divIcon({
+        className: '',
+        html: '<div style="width:16px;height:16px;border-radius:50%;background:#1565C0;border:3px solid white;box-shadow:0 0 0 6px rgba(21,101,192,0.2)"></div>',
+        iconSize: [16,16], iconAnchor: [8,8]
+      });
+      var m = L.marker([lat, lng], { icon: userIcon }).addTo(mapMain);
+      m._isUserMarker = true;
       if (recarregarPostos) loadPostos();
     }
   }
