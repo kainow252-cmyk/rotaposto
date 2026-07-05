@@ -1165,6 +1165,10 @@ export function getAppHTML(firebaseScripts: string): string {
       transition: color 0.2s;
     }
     .nav-item svg { width: 22px; height: 22px; }
+    .nav-item .nav-label { display: none; }        /* só Melhor tem label */
+    .nav-item#nav-melhor .nav-label { display: block; font-size: 9px; font-weight: 700; color: inherit; }
+    .nav-icon-only { gap: 0; }                      /* sem espaço extra ícone puro */
+    .nav-icon-only svg { width: 25px; height: 25px; }
     .nav-item.active { color: var(--orange); }
 
     /* ══════════════════════════════════════════════
@@ -1172,22 +1176,24 @@ export function getAppHTML(firebaseScripts: string): string {
     ══════════════════════════════════════════════ */
     #btn-sos-float {
       position: fixed;
-      bottom: calc(var(--sab) + var(--nav-h) + 16px);
+      top: 50%;
       right: 16px;
+      transform: translateY(-50%);
+      bottom: auto;
       z-index: 400;
       width: 56px; height: 56px;
       background: #D32F2F;
       color: #fff;
       border: none; border-radius: 50%;
       font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
-      cursor: grab;
+      cursor: pointer;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-      box-shadow: 0 4px 16px rgba(211,47,47,0.45);
+      box-shadow: 0 4px 20px rgba(211,47,47,0.50);
       transition: transform 0.15s, box-shadow 0.15s;
-      touch-action: none;
+      touch-action: manipulation;
       user-select: none;
     }
-    #btn-sos-float:active { transform: scale(0.93); }
+    #btn-sos-float:active { transform: translateY(-50%) scale(0.93); }
     #btn-sos-float.dragging { cursor: grabbing; box-shadow: 0 8px 24px rgba(211,47,47,0.55); transform: scale(1.08); }
     #btn-sos-float svg { width: 20px; height: 20px; stroke: #fff; fill: none; pointer-events: none; }
 
@@ -1730,25 +1736,23 @@ export function getAppHTML(firebaseScripts: string): string {
   </button>
 
   <nav id="bottom-nav">
+    <!-- Melhor: único item com label — indica o melhor posto -->
     <button class="nav-item" id="nav-melhor" onclick="goToView('mapa')">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-      Melhor
+      <span class="nav-label">Melhor</span>
     </button>
-    <button class="nav-item" id="nav-lista" onclick="goToView('lista')">
+    <!-- Demais: só ícone -->
+    <button class="nav-item nav-icon-only" id="nav-lista" onclick="goToView('lista')" title="Lista">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      Lista
     </button>
-    <button class="nav-item" id="nav-mapa" onclick="goToView('mapa')">
+    <button class="nav-item nav-icon-only" id="nav-mapa" onclick="goToView('mapa')" title="Mapa">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      Mapa
     </button>
-    <button class="nav-item" id="nav-planejar" onclick="goToView('planejar')">
+    <button class="nav-item nav-icon-only" id="nav-planejar" onclick="goToView('planejar')" title="Planejar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      Planejar
     </button>
-    <button class="nav-item" id="nav-perfil" onclick="goToView('perfil')">
+    <button class="nav-item nav-icon-only" id="nav-perfil" onclick="goToView('perfil')" title="Perfil">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Perfil
     </button>
   </nav>
 
@@ -2011,12 +2015,7 @@ export function getAppHTML(firebaseScripts: string): string {
     const btnSos = document.getElementById('btn-sos-float');
     if (btnSos) {
       btnSos.style.display = viewId === 'sos' ? 'none' : 'flex';
-      // Ajustar posição: sem nav nas telas fullscreen (planejar, detalhes, sos)
-      // Nas telas sem nav bar (planejar, detalhes) o botão fica mais baixo
-      const semNav = viewId === 'planejar' || viewId === 'detalhes';
-      btnSos.style.bottom = semNav
-        ? 'calc(var(--sab) + 16px)'
-        : 'calc(var(--sab) + var(--nav-h) + 16px)';
+      // Posição controlada só pelo CSS (top:50%, right:16px) — não ajustar aqui
     }
 
     // Bottom nav: atualizar ativo
@@ -4563,78 +4562,8 @@ export function getAppHTML(firebaseScripts: string): string {
     // (o app parece ter feito login sozinho sem avisar)
     // Toast removido conforme feedback dos testes
 
-    // ── Drag vertical do botão SOS ─────────────────────────────────────────
-    (function initSosDrag() {
-      var btn = document.getElementById('btn-sos-float');
-      if (!btn) return;
-
-      // Restaurar posição salva
-      var savedBottom = localStorage.getItem('rp_sos_bottom');
-      if (savedBottom) btn.style.bottom = savedBottom + 'px';
-
-      var _sosDragging = false;   // flag ativa DURANTE o drag
-      var _sosWasDragged = false; // flag que persiste até o próximo click
-      var startY = 0;
-      var startBottom = 0;
-
-      function getBottom() {
-        var rect = btn.getBoundingClientRect();
-        return window.innerHeight - rect.bottom;
-      }
-
-      function onStart(e) {
-        _sosDragging = false;
-        _sosWasDragged = false;
-        startY = e.touches ? e.touches[0].clientY : e.clientY;
-        startBottom = getBottom();
-
-        function onMove(ev) {
-          var curY = ev.touches ? ev.touches[0].clientY : ev.clientY;
-          var dy = startY - curY;
-          if (!_sosDragging && Math.abs(dy) > 8) {
-            _sosDragging = true;
-            _sosWasDragged = true;
-            btn.classList.add('dragging');
-          }
-          if (!_sosDragging) return;
-          ev.preventDefault();
-          var newBottom = Math.max(60, Math.min(window.innerHeight - 80, startBottom + dy));
-          btn.style.bottom = newBottom + 'px';
-          btn.style.transition = 'none';
-        }
-
-        function onEnd() {
-          if (_sosDragging) {
-            var curBottom = getBottom();
-            localStorage.setItem('rp_sos_bottom', Math.round(curBottom).toString());
-            btn.classList.remove('dragging');
-            btn.style.transition = '';
-          }
-          _sosDragging = false;
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onEnd);
-          document.removeEventListener('touchmove', onMove);
-          document.removeEventListener('touchend', onEnd);
-        }
-
-        document.addEventListener('mousemove', onMove, { passive: false });
-        document.addEventListener('mouseup', onEnd);
-        document.addEventListener('touchmove', onMove, { passive: false });
-        document.addEventListener('touchend', onEnd);
-      }
-
-      btn.addEventListener('mousedown', onStart);
-      btn.addEventListener('touchstart', onStart, { passive: true });
-
-      // Click só cancela se houve drag real neste toque
-      btn.addEventListener('click', function(e) {
-        if (_sosWasDragged) {
-          e.stopPropagation();
-          e.preventDefault();
-          _sosWasDragged = false; // resetar para próximo toque
-        }
-      }, true);
-    })();
+    // SOS fixo no centro direito via CSS — limpar posição antiga
+    localStorage.removeItem('rp_sos_bottom');
 
     // Verificar se item "Instalar app" deve aparecer no menu
     verificarMenuInstalar();
