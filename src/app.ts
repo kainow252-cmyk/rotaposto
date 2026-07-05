@@ -4774,7 +4774,8 @@ export function getAppHTML(firebaseScripts: string): string {
     var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
     var cAge = Date.now() - cTs;
-    var temCache = !isNaN(cLat) && !isNaN(cLng) && cAge < 5 * 60 * 1000;
+    // Cache válido por 60 min — suficiente para não pedir GPS a cada abertura
+    var temCache = !isNaN(cLat) && !isNaN(cLng) && cAge < 60 * 60 * 1000;
 
     // ── Verificar se GPS foi negado recentemente no onboarding (<30 min) ──
     // Não pedir GPS de novo automaticamente — evita diálogo do Android na hora errada
@@ -4814,7 +4815,7 @@ export function getAppHTML(firebaseScripts: string): string {
     }
 
     // ── PASSO 4: pedir GPS real com alta precisão ──
-    // maximumAge: 0 → NUNCA aceitar cache do sistema, sempre GPS fresco
+    // maximumAge: aceita cache do sistema de até 60s para resposta mais rápida
     navigator.geolocation.getCurrentPosition(
       function(pos) {
         console.log('[RotaPosto] GPS real obtido:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
@@ -4830,7 +4831,7 @@ export function getAppHTML(firebaseScripts: string): string {
               }
             },
             function(e) { console.warn('[RotaPosto] watch erro:', e.code); },
-            { enableHighAccuracy: true, maximumAge: 0, timeout: 60000 }
+            { enableHighAccuracy: true, maximumAge: 60000, timeout: 60000 }
           );
         }
       },
@@ -4838,7 +4839,6 @@ export function getAppHTML(firebaseScripts: string): string {
         console.warn('[RotaPosto] GPS erro:', err.code, err.message);
         if (err.code === 1) {
           // PERMISSION_DENIED — registrar e mostrar APENAS dentro do overlay do mapa
-          // NUNCA usar showToast() para erro de GPS — jamais aparecer sobre outras telas
           localStorage.setItem('rp_geo_denied', String(Date.now()));
           var ov = document.getElementById('geo-loading-overlay');
           if (ov) {
@@ -4849,24 +4849,29 @@ export function getAppHTML(firebaseScripts: string): string {
               + '<button onclick="_usarSPPadrao()" style="padding:12px 28px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">Usar São Paulo por enquanto</button>'
               + '</div>';
           } else {
-            // Sem overlay visível (iniciou com cache) — usar SP padrão silenciosamente
+            // Sem overlay — se não tem cache, usar SP padrão
             if (!temCache) _usarSPPadrao();
           }
           if (!temCache) { userLat = -23.5505; userLng = -46.6333; }
         } else {
-          // TIMEOUT ou POSITION_UNAVAILABLE — fallback baixa precisão
-          navigator.geolocation.getCurrentPosition(
-            function(pos) { _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true); },
-            function() {
-              // Último recurso: usar cache ou SP padrão
-              if (!temCache) _usarSPPadrao();
-              else _aplicarLocalizacao(cLat, cLng, true, false);
-            },
-            { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
-          );
+          // TIMEOUT ou POSITION_UNAVAILABLE
+          if (temCache) {
+            // Tem cache válido → usar cache, não cair em SP
+            _aplicarLocalizacao(cLat, cLng, true, false);
+          } else {
+            // Sem cache → tentar de novo com baixa precisão (mais rápido)
+            navigator.geolocation.getCurrentPosition(
+              function(pos) { _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true); },
+              function() {
+                // Último recurso: SP padrão
+                _usarSPPadrao();
+              },
+              { timeout: 20000, maximumAge: 600000, enableHighAccuracy: false }
+            );
+          }
         }
       },
-      { timeout: 15000, maximumAge: 0, enableHighAccuracy: true }
+      { timeout: 20000, maximumAge: 60000, enableHighAccuracy: true }
     );
   }
 
