@@ -3061,7 +3061,7 @@ export function getAppHTML(firebaseScripts: string): string {
         + '<span style="font-size:14px;">✅</span>'
         + '<div style="font-size:12px;color:#1A6B35;line-height:1.4;">'
         + '<b>Atualização via Agência Nacional do Petróleo, Gás Natural e Biocombustíveis</b>'
-        + (semanaANP ? '<br><span style="opacity:.8">Semana ' + semanaANP + '</span>' : '')
+        + ''
         + '</div>'
         + '</div>';
     } else if (todosIguais) {
