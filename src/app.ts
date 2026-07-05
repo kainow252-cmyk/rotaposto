@@ -4783,7 +4783,8 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function _usarSPPadrao() {
-    // -23.5505, -46.6333 = centro de SP
+    // -23.5505, -46.6333 = centro de SP (só fallback, nunca salva no cache)
+    console.warn('[GPS] Usando SP como fallback — GPS não disponível');
     _aplicarLocalizacao(-23.5505, -46.6333, true, false);
   }
 
@@ -4817,8 +4818,14 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // ── Verificar se GPS foi negado recentemente no onboarding (<30 min) ──
     // Não pedir GPS de novo automaticamente — evita diálogo do Android na hora errada
-    var geoDeniedTs = parseInt(localStorage.getItem('rp_geo_denied') || '0');
-    // No browser (não-TWA), não bloquear GPS pelo flag — usuário pode ter negado no app mas não no browser
+    var geoDeniedRaw = localStorage.getItem('rp_geo_denied') || '0';
+    var geoDeniedTs = parseInt(geoDeniedRaw);
+    // Limpar flag legado (valor '1' fixo — sem timestamp real)
+    if (geoDeniedRaw === '1') {
+      localStorage.removeItem('rp_geo_denied');
+      geoDeniedTs = 0;
+    }
+    // No browser (não-TWA), ignorar flag — contextos diferentes de permissão
     var isTWA = document.referrer.includes('android-app://') || navigator.userAgent.includes('wv');
     var geoDeniedRecente = isTWA && geoDeniedTs > 1 && (Date.now() - geoDeniedTs) < 30 * 60 * 1000;
 
@@ -4865,13 +4872,16 @@ export function getAppHTML(firebaseScripts: string): string {
     // ── PASSO 4: mostrar overlay se não tem cache ──
     if (!temCache) {
       _mostrarOverlayGPS();
-      // Timeout de segurança: se GPS não responder em 12s, usar SP (evita tela travada no browser)
+      // Timeout de segurança: se GPS não responder em 15s, usar SP (evita tela travada no browser)
       setTimeout(function() {
         if (!_geoJaObtida) {
           console.warn('[GPS] Timeout de segurança — usando SP padrão');
+          // Atualizar overlay com mensagem
+          var ov = document.getElementById('geo-loading-overlay');
+          if (ov) ov.querySelector('div:last-child') && (ov.querySelector('div + div') as HTMLElement)?.style && ((ov.querySelector('div + div') as HTMLElement).textContent = 'Buscando sua localização...');
           _usarSPPadrao();
         }
-      }, 12000);
+      }, 15000);
     } else {
       // Tem cache → iniciar mapa imediatamente
       initMapMain();
