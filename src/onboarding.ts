@@ -82,7 +82,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       position: relative; z-index: 1;
       width: 100%; padding: 0 32px;
       padding-top: calc(var(--sat) + 40px);
-      padding-bottom: calc(var(--sab) + 32px);
+      padding-bottom: calc(var(--sab) + 48px);
       display: flex; flex-direction: column;
       align-items: center;
       flex: 1;
@@ -121,7 +121,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     /* Bloco inferior: botões */
     #splash-btns {
       width: 100%;
-      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      display: flex; flex-direction: column; align-items: center; gap: 0;
     }
 
     .btn-splash-primary {
@@ -133,15 +133,23 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       cursor: pointer;
       transition: opacity 0.2s;
       box-shadow: 0 4px 20px rgba(255,109,0,0.4);
+      margin-bottom: 4px;
     }
     .btn-splash-primary:active { opacity: 0.85; }
 
     .btn-splash-ghost {
-      background: none; border: none;
-      color: rgba(255,255,255,0.75);
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.8);
       font-family: 'Inter', sans-serif;
-      font-size: 15px; font-weight: 500;
-      cursor: pointer; padding: 8px;
+      font-size: 15px; font-weight: 600;
+      cursor: pointer;
+      padding: 14px 32px;
+      min-height: 52px;
+      display: flex; align-items: center; justify-content: center;
+      text-decoration: underline;
+      text-decoration-color: rgba(255,255,255,0.35);
+      text-underline-offset: 3px;
     }
 
     /* ══════════════════════════════════════════════
