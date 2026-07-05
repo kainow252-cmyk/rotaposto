@@ -98,13 +98,20 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       padding-bottom: 24px;
     }
 
-    /* Logo completo (imagem substitui ícone + nome) */
-    #splash-logo-img {
+    /* Wrapper que clipar os cantos brancos do PNG */
+    #splash-logo-wrap-img {
       width: 280px;
       max-width: 78vw;
-      height: auto;
+      border-radius: 34px;
+      overflow: hidden;        /* corta os pixels brancos dos cantos */
       margin-bottom: 24px;
-      border-radius: 32px;
+      display: block;
+      line-height: 0;          /* elimina gap inline sob a imagem */
+      flex-shrink: 0;
+    }
+    #splash-logo-img {
+      width: 100%;
+      height: auto;
       display: block;
     }
 
@@ -555,7 +562,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     <div id="splash-bg"></div>
     <div id="splash-content">
       <div id="splash-logo-wrap">
-        <img id="splash-logo-img" src="/icons/logo-splash.png" alt="RotaPosto" />
+        <div id="splash-logo-wrap-img"><img id="splash-logo-img" src="/icons/logo-splash.png" alt="RotaPosto" /></div>
         <p id="splash-sub">O caminho mais inteligente<br/>para economizar combustível</p>
       </div>
 
