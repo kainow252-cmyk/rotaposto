@@ -3213,7 +3213,7 @@ export function getAppHTML(firebaseScripts: string): string {
     ].filter(function(f) { return f[1]; });
 
     var fonteLabel = isReal
-      ? '<div style="font-size:10px;color:#1565C0;margin-top:8px;">✅ Preço atualizado via ANP' + (semanaANP ? ' · semana ' + semanaANP : '') + '</div>'
+      ? '<div style="font-size:10px;color:#1565C0;margin-top:8px;">✅ Preço atualizado via ANP</div>'
       : isColab
         ? '<div style="font-size:10px;color:#00A651;margin-top:8px;">👥 Preço informado por usuário</div>'
         : '<div style="font-size:10px;color:#FFA000;margin-top:8px;">~ Média municipal ANP · pode variar</div>';
