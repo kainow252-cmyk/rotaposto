@@ -4825,9 +4825,27 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function _usarSPPadrao() {
-    // -23.5505, -46.6333 = centro de SP (só fallback, nunca salva no cache)
-    console.warn('[GPS] Usando SP como fallback — GPS não disponível');
-    _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+    // Antes de usar SP hardcoded, tentar localização por IP (mais preciso)
+    console.warn('[GPS] GPS indisponível — tentando GeoIP como fallback...');
+    fetch('/api/geoip')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d && d.lat && d.lng && !d.fallback) {
+          console.log('[GPS] GeoIP ok:', d.cidade, d.estado, d.lat, d.lng, '(', d.fonte, ')');
+          // GeoIP retornou cidade real — usar, mas NÃO salvar no cache (não é GPS preciso)
+          _aplicarLocalizacao(d.lat, d.lng, true, false);
+          // Mostrar toast informando qual cidade foi detectada
+          var nomeLoc = d.cidade ? (d.cidade + (d.estado ? ' - ' + d.estado : '')) : 'sua região';
+          showToast('📡 Localização aproximada: ' + nomeLoc, 4000);
+        } else {
+          console.warn('[GPS] GeoIP retornou fallback → usando SP padrão');
+          _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+        }
+      })
+      .catch(function(e) {
+        console.warn('[GPS] GeoIP falhou:', e, '→ usando SP padrão');
+        _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+      });
   }
 
   function _forcarGPS() {
@@ -4987,16 +5005,18 @@ export function getAppHTML(firebaseScripts: string): string {
     // ── PASSO 4: mostrar overlay se não tem cache ──
     if (!temCache) {
       _mostrarOverlayGPS();
-      // Timeout de segurança: se GPS não responder em 15s, usar SP (evita tela travada no browser)
+      // Timeout de segurança: se GPS não responder em 25s, tentar GeoIP e depois SP
       setTimeout(function() {
         if (!_geoJaObtida) {
-          console.warn('[GPS] Timeout de segurança — usando SP padrão');
-          // Atualizar overlay com mensagem
+          console.warn('[GPS] Timeout de segurança — tentando GeoIP antes de usar SP');
           var ov = document.getElementById('geo-loading-overlay');
-          if (ov) { var _el = ov.querySelector('div + div'); if (_el) _el.textContent = 'Buscando sua localização...'; }
+          if (ov) {
+            var _el = ov.querySelector('div:nth-child(2)');
+            if (_el) _el.textContent = 'Detectando pela rede…';
+          }
           _usarSPPadrao();
         }
-      }, 15000);
+      }, 25000);
     } else {
       // Tem cache → iniciar mapa imediatamente
       initMapMain();
@@ -5065,19 +5085,17 @@ export function getAppHTML(firebaseScripts: string): string {
               console.log('[GPS] usando cache como fallback');
               _aplicarLocalizacao(cLat, cLng, true, false);
             } else {
-              // Mostrar botão de retry no overlay antes de ir para SP
-              var ov = document.getElementById('geo-loading-overlay');
-              if (ov) {
-                ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
-                  + '<div style="font-size:36px;margin-bottom:12px;">📡</div>'
-                  + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">GPS indisponível</div>'
-                  + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Verifique se a localização está ativa nas configurações do Android e tente novamente.</div>'
-                  + '<button onclick="_forcarGPS()" style="padding:10px 24px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px;">Tentar novamente</button>'
-                  + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#eee;color:#666;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">Continuar sem localização</button>'
+              // GPS falhou em tudo — tentar GeoIP automaticamente
+              var ov2 = document.getElementById('geo-loading-overlay');
+              if (ov2) {
+                ov2.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
+                  + '<div style="width:36px;height:36px;border:3px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin360 0.8s linear infinite;margin-bottom:14px;"></div>'
+                  + '<div style="font-size:14px;color:#444;font-weight:700;margin-bottom:6px;">GPS indisponível</div>'
+                  + '<div style="font-size:12px;color:#999;">Detectando localização pela rede…</div>'
                   + '</div>';
-              } else {
-                _usarSPPadrao();
               }
+              // Chamar GeoIP — vai resolver o overlay internamente via _aplicarLocalizacao
+              _usarSPPadrao();
             }
           },
           { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
