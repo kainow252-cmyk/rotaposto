@@ -1,12 +1,12 @@
-// RotaPosto Service Worker v15.0
+// RotaPosto Service Worker v16.0
 // v15: ASSETS sempre network-first — garante sincronização em tempo real no TWA
 //      Toda mudança de código/imagem é refletida imediatamente sem precisar de reset
 //      _worker.js NUNCA entra em cache
 //      SW se auto-atualiza silenciosamente a cada abertura
 
-const VERSION = 'v15.0';
-const CACHE_STATIC = 'rp-static-v15';
-const CACHE_API    = 'rp-api-v15';
+const VERSION = 'v16.0';
+const CACHE_STATIC = 'rp-static-v16';
+const CACHE_API    = 'rp-api-v16';
 
 // Apenas pré-cacheia ícones do manifest (necessários offline)
 const PRECACHE = [
