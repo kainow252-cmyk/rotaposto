@@ -4825,17 +4825,31 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function _usarSPPadrao() {
+    // Verificar se já temos cache GeoIP recente (<10 min) para não chamar API repetidamente
+    var geoipTs = parseInt(localStorage.getItem('rp_geoip_ts') || '0');
+    var geoipLat = parseFloat(localStorage.getItem('rp_geoip_lat') || '');
+    var geoipLng = parseFloat(localStorage.getItem('rp_geoip_lng') || '');
+    var geoipIdade = Date.now() - geoipTs;
+    if (!isNaN(geoipLat) && !isNaN(geoipLng) && geoipIdade < 10 * 60 * 1000) {
+      console.log('[GPS] Usando cache GeoIP (' + Math.round(geoipIdade/60000) + 'min atrás)');
+      _aplicarLocalizacao(geoipLat, geoipLng, true, false);
+      return;
+    }
+
     // Antes de usar SP hardcoded, tentar localização por IP (mais preciso)
     console.warn('[GPS] GPS indisponível — tentando GeoIP como fallback...');
     fetch('/api/geoip')
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d && d.lat && d.lng && !d.fallback) {
-          console.log('[GPS] GeoIP ok:', d.cidade, d.estado, d.lat, d.lng, '(', d.fonte, ')');
-          // GeoIP retornou cidade real — usar, mas NÃO salvar no cache (não é GPS preciso)
+          console.log('[GPS] GeoIP ✅:', d.cidade, d.estado, d.lat, d.lng, '(', d.fonte, ')');
+          // Salvar cache GeoIP por 10 min (menos preciso que GPS, mas melhor que SP fixo)
+          localStorage.setItem('rp_geoip_lat', String(d.lat));
+          localStorage.setItem('rp_geoip_lng', String(d.lng));
+          localStorage.setItem('rp_geoip_ts', String(Date.now()));
           _aplicarLocalizacao(d.lat, d.lng, true, false);
           // Mostrar toast informando qual cidade foi detectada
-          var nomeLoc = d.cidade ? (d.cidade + (d.estado ? ' - ' + d.estado : '')) : 'sua região';
+          var nomeLoc = d.cidade ? (d.cidade + (d.estado ? ' — ' + d.estado : '')) : 'sua região';
           showToast('📡 Localização aproximada: ' + nomeLoc, 4000);
         } else {
           console.warn('[GPS] GeoIP retornou fallback → usando SP padrão');
@@ -5027,14 +5041,13 @@ export function getAppHTML(firebaseScripts: string): string {
 
   // ── Pede GPS real (extraído para ser reusado pelo Permissions API check) ──
   function _pedirGPSReal(temCache, cLat, cLng) {
-    // Estratégia: tentar alta precisão com cache recente (5min) para resposta rápida
-    // Se timeout, cai para baixa precisão imediatamente sem travar
     var _gpsConcluido = false;
 
+    // Sucesso: aplicar localização e iniciar watchPosition
     function _onSuccess(pos) {
       if (_gpsConcluido) return;
       _gpsConcluido = true;
-      console.log('[GPS] obtido:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
+      console.log('[GPS] ✅ obtido:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
       _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
       // watchPosition — atualiza se mover >50m
       if (_geoWatchId === null) {
@@ -5049,11 +5062,32 @@ export function getAppHTML(firebaseScripts: string): string {
       }
     }
 
+    // Fallback final: usar cache se disponível, senão GeoIP → SP
+    function _falharParaFallback(motivo) {
+      console.warn('[GPS] ❌ ' + motivo + ' — usando fallback');
+      if (temCache) {
+        console.log('[GPS] usando cache como fallback (age ~' + Math.round((Date.now()-parseInt(localStorage.getItem('rp_loc_ts')||'0'))/60000) + 'min)');
+        _aplicarLocalizacao(cLat, cLng, true, false);
+      } else {
+        // Mostrar "detectando pela rede" no overlay se ainda visível
+        var ov2 = document.getElementById('geo-loading-overlay');
+        if (ov2) {
+          ov2.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
+            + '<div style="width:36px;height:36px;border:3px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin360 0.8s linear infinite;margin-bottom:14px;"></div>'
+            + '<div style="font-size:14px;color:#444;font-weight:700;margin-bottom:6px;">GPS indisponível</div>'
+            + '<div style="font-size:12px;color:#999;">Detectando localização pela rede…</div>'
+            + '</div>';
+        }
+        _usarSPPadrao(); // tenta GeoIP antes de SP
+      }
+    }
+
     function _onError(err) {
       if (_gpsConcluido) return;
-      console.warn('[GPS] erro:', err.code, err.message);
+      console.warn('[GPS] ⚠️ erro código', err.code, ':', err.message);
+
       if (err.code === 1) {
-        // PERMISSION_DENIED
+        // PERMISSION_DENIED — mostrar overlay de permissão e usar GeoIP para o mapa
         _gpsConcluido = true;
         localStorage.setItem('rp_geo_denied', String(Date.now()));
         var ov = document.getElementById('geo-loading-overlay');
@@ -5062,45 +5096,30 @@ export function getAppHTML(firebaseScripts: string): string {
             + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
             + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Localização não autorizada</div>'
             + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Ative em <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
-            + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#eee;color:#666;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">Continuar sem localização</button>'
+            + '<button onclick="_forcarGPS()" style="padding:10px 24px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px;">Tentar novamente</button>'
+            + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#eee;color:#666;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">Usar localização aproximada</button>'
             + '</div>';
-        } else if (!temCache) {
-          _usarSPPadrao();
+        } else {
+          // Sem overlay → usar GeoIP silenciosamente
+          _falharParaFallback('PERMISSION_DENIED sem overlay');
         }
-        if (!temCache) { userLat = -23.5505; userLng = -46.6333; }
-      } else {
-        // TIMEOUT (code 3) ou POSITION_UNAVAILABLE (code 2)
-        // Tentar baixa precisão imediatamente — mais rápido, usa rede/WiFi/torre celular
-        _gpsConcluido = true;
-        console.warn('[GPS] Tentando baixa precisão (rede/WiFi)...');
-        navigator.geolocation.getCurrentPosition(
-          function(pos) {
-            console.log('[GPS] baixa precisão ok:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
-            _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
-          },
-          function(err2) {
-            console.warn('[GPS] baixa precisão também falhou. code:', err2.code, err2.message);
-            // Falhou tudo: usar cache se tiver, senão SP
-            if (temCache) {
-              console.log('[GPS] usando cache como fallback');
-              _aplicarLocalizacao(cLat, cLng, true, false);
-            } else {
-              // GPS falhou em tudo — tentar GeoIP automaticamente
-              var ov2 = document.getElementById('geo-loading-overlay');
-              if (ov2) {
-                ov2.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
-                  + '<div style="width:36px;height:36px;border:3px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin360 0.8s linear infinite;margin-bottom:14px;"></div>'
-                  + '<div style="font-size:14px;color:#444;font-weight:700;margin-bottom:6px;">GPS indisponível</div>'
-                  + '<div style="font-size:12px;color:#999;">Detectando localização pela rede…</div>'
-                  + '</div>';
-              }
-              // Chamar GeoIP — vai resolver o overlay internamente via _aplicarLocalizacao
-              _usarSPPadrao();
-            }
-          },
-          { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
-        );
+        return;
       }
+
+      // TIMEOUT (3) ou POSITION_UNAVAILABLE (2) → tentar baixa precisão (rede/WiFi/torre)
+      _gpsConcluido = true;
+      console.warn('[GPS] Tentando baixa precisão (rede/WiFi/torre celular)...');
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          console.log('[GPS] ✅ baixa precisão ok:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
+          _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+        },
+        function(err2) {
+          console.warn('[GPS] ❌ baixa precisão falhou. code:', err2.code);
+          _falharParaFallback('GPS alta+baixa precisão falharam');
+        },
+        { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
+      );
     }
 
     // 1ª tentativa: alta precisão, aceita cache de até 5 min, timeout 10s
@@ -5122,6 +5141,10 @@ export function getAppHTML(firebaseScripts: string): string {
       localStorage.setItem('rp_lat', String(lat));
       localStorage.setItem('rp_lng', String(lng));
       localStorage.setItem('rp_loc_ts', String(Date.now()));
+      // GPS real obtido → limpar cache GeoIP (não precisamos mais dele)
+      localStorage.removeItem('rp_geoip_lat');
+      localStorage.removeItem('rp_geoip_lng');
+      localStorage.removeItem('rp_geoip_ts');
     } else if (ehSPPadrao) {
       // Limpar cache de SP para forçar GPS real na próxima abertura
       localStorage.removeItem('rp_lat');
