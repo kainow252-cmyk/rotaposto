@@ -4873,63 +4873,69 @@ export function getAppHTML(firebaseScripts: string): string {
 
   // ── Pede GPS real (extraído para ser reusado pelo Permissions API check) ──
   function _pedirGPSReal(temCache, cLat, cLng) {
-    // maximumAge: 0 = nunca usar cache do SO — sempre posição fresca
-    navigator.geolocation.getCurrentPosition(
-      function(pos) {
-        console.log('[RotaPosto] GPS real obtido:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
-        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+    // Estratégia: tentar alta precisão com cache recente (5min) para resposta rápida
+    // Se timeout, cai para baixa precisão imediatamente sem travar
+    var _gpsConcluido = false;
 
-        // ── PASSO 5: watchPosition — atualiza se mover >50m ──
-        if (_geoWatchId === null) {
-          _geoWatchId = navigator.geolocation.watchPosition(
-            function(wp) {
-              var d = _haversineFast(userLat, userLng, wp.coords.latitude, wp.coords.longitude);
-              if (d > 0.05) { // >50m
-                _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, d > 0.5, true);
-              }
-            },
-            function(e) { console.warn('[RotaPosto] watch erro:', e.code); },
-            { enableHighAccuracy: true, maximumAge: 60000, timeout: 60000 }
-          );
+    function _onSuccess(pos) {
+      if (_gpsConcluido) return;
+      _gpsConcluido = true;
+      console.log('[GPS] obtido:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
+      _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+      // watchPosition — atualiza se mover >50m
+      if (_geoWatchId === null) {
+        _geoWatchId = navigator.geolocation.watchPosition(
+          function(wp) {
+            var d = _haversineFast(userLat, userLng, wp.coords.latitude, wp.coords.longitude);
+            if (d > 0.05) _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, d > 0.5, true);
+          },
+          function(e) { console.warn('[GPS] watch erro:', e.code); },
+          { enableHighAccuracy: true, maximumAge: 30000, timeout: 60000 }
+        );
+      }
+    }
+
+    function _onError(err) {
+      if (_gpsConcluido) return;
+      console.warn('[GPS] erro:', err.code, err.message);
+      if (err.code === 1) {
+        // PERMISSION_DENIED
+        _gpsConcluido = true;
+        localStorage.setItem('rp_geo_denied', String(Date.now()));
+        var ov = document.getElementById('geo-loading-overlay');
+        if (ov) {
+          ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
+            + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
+            + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Localização não autorizada</div>'
+            + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Ative em <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
+            + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#eee;color:#666;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">Continuar sem localização</button>'
+            + '</div>';
+        } else if (!temCache) {
+          _usarSPPadrao();
         }
-      },
-      function(err) {
-        console.warn('[RotaPosto] GPS erro:', err.code, err.message);
-        if (err.code === 1) {
-          // PERMISSION_DENIED — registrar e mostrar APENAS dentro do overlay do mapa
-          localStorage.setItem('rp_geo_denied', String(Date.now()));
-          var ov = document.getElementById('geo-loading-overlay');
-          if (ov) {
-            ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
-              + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
-              + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Localização não autorizada</div>'
-              + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Para ver postos próximos, ative nas configurações: <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
-              + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#eee;color:#666;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">Continuar sem localização</button>'
-              + '</div>';
-          } else {
-            // Sem overlay — se não tem cache, usar SP padrão
-            if (!temCache) _usarSPPadrao();
-          }
-          if (!temCache) { userLat = -23.5505; userLng = -46.6333; }
-        } else {
-          // TIMEOUT ou POSITION_UNAVAILABLE
-          if (temCache) {
-            // Tem cache válido → usar cache, não cair em SP
-            _aplicarLocalizacao(cLat, cLng, true, false);
-          } else {
-            // Sem cache → tentar de novo com baixa precisão (mais rápido)
-            navigator.geolocation.getCurrentPosition(
-              function(pos) { _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true); },
-              function() {
-                // Último recurso: SP padrão
-                _usarSPPadrao();
-              },
-              { timeout: 20000, maximumAge: 600000, enableHighAccuracy: false }
-            );
-          }
-        }
-      },
-      { timeout: 25000, maximumAge: 0, enableHighAccuracy: true }
+        if (!temCache) { userLat = -23.5505; userLng = -46.6333; }
+      } else {
+        // TIMEOUT (code 3) ou POSITION_UNAVAILABLE (code 2)
+        // Tentar baixa precisão imediatamente — mais rápido, usa rede/WiFi
+        _gpsConcluido = true;
+        navigator.geolocation.getCurrentPosition(
+          function(pos) { _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true); },
+          function() {
+            // Falhou tudo: usar cache se tiver, senão SP
+            if (temCache) {
+              _aplicarLocalizacao(cLat, cLng, true, false);
+            } else {
+              _usarSPPadrao();
+            }
+          },
+          { timeout: 10000, maximumAge: 300000, enableHighAccuracy: false }
+        );
+      }
+    }
+
+    // 1ª tentativa: alta precisão, aceita cache de até 5 min, timeout 10s
+    navigator.geolocation.getCurrentPosition(_onSuccess, _onError,
+      { timeout: 10000, maximumAge: 300000, enableHighAccuracy: true }
     );
   }
 
