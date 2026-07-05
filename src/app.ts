@@ -10,7 +10,7 @@ export function getAppHTML(firebaseScripts: string): string {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
-  <meta name="theme-color" content="#FFFFFF"/>
+  <meta name="theme-color" content="#FF6D00"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
@@ -58,6 +58,7 @@ export function getAppHTML(firebaseScripts: string): string {
 
     html, body {
       width: 100%; height: 100%;
+      background: #F5F5F5;
       font-family: 'Roboto', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--gray-bg);
       overflow: hidden;
@@ -1383,6 +1384,15 @@ export function getAppHTML(firebaseScripts: string): string {
   </style>
 </head>
 <body>
+<!-- Splash de carregamento — some quando o JS inicializa -->
+<div id="app-splash" style="position:fixed;inset:0;z-index:99999;background:#0B121E;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s;">
+  <img src="/icons/icon-192x192.png" style="width:80px;height:80px;border-radius:20px;margin-bottom:18px;" onerror="this.style.display='none'"/>
+  <div style="color:#fff;font-size:24px;font-weight:800;">Rota<span style="color:#FF6D00;">Posto</span></div>
+  <div style="margin-top:24px;width:160px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
+    <div style="height:100%;background:#FF6D00;border-radius:2px;animation:splashprog 1.8s ease-out forwards;"></div>
+  </div>
+  <style>@keyframes splashprog{from{width:0%}to{width:100%}}</style>
+</div>
 <div id="app-root">
 
   <!-- ══════════════════════════════════
@@ -4664,6 +4674,13 @@ export function getAppHTML(firebaseScripts: string): string {
       // Atualizar também o div da inicial com a letra correta
       const inicialEl = document.getElementById('perfil-avatar-inicial');
       if (inicialEl) inicialEl.textContent = nome.charAt(0).toUpperCase();
+    }
+
+    // Remover splash de carregamento
+    var splash = document.getElementById('app-splash');
+    if (splash) {
+      splash.style.opacity = '0';
+      setTimeout(function() { if (splash && splash.parentNode) splash.parentNode.removeChild(splash); }, 450);
     }
 
     // Iniciar na view mapa (com header)
