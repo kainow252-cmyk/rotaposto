@@ -4940,102 +4940,102 @@ export function getAppHTML(firebaseScripts: string): string {
     var _diagIsTWA = document.referrer.includes('android-app://') || navigator.userAgent.includes('wv');
     var _diagStandalone = window.matchMedia('(display-mode: standalone)').matches;
     console.log('[GPS init] isTWA:', _diagIsTWA, '| standalone:', _diagStandalone, '| referrer:', document.referrer || '(vazio)');
-    console.log('[GPS init] geoloc suporte:', !!navigator.geolocation, '| UA:', navigator.userAgent.substring(0, 100));
 
-    // ── LIMPEZA PREVENTIVA: remover cache de SP padrão salvo por versões antigas ──
-    var _cleanLat = parseFloat(localStorage.getItem('rp_lat') || '');
-    var _cleanLng = parseFloat(localStorage.getItem('rp_lng') || '');
-    if (!isNaN(_cleanLat) && !isNaN(_cleanLng) &&
-        Math.abs(_cleanLat - (-23.5505)) < 0.001 && Math.abs(_cleanLng - (-46.6333)) < 0.001) {
+    // ── Limpar flag geo_denied legado (valor '1' fixo — sem timestamp) ──
+    var geoDeniedRaw = localStorage.getItem('rp_geo_denied') || '0';
+    if (geoDeniedRaw === '1') {
+      localStorage.removeItem('rp_geo_denied');
+      console.log('[GPS] Flag rp_geo_denied legado removido');
+    }
+
+    // ── LIMPEZA PREVENTIVA: remover cache de SP padrão ──
+    var _cLat0 = parseFloat(localStorage.getItem('rp_lat') || '');
+    var _cLng0 = parseFloat(localStorage.getItem('rp_lng') || '');
+    if (!isNaN(_cLat0) && !isNaN(_cLng0) &&
+        Math.abs(_cLat0 - (-23.5505)) < 0.001 && Math.abs(_cLng0 - (-46.6333)) < 0.001) {
       localStorage.removeItem('rp_lat');
       localStorage.removeItem('rp_lng');
       localStorage.removeItem('rp_loc_ts');
-      console.log('[RotaPosto] Cache de SP padrão removido — forçando GPS real');
     }
 
-    // ── PASSO 1: cache recente (<60 min) → mostrar imediatamente SEM marcar como confirmado ──
+    // ── PASSO 1: verificar cache GPS recente (<60 min) ──
     var cLat = parseFloat(localStorage.getItem('rp_lat') || '');
     var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
-    var cAge = Date.now() - cTs;
-    // Cache válido por 60 min — suficiente para não pedir GPS a cada abertura
-    // IGNORAR cache se forem as coords padrão de São Paulo (provavelmente salvo por engano)
     var isSPPadrao = Math.abs(cLat - (-23.5505)) < 0.001 && Math.abs(cLng - (-46.6333)) < 0.001;
-    var temCache = !isNaN(cLat) && !isNaN(cLng) && cAge < 60 * 60 * 1000 && !isSPPadrao;
-
-    // ── Verificar se GPS foi negado recentemente no onboarding (<30 min) ──
-    // Não pedir GPS de novo automaticamente — evita diálogo do Android na hora errada
-    var geoDeniedRaw = localStorage.getItem('rp_geo_denied') || '0';
-    var geoDeniedTs = parseInt(geoDeniedRaw);
-    // Limpar flag legado (valor '1' fixo — sem timestamp real)
-    if (geoDeniedRaw === '1') {
-      localStorage.removeItem('rp_geo_denied');
-      geoDeniedTs = 0;
-    }
-    // No browser (não-TWA), ignorar flag — contextos diferentes de permissão
-    var isTWA = document.referrer.includes('android-app://') || navigator.userAgent.includes('wv');
-    var geoDeniedRecente = isTWA && geoDeniedTs > 1 && (Date.now() - geoDeniedTs) < 30 * 60 * 1000;
+    var temCache = !isNaN(cLat) && !isNaN(cLng) && (Date.now() - cTs) < 60 * 60 * 1000 && !isSPPadrao;
 
     if (temCache) {
-      // Exibe mapa imediatamente com cache, mas ainda busca GPS real
       userLat = cLat; userLng = cLng;
-      _geoJaObtida = true; // permite renderizar o mapa
-      // NÃO seta _geoGPSConfirmado — ainda vai buscar GPS real
+      _geoJaObtida = true;
+      console.log('[GPS] Cache válido:', cLat, cLng, '(', Math.round((Date.now()-cTs)/60000), 'min atrás)');
     }
 
     // ── PASSO 2: verificar suporte ──
     if (!navigator.geolocation) {
+      console.warn('[GPS] navigator.geolocation não suportado');
       if (!temCache) _usarSPPadrao();
+      else initMapMain();
       return;
     }
 
-    // ── PASSO 3: se GPS foi negado recentemente, checar Permissions API antes de desistir ──
-    if (geoDeniedRecente) {
-      // Verificar via Permissions API se permissão já foi concedida
-      // (usuário pode ter ativado nas configurações do Android depois de negar)
-      if (navigator.permissions) {
-        navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
-          if (result.state === 'granted') {
-            // Permissão concedida! Limpar flag e pedir GPS normalmente
-            console.log('[RotaPosto] Permissions API: geolocation granted — limpando flag e pedindo GPS');
-            localStorage.removeItem('rp_geo_denied');
-            _pedirGPSReal(temCache, cLat, cLng);
+    // ── PASSO 3: verificar permissão via Permissions API (sem pedir ao usuário) ──
+    // Isso evita que o geoDenied block bloqueie desnecessariamente
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+        console.log('[GPS] Permissions API:', result.state);
+        if (result.state === 'denied') {
+          // Permissão definitivamente negada nas config do sistema
+          localStorage.setItem('rp_geo_denied', String(Date.now()));
+          console.warn('[GPS] Permissão negada pelo sistema');
+          if (!temCache) {
+            _mostrarOverlayGPS();
+            var ov = document.getElementById('geo-loading-overlay');
+            if (ov) {
+              ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
+                + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
+                + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Localização não autorizada</div>'
+                + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Ative em <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
+                + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px;">Usar localização aproximada</button>'
+                + '</div>';
+            }
+            _usarSPPadrao(); // GeoIP como fallback
           } else {
-            // Realmente negado
-            console.log('[RotaPosto] GPS negado recentemente e confirmado pela Permissions API:', result.state);
-            if (temCache) { initMapMain(); } else { _usarSPPadrao(); }
+            initMapMain();
           }
-        }).catch(function() {
-          // Permissions API falhou → tentar GPS mesmo assim
-          _pedirGPSReal(temCache, cLat, cLng);
-        });
-      } else {
-        // Sem Permissions API (iOS) → usar cache ou SP
-        if (temCache) { initMapMain(); } else { _usarSPPadrao(); }
-      }
-      return;
+          return;
+        }
+        // 'granted' ou 'prompt' → tentar GPS
+        _iniciarBuscaGPS(temCache, cLat, cLng);
+      }).catch(function() {
+        // Permissions API falhou → tentar GPS mesmo assim
+        _iniciarBuscaGPS(temCache, cLat, cLng);
+      });
+    } else {
+      // Sem Permissions API → tentar GPS diretamente
+      _iniciarBuscaGPS(temCache, cLat, cLng);
     }
+  }
 
-    // ── PASSO 4: mostrar overlay se não tem cache ──
+  function _iniciarBuscaGPS(temCache, cLat, cLng) {
+    // Mostrar overlay se não tem cache
     if (!temCache) {
       _mostrarOverlayGPS();
-      // Timeout de segurança: se GPS não responder em 25s, tentar GeoIP e depois SP
+      // Safety timeout: 25s → GeoIP → SP
       setTimeout(function() {
         if (!_geoJaObtida) {
-          console.warn('[GPS] Timeout de segurança — tentando GeoIP antes de usar SP');
+          console.warn('[GPS] Safety timeout 25s — chamando GeoIP');
           var ov = document.getElementById('geo-loading-overlay');
           if (ov) {
-            var _el = ov.querySelector('div:nth-child(2)');
-            if (_el) _el.textContent = 'Detectando pela rede…';
+            var _sp = ov.querySelector('div:nth-child(2)');
+            if (_sp) _sp.textContent = 'Detectando pela rede…';
           }
           _usarSPPadrao();
         }
       }, 25000);
     } else {
-      // Tem cache → iniciar mapa imediatamente
       initMapMain();
     }
-
     _pedirGPSReal(temCache, cLat, cLng);
   }
 
@@ -5122,7 +5122,30 @@ export function getAppHTML(firebaseScripts: string): string {
       );
     }
 
-    // 1ª tentativa: alta precisão, aceita cache de até 5 min, timeout 10s
+    // Estratégia dupla: getCurrentPosition (rápido) + watchPosition (persiste)
+    // watchPosition continua tentando mesmo com GPS frio — cancela quando obtém ou quando fallback age
+    if (_geoWatchId === null) {
+      _geoWatchId = navigator.geolocation.watchPosition(
+        function(wp) {
+          if (_gpsConcluido) {
+            // Já temos localização mas watchPosition chegou com update — atualizar se moveu
+            var d = _haversineFast(userLat, userLng, wp.coords.latitude, wp.coords.longitude);
+            if (d > 0.05) _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, d > 0.5, true);
+            return;
+          }
+          // Primeira leitura do watchPosition
+          _gpsConcluido = true;
+          console.log('[GPS] watchPosition ✅:', wp.coords.latitude, wp.coords.longitude, 'acc:', wp.coords.accuracy + 'm');
+          _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, true, true);
+        },
+        function(we) {
+          console.warn('[GPS] watchPosition erro:', we.code, '— getCurrentPosition como backup');
+        },
+        { enableHighAccuracy: true, maximumAge: 30000, timeout: 30000 }
+      );
+    }
+
+    // getCurrentPosition como disparo rápido (aceita cache 5min)
     navigator.geolocation.getCurrentPosition(_onSuccess, _onError,
       { timeout: 10000, maximumAge: 300000, enableHighAccuracy: true }
     );
