@@ -2282,41 +2282,63 @@ export function getAppHTML(firebaseScripts: string): string {
       if (layer._isBalloon) mapMain.removeLayer(layer);
     });
 
-    postosData.slice(0, 8).forEach((p, i) => {
+    postosData.slice(0, 20).forEach((p, i) => {
       const preco = p.preco || p.precos?.[selectedFuel];
       if (!preco) return;
 
       const precoFmt = 'R$ ' + preco.toFixed(2).replace('.', ',');
-      const cor = i === 0 ? '#00A651' : (preco > 6.5 ? '#E53935' : '#FF6D00');
+      const isBest = i === 0;
+      const cor = isBest ? '#00A651' : (preco > 6.5 ? '#E53935' : '#FF6D00');
+      const shadow = isBest ? '0 2px 10px rgba(0,166,81,0.5)' : '0 2px 8px rgba(0,0,0,0.25)';
+      const scale = isBest ? 'transform:scale(1.1);transform-origin:center bottom;' : '';
+      const star = isBest ? '⭐ ' : '';
 
       const icon = L.divIcon({
         className: '',
-        html: '<div style="padding:5px 10px;border-radius:6px;background:'+cor+';color:white;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.25);white-space:nowrap;font-family:Inter,sans-serif">'+precoFmt+'</div>',
-        iconSize: [80, 30], iconAnchor: [40, 30]
+        html: '<div style="padding:5px 10px;border-radius:6px;background:'+cor+';color:white;font-size:13px;font-weight:700;box-shadow:'+shadow+';white-space:nowrap;font-family:Inter,sans-serif;'+scale+'">'+star+precoFmt+'</div>',
+        iconSize: [isBest ? 100 : 80, 30], iconAnchor: [isBest ? 50 : 40, 30]
       });
 
       const marker = L.marker([p.lat, p.lng], { icon }).addTo(mapMain);
       marker._isBalloon = true;
+      marker._postoIdx = i;
       marker.on('click', () => {
-        updateMapCard(p);
+        updateMapCard(p, i);
         selectedPosto = p;
       });
     });
   }
 
-  function updateMapCard(p) {
+  function calcTempo(distKm) {
+    if (!distKm) return '-';
+    const mins = Math.round((distKm / 30) * 60);
+    if (mins >= 60) {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return m > 0 ? h + 'h ' + m + 'min' : h + 'h';
+    }
+    return mins + ' min';
+  }
+
+  function updateMapCard(p, idx?) {
     selectedPosto = p;
+    const _idx = idx !== undefined ? idx : postosData.indexOf(p);
     const preco = p.preco || p.precos?.[selectedFuel];
     const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '-';
-    const dist = p.distancia ? p.distancia.toFixed(1) + ' km' : '-';
-    const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '-';
+    const dist = p.distancia ? p.distancia.toFixed(1).replace('.', ',') + ' km' : '-';
+    const tempo = calcTempo(p.distancia);
 
     const logoEl = document.getElementById('map-card-logo');
     const bandInfo = getBandeiraCor(p.bandeira || p.nome);
     logoEl.textContent = bandInfo.emoji;
     logoEl.style.background = bandInfo.bg;
     logoEl.style.borderColor = bandInfo.border;
-    document.getElementById('map-card-nome').textContent = p.nome;
+    const nomeEl = document.getElementById('map-card-nome');
+    nomeEl.textContent = p.nome;
+    nomeEl.style.cursor = 'pointer';
+    nomeEl.style.textDecoration = 'underline';
+    nomeEl.style.textDecorationColor = 'rgba(255,109,0,0.4)';
+    nomeEl.onclick = () => { if (_idx >= 0) openDetalhes(_idx); };
     document.getElementById('map-card-preco').textContent = precoFmt;
     document.getElementById('map-card-dist').textContent = dist + ' • ' + tempo;
     document.getElementById('map-card').style.display = 'block';
@@ -2977,7 +2999,7 @@ export function getAppHTML(firebaseScripts: string): string {
       const preco = p.preco || p.precos?.[selectedFuel];
       const precoFmt = preco ? 'R$&nbsp;' + preco.toFixed(2).replace('.', ',') : '-';
       const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '-';
-      const tempo = p.distancia ? Math.round(p.distancia * 3) + ' min' : '-';
+      const tempo = calcTempo(p.distancia);
       const bandInfo = getBandeiraCor(p.bandeira || p.nome);
       const emoji = bandInfo.emoji;
       const isBest = i === 0;
@@ -3288,25 +3310,89 @@ export function getAppHTML(firebaseScripts: string): string {
     window.open('https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving', '_blank');
   }
 
+  let _searchTimer = null;
+  let _searchDropdownOpen = false;
+
+  // Fechar dropdown de busca ao clicar fora
+  document.addEventListener('pointerdown', (e) => {
+    if (!_searchDropdownOpen) return;
+    const dd = document.getElementById('search-dropdown');
+    const inp = document.getElementById('search-input');
+    if (dd && !dd.contains(e.target as Node) && e.target !== inp) {
+      _fecharDropdownBusca();
+    }
+  });
+
+  function _fecharDropdownBusca() {
+    const dd = document.getElementById('search-dropdown');
+    if (dd) dd.remove();
+    _searchDropdownOpen = false;
+  }
+
   async function onSearchInput(val) {
-    if (val.length < 3) return;
+    clearTimeout(_searchTimer);
+    if (val.length < 2) { _fecharDropdownBusca(); return; }
+    _searchTimer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/geocode?q=' + encodeURIComponent(val));
+        const data = await res.json();
+        if (!data || data.length === 0) { _fecharDropdownBusca(); return; }
+        _fecharDropdownBusca();
+        const inp = document.getElementById('search-input');
+        if (!inp) return;
+        const wrap = inp.parentElement;
+
+        const dd = document.createElement('div');
+        dd.id = 'search-dropdown';
+        dd.style.cssText = 'position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:9999;overflow:hidden;max-height:240px;overflow-y:auto;';
+
+        data.slice(0, 6).forEach(item => {
+          const row = document.createElement('div');
+          row.style.cssText = 'padding:12px 16px;font-size:14px;color:#1A1A1A;cursor:pointer;border-bottom:1px solid #F5F5F5;display:flex;align-items:center;gap:8px;';
+          row.innerHTML = '<span style="font-size:16px">📍</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + item.nome + '</span>';
+          row.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            inp.value = item.nome;
+            _fecharDropdownBusca();
+            _aplicarGeocodeBusca(item.lat, item.lng, item.nome);
+          });
+          row.addEventListener('mouseover', () => row.style.background = '#FFF3E0');
+          row.addEventListener('mouseout', () => row.style.background = '');
+          dd.appendChild(row);
+        });
+
+        wrap.style.position = 'relative';
+        wrap.appendChild(dd);
+        _searchDropdownOpen = true;
+      } catch { /* silencioso */ }
+    }, 350);
+  }
+
+  function _aplicarGeocodeBusca(lat, lng, nome?) {
+    userLat = lat; userLng = lng;
+    showLoading(true);
+    if (mapMain) {
+      mapMain.setView([userLat, userLng], 14);
+      mapMain.invalidateSize();
+    }
+    loadPostos().then(() => {
+      showLoading(false);
+      goToView('mapa');
+      if (nome) showToast('📍 ' + nome);
+    }).catch(() => { showLoading(false); });
   }
 
   async function doSearch() {
-    const val = document.getElementById('search-input').value.trim();
+    const val = (document.getElementById('search-input') as HTMLInputElement).value.trim();
     if (!val) return;
+    _fecharDropdownBusca();
     showLoading(true);
     try {
       const res = await fetch('/api/geocode?q=' + encodeURIComponent(val));
       const data = await res.json();
       showLoading(false);
       if (data && data.length > 0) {
-        userLat = data[0].lat; userLng = data[0].lng;
-        if (mapMain) {
-          mapMain.setView([userLat, userLng], 14);
-          loadPostos();
-        }
-        showToast('Buscando postos em ' + (data[0].nome || val) + '...');
+        _aplicarGeocodeBusca(data[0].lat, data[0].lng, data[0].nome || val);
       } else showToast('Local não encontrado');
     } catch { showLoading(false); showToast('Erro na busca'); }
   }
