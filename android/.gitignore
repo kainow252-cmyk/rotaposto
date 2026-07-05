@@ -16,5 +16,5 @@ service-account.json
 local.properties
 .DS_Store
 
-# Gradle wrapper (manter gradlew mas ignorar cache)
-gradle/wrapper/gradle-wrapper.jar
+# Gradle wrapper cache (manter o jar que é necessário para o CI)
+# gradle/wrapper/gradle-wrapper.jar  ← NÃO ignorar, CI precisa dele
