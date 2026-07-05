@@ -70,6 +70,11 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use('*', cors())
 
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
+// Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
+app.get('/api/sw-version', (c) => {
+  return c.json({ version: 'v13', build: '20260705' })
+})
+
 app.get('/api/debug/env', async (c) => {
   const env = c.env as Record<string, unknown>
   const keys = Object.keys(env || {})
@@ -1844,6 +1849,56 @@ app.get('/landing', (c) => {
 app.get('/app', (c) => {
   const firebaseScripts = getFirebaseAuthScripts()
   return c.html(getAppHTML(firebaseScripts))
+})
+
+// /reset → limpa TODO o cache/SW e redireciona para o app
+app.get('/reset', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Atualizando RotaPosto...</title>
+<style>
+  body{margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       min-height:100vh;background:#fff;font-family:sans-serif;text-align:center;padding:20px}
+  .logo{font-size:48px;margin-bottom:16px}
+  h2{color:#FF6D00;font-weight:800;margin:0 0 8px}
+  p{color:#666;font-size:14px;margin:0 0 24px}
+  .bar{width:220px;height:6px;background:#eee;border-radius:3px;overflow:hidden}
+  .fill{height:100%;background:#FF6D00;border-radius:3px;animation:prog 2s linear forwards}
+  @keyframes prog{from{width:0%}to{width:100%}}
+</style>
+</head><body>
+<div class="logo">⛽</div>
+<h2>RotaPosto</h2>
+<p>Limpando cache e atualizando...</p>
+<div class="bar"><div class="fill"></div></div>
+<script>
+(async function() {
+  try {
+    // 1. Desregistrar TODOS os service workers
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) { await reg.unregister(); }
+    }
+    // 2. Limpar TODOS os caches
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      for (const key of keys) { await caches.delete(key); }
+    }
+    // 3. Limpar localStorage de localização (para forçar GPS real)
+    localStorage.removeItem('rp_lat');
+    localStorage.removeItem('rp_lng');
+    localStorage.removeItem('rp_loc_ts');
+    localStorage.removeItem('rp_geo_denied');
+  } catch(e) { console.warn('reset error:', e); }
+  // 4. Redirecionar para o app após 2s
+  setTimeout(function() {
+    window.location.replace('/app');
+  }, 2000);
+})();
+</script>
+</body></html>`)
 })
 
 // ══════════════════════════════════════════════════════

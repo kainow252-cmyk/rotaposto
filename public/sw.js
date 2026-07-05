@@ -32,9 +32,9 @@ self.addEventListener('activate', event => {
           .filter(k => k !== CACHE_STATIC && k !== CACHE_API)
           .map(k => caches.delete(k))
       ))
-      .then(() => self.clients.claim())  // assume controle de todas as abas
+      .then(() => self.clients.claim())
       .then(() => {
-        // Avisa todas as abas que o SW atualizou → app faz reload seguro
+        // Avisa todas as abas que o SW atualizou → app faz reload
         return self.clients.matchAll({ type: 'window' }).then(clients => {
           clients.forEach(client => {
             client.postMessage({ type: 'SW_UPDATED', version: VERSION });
@@ -42,6 +42,33 @@ self.addEventListener('activate', event => {
         });
       })
   );
+});
+
+// ── AUTO-VERIFICAÇÃO: checa versão no servidor a cada 5 min ───────────────
+// Se servidor retornar versão diferente, se auto-destrói para forçar update
+function verificarVersaoServidor() {
+  fetch('/api/sw-version', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.version && data.version !== VERSION) {
+        console.log('[SW] Versão desatualizada:', VERSION, '→', data.version, '— se auto-destruindo');
+        // Limpar todos os caches
+        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+        // Desregistrar este SW → browser vai baixar o novo
+        self.registration.unregister();
+        // Avisar app para recarregar
+        self.clients.matchAll({ type: 'window' }).then(clients => {
+          clients.forEach(c => c.postMessage({ type: 'SW_UPDATED', version: data.version }));
+        });
+      }
+    })
+    .catch(() => {}); // sem internet — ok, tenta na próxima
+}
+
+// Verificar imediatamente ao ativar e depois a cada 5 minutos
+self.addEventListener('activate', () => {
+  setTimeout(verificarVersaoServidor, 3000);
+  setInterval(verificarVersaoServidor, 5 * 60 * 1000);
 });
 
 // ── MESSAGE: comandos do app ──────────────────────────────────────────────
