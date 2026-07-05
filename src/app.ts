@@ -4546,37 +4546,46 @@ export function getAppHTML(firebaseScripts: string): string {
   });
 
   (function init() {
-    // ── Registrar SW v6 com auto-update silencioso ──
+    // ── Registrar SW v13 com auto-update silencioso e seguro no TWA ──
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').then(reg => {
-        // Checar updates a cada 60s
-        setInterval(() => reg.update(), 60000);
+      var _swReloading = false;
 
-        // Novo SW disponível → ativar imediatamente
+      // Recebe mensagem SW_UPDATED → recarrega app de forma segura
+      navigator.serviceWorker.addEventListener('message', function(event) {
+        if (event.data?.type === 'SW_UPDATED' && !_swReloading) {
+          _swReloading = true;
+          // Aguarda 500ms para o SW terminar de ativar, depois recarrega
+          setTimeout(function() { window.location.reload(); }, 500);
+        }
+      });
+
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        // Checar atualização a cada 30s — garante que app sempre detecta deploy novo
+        setInterval(() => reg.update(), 30000);
+
+        // Novo SW disponível → SKIP_WAITING imediato (sem precisar fechar o app)
         reg.addEventListener('updatefound', () => {
           const newSW = reg.installing;
           if (!newSW) return;
           newSW.addEventListener('statechange', () => {
-            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            if (newSW.state === 'installed') {
+              // Força ativação imediata do novo SW
               newSW.postMessage({ type: 'SKIP_WAITING' });
             }
           });
         });
+
+        // Verifica na abertura se já tem update pendente (waiting)
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
       }).catch(() => {});
 
-      // SW trocou → recarregar página (apenas se não for TWA para evitar fechar o app)
-      let _swReloading = false;
+      // controllerchange = novo SW assumiu controle → recarregar
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (_swReloading) return;
         _swReloading = true;
-        // No TWA, NÃO fazer reload automático — pode fechar o app
-        var isTWA = document.referrer.indexOf('android-app://') === 0
-          || (window.matchMedia('(display-mode: standalone)').matches
-              && /Android/.test(navigator.userAgent)
-              && /Chrome/.test(navigator.userAgent));
-        if (!isTWA) {
-          window.location.reload();
-        }
+        setTimeout(function() { window.location.reload(); }, 300);
       });
     }
 

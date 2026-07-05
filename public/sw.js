@@ -1,9 +1,11 @@
-// RotaPosto Service Worker v12.0
-// v12: card "Melhor posto" oculto por padrão — aparece só ao clicar em marcador ou botão Melhor
+// RotaPosto Service Worker v13.0
+// v13: _worker.js NUNCA entra em cache — sempre busca da rede
+//      SW se auto-atualiza silenciosamente a cada abertura do app
+//      Reload seguro no TWA (postMessage → app decide recarregar)
 
-const VERSION = 'v12.0';
-const CACHE_STATIC = 'rp-static-v12';
-const CACHE_API    = 'rp-api-v12';
+const VERSION = 'v13.0';
+const CACHE_STATIC = 'rp-static-v13';
+const CACHE_API    = 'rp-api-v13';
 
 const PRECACHE = [
   '/manifest.json',
@@ -11,35 +13,38 @@ const PRECACHE = [
   '/icons/icon-512x512.png'
 ];
 
-// ── INSTALL: pré-cache + ativar imediatamente sem esperar ──────────────────
+// ── INSTALL: pré-cache + ativar IMEDIATAMENTE ─────────────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_STATIC)
       .then(cache => cache.addAll(PRECACHE.map(u => new Request(u, { cache: 'reload' }))))
       .catch(() => {})
-      .then(() => self.skipWaiting())  // ativa IMEDIATAMENTE
+      .then(() => self.skipWaiting())  // ativa sem esperar aba fechar
   );
 });
 
-// ── ACTIVATE: limpa TODOS os caches antigos (qualquer versão) ──────────────
-// IMPORTANTE: NÃO chamar client.navigate() — quebra o TWA (fecha o app)
+// ── ACTIVATE: limpa caches antigos + assume controle imediato ─────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
         keys
-          .filter(k => k !== CACHE_STATIC && k !== CACHE_API && !k.startsWith('rp-static-v12') && !k.startsWith('rp-api-v12'))
-          .map(k => {
-            console.log('[SW v11] Deletando cache antigo:', k);
-            return caches.delete(k);
-          })
+          .filter(k => k !== CACHE_STATIC && k !== CACHE_API)
+          .map(k => caches.delete(k))
       ))
-      .then(() => self.clients.claim())
-    // Removido: client.navigate() — causava fechamento do TWA
+      .then(() => self.clients.claim())  // assume controle de todas as abas
+      .then(() => {
+        // Avisa todas as abas que o SW atualizou → app faz reload seguro
+        return self.clients.matchAll({ type: 'window' }).then(clients => {
+          clients.forEach(client => {
+            client.postMessage({ type: 'SW_UPDATED', version: VERSION });
+          });
+        });
+      })
   );
 });
 
-// ── MESSAGE: receber comandos do app ──────────────────────────────────────
+// ── MESSAGE: comandos do app ──────────────────────────────────────────────
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING' || event.data === 'SKIP_WAITING') {
     self.skipWaiting();
@@ -58,12 +63,25 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
 
   // Só origem própria
-  const isOwn = url.hostname.includes('rotaposto') || url.hostname === 'localhost' || url.hostname.includes('gensparksite.com');
+  const isOwn = url.hostname.includes('rotaposto')
+    || url.hostname === 'localhost'
+    || url.hostname.includes('gensparksite.com');
   if (!isOwn) return;
 
   const path = url.pathname;
 
-  // ── PÁGINAS HTML: SEMPRE busca na rede (nunca serve cache) ───────────────
+  // ── _worker.js: NUNCA cachear — sempre buscar da rede ────────────────────
+  // Este é o arquivo principal do app. Se ficar em cache, o app nunca atualiza.
+  if (path.includes('_worker.js') || path.includes('worker.js')) {
+    event.respondWith(
+      fetch(req, { cache: 'no-store' }).catch(() =>
+        caches.match(req)  // fallback offline: usa cache se tiver
+      )
+    );
+    return;
+  }
+
+  // ── PÁGINAS HTML: SEMPRE busca na rede ───────────────────────────────────
   const isHtmlPage = path === '/' || path === '/app' || path === '/onboarding'
     || path === '/landing' || path === '/admin' || path === '/parcerias'
     || path === '/parcerias/empresa' || !path.includes('.');
@@ -87,7 +105,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // ── APIs: network-first com cache de 5 min ────────────────────────────────
+  // ── APIs: network-first com cache de fallback ─────────────────────────────
   if (path.startsWith('/api/postos') || path.startsWith('/api/precos') || path.startsWith('/api/geocode')) {
     event.respondWith(
       fetch(req)
@@ -103,7 +121,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // ── Assets estáticos: cache-first ────────────────────────────────────────
+  // ── Assets estáticos (ícones, fontes, imagens): cache-first ──────────────
   event.respondWith(
     caches.match(req).then(cached => {
       if (cached) return cached;
