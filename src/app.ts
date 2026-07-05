@@ -70,6 +70,8 @@ export function getAppHTML(firebaseScripts: string): string {
       display: flex; flex-direction: column;
       background: var(--white);
       overflow: hidden;
+      /* Espaço para o bottom-nav fixo */
+      padding-bottom: calc(var(--nav-h) + var(--sab));
     }
 
     /* ══════════════════════════════════════════════
@@ -175,6 +177,7 @@ export function getAppHTML(firebaseScripts: string): string {
       min-height: 0;   /* permite shrink correto no flex column */
       overflow: hidden; position: relative;
       /* overflow:hidden necessário para o mapa Leaflet não vazar */
+      /* O nav está em position:fixed, então o app-content usa todo o espaço disponível */
     }
 
     .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; overflow: hidden; background: var(--white); }
@@ -1149,7 +1152,11 @@ export function getAppHTML(firebaseScripts: string): string {
       padding-bottom: var(--sab);
       height: calc(var(--nav-h) + var(--sab));
       min-height: calc(var(--nav-h) + var(--sab));
-      position: relative; z-index: 300;
+      /* position:fixed garante que o nav SEMPRE aparece no Android/TWA
+         independente de 100dvh ser calculado diferente */
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 500;
       flex-shrink: 0;
       flex-grow: 0;
     }
