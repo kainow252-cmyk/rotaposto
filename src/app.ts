@@ -1186,15 +1186,15 @@ export function getAppHTML(firebaseScripts: string): string {
       color: #fff;
       border: none; border-radius: 50%;
       font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
-      cursor: pointer;
+      cursor: grab;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
       box-shadow: 0 4px 20px rgba(211,47,47,0.50);
       transition: transform 0.15s, box-shadow 0.15s;
-      touch-action: manipulation;
+      touch-action: none;
       user-select: none;
     }
     #btn-sos-float:active { transform: translateY(-50%) scale(0.93); }
-    #btn-sos-float.dragging { cursor: grabbing; box-shadow: 0 8px 24px rgba(211,47,47,0.55); transform: scale(1.08); }
+    #btn-sos-float.dragging { cursor: grabbing; box-shadow: 0 8px 24px rgba(211,47,47,0.55); transform: none; opacity: 0.92; }
     #btn-sos-float svg { width: 20px; height: 20px; stroke: #fff; fill: none; pointer-events: none; }
 
     /* ══════════════════════════════════════════════
@@ -3996,6 +3996,59 @@ export function getAppHTML(firebaseScripts: string): string {
     abrirTela('Ajuda e Suporte', html);
   }
 
+  // ── Termos e Privacidade — abre dentro do app com botão Voltar ───────────
+  function abrirTermosApp() {
+    // Buscar conteúdo da rota /termos e exibir na rp-subtela
+    abrirTela('Termos de Uso', '<div style="display:flex;justify-content:center;padding:40px;"><div style="width:32px;height:32px;border:3px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div></div>');
+    fetch('/termos')
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        // Extrair apenas o conteúdo do <body>, descartando scripts e estilos
+        // Remover tags script/style de forma simples (sem regex complexa)
+        var el = document.getElementById('rp-subtela-body');
+        if (!el) return;
+        // Extrair body de forma segura usando DOMParser
+        try {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(html, 'text/html');
+          // Remover scripts e styles do documento parseado
+          doc.querySelectorAll('script,style,link').forEach(function(s) { s.remove(); });
+          var bodyContent = doc.body ? doc.body.innerHTML : html;
+          el.innerHTML = '<div style="padding:4px 4px 40px;">' + bodyContent + '</div>';
+        } catch(e) {
+          // Fallback: exibir diretamente
+          el.innerHTML = '<div style="padding:16px;">' + html.substring(0, 5000) + '</div>';
+        }
+      })
+      .catch(function() {
+        var el = document.getElementById('rp-subtela-body');
+        if (el) el.innerHTML = '<div style="padding:24px;text-align:center;color:#888;">Erro ao carregar termos. <a href="/termos" style="color:#FF6D00;">Abrir no navegador</a></div>';
+      });
+  }
+
+  function abrirPrivacidadeApp() {
+    abrirTela('Política de Privacidade', '<div style="display:flex;justify-content:center;padding:40px;"><div style="width:32px;height:32px;border:3px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div></div>');
+    fetch('/privacidade')
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var el = document.getElementById('rp-subtela-body');
+        if (!el) return;
+        try {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(html, 'text/html');
+          doc.querySelectorAll('script,style,link').forEach(function(s) { s.remove(); });
+          var bodyContent = doc.body ? doc.body.innerHTML : html;
+          el.innerHTML = '<div style="padding:4px 4px 40px;">' + bodyContent + '</div>';
+        } catch(e) {
+          el.innerHTML = '<div style="padding:16px;">' + html.substring(0, 5000) + '</div>';
+        }
+      })
+      .catch(function() {
+        var el = document.getElementById('rp-subtela-body');
+        if (el) el.innerHTML = '<div style="padding:24px;text-align:center;color:#888;">Erro ao carregar. <a href="/privacidade" style="color:#FF6D00;">Abrir no navegador</a></div>';
+      });
+  }
+
   // ── Configurações ─────────────────────────────────────────────────────────
   function abrirConfiguracoes() {
     var unidade = localStorage.getItem('rp_unidade') || 'km';
@@ -4017,7 +4070,7 @@ export function getAppHTML(firebaseScripts: string): string {
       + '<button onclick="limparDadosLocais()" style="padding:8px 14px;background:#FFF0F0;color:#E53935;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Limpar</button>'
       + '</div></div>'
       + '<div style="text-align:center;margin-top:8px;">'
-      + '<div style="font-size:11px;color:#aaa;">RotaPosto v1.0 • <a href="/termos" target="_blank" style="color:#FF6D00;">Termos</a> • <a href="/privacidade" target="_blank" style="color:#FF6D00;">Privacidade</a></div>'
+      + '<div style="font-size:11px;color:#aaa;">RotaPosto v1.0 • <a href="#" onclick="abrirTermosApp();return false;" style="color:#FF6D00;">Termos</a> • <a href="#" onclick="abrirPrivacidadeApp();return false;" style="color:#FF6D00;">Privacidade</a></div>'
       + '</div>';
     abrirTela('Configurações', html);
   }
@@ -4562,8 +4615,87 @@ export function getAppHTML(firebaseScripts: string): string {
     // (o app parece ter feito login sozinho sem avisar)
     // Toast removido conforme feedback dos testes
 
-    // SOS fixo no centro direito via CSS — limpar posição antiga
-    localStorage.removeItem('rp_sos_bottom');
+    // ── Botão SOS: posição inicial = centro vertical, mas arrastável ──────────
+    (function initSosDrag() {
+      var btn = document.getElementById('btn-sos-float');
+      if (!btn) return;
+
+      // Limpar posição antiga (era bottom, agora usamos top)
+      localStorage.removeItem('rp_sos_bottom');
+
+      var _sosDragging = false;
+      var _sosWasDragged = false;
+      var startClientY = 0;
+      var startBtnTop = 0;   // top em px relativo à janela
+
+      function getBtnTop() {
+        return btn.getBoundingClientRect().top;
+      }
+
+      function onStart(e) {
+        _sosDragging = false;
+        _sosWasDragged = false;
+        startClientY = e.touches ? e.touches[0].clientY : e.clientY;
+        startBtnTop = getBtnTop();
+
+        function onMove(ev) {
+          var curY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+          var dy = curY - startClientY;
+          if (!_sosDragging && Math.abs(dy) > 6) {
+            _sosDragging = true;
+            _sosWasDragged = true;
+            btn.classList.add('dragging');
+          }
+          if (!_sosDragging) return;
+          ev.preventDefault();
+          // Converter para top% relativo à janela, limitando à tela
+          var newTop = Math.max(56, Math.min(window.innerHeight - 56, startBtnTop + dy));
+          // Usar top em px para arrastar, ignorar transform
+          btn.style.transform = 'none';
+          btn.style.top = newTop + 'px';
+          btn.style.transition = 'none';
+        }
+
+        function onEnd() {
+          if (_sosDragging) {
+            btn.classList.remove('dragging');
+            btn.style.transition = '';
+            // Salvar posição como % para diferentes tamanhos de tela
+            var pct = Math.round((getBtnTop() + btn.offsetHeight / 2) / window.innerHeight * 100);
+            localStorage.setItem('rp_sos_top_pct', pct.toString());
+          }
+          _sosDragging = false;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onEnd);
+          document.removeEventListener('touchmove', onMove);
+          document.removeEventListener('touchend', onEnd);
+        }
+
+        document.addEventListener('mousemove', onMove, { passive: false });
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onEnd);
+      }
+
+      // Restaurar posição salva (em %)
+      var savedPct = parseInt(localStorage.getItem('rp_sos_top_pct') || '50');
+      var savedTop = Math.round((savedPct / 100) * window.innerHeight - btn.offsetHeight / 2);
+      if (savedPct !== 50) {
+        btn.style.transform = 'none';
+        btn.style.top = savedTop + 'px';
+      }
+
+      btn.addEventListener('mousedown', onStart);
+      btn.addEventListener('touchstart', onStart, { passive: true });
+
+      btn.addEventListener('click', function(e) {
+        if (_sosWasDragged) {
+          e.stopPropagation();
+          e.preventDefault();
+          _sosWasDragged = false;
+        }
+      }, true);
+    })();
 
     // Verificar se item "Instalar app" deve aparecer no menu
     verificarMenuInstalar();
