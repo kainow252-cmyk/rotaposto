@@ -4553,13 +4553,11 @@ export function getAppHTML(firebaseScripts: string): string {
   });
 
   (function init() {
-    // ── Registrar SW v13 com auto-update silencioso e seguro no TWA ──
+    // ── SW: registrar + forçar atualização se versão desatualizada ──────────
     if ('serviceWorker' in navigator) {
-      // SW v15: network-first em tudo — sem reload automático
-      // A página já vem sempre atualizada da rede, não precisa recarregar
 
+      // Limpar cache SP padrão quando SW pedir
       navigator.serviceWorker.addEventListener('message', function(event) {
-        // Limpar cache SP padrão quando SW pedir
         if (event.data?.type === 'CLEAR_SP_CACHE') {
           var spLat = parseFloat(localStorage.getItem('rp_lat') || '');
           var spLng = parseFloat(localStorage.getItem('rp_lng') || '');
@@ -4570,12 +4568,10 @@ export function getAppHTML(firebaseScripts: string): string {
             localStorage.removeItem('rp_loc_ts');
           }
         }
-        // SW_UPDATED: apenas ativar novo SW silenciosamente, SEM reload
-        // (network-first garante conteúdo atualizado sem flash)
       });
 
       navigator.serviceWorker.register('/sw.js').then(reg => {
-        // Novo SW disponível → ativar silenciosamente (sem forçar reload)
+        // Novo SW disponível → ativar silenciosamente
         reg.addEventListener('updatefound', () => {
           const newSW = reg.installing;
           if (!newSW) return;
@@ -4588,9 +4584,34 @@ export function getAppHTML(firebaseScripts: string): string {
         if (reg.waiting) {
           reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
-      }).catch(() => {});
 
-      // SEM controllerchange reload — eliminado para acabar com o flash
+        // ── Verificar versão do SW ativo ─────────────────────────────────
+        // Se o SW ativo for mais velho que v15, redirecionar para /launcher
+        // que limpa tudo. Usa localStorage para só fazer isso UMA VEZ.
+        var jaLimpou = localStorage.getItem('rp_sw_cleaned_v15');
+        if (!jaLimpou && navigator.serviceWorker.controller) {
+          var mc = new MessageChannel();
+          mc.port1.onmessage = function(e) {
+            var swVer = e.data?.version || '';
+            var swNum = parseInt(swVer.replace(/[^0-9]/g, '')) || 0;
+            if (swNum < 15) {
+              // SW desatualizado → marcar e ir para /launcher que limpa tudo
+              localStorage.setItem('rp_sw_cleaned_v15', '1');
+              window.location.replace('/launcher');
+            } else {
+              // SW já está atual → marcar como limpo
+              localStorage.setItem('rp_sw_cleaned_v15', '1');
+            }
+          };
+          navigator.serviceWorker.controller.postMessage(
+            { type: 'GET_VERSION' }, [mc.port2]
+          );
+        } else if (!jaLimpou) {
+          // Sem SW ativo ainda → marcar como ok (SW novo vai instalar)
+          localStorage.setItem('rp_sw_cleaned_v15', '1');
+        }
+
+      }).catch(() => {});
     }
 
     // ── Verificação de sessão única ──────────────────────────────────────
