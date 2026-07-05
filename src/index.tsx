@@ -581,17 +581,15 @@ app.get('/api/geocode/reverso', async (c) => {
   return c.json(geo)
 })
 
-// ─── API: GeoIP — localização aproximada pelo IP do cliente ──────────────────
-// Usada como fallback quando GPS do celular não está disponível
-// Retorna lat/lng da cidade do usuário com base no IP
+// ─── API: GeoIP — localização pelo IP + Google Geolocation API ───────────────
+// Fallback quando GPS do celular não disponível
+// Ordem: Google Geolocation API (IP-only) → ipapi.co → ip-api.com → SP padrão
 app.get('/api/geoip', async (c) => {
-  // Pegar IP real do cliente (Cloudflare injeta no header CF-Connecting-IP)
   const ip = c.req.header('CF-Connecting-IP')
     || c.req.header('X-Forwarded-For')?.split(',')[0]?.trim()
     || c.req.header('X-Real-IP')
     || ''
 
-  // IPs locais/privados → fallback SP
   const isPrivate = !ip || ip.startsWith('127.') || ip.startsWith('10.')
     || ip.startsWith('192.168.') || ip.startsWith('::1') || ip === '::ffff:127.0.0.1'
 
@@ -599,8 +597,57 @@ app.get('/api/geoip', async (c) => {
     return c.json({ lat: -23.5505, lng: -46.6333, cidade: 'São Paulo', estado: 'SP', fallback: true })
   }
 
+  const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+
+  // 1. Google Geolocation API (considerConsideraIP do cliente — mais preciso que outros serviços)
+  if (googleKey) {
+    try {
+      const geoRes = await fetch(
+        `https://www.googleapis.com/geolocation/v1/geolocate?key=${googleKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // considerIpAddress:true usa o IP do request para inferir localização
+          body: JSON.stringify({ considerIpAddress: true })
+        }
+      )
+      if (geoRes.ok) {
+        const gd = await geoRes.json() as any
+        if (gd.location?.lat && gd.location?.lng) {
+          // Fazer geocode reverso para obter nome da cidade
+          let cidade = '', estado = ''
+          try {
+            const revRes = await fetch(
+              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${gd.location.lat},${gd.location.lng}&result_type=locality|administrative_area_level_2&language=pt-BR&key=${googleKey}`
+            )
+            if (revRes.ok) {
+              const revData = await revRes.json() as any
+              const comp = revData.results?.[0]?.address_components || []
+              for (const c2 of comp) {
+                if (c2.types.includes('administrative_area_level_2') || c2.types.includes('locality')) {
+                  if (!cidade) cidade = c2.long_name
+                }
+                if (c2.types.includes('administrative_area_level_1')) {
+                  estado = c2.short_name
+                }
+              }
+            }
+          } catch (_) {}
+          return c.json({
+            lat: gd.location.lat,
+            lng: gd.location.lng,
+            accuracy: gd.accuracy,
+            cidade,
+            estado,
+            fonte: 'google'
+          })
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 2. ipapi.co — gratuito, 1000 req/dia
   try {
-    // ipapi.co — gratuito, sem chave, 1000 req/dia
     const res = await fetch(`https://ipapi.co/${ip}/json/`, {
       headers: { 'User-Agent': 'RotaPosto/1.0' }
     })
@@ -618,8 +665,8 @@ app.get('/api/geoip', async (c) => {
     }
   } catch (_) {}
 
+  // 3. ip-api.com — 45 req/min
   try {
-    // ip-api.com — fallback, gratuito, 45 req/min
     const res2 = await fetch(`http://ip-api.com/json/${ip}?fields=status,lat,lon,city,regionCode&lang=pt-BR`)
     if (res2.ok) {
       const d2 = await res2.json() as any
@@ -635,7 +682,6 @@ app.get('/api/geoip', async (c) => {
     }
   } catch (_) {}
 
-  // Tudo falhou → SP padrão
   return c.json({ lat: -23.5505, lng: -46.6333, cidade: 'São Paulo', estado: 'SP', fallback: true })
 })
 
