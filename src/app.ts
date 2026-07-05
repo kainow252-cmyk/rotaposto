@@ -4215,12 +4215,19 @@ export function getAppHTML(firebaseScripts: string): string {
         });
       }).catch(() => {});
 
-      // SW trocou → recarregar página silenciosamente (evitar loop no TWA)
+      // SW trocou → recarregar página (apenas se não for TWA para evitar fechar o app)
       let _swReloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (_swReloading) return;
         _swReloading = true;
-        window.location.reload();
+        // No TWA, NÃO fazer reload automático — pode fechar o app
+        var isTWA = document.referrer.indexOf('android-app://') === 0
+          || (window.matchMedia('(display-mode: standalone)').matches
+              && /Android/.test(navigator.userAgent)
+              && /Chrome/.test(navigator.userAgent));
+        if (!isTWA) {
+          window.location.reload();
+        }
       });
     }
 

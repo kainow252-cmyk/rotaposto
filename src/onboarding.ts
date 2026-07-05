@@ -1177,22 +1177,34 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
         });
       }).catch(function() {});
 
-      // Quando SW atualizar e recarregar, recarregar página automaticamente (evitar loop no TWA)
+      // Quando SW atualizar → recarregar página (apenas fora do TWA para não fechar o app)
       var _swReloadingOb = false;
       navigator.serviceWorker.addEventListener('controllerchange', function() {
         if (_swReloadingOb) return;
         _swReloadingOb = true;
-        window.location.reload();
+        // No TWA, NÃO recarregar — pode fechar o app
+        var ua = navigator.userAgent || '';
+        var isTWA = document.referrer.indexOf('android-app://') === 0
+          || (window.matchMedia('(display-mode: standalone)').matches
+              && /Android/.test(ua) && /Chrome/.test(ua));
+        if (!isTWA) {
+          window.location.reload();
+        }
       });
     }
 
     // Se já tem usuário logado → vai direto pro app
+    // IMPORTANTE: Não redirecionar se já estiver em /app (evita loop no TWA)
     var user = localStorage.getItem('rp_user');
     if (user) {
       try {
         var u = JSON.parse(user);
         if (u.uid) {
-          window.location.href = '/app';
+          // Não redirecionar se já estamos em /app (TWA abre diretamente em /app)
+          var jaNoApp = window.location.pathname === '/app' || window.location.pathname.startsWith('/app');
+          if (!jaNoApp) {
+            window.location.href = '/app';
+          }
           return;
         }
       } catch(e) {}

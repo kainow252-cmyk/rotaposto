@@ -1,9 +1,9 @@
-// RotaPosto Service Worker v10.0
-// v10: bump completo — limpa TODOS os caches antigos, força atualização PWA
+// RotaPosto Service Worker v11.0
+// v11: CRÍTICO — remove client.navigate() que fechava TWA; sem reload forçado
 
-const VERSION = 'v10.0';
-const CACHE_STATIC = 'rp-static-v10';
-const CACHE_API    = 'rp-api-v10';
+const VERSION = 'v11.0';
+const CACHE_STATIC = 'rp-static-v11';
+const CACHE_API    = 'rp-api-v11';
 
 const PRECACHE = [
   '/manifest.json',
@@ -22,6 +22,7 @@ self.addEventListener('install', event => {
 });
 
 // ── ACTIVATE: limpa TODOS os caches antigos (qualquer versão) ──────────────
+// IMPORTANTE: NÃO chamar client.navigate() — quebra o TWA (fecha o app)
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
@@ -29,17 +30,12 @@ self.addEventListener('activate', event => {
         keys
           .filter(k => k !== CACHE_STATIC && k !== CACHE_API)
           .map(k => {
-            console.log('[SW v10] Deletando cache antigo:', k);
+            console.log('[SW v11] Deletando cache antigo:', k);
             return caches.delete(k);
           })
       ))
       .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
-      .then(clients => {
-        clients.forEach(client => {
-          client.navigate(client.url);
-        });
-      })
+    // Removido: client.navigate() — causava fechamento do TWA
   );
 });
 
