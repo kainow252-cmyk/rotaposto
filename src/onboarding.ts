@@ -838,25 +838,33 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   // ── Localização ──
   function requestLocation() {
     if (!navigator.geolocation) {
-      showToast('Localização não suportada');
+      // GPS não suportado — ir para login silenciosamente (sem toast de erro)
+      localStorage.setItem('rp_geo_denied', '1');
       goToScreen('login');
       return;
     }
     showLoading(true);
     navigator.geolocation.getCurrentPosition(
-      pos => {
+      function(pos) {
         showLoading(false);
-        localStorage.setItem('rp_lat', pos.coords.latitude);
-        localStorage.setItem('rp_lng', pos.coords.longitude);
-        showToast('Localização obtida! ✓');
-        setTimeout(() => goToScreen('login'), 800);
+        // Salvar coordenadas E timestamp para o app principal usar como cache
+        localStorage.setItem('rp_lat', String(pos.coords.latitude));
+        localStorage.setItem('rp_lng', String(pos.coords.longitude));
+        localStorage.setItem('rp_loc_ts', String(Date.now()));
+        localStorage.removeItem('rp_geo_denied');
+        // Toast de sucesso SÓ aqui (GPS obtido) — breve e positivo
+        showToast('📍 Localização obtida!');
+        setTimeout(function() { goToScreen('login'); }, 700);
       },
-      err => {
+      function(err) {
         showLoading(false);
-        showToast('Localização não permitida');
+        // GPS negado ou indisponível → ir para login SILENCIOSAMENTE
+        // NUNCA mostrar toast de erro nesta tela — causa confusão
+        // Marcar como negado para o app principal não perguntar de novo por 30 min
+        localStorage.setItem('rp_geo_denied', String(Date.now()));
         goToScreen('login');
       },
-      { timeout: 10000 }
+      { timeout: 10000, enableHighAccuracy: true }
     );
   }
 

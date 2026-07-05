@@ -4681,6 +4681,11 @@ export function getAppHTML(firebaseScripts: string): string {
     var cAge = Date.now() - cTs;
     var temCache = !isNaN(cLat) && !isNaN(cLng) && cAge < 5 * 60 * 1000;
 
+    // ── Verificar se GPS foi negado recentemente no onboarding (<30 min) ──
+    // Não pedir GPS de novo automaticamente — evita diálogo do Android na hora errada
+    var geoDeniedTs = parseInt(localStorage.getItem('rp_geo_denied') || '0');
+    var geoDeniedRecente = geoDeniedTs > 1 && (Date.now() - geoDeniedTs) < 30 * 60 * 1000;
+
     if (temCache) {
       // Exibe mapa imediatamente com cache, mas ainda busca GPS real
       userLat = cLat; userLng = cLng;
@@ -4694,7 +4699,18 @@ export function getAppHTML(firebaseScripts: string): string {
       return;
     }
 
-    // ── PASSO 3: mostrar overlay se não tem cache ──
+    // ── PASSO 3: se GPS foi negado recentemente, usar cache ou SP padrão sem pedir ──
+    if (geoDeniedRecente) {
+      console.log('[RotaPosto] GPS negado recentemente no onboarding — usando cache/SP sem pedir');
+      if (temCache) {
+        initMapMain();
+      } else {
+        _usarSPPadrao();
+      }
+      return;
+    }
+
+    // ── PASSO 4: mostrar overlay se não tem cache ──
     if (!temCache) {
       _mostrarOverlayGPS();
     } else {
@@ -4726,14 +4742,21 @@ export function getAppHTML(firebaseScripts: string): string {
       function(err) {
         console.warn('[RotaPosto] GPS erro:', err.code, err.message);
         if (err.code === 1) {
-          // PERMISSION_DENIED — mostrar mensagem clara
+          // PERMISSION_DENIED — registrar e mostrar APENAS dentro do overlay do mapa
+          // NUNCA usar showToast() para erro de GPS — jamais aparecer sobre outras telas
+          localStorage.setItem('rp_geo_denied', String(Date.now()));
           var ov = document.getElementById('geo-loading-overlay');
-          if (ov) ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
-            + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
-            + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Permissão negada</div>'
-            + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Para usar sua localização real, ative nas configurações do Android: <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
-            + '<button onclick="_usarSPPadrao()" style="padding:12px 28px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">Usar São Paulo por enquanto</button>'
-            + '</div>';
+          if (ov) {
+            ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
+              + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
+              + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Localização não autorizada</div>'
+              + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Para ver postos próximos, ative nas configurações: <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
+              + '<button onclick="_usarSPPadrao()" style="padding:12px 28px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">Usar São Paulo por enquanto</button>'
+              + '</div>';
+          } else {
+            // Sem overlay visível (iniciou com cache) — usar SP padrão silenciosamente
+            if (!temCache) _usarSPPadrao();
+          }
           if (!temCache) { userLat = -23.5505; userLng = -46.6333; }
         } else {
           // TIMEOUT ou POSITION_UNAVAILABLE — fallback baixa precisão
