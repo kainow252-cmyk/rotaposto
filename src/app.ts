@@ -4555,16 +4555,11 @@ export function getAppHTML(firebaseScripts: string): string {
   (function init() {
     // ── Registrar SW v13 com auto-update silencioso e seguro no TWA ──
     if ('serviceWorker' in navigator) {
-      var _swReloading = false;
+      // SW v15: network-first em tudo — sem reload automático
+      // A página já vem sempre atualizada da rede, não precisa recarregar
 
-      // Recebe mensagens do SW
       navigator.serviceWorker.addEventListener('message', function(event) {
-        if (event.data?.type === 'SW_UPDATED' && !_swReloading) {
-          _swReloading = true;
-          // Aguarda 500ms para o SW terminar de ativar, depois recarrega
-          setTimeout(function() { window.location.reload(); }, 500);
-        }
-        // v14: SW pede limpeza de cache SP padrão
+        // Limpar cache SP padrão quando SW pedir
         if (event.data?.type === 'CLEAR_SP_CACHE') {
           var spLat = parseFloat(localStorage.getItem('rp_lat') || '');
           var spLng = parseFloat(localStorage.getItem('rp_lng') || '');
@@ -4573,39 +4568,29 @@ export function getAppHTML(firebaseScripts: string): string {
             localStorage.removeItem('rp_lat');
             localStorage.removeItem('rp_lng');
             localStorage.removeItem('rp_loc_ts');
-            console.log('[RotaPosto] SW v14: cache SP limpo via postMessage');
           }
         }
+        // SW_UPDATED: apenas ativar novo SW silenciosamente, SEM reload
+        // (network-first garante conteúdo atualizado sem flash)
       });
 
       navigator.serviceWorker.register('/sw.js').then(reg => {
-        // Checar atualização a cada 30s — garante que app sempre detecta deploy novo
-        setInterval(() => reg.update(), 30000);
-
-        // Novo SW disponível → SKIP_WAITING imediato (sem precisar fechar o app)
+        // Novo SW disponível → ativar silenciosamente (sem forçar reload)
         reg.addEventListener('updatefound', () => {
           const newSW = reg.installing;
           if (!newSW) return;
           newSW.addEventListener('statechange', () => {
             if (newSW.state === 'installed') {
-              // Força ativação imediata do novo SW
               newSW.postMessage({ type: 'SKIP_WAITING' });
             }
           });
         });
-
-        // Verifica na abertura se já tem update pendente (waiting)
         if (reg.waiting) {
           reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
       }).catch(() => {});
 
-      // controllerchange = novo SW assumiu controle → recarregar
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (_swReloading) return;
-        _swReloading = true;
-        setTimeout(function() { window.location.reload(); }, 300);
-      });
+      // SEM controllerchange reload — eliminado para acabar com o flash
     }
 
     // ── Verificação de sessão única ──────────────────────────────────────

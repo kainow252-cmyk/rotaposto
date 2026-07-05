@@ -39,11 +39,9 @@ self.addEventListener('activate', event => {
       ))
       .then(() => self.clients.claim())
       .then(() => {
+        // Só pede limpeza do cache SP — sem SW_UPDATED que causava reload/flash
         return self.clients.matchAll({ type: 'window' }).then(clients => {
           clients.forEach(client => {
-            // Avisa app que SW atualizou → app vai recarregar
-            client.postMessage({ type: 'SW_UPDATED', version: VERSION });
-            // Limpa cache SP padrão do localStorage
             client.postMessage({ type: 'CLEAR_SP_CACHE' });
           });
         });
@@ -52,26 +50,8 @@ self.addEventListener('activate', event => {
 });
 
 // ── AUTO-VERIFICAÇÃO: checa versão no servidor a cada 5 min ───────────────
-function verificarVersaoServidor() {
-  fetch('/api/sw-version', { cache: 'no-store' })
-    .then(r => r.json())
-    .then(data => {
-      if (data.version && data.version !== VERSION) {
-        console.log('[SW] Versão desatualizada:', VERSION, '→', data.version, '— se auto-destruindo');
-        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
-        self.registration.unregister();
-        self.clients.matchAll({ type: 'window' }).then(clients => {
-          clients.forEach(c => c.postMessage({ type: 'SW_UPDATED', version: data.version }));
-        });
-      }
-    })
-    .catch(() => {});
-}
-
-self.addEventListener('activate', () => {
-  setTimeout(verificarVersaoServidor, 3000);
-  setInterval(verificarVersaoServidor, 5 * 60 * 1000);
-});
+// SW v15: network-first elimina necessidade de auto-destruição por versão
+// O conteúdo já vem sempre atualizado da rede — sem reload, sem flash
 
 // ── MESSAGE: comandos do app ──────────────────────────────────────────────
 self.addEventListener('message', event => {

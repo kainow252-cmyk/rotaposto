@@ -1181,39 +1181,24 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
 
   // ── Init: verificar se já logado / resultado de redirect ──
   (function init() {
-    // Registrar SW v6 com auto-update
+    // SW v15: network-first — registrar sem reload automático
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(function(reg) {
-        // Checar por atualizações a cada 60 segundos
-        setInterval(function() { reg.update(); }, 60000);
-
-        // Quando novo SW estiver esperando → forçar ativação imediata
+        // Novo SW → ativar silenciosamente, SEM reload
         reg.addEventListener('updatefound', function() {
           var newSW = reg.installing;
           if (!newSW) return;
           newSW.addEventListener('statechange', function() {
-            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-              // Tem atualização disponível — ativar silenciosamente
+            if (newSW.state === 'installed') {
               newSW.postMessage({ type: 'SKIP_WAITING' });
             }
           });
         });
-      }).catch(function() {});
-
-      // Quando SW atualizar → recarregar página (apenas fora do TWA para não fechar o app)
-      var _swReloadingOb = false;
-      navigator.serviceWorker.addEventListener('controllerchange', function() {
-        if (_swReloadingOb) return;
-        _swReloadingOb = true;
-        // No TWA, NÃO recarregar — pode fechar o app
-        var ua = navigator.userAgent || '';
-        var isTWA = document.referrer.indexOf('android-app://') === 0
-          || (window.matchMedia('(display-mode: standalone)').matches
-              && /Android/.test(ua) && /Chrome/.test(ua));
-        if (!isTWA) {
-          window.location.reload();
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
-      });
+      }).catch(function() {});
+      // SEM controllerchange reload — network-first já garante conteúdo atualizado
     }
 
     // Se já tem usuário logado → vai direto pro app
