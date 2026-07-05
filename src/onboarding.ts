@@ -81,28 +81,31 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     #splash-content {
       position: relative; z-index: 1;
       width: 100%; padding: 0 32px;
-      padding-top: calc(var(--sat) + 80px);
-      padding-bottom: calc(var(--sab) + 40px);
+      padding-top: calc(var(--sat) + 40px);
+      padding-bottom: calc(var(--sab) + 32px);
       display: flex; flex-direction: column;
       align-items: center;
       flex: 1;
-      justify-content: flex-start;
+      justify-content: space-between;
     }
 
-    /* Logo central */
+    /* Bloco superior: logo + texto */
     #splash-logo-wrap {
       display: flex; flex-direction: column;
-      align-items: center; margin-bottom: 12px;
+      align-items: center;
+      flex: 1;
+      justify-content: center;
+      padding-bottom: 24px;
     }
 
-    /* Ícone SVG: bomba + pin laranja */
+    /* Ícone SVG: igual ao ícone do app */
     .splash-icon {
-      width: 88px; height: 88px; margin-bottom: 16px;
+      width: 110px; height: 110px; margin-bottom: 24px;
     }
 
     #splash-brand {
-      font-size: 42px; font-weight: 900;
-      letter-spacing: -1px; margin-bottom: 10px;
+      font-size: 44px; font-weight: 900;
+      letter-spacing: -1px; margin-bottom: 12px;
       line-height: 1;
     }
     #splash-brand .rota { color: #fff; }
@@ -110,9 +113,15 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
 
     #splash-sub {
       font-size: 15px; font-weight: 400;
-      color: rgba(255,255,255,0.75);
-      text-align: center; line-height: 1.5;
+      color: rgba(255,255,255,0.72);
+      text-align: center; line-height: 1.6;
       margin-bottom: 0;
+    }
+
+    /* Bloco inferior: botões */
+    #splash-btns {
+      width: 100%;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
     }
 
     .btn-splash-primary {
@@ -121,8 +130,9 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       border: none; border-radius: 14px;
       color: #fff; font-family: 'Inter', sans-serif;
       font-size: 17px; font-weight: 700;
-      cursor: pointer; margin-top: auto; margin-bottom: 16px;
+      cursor: pointer;
       transition: opacity 0.2s;
+      box-shadow: 0 4px 20px rgba(255,109,0,0.4);
     }
     .btn-splash-primary:active { opacity: 0.85; }
 
@@ -540,18 +550,24 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     <div id="splash-bg"></div>
     <div id="splash-content">
       <div id="splash-logo-wrap">
-        <!-- Ícone: bomba + pin laranja -->
-        <svg class="splash-icon" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="44" cy="44" r="44" fill="rgba(255,109,0,0.15)"/>
-          <!-- Pin base -->
-          <path d="M44 16C33.5 16 25 24.5 25 35C25 49 44 68 44 68C44 68 63 49 63 35C63 24.5 54.5 16 44 16Z" fill="#FF6D00"/>
-          <!-- Bomba de combustível dentro do pin -->
-          <rect x="36" y="26" width="16" height="20" rx="2" fill="white" opacity="0.9"/>
-          <rect x="38" y="28" width="12" height="8" rx="1" fill="#FF6D00" opacity="0.4"/>
-          <rect x="51" y="30" width="4" height="10" rx="1" fill="white" opacity="0.9"/>
-          <rect x="53" y="28" width="2" height="4" rx="1" fill="white" opacity="0.9"/>
-          <!-- Círculo branco no centro do pin -->
-          <circle cx="44" cy="46" r="5" fill="white"/>
+        <!-- Ícone: fundo dark squircle + bico gasolina inclinado + pin gota laranja -->
+        <svg class="splash-icon" viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Fundo squircle azul-escuro, igual ao ícone do app -->
+          <rect width="110" height="110" rx="26" fill="#1A1A2E"/>
+
+          <!-- ── PIN DE LOCALIZAÇÃO (gota laranja apontando para baixo) ── -->
+          <!-- Corpo da gota: parte circular em cima + ponta em baixo -->
+          <path d="M56 82C56 82 35 63 35 48C35 37.0 44.5 28 56 28C67.5 28 77 37.0 77 48C77 63 56 82 56 82Z" fill="#FF6D00"/>
+          <!-- Buraco interno branco do pin (simula o 'r' ou circular vazio) -->
+          <circle cx="56" cy="47" r="9.5" fill="#1A1A2E"/>
+
+          <!-- ── BICO DE GASOLINA (inclinado ~45° acima e à esquerda) ── -->
+          <!-- Cabo/corpo principal do bico — retângulo inclinado -->
+          <rect x="20" y="28" width="30" height="12" rx="6" fill="#FF6D00" transform="rotate(-42 20 28)"/>
+          <!-- Ponteira/cano fino horizontal saindo para a direita -->
+          <path d="M44 20 L66 20 Q70 20 70 24 L70 28 Q70 32 66 32 L56 32" stroke="#FF6D00" stroke-width="9" stroke-linecap="round" fill="none"/>
+          <!-- Gatilho do bico (pequeno bloco perpendicular) -->
+          <rect x="28" y="28" width="7" height="12" rx="3.5" fill="#E65100" transform="rotate(-42 28 28)"/>
         </svg>
 
         <h1 id="splash-brand">
@@ -560,8 +576,10 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
         <p id="splash-sub">O caminho mais inteligente<br/>para economizar combustível</p>
       </div>
 
-      <button class="btn-splash-primary" onclick="goToScreen('welcome')">Começar</button>
-      <button class="btn-splash-ghost" onclick="goToScreen('login')">Já tenho conta</button>
+      <div id="splash-btns">
+        <button class="btn-splash-primary" onclick="goToScreen('welcome')">Começar</button>
+        <button class="btn-splash-ghost" onclick="goToScreen('login')">Já tenho conta</button>
+      </div>
     </div>
   </div>
 
