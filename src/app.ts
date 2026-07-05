@@ -4043,7 +4043,9 @@ export function getAppHTML(firebaseScripts: string): string {
       }
     } catch(e) {}
 
-    window.location.href = '/';
+    // No TWA (Android app), redirecionar para /app ao invés de / para manter no escopo
+    var isTWA = document.referrer.includes('android-app://') || window.matchMedia('(display-mode: standalone)').matches;
+    window.location.href = isTWA ? '/app' : '/';
   }
 
   function showToast(msg, dur = 2500) {
@@ -4213,8 +4215,11 @@ export function getAppHTML(firebaseScripts: string): string {
         });
       }).catch(() => {});
 
-      // SW trocou → recarregar página silenciosamente
+      // SW trocou → recarregar página silenciosamente (evitar loop no TWA)
+      let _swReloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (_swReloading) return;
+        _swReloading = true;
         window.location.reload();
       });
     }
@@ -4240,9 +4245,10 @@ export function getAppHTML(firebaseScripts: string): string {
             localStorage.removeItem('rp_user');
             localStorage.removeItem('rp_session_token');
             localStorage.removeItem('rp_session_uid');
-            // Mostrar aviso e redirecionar
+            // Mostrar aviso e redirecionar (no TWA, manter no escopo)
             alert('Sua conta foi acessada em outro dispositivo. Por segurança, você foi desconectado.');
-            window.location.href = '/';
+            var isTWA = document.referrer.includes('android-app://') || window.matchMedia('(display-mode: standalone)').matches;
+            window.location.href = isTWA ? '/app' : '/';
           }
         })
         .catch(function() { /* falha de rede: manter sessão local */ });

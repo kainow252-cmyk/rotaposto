@@ -916,10 +916,16 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   // ── Helper: detectar ambiente que nao suporta popup (WebView, apps sociais) ──
   function usarRedirect() {
     var ua = navigator.userAgent || '';
-    var isWebView = /wv|WebView/i.test(ua);
+    // TWA (Trusted Web Activity) usa Chrome — signInWithPopup funciona corretamente
+    // Detectar TWA: referrer android-app:// OU standalone+Chrome+Android
+    var isTWA = document.referrer.indexOf('android-app://') === 0
+      || (window.matchMedia('(display-mode: standalone)').matches && /Chrome/.test(ua) && /Android/.test(ua));
+    if (isTWA) return false; // No TWA usar popup (Chrome suporta)
+    // WebView puro (sem Chrome) nao suporta popup
+    var isWebView = (/wv/.test(ua) || /WebView/i.test(ua)) && !/Chrome/.test(ua);
     var isSocialApp = /FBAN|FBAV|Instagram|Twitter|Line|MicroMessenger/i.test(ua);
-    var isStandalone = window.navigator.standalone === true;
-    return isWebView || isSocialApp || isStandalone;
+    var isStandaloneIOS = window.navigator.standalone === true; // iOS Safari
+    return isWebView || isSocialApp || isStandaloneIOS;
   }
 
   // ── Helper: aguardar Firebase estar pronto (retry até 5s) ──
@@ -1171,8 +1177,11 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
         });
       }).catch(function() {});
 
-      // Quando SW atualizar e recarregar, recarregar página automaticamente
+      // Quando SW atualizar e recarregar, recarregar página automaticamente (evitar loop no TWA)
+      var _swReloadingOb = false;
       navigator.serviceWorker.addEventListener('controllerchange', function() {
+        if (_swReloadingOb) return;
+        _swReloadingOb = true;
         window.location.reload();
       });
     }
