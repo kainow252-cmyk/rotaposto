@@ -4895,7 +4895,7 @@ export function getAppHTML(firebaseScripts: string): string {
           console.warn('[GPS] Timeout de segurança — usando SP padrão');
           // Atualizar overlay com mensagem
           var ov = document.getElementById('geo-loading-overlay');
-          if (ov) ov.querySelector('div:last-child') && (ov.querySelector('div + div') as HTMLElement)?.style && ((ov.querySelector('div + div') as HTMLElement).textContent = 'Buscando sua localização...');
+          if (ov) { var _el = ov.querySelector('div + div'); if (_el) _el.textContent = 'Buscando sua localização...'; }
           _usarSPPadrao();
         }
       }, 15000);
