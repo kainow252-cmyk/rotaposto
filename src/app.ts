@@ -603,9 +603,12 @@ export function getAppHTML(firebaseScripts: string): string {
       background: var(--orange); border: none; border-radius: 14px;
       color: var(--white); font-family: 'Inter', sans-serif;
       font-size: 17px; font-weight: 700;
-      cursor: pointer; transition: opacity 0.2s;
+      cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      box-shadow: 0 4px 16px rgba(255,109,0,0.4);
+      margin-top: 4px;
     }
-    .btn-iniciar-nav:active { opacity: 0.85; }
+    .btn-iniciar-nav:active { opacity: 0.85; transform: scale(0.98); }
 
     /* ── Seletor de veículo na tela Planejar ── */
     #plan-veiculo-selector {
@@ -1419,7 +1422,10 @@ export function getAppHTML(firebaseScripts: string): string {
             <div class="map-posto-preco" id="map-card-preco">R$ 5,67 /L</div>
             <div class="map-posto-dist" id="map-card-dist">1,2 km • 3 min</div>
           </div>
-          <button class="btn-ir-ata-la" onclick="goToView('planejar')">🗺️ Planejar</button>
+          <button class="btn-ir-ata-la" onclick="goToView('planejar')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Planejar
+          </button>
         </div>
       </div>
     </div>
@@ -1619,7 +1625,8 @@ export function getAppHTML(firebaseScripts: string): string {
         </div>
 
         <button class="btn-iniciar-nav" id="btn-iniciar-nav" onclick="iniciarNavegacao()" style="display:none;">
-          🗺️ Iniciar navegação
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Iniciar navegação no Google Maps
         </button>
       </div>
     </div>
@@ -2397,9 +2404,8 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // Calcular distância e tempo
     var dist = dest && dest.distancia ? dest.distancia : calcHaversinePlan(userLat, userLng, destLat, destLng);
-    var tempo = Math.max(1, Math.round(dist * 3));
     document.getElementById('plan-dist').textContent = dist.toFixed(1).replace('.', ',') + ' km';
-    document.getElementById('plan-time').textContent = tempo + ' min';
+    document.getElementById('plan-time').textContent = calcTempo(dist);
 
     // Atualizar info do card posto
     if (dest) {
@@ -2536,18 +2542,51 @@ export function getAppHTML(firebaseScripts: string): string {
     inp.focus();
   }
 
-  function confirmarOrigem() {
+  async function confirmarOrigem() {
     var val = document.getElementById('plan-origin');
     var inp = document.getElementById('plan-origin-input');
     if (!val || !inp) return;
+    var texto = inp.value.trim();
     inp.style.display = 'none';
     val.style.display = 'block';
-    val.textContent = inp.value.trim() || 'Minha localização';
+    if (!texto) {
+      val.textContent = 'Minha localização';
+      return;
+    }
+    val.textContent = texto;
+    // Geocodificar origem digitada
+    try {
+      var res = await fetch('/api/geocode?q=' + encodeURIComponent(texto));
+      var data = await res.json();
+      if (data && data.length > 0) {
+        userLat = parseFloat(data[0].lat);
+        userLng = parseFloat(data[0].lng);
+        if (mapMain) { mapMain.setView([userLat, userLng], 14); }
+        loadPostos();
+        showToast('📍 Origem: ' + (data[0].nome || texto));
+      }
+    } catch(e) { /* silencioso */ }
   }
 
   function usarLocalizacaoAtual() {
     document.getElementById('plan-origin').textContent = 'Minha localização';
-    showToast('Usando sua localização atual 📍');
+    showToast('📍 Usando sua localização atual');
+    // Reobter GPS para atualizar
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          userLat = pos.coords.latitude;
+          userLng = pos.coords.longitude;
+          localStorage.setItem('rp_lat', String(userLat));
+          localStorage.setItem('rp_lng', String(userLng));
+          localStorage.setItem('rp_loc_ts', String(Date.now()));
+          if (mapMain) mapMain.setView([userLat, userLng], 14);
+          showToast('📍 Localização atualizada!');
+        },
+        function() { showToast('Não foi possível obter sua localização'); },
+        { timeout: 8000, enableHighAccuracy: true }
+      );
+    }
   }
 
   // ── Destino livre no Planejar — overlay fullscreen ───────────────────────
@@ -2729,9 +2768,8 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // Calcular distância e tempo
     var dist = calcHaversinePlan(userLat, userLng, destLat, destLng);
-    var tempo = Math.max(1, Math.round(dist * 2.8));
     document.getElementById('plan-dist').textContent = dist.toFixed(1).replace('.', ',') + ' km';
-    document.getElementById('plan-time').textContent = tempo + ' min';
+    document.getElementById('plan-time').textContent = calcTempo(dist);
 
     // Card destino (genérico — não é posto)
     document.getElementById('plan-logo').textContent = detectarIconeLugar(nome + ' ' + endereco);
@@ -3296,30 +3334,62 @@ export function getAppHTML(firebaseScripts: string): string {
     document.getElementById('month-label').textContent = MONTHS_FULL[currentMonthIdx] + ' 2024';
   }
 
+  // Abre navegação no Google Maps ou Waze — funciona em TWA/Android
+  function _abrirNavegacaoExterna(lat, lng, nome) {
+    // No Android (TWA/Chrome) usa geo: URI que abre o app de mapas padrão
+    var isAndroid = /Android/i.test(navigator.userAgent);
+    var isTWA = document.referrer.indexOf('android-app://') === 0
+      || (window.matchMedia('(display-mode: standalone)').matches && isAndroid);
+
+    if (isTWA || isAndroid) {
+      // geo: URI abre Google Maps nativo no Android
+      var geoUrl = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng + (nome ? '(' + encodeURIComponent(nome) + ')' : '');
+      // Tentar geo: primeiro, fallback para google maps web
+      var link = document.createElement('a');
+      link.href = geoUrl;
+      link.click();
+      // Fallback após 500ms se geo: não abriu
+      setTimeout(function() {
+        window.location.href = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving';
+      }, 800);
+    } else {
+      // Desktop/iOS — abrir nova aba
+      var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving';
+      window.open(mapsUrl, '_blank');
+    }
+  }
+
   function irAteLa() {
-    if (!selectedPosto) { showToast('Selecione um posto'); return; }
-    const url = 'https://www.google.com/maps/dir/?api=1&destination=' + selectedPosto.lat + ',' + selectedPosto.lng;
-    window.open(url, '_blank');
+    if (!selectedPosto) { showToast('Selecione um posto primeiro'); return; }
+    _abrirNavegacaoExterna(selectedPosto.lat, selectedPosto.lng, selectedPosto.nome);
   }
 
   function openMaps() { irAteLa(); }
+
   function shareStation() {
-    if (navigator.share && selectedPosto) {
-      navigator.share({ title: selectedPosto.nome, text: 'Confira esse posto no RotaPosto!', url: window.location.href }).catch(()=>{});
-    } else showToast('Link copiado!');
+    if (!selectedPosto) return;
+    var txt = selectedPosto.nome + ' - ' + (selectedPosto.endereco || '') + ' | RotaPosto: https://rotaposto.com.br';
+    if (navigator.share) {
+      navigator.share({ title: selectedPosto.nome, text: txt, url: 'https://rotaposto.com.br' }).catch(function(){});
+    } else {
+      navigator.clipboard && navigator.clipboard.writeText(txt);
+      showToast('Link copiado! 📋');
+    }
   }
+
   function toggleFavorite() { showToast('Adicionado aos favoritos ❤️'); }
 
   function iniciarNavegacao() {
-    // Prioridade: destino livre digitado → posto selecionado → demo
-    var lat, lng;
+    var lat, lng, nome;
     if (planDestLat && planDestLng) {
-      lat = planDestLat; lng = planDestLng;
+      lat = planDestLat; lng = planDestLng; nome = planDestNome || '';
+    } else if (selectedPosto) {
+      lat = selectedPosto.lat; lng = selectedPosto.lng; nome = selectedPosto.nome;
     } else {
-      var dest = selectedPosto || getDemoPostos()[0];
-      lat = dest.lat; lng = dest.lng;
+      showToast('Selecione um destino primeiro');
+      return;
     }
-    window.open('https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving', '_blank');
+    _abrirNavegacaoExterna(lat, lng, nome);
   }
 
   let _searchTimer = null;
@@ -4576,54 +4646,97 @@ export function getAppHTML(firebaseScripts: string): string {
 
   // ── Geolocalização — chamada no init E quando mapa abre ──────────────────
 
+  // ── Watcher GPS ativo ────────────────────────────────────────────────────
+  var _geoWatchId = null;
+
   function _initLocalizacao() {
+    // 1. Carregar última posição salva imediatamente (evita tela em branco)
+    var cachedLat = parseFloat(localStorage.getItem('rp_lat') || '');
+    var cachedLng = parseFloat(localStorage.getItem('rp_lng') || '');
+    var cachedTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
+    var cacheAge  = Date.now() - cachedTs;
+
+    if (!isNaN(cachedLat) && !isNaN(cachedLng) && cacheAge < 30 * 60 * 1000) {
+      // Cache < 30 min → usar imediatamente e refinar depois
+      _aplicarLocalizacao(cachedLat, cachedLng, false);
+    }
+
     if (!navigator.geolocation) {
-      // Sem suporte: usar SP e carregar postos normalmente
-      _aplicarLocalizacao(userLat, userLng);
+      if (!_geoJaObtida) _aplicarLocalizacao(userLat, userLng, true);
       return;
     }
 
-    // Mostrar indicador de carregando no mapa
+    // Mostrar indicador de carregando no mapa apenas se não há cache
     var mapEl = document.getElementById('map-leaflet');
-    if (mapEl && !mapMain) {
-      mapEl.innerHTML = '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8f8f8;z-index:999;">'
+    if (mapEl && !mapMain && !_geoJaObtida) {
+      mapEl.innerHTML = '<div id="geo-loading-overlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8f8f8;z-index:999;">'
         + '<div style="width:40px;height:40px;border:4px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin360 0.8s linear infinite;margin-bottom:16px;"></div>'
         + '<div style="font-size:14px;color:#666;font-weight:600;">Obtendo sua localização…</div>'
         + '<div style="font-size:12px;color:#aaa;margin-top:6px;">Aguarde ou toque para continuar</div>'
-        + '<button onclick="_aplicarLocalizacao(' + userLat + ',' + userLng + ')" '
+        + '<button onclick="_aplicarLocalizacao(' + userLat + ',' + userLng + ',true)" '
         + 'style="margin-top:16px;padding:10px 20px;background:#FF6D00;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Usar SP (padrão)</button>'
         + '</div>';
     }
 
+    // 2. getCurrentPosition com alta precisão
     navigator.geolocation.getCurrentPosition(
       function(pos) {
-        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude);
+        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true);
+        // 3. watchPosition para atualizar continuamente no app
+        if (_geoWatchId === null) {
+          _geoWatchId = navigator.geolocation.watchPosition(
+            function(wp) {
+              // Só atualiza se moveu mais de 100m
+              var d = _haversineFast(userLat, userLng, wp.coords.latitude, wp.coords.longitude);
+              if (d > 0.1) {
+                _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, false);
+              }
+            },
+            function() { /* silencioso */ },
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 }
+          );
+        }
       },
       function(err) {
-        // Permissão negada ou timeout — usar localização padrão (SP) e carregar mesmo assim
         console.warn('[RotaPosto] Geo erro:', err.code, err.message);
-        _aplicarLocalizacao(userLat, userLng);
+        if (!_geoJaObtida) {
+          // Tentar com baixa precisão como fallback
+          navigator.geolocation.getCurrentPosition(
+            function(pos) { _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true); },
+            function() { _aplicarLocalizacao(userLat, userLng, true); },
+            { timeout: 10000, maximumAge: 60000, enableHighAccuracy: false }
+          );
+        }
       },
-      { timeout: 10000, maximumAge: 300000, enableHighAccuracy: false }
+      { timeout: 10000, maximumAge: 30000, enableHighAccuracy: true }
     );
   }
 
-  function _aplicarLocalizacao(lat, lng) {
+  function _haversineFast(lat1, lng1, lat2, lng2) {
+    var R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function _aplicarLocalizacao(lat, lng, recarregarPostos) {
     _geoJaObtida = true;
     userLat = lat;
     userLng = lng;
 
+    // Salvar no cache local
+    localStorage.setItem('rp_lat', String(lat));
+    localStorage.setItem('rp_lng', String(lng));
+    localStorage.setItem('rp_loc_ts', String(Date.now()));
+
     // Limpar overlay de carregando se existir
-    var overlay = document.querySelector('#map-leaflet > div');
-    if (overlay && overlay.style.zIndex === '999') overlay.remove();
+    var overlay = document.getElementById('geo-loading-overlay');
+    if (overlay) overlay.remove();
 
     if (!mapMain) {
-      // Mapa ainda não foi criado — criar agora com coordenada correta
       initMapMain();
     } else {
-      // Mapa já existe — só atualizar centro e recarregar postos
       mapMain.setView([lat, lng], 14);
-      loadPostos();
+      if (recarregarPostos) loadPostos();
     }
   }
 </script>
