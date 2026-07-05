@@ -1435,6 +1435,10 @@ export function getAppHTML(firebaseScripts: string): string {
     <!-- TELA 7: MAPA -->
     <div id="view-mapa" class="view active">
       <div id="map-leaflet"></div>
+      <!-- Botão GPS flutuante -->
+      <button id="btn-gps-float" onclick="_forcarGPS()" title="Minha localização" style="position:absolute;bottom:100px;right:16px;z-index:1000;width:44px;height:44px;border-radius:50%;background:#fff;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6D00" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="4 2" stroke="#FF6D00" stroke-width="1.5" fill="none"/></svg>
+      </button>
       <div id="map-card" style="display:none">
         <div class="map-card-label">
           Melhor posto próximo
@@ -4803,6 +4807,34 @@ export function getAppHTML(firebaseScripts: string): string {
     // -23.5505, -46.6333 = centro de SP (só fallback, nunca salva no cache)
     console.warn('[GPS] Usando SP como fallback — GPS não disponível');
     _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+  }
+
+  function _forcarGPS() {
+    // Limpar todos os flags e forçar GPS do zero
+    localStorage.removeItem('rp_geo_denied');
+    localStorage.removeItem('rp_lat');
+    localStorage.removeItem('rp_lng');
+    localStorage.removeItem('rp_loc_ts');
+    _geoJaObtida = false;
+    _geoGPSConfirmado = false;
+    // Feedback visual no botão
+    var btn = document.getElementById('btn-gps-float');
+    if (btn) btn.style.opacity = '0.5';
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        if (btn) btn.style.opacity = '1';
+        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+      },
+      function(err) {
+        if (btn) btn.style.opacity = '1';
+        if (err.code === 1) {
+          showToast('Permita acesso à localização nas configurações do Android');
+        } else {
+          showToast('GPS indisponível. Tente novamente ao ar livre.');
+        }
+      },
+      { timeout: 15000, maximumAge: 0, enableHighAccuracy: true }
+    );
   }
 
   function _haversineFast(la1, lo1, la2, lo2) {
