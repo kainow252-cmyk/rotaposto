@@ -1930,6 +1930,7 @@ export function getAppHTML(firebaseScripts: string): string {
   let currentView = 'mapa';
   let mapMain = null, mapPlan = null;
   let userLat = -23.5505, userLng = -46.6333;
+  let _geoJaObtida = false; // true após localização ser obtida (ou timeout)
   let postosData = [];
   let semanaANP = '';   // semana de referência ANP — preenchida pela API
   let selectedFuel = 'gasolina';
@@ -2004,12 +2005,12 @@ export function getAppHTML(firebaseScripts: string): string {
 
     currentView = viewId;
 
-    // Init mapa quando necessário
-    if (viewId === 'mapa' && !mapMain) initMapMain();
-    // Leaflet: forçar recalculo de tamanho sempre que a view mapa aparecer
-    // (container estava display:none → Leaflet não sabe o tamanho real → mapa branco)
+    // Init mapa: só se a localização já foi obtida (ou após timeout)
+    // Se ainda não temos geo, _initLocalizacao() vai chamar initMapMain() quando pronto
+    if (viewId === 'mapa' && !mapMain && _geoJaObtida) initMapMain();
+    // Leaflet: forçar recalculo de tamanho quando a view mapa aparecer
     if (viewId === 'mapa' && mapMain) {
-      setTimeout(() => mapMain.invalidateSize(), 50);
+      setTimeout(() => mapMain.invalidateSize(), 100);
     }
     if (viewId === 'planejar') {
       renderPlanCarTabs();
@@ -4367,6 +4368,8 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // Iniciar na view mapa (com header)
     goToView('mapa');
+    // Pedir localização logo no init — antes de qualquer coisa
+    _initLocalizacao();
 
     // No TWA: mostrar toast de boas-vindas se já estava logado (sessão herdada do Chrome)
     // Isso evita o usuário achar que "logou sozinho sem pedir"
@@ -4454,19 +4457,60 @@ export function getAppHTML(firebaseScripts: string): string {
 
     // Verificar status de assinatura
     setTimeout(() => verificarStatusAssinatura(), 1000);
-
-    // Obter localização
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        userLat = pos.coords.latitude;
-        userLng = pos.coords.longitude;
-        if (mapMain) {
-          mapMain.setView([userLat, userLng], 14);
-          loadPostos();
-        }
-      }, null, { timeout: 8000 });
-    }
   })();
+
+  // ── Geolocalização — chamada no init E quando mapa abre ──────────────────
+
+  function _initLocalizacao() {
+    if (!navigator.geolocation) {
+      // Sem suporte: usar SP e carregar postos normalmente
+      _aplicarLocalizacao(userLat, userLng);
+      return;
+    }
+
+    // Mostrar indicador de carregando no mapa
+    var mapEl = document.getElementById('map-leaflet');
+    if (mapEl && !mapMain) {
+      mapEl.innerHTML = '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8f8f8;z-index:999;">'
+        + '<div style="width:40px;height:40px;border:4px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin360 0.8s linear infinite;margin-bottom:16px;"></div>'
+        + '<div style="font-size:14px;color:#666;font-weight:600;">Obtendo sua localização…</div>'
+        + '<div style="font-size:12px;color:#aaa;margin-top:6px;">Aguarde ou toque para continuar</div>'
+        + '<button onclick="_aplicarLocalizacao(' + userLat + ',' + userLng + ')" '
+        + 'style="margin-top:16px;padding:10px 20px;background:#FF6D00;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Usar SP (padrão)</button>'
+        + '</div>';
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude);
+      },
+      function(err) {
+        // Permissão negada ou timeout — usar localização padrão (SP) e carregar mesmo assim
+        console.warn('[RotaPosto] Geo erro:', err.code, err.message);
+        _aplicarLocalizacao(userLat, userLng);
+      },
+      { timeout: 10000, maximumAge: 300000, enableHighAccuracy: false }
+    );
+  }
+
+  function _aplicarLocalizacao(lat, lng) {
+    _geoJaObtida = true;
+    userLat = lat;
+    userLng = lng;
+
+    // Limpar overlay de carregando se existir
+    var overlay = document.querySelector('#map-leaflet > div');
+    if (overlay && overlay.style.zIndex === '999') overlay.remove();
+
+    if (!mapMain) {
+      // Mapa ainda não foi criado — criar agora com coordenada correta
+      initMapMain();
+    } else {
+      // Mapa já existe — só atualizar centro e recarregar postos
+      mapMain.setView([lat, lng], 14);
+      loadPostos();
+    }
+  }
 </script>
 ${getGamificacaoScripts()}
 ${getCupomQRScripts()}
