@@ -1,11 +1,12 @@
-// RotaPosto Service Worker v13.0
-// v13: _worker.js NUNCA entra em cache — sempre busca da rede
+// RotaPosto Service Worker v14.0
+// v14: limpeza automática de cache de SP padrão no localStorage
+//      _worker.js NUNCA entra em cache — sempre busca da rede
 //      SW se auto-atualiza silenciosamente a cada abertura do app
 //      Reload seguro no TWA (postMessage → app decide recarregar)
 
-const VERSION = 'v13.0';
-const CACHE_STATIC = 'rp-static-v13';
-const CACHE_API    = 'rp-api-v13';
+const VERSION = 'v14.0';
+const CACHE_STATIC = 'rp-static-v14';
+const CACHE_API    = 'rp-api-v14';
 
 const PRECACHE = [
   '/manifest.json',
@@ -38,6 +39,8 @@ self.addEventListener('activate', event => {
         return self.clients.matchAll({ type: 'window' }).then(clients => {
           clients.forEach(client => {
             client.postMessage({ type: 'SW_UPDATED', version: VERSION });
+            // v14: pede ao app para limpar cache de SP padrão do localStorage
+            client.postMessage({ type: 'CLEAR_SP_CACHE' });
           });
         });
       })

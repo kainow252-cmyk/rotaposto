@@ -4557,12 +4557,24 @@ export function getAppHTML(firebaseScripts: string): string {
     if ('serviceWorker' in navigator) {
       var _swReloading = false;
 
-      // Recebe mensagem SW_UPDATED → recarrega app de forma segura
+      // Recebe mensagens do SW
       navigator.serviceWorker.addEventListener('message', function(event) {
         if (event.data?.type === 'SW_UPDATED' && !_swReloading) {
           _swReloading = true;
           // Aguarda 500ms para o SW terminar de ativar, depois recarrega
           setTimeout(function() { window.location.reload(); }, 500);
+        }
+        // v14: SW pede limpeza de cache SP padrão
+        if (event.data?.type === 'CLEAR_SP_CACHE') {
+          var spLat = parseFloat(localStorage.getItem('rp_lat') || '');
+          var spLng = parseFloat(localStorage.getItem('rp_lng') || '');
+          if (!isNaN(spLat) && Math.abs(spLat - (-23.5505)) < 0.001 &&
+              !isNaN(spLng) && Math.abs(spLng - (-46.6333)) < 0.001) {
+            localStorage.removeItem('rp_lat');
+            localStorage.removeItem('rp_lng');
+            localStorage.removeItem('rp_loc_ts');
+            console.log('[RotaPosto] SW v14: cache SP limpo via postMessage');
+          }
         }
       });
 
@@ -4776,7 +4788,18 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function _initLocalizacao() {
-    // ── PASSO 1: cache recente (<5 min) → mostrar imediatamente SEM marcar como confirmado ──
+    // ── LIMPEZA PREVENTIVA: remover cache de SP padrão salvo por versões antigas ──
+    var _cleanLat = parseFloat(localStorage.getItem('rp_lat') || '');
+    var _cleanLng = parseFloat(localStorage.getItem('rp_lng') || '');
+    if (!isNaN(_cleanLat) && !isNaN(_cleanLng) &&
+        Math.abs(_cleanLat - (-23.5505)) < 0.001 && Math.abs(_cleanLng - (-46.6333)) < 0.001) {
+      localStorage.removeItem('rp_lat');
+      localStorage.removeItem('rp_lng');
+      localStorage.removeItem('rp_loc_ts');
+      console.log('[RotaPosto] Cache de SP padrão removido — forçando GPS real');
+    }
+
+    // ── PASSO 1: cache recente (<60 min) → mostrar imediatamente SEM marcar como confirmado ──
     var cLat = parseFloat(localStorage.getItem('rp_lat') || '');
     var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
@@ -4891,15 +4914,17 @@ export function getAppHTML(firebaseScripts: string): string {
     userLat = lat;
     userLng = lng;
 
-    // DEBUG: toast mostrando coords obtidas (remover após confirmar)
-    var src = gpsReal ? '📍GPS' : '💾Cache';
-    showToast(src + ' ' + lat.toFixed(4) + ', ' + lng.toFixed(4));
-
-    // Salvar cache só se GPS real
-    if (gpsReal) {
+    // Salvar cache só se GPS real (nunca salvar coords de SP padrão)
+    var ehSPPadrao = Math.abs(lat - (-23.5505)) < 0.001 && Math.abs(lng - (-46.6333)) < 0.001;
+    if (gpsReal && !ehSPPadrao) {
       localStorage.setItem('rp_lat', String(lat));
       localStorage.setItem('rp_lng', String(lng));
       localStorage.setItem('rp_loc_ts', String(Date.now()));
+    } else if (ehSPPadrao) {
+      // Limpar cache de SP para forçar GPS real na próxima abertura
+      localStorage.removeItem('rp_lat');
+      localStorage.removeItem('rp_lng');
+      localStorage.removeItem('rp_loc_ts');
     }
 
     // Remover overlay de loading
