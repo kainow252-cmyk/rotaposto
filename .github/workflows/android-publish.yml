@@ -62,34 +62,34 @@ jobs:
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/rotaposto-keystore.jks
           echo "✅ Keystore decodificada: $(wc -c < android/rotaposto-keystore.jks) bytes"
 
-      # ── 5. Build APK ─────────────────────────────────────────────────────────
-      - name: Build APK Release
+      # ── 5. Build AAB (Android App Bundle) ──────────────────────────────────
+      - name: Build AAB Release
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew bundleRelease
         env:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
 
-      # ── 6. Verificar APK ─────────────────────────────────────────────────────
-      - name: Verificar APK gerado
+      # ── 6. Verificar AAB ─────────────────────────────────────────────────────
+      - name: Verificar AAB gerado
         id: apk_info
         working-directory: android
         run: |
-          APK_PATH="app/build/outputs/apk/release/app-release.apk"
-          ls -lh "$APK_PATH"
+          AAB_PATH="app/build/outputs/bundle/release/app-release.aab"
+          ls -lh "$AAB_PATH"
           VERSION_NAME=$(grep 'versionName' app/build.gradle | grep -v '//' | head -1 | sed 's/.*"\(.*\)".*/\1/')
           VERSION_CODE=$(grep 'versionCode' app/build.gradle | grep -v '//' | head -1 | sed 's/[^0-9]//g')
           echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
           echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
           echo "📦 versionName=$VERSION_NAME versionCode=$VERSION_CODE"
 
-      # ── 7. Salvar APK como Artifact ──────────────────────────────────────────
-      - name: Upload APK como Artifact
+      # ── 7. Salvar AAB como Artifact ──────────────────────────────────────────
+      - name: Upload AAB como Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rotaposto-v${{ steps.apk_info.outputs.version_name }}.apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: rotaposto-v${{ steps.apk_info.outputs.version_name }}.aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 60
 
       # ── 8. Instalar dependências Python ──────────────────────────────────────
@@ -104,8 +104,8 @@ jobs:
         run: |
           TRACK="${{ github.event.inputs.track || 'internal' }}"
           NOTES="${{ github.event.inputs.release_notes || 'Nova versão com melhorias e correções.' }}"
-          python3 scripts/publish_apk.py \
-            --apk app/build/outputs/apk/release/app-release.apk \
+          python3 scripts/publish_aab.py \
+            --aab app/build/outputs/bundle/release/app-release.aab \
             --track "$TRACK" \
             --release-notes "$NOTES"
 
