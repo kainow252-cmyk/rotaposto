@@ -175,8 +175,8 @@ export function getAppHTML(firebaseScripts: string): string {
       /* overflow:hidden necessário para o mapa Leaflet não vazar */
     }
 
-    .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; overflow: hidden; }
-    .view.active { display: flex; flex-direction: column; }
+    .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; overflow: hidden; background: var(--white); }
+    .view.active { display: flex; flex-direction: column; z-index: 10; }
     /* Views com scroll simples (página inteira faz scroll) */
     #view-lista.active,
     #view-relatorios.active,
@@ -193,6 +193,14 @@ export function getAppHTML(firebaseScripts: string): string {
       display: flex;
       flex-direction: column;
       height: 100%;
+    }
+    /* Quando o mapa NÃO está ativo, esconder todos os panes do Leaflet
+       para evitar tiles vazando sobre outras views */
+    #view-mapa:not(.active) .leaflet-pane,
+    #view-mapa:not(.active) .leaflet-control,
+    #view-mapa:not(.active) .leaflet-top,
+    #view-mapa:not(.active) .leaflet-bottom {
+      display: none !important;
     }
 
     #map-leaflet {
@@ -2015,12 +2023,16 @@ export function getAppHTML(firebaseScripts: string): string {
 
     currentView = viewId;
 
+    // Esconder/mostrar container Leaflet para evitar tiles vazando sobre outras views
+    const mapLeaflet = document.getElementById('map-leaflet');
+    if (mapLeaflet) mapLeaflet.style.visibility = (viewId === 'mapa') ? 'visible' : 'hidden';
+
     // Init mapa: só se a localização já foi obtida (ou após timeout)
     // Se ainda não temos geo, _initLocalizacao() vai chamar initMapMain() quando pronto
     if (viewId === 'mapa' && !mapMain && _geoJaObtida) initMapMain();
     // Leaflet: forçar recalculo de tamanho quando a view mapa aparecer
     if (viewId === 'mapa' && mapMain) {
-      setTimeout(() => mapMain.invalidateSize(), 100);
+      setTimeout(() => { if (mapLeaflet) mapLeaflet.style.visibility = 'visible'; mapMain.invalidateSize(); }, 100);
     }
     if (viewId === 'planejar') {
       renderPlanCarTabs();
