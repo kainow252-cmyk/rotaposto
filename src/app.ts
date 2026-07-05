@@ -171,7 +171,9 @@ export function getAppHTML(firebaseScripts: string): string {
        CONTEÚDO / VIEWS
     ══════════════════════════════════════════════ */
     #app-content {
-      flex: 1; overflow: hidden; position: relative;
+      flex: 1 1 0;
+      min-height: 0;   /* permite shrink correto no flex column */
+      overflow: hidden; position: relative;
       /* overflow:hidden necessário para o mapa Leaflet não vazar */
     }
 
@@ -1146,8 +1148,10 @@ export function getAppHTML(firebaseScripts: string): string {
       display: flex; align-items: stretch;
       padding-bottom: var(--sab);
       height: calc(var(--nav-h) + var(--sab));
+      min-height: calc(var(--nav-h) + var(--sab));
       position: relative; z-index: 300;
       flex-shrink: 0;
+      flex-grow: 0;
     }
 
     .nav-item {
