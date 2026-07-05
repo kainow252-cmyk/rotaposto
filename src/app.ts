@@ -2623,13 +2623,34 @@ export function getAppHTML(firebaseScripts: string): string {
     if (el) el.textContent = 'Minha localização';
     showToast('📍 Buscando localização…');
     if (!navigator.geolocation) { showToast('GPS não disponível'); return; }
-    navigator.geolocation.getCurrentPosition(
-      function(pos) {
-        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
-        showToast('📍 Localização atualizada!');
-      },
-      function() { showToast('Não foi possível obter localização real'); },
-      { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
+
+    function _onOkPlan(pos) {
+      _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+      showToast('📍 Localização atualizada!');
+    }
+    function _onErrPlan(err) {
+      console.warn('[GPS usarLocalizacaoAtual] falhou. code:', err.code, err.message);
+      if (err.code === 1) {
+        showToast('Permita acesso à localização: Configurações → Apps → RotaPosto → Permissões');
+        return;
+      }
+      // TIMEOUT ou POSITION_UNAVAILABLE → tentar rede/WiFi
+      navigator.geolocation.getCurrentPosition(
+        _onOkPlan,
+        function(err2) {
+          console.warn('[GPS usarLocalizacaoAtual] baixa precisão falhou. code:', err2.code);
+          if (err2.code === 1) {
+            showToast('Permita acesso à localização: Configurações → Apps → RotaPosto → Permissões');
+          } else {
+            showToast('GPS indisponível. Vá para um local aberto e tente novamente.');
+          }
+        },
+        { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
+      );
+    }
+    // 1ª tentativa: alta precisão, aceita cache de até 30s
+    navigator.geolocation.getCurrentPosition(_onOkPlan, _onErrPlan,
+      { timeout: 15000, maximumAge: 30000, enableHighAccuracy: true }
     );
   }
 
