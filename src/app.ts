@@ -4819,31 +4819,53 @@ export function getAppHTML(firebaseScripts: string): string {
     _geoGPSConfirmado = false;
     var btn = document.getElementById('btn-gps-float');
     if (btn) { btn.style.opacity = '0.5'; btn.disabled = true; }
+    var _fgConcluido = false;
+
+    function _fgRestoreBtn() {
+      if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
+    }
 
     function onOk(pos) {
-      if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
+      if (_fgConcluido) return;
+      _fgConcluido = true;
+      _fgRestoreBtn();
+      console.log('[GPS _forcarGPS] ok:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
       _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
     }
+
+    function onFail2(err2) {
+      _fgConcluido = true;
+      _fgRestoreBtn();
+      console.warn('[GPS _forcarGPS] falhou tudo. code2:', err2.code, err2.message);
+      if (err2.code === 1) {
+        showToast('Ative a localização: Configurações → Apps → RotaPosto → Permissões → Localização');
+      } else {
+        // Código 2=POSITION_UNAVAILABLE, 3=TIMEOUT — problema físico, não de permissão
+        showToast('GPS indisponível. Vá para um local aberto e tente novamente.');
+      }
+    }
+
     function onFail(err) {
+      if (_fgConcluido) return;
+      console.warn('[GPS _forcarGPS] 1ª tentativa falhou. code:', err.code, err.message);
       if (err.code === 1) {
-        // PERMISSION_DENIED — avisar e encerrar
-        if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
+        // PERMISSION_DENIED — avisar e encerrar imediatamente
+        _fgConcluido = true;
+        _fgRestoreBtn();
         showToast('Ative a localização: Configurações → Apps → RotaPosto → Permissões → Localização');
         return;
       }
-      // Timeout/indisponível → tentar rede (WiFi/torre) sem alta precisão
-      navigator.geolocation.getCurrentPosition(
-        onOk,
-        function() {
-          if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
-          showToast('Localização indisponível. Verifique as permissões do app.');
-        },
-        { timeout: 10000, maximumAge: 60000, enableHighAccuracy: false }
+      // TIMEOUT (3) ou POSITION_UNAVAILABLE (2) → tentar rede (WiFi/torre) sem alta precisão
+      // maximumAge:300000 aceita leitura recente de 5min — mais rápido em ambientes fechados
+      navigator.geolocation.getCurrentPosition(onOk, onFail2,
+        { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
       );
     }
+
     // 1ª tentativa: GPS de alta precisão
+    // maximumAge:30000 aceita cache de 30s — evita esperar GPS frio desnecessariamente
     navigator.geolocation.getCurrentPosition(onOk, onFail,
-      { timeout: 12000, maximumAge: 0, enableHighAccuracy: true }
+      { timeout: 15000, maximumAge: 30000, enableHighAccuracy: true }
     );
   }
 
@@ -4994,19 +5016,37 @@ export function getAppHTML(firebaseScripts: string): string {
         if (!temCache) { userLat = -23.5505; userLng = -46.6333; }
       } else {
         // TIMEOUT (code 3) ou POSITION_UNAVAILABLE (code 2)
-        // Tentar baixa precisão imediatamente — mais rápido, usa rede/WiFi
+        // Tentar baixa precisão imediatamente — mais rápido, usa rede/WiFi/torre celular
         _gpsConcluido = true;
+        console.warn('[GPS] Tentando baixa precisão (rede/WiFi)...');
         navigator.geolocation.getCurrentPosition(
-          function(pos) { _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true); },
-          function() {
+          function(pos) {
+            console.log('[GPS] baixa precisão ok:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
+            _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+          },
+          function(err2) {
+            console.warn('[GPS] baixa precisão também falhou. code:', err2.code, err2.message);
             // Falhou tudo: usar cache se tiver, senão SP
             if (temCache) {
+              console.log('[GPS] usando cache como fallback');
               _aplicarLocalizacao(cLat, cLng, true, false);
             } else {
-              _usarSPPadrao();
+              // Mostrar botão de retry no overlay antes de ir para SP
+              var ov = document.getElementById('geo-loading-overlay');
+              if (ov) {
+                ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
+                  + '<div style="font-size:36px;margin-bottom:12px;">📡</div>'
+                  + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">GPS indisponível</div>'
+                  + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Verifique se a localização está ativa nas configurações do Android e tente novamente.</div>'
+                  + '<button onclick="_forcarGPS()" style="padding:10px 24px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px;">Tentar novamente</button>'
+                  + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#eee;color:#666;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">Continuar sem localização</button>'
+                  + '</div>';
+              } else {
+                _usarSPPadrao();
+              }
             }
           },
-          { timeout: 10000, maximumAge: 300000, enableHighAccuracy: false }
+          { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
         );
       }
     }
