@@ -172,10 +172,16 @@ export function getAppHTML(firebaseScripts: string): string {
     ══════════════════════════════════════════════ */
     #app-content {
       flex: 1; overflow: hidden; position: relative;
+      /* overflow:hidden necessário para o mapa Leaflet não vazar */
     }
 
-    .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; }
+    .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; overflow: hidden; }
     .view.active { display: flex; flex-direction: column; }
+    /* Views com scroll próprio devem sobrescrever overflow: hidden */
+    #view-perfil.active,
+    #view-lista.active,
+    #view-relatorios.active,
+    #view-sos.active { overflow-y: auto; overflow-x: hidden; }
 
     /* ══════════════════════════════════════════════
        TELA 7: MAPA
@@ -909,8 +915,12 @@ export function getAppHTML(firebaseScripts: string): string {
        TELA 12: PERFIL / MENU
     ══════════════════════════════════════════════ */
     #view-perfil {
-      overflow-y: auto;
+      /* overflow-y gerenciado pela regra .view.active acima */
       background: var(--gray-bg);
+    }
+
+    #perfil-menu-list {
+      padding-bottom: calc(var(--nav-h) + var(--sab) + 16px);
     }
 
     /* Header dark perfil */
@@ -1147,10 +1157,9 @@ export function getAppHTML(firebaseScripts: string): string {
        VIEW SOS
     ══════════════════════════════════════════════ */
     #view-sos {
-      display: none; flex-direction: column;
+      /* display:none gerenciado pela classe .view — não redeclarar aqui */
       background: var(--gray-bg);
     }
-    #view-sos.active { display: flex; }
     #sos-header {
       background: #D32F2F;
       padding: calc(var(--sat) + 14px) 16px 14px;
@@ -1703,27 +1712,25 @@ export function getAppHTML(firebaseScripts: string): string {
       </div>
     </div>
 
-  </div><!-- #app-content -->
 
-  <!-- ══════════════════════════════════
-       BOTTOM NAV
-  ══════════════════════════════════ -->
-  <!-- TELA SOS: Guinchos, Borracheiros, Mecânicas -->
-  <div id="view-sos" class="view">
-    <div id="sos-header">
-      <button id="sos-back" onclick="goToView('mapa')">
-        <svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div id="sos-titulo">🚨 SOS RotaPosto</div>
-      <div id="sos-badge-premium" style="display:none;">👑 Premium</div>
-    </div>
-    <div id="sos-body">
-      <div class="sos-loading" id="sos-loading">
-        <div class="sos-loading-spinner"></div>
-        Buscando serviços próximos…
+    <!-- TELA SOS: Guinchos, Borracheiros, Mecânicas — DENTRO do app-content -->
+    <div id="view-sos" class="view">
+      <div id="sos-header">
+        <button id="sos-back" onclick="goToView('mapa')">
+          <svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div id="sos-titulo">🚨 SOS RotaPosto</div>
+        <div id="sos-badge-premium" style="display:none;">👑 Premium</div>
+      </div>
+      <div id="sos-body">
+        <div class="sos-loading" id="sos-loading">
+          <div class="sos-loading-spinner"></div>
+          Buscando serviços próximos…
+        </div>
       </div>
     </div>
-  </div>
+
+  </div><!-- #app-content -->
 
   <!-- BOTÃO SOS FLUTUANTE -->
   <!-- O overlay #plan-busca-overlay é criado dinamicamente no body por abrirBuscaDestino() -->
