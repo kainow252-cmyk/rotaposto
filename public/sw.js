@@ -110,7 +110,8 @@ self.addEventListener('fetch', event => {
   // ── PÁGINAS HTML: SEMPRE busca na rede ────────────────────────────────
   const isHtmlPage = path === '/' || path === '/app' || path === '/onboarding'
     || path === '/landing' || path === '/admin' || path === '/parcerias'
-    || path === '/parcerias/empresa' || path === '/reset' || !path.includes('.');
+    || path === '/parcerias/empresa' || path === '/reset' || path === '/launcher'
+    || !path.includes('.');
 
   if (isHtmlPage) {
     event.respondWith(

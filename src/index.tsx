@@ -1851,6 +1851,60 @@ app.get('/app', (c) => {
   return c.html(getAppHTML(firebaseScripts))
 })
 
+// /launcher → ponto de entrada do TWA/PWA
+// Sempre limpa SW+cache e redireciona para /app com a versão mais recente
+// start_url do manifest aponta para cá
+app.get('/launcher', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<title>RotaPosto</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;
+       min-height:100vh;background:#0B121E;font-family:sans-serif;text-align:center}
+  .logo{width:96px;height:96px;border-radius:22px;margin-bottom:20px;overflow:hidden}
+  .logo img{width:100%;height:100%}
+  h2{color:#fff;font-size:26px;font-weight:800;margin-bottom:6px}
+  h2 span{color:#FF6D00}
+  p{color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:28px}
+  .bar{width:180px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden}
+  .fill{height:100%;background:#FF6D00;border-radius:2px;animation:prog 1.5s ease-out forwards}
+  @keyframes prog{from{width:0%}to{width:100%}}
+</style>
+</head><body>
+<div class="logo"><img src="/icons/icon-192x192.png" alt="RotaPosto"/></div>
+<h2>Rota<span>Posto</span></h2>
+<p>Carregando versão mais recente...</p>
+<div class="bar"><div class="fill"></div></div>
+<script>
+(async function() {
+  // 1. Desregistrar TODOS os service workers antigos
+  if ('serviceWorker' in navigator) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) { await reg.unregister(); }
+    } catch(e) {}
+  }
+  // 2. Limpar TODOS os caches do browser
+  if ('caches' in window) {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    } catch(e) {}
+  }
+  // 3. Ir para o app com cache busting na URL
+  const ts = Date.now();
+  window.location.replace('/app?v=' + ts);
+})();
+</script>
+</body></html>`)
+})
+
 // /reset → limpa TODO o cache/SW e redireciona para o app
 app.get('/reset', (c) => {
   return c.html(`<!DOCTYPE html>

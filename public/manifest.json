@@ -2,7 +2,7 @@
   "name": "RotaPosto – Abasteça Mais Barato",
   "short_name": "RotaPosto",
   "description": "Encontre o posto de combustível mais barato próximo a você.",
-  "start_url": "/app?source=pwa",
+  "start_url": "/launcher",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "background_color": "#0B121E",
