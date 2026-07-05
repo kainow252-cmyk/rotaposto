@@ -1831,6 +1831,11 @@ app.get('/.well-known/assetlinks.json', (c) => {
 // ─── Frontend Principal ───────────────────────────────────────────────────────
 // Rota raiz → onboarding (splash + login) como app nativo
 app.get('/', (c) => {
+  // Redirecionar domínio antigo para rotaposto.com.br
+  const host = c.req.header('host') || ''
+  if (host.includes('pages.dev') || host.includes('gensparksite.com')) {
+    return c.redirect('https://rotaposto.com.br/', 301)
+  }
   const firebaseScripts = getFirebaseAuthScripts()
   return c.html(getLandingOnboardingHTML(firebaseScripts))
 })
@@ -1847,6 +1852,14 @@ app.get('/landing', (c) => {
 })
 
 app.get('/app', (c) => {
+  // Se abrindo via domínio antigo (pages.dev), redirecionar para rotaposto.com.br
+  // Isso faz o TWA reconhecer o assetlinks e esconder a barra do Chrome
+  const host = c.req.header('host') || ''
+  if (host.includes('pages.dev') || host.includes('gensparksite.com')) {
+    const url = new URL(c.req.url)
+    const dest = 'https://rotaposto.com.br' + url.pathname + url.search
+    return c.redirect(dest, 301)
+  }
   const firebaseScripts = getFirebaseAuthScripts()
   return c.html(getAppHTML(firebaseScripts))
 })
@@ -1855,6 +1868,11 @@ app.get('/app', (c) => {
 // Sempre limpa SW+cache e redireciona para /app com a versão mais recente
 // start_url do manifest aponta para cá
 app.get('/launcher', (c) => {
+  // Redirecionar domínio antigo para rotaposto.com.br
+  const host = c.req.header('host') || ''
+  if (host.includes('pages.dev') || host.includes('gensparksite.com')) {
+    return c.redirect('https://rotaposto.com.br/launcher', 301)
+  }
   return c.html(`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"/>
@@ -2536,7 +2554,7 @@ app.get('/app_old', (c) => {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <meta name="theme-color" content="#0D1B2A"/>
+  <meta name="theme-color" content="#FF6D00"/>
   <meta name="description" content="Encontre o posto de combustível mais barato perto de você. Gasolina, Etanol, Diesel e GNV com dados reais ANP."/>
   <!-- PWA -->
   <meta name="mobile-web-app-capable" content="yes"/>
