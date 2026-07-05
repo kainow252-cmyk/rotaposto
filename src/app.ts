@@ -1425,7 +1425,7 @@ export function getAppHTML(firebaseScripts: string): string {
     <!-- TELA 7: MAPA -->
     <div id="view-mapa" class="view active">
       <div id="map-leaflet"></div>
-      <div id="map-card">
+      <div id="map-card" style="display:none">
         <div class="map-card-label">
           Melhor posto próximo
           <button class="btn-close-card" onclick="document.getElementById('map-card').style.display='none'">
@@ -1744,7 +1744,7 @@ export function getAppHTML(firebaseScripts: string): string {
 
   <nav id="bottom-nav">
     <!-- Melhor: único item com label — indica o melhor posto -->
-    <button class="nav-item" id="nav-melhor" onclick="goToView('mapa')">
+    <button class="nav-item" id="nav-melhor" onclick="goToMelhor()">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
       <span class="nav-label">Melhor</span>
     </button>
@@ -2285,6 +2285,19 @@ export function getAppHTML(firebaseScripts: string): string {
     loadPostos();
   }
 
+  // Controla se o card "Melhor posto" deve estar visível
+  // Começa false: só aparece ao clicar em "Melhor" no nav ou num marcador no mapa
+  var _mapCardVisivel = false;
+
+  function goToMelhor() {
+    _mapCardVisivel = true;
+    goToView('mapa');
+    // Se já tiver dados carregados, exibe imediatamente o melhor posto
+    if (postosData && postosData.length > 0) {
+      updateMapCard(postosData[0], 0);
+    }
+  }
+
   async function loadPostos() {
     try {
       const raio = filtros.raioKm || 5;
@@ -2295,13 +2308,13 @@ export function getAppHTML(firebaseScripts: string): string {
         postosData = data.postos;
         if (data.estatisticas?.semanaANP) semanaANP = data.estatisticas.semanaANP;
         addMapMarkers();
-        updateMapCard(data.postos[0]);
+        // NÃO exibe card automaticamente — só quando usuário clicar
       }
     } catch(e) {
       // Dados demo
       postosData = getDemoPostos();
       addMapMarkers();
-      updateMapCard(postosData[0]);
+      // NÃO exibe card automaticamente — só quando usuário clicar
     }
   }
 
@@ -2333,6 +2346,8 @@ export function getAppHTML(firebaseScripts: string): string {
       marker._isBalloon = true;
       marker._postoIdx = i;
       marker.on('click', () => {
+        // Clicar num marcador sempre mostra o card
+        _mapCardVisivel = true;
         updateMapCard(p, i);
         selectedPosto = p;
       });
@@ -2371,7 +2386,10 @@ export function getAppHTML(firebaseScripts: string): string {
     nomeEl.onclick = () => { if (_idx >= 0) openDetalhes(_idx); };
     document.getElementById('map-card-preco').textContent = precoFmt;
     document.getElementById('map-card-dist').textContent = dist + ' • ' + tempo;
-    document.getElementById('map-card').style.display = 'block';
+    // Só mostrar o card se o usuário clicou em "Melhor" ou clicou num marcador
+    if (typeof _mapCardVisivel !== 'undefined' && _mapCardVisivel) {
+      document.getElementById('map-card').style.display = 'block';
+    }
   }
 
   // ══════════════════════════════════════════════════════
