@@ -3769,6 +3769,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var perfil = { telefone: tel, cep: cep, rua: rua, cidade: cidade, estado: estado };
     localStorage.setItem('rp_perfil_extra_' + u.uid, JSON.stringify(perfil));
     localStorage.setItem('rp_perfil_completo_' + u.uid, '1');
+    // Enviar dados para o servidor (persiste no KV para o admin ver)
+    if (u.uid) {
+      fetch('/api/usuario/dados', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: u.uid,
+          nome: u.name || u.displayName || '',
+          email: u.email || '',
+          telefone: tel,
+          cep: cep,
+          cidade: cidade,
+          estado: estado
+        })
+      }).catch(function(){});
+    }
     fecharTela();
     showToast('Dados salvos! ✓');
   }

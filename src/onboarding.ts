@@ -880,12 +880,20 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   }
 
   // ── Registrar sessão única no backend ──
-  function registrarSessao(uid, callback) {
+  function registrarSessao(uid, callback, userData?) {
     var deviceId = getDeviceId();
+    var payload: any = { uid: uid, deviceId: deviceId };
+    // Incluir dados do usuário para salvar perfil no KV (visível no admin)
+    if (userData) {
+      payload.name    = userData.name    || '';
+      payload.email   = userData.email   || '';
+      payload.photo   = userData.photo   || '';
+      payload.provider = userData.provider || 'email';
+    }
     fetch('/api/auth/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: uid, deviceId: deviceId })
+      body: JSON.stringify(payload)
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -912,7 +920,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     localStorage.setItem('rp_user', JSON.stringify(userData));
     showToast('Bem-vindo, ' + userData.name.split(' ')[0] + '! 👋');
 
-    // Registrar sessão única no servidor antes de redirecionar
+    // Registrar sessão única no servidor antes de redirecionar (com dados do usuário)
     registrarSessao(user.uid, function() {
       // Verificar veículo: primeiro localStorage (rápido), depois servidor (confiável)
       var vehicleLocal = localStorage.getItem('rp_vehicle');

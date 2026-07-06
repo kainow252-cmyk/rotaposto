@@ -2088,14 +2088,14 @@ app.get('/api/auth/config', (c) => {
 // Ao logar em novo celular, o token anterior é invalidado → outro celular é deslogado.
 
 // POST /api/auth/session → registra/substitui sessão do usuário
-// Body: { uid, deviceId }
+// Body: { uid, deviceId, name?, email?, photo?, provider? }
 // Retorna: { sessionToken }
 app.post('/api/auth/session', async (c) => {
   const kv = getKV(c.env as any)
   if (!kv) return c.json({ error: 'KV indisponível' }, 503)
 
   const body = await c.req.json() as any
-  const { uid, deviceId } = body
+  const { uid, deviceId, name, email, photo, provider } = body
   if (!uid || !deviceId) return c.json({ error: 'uid e deviceId são obrigatórios' }, 400)
 
   // Gerar token único para esta sessão
@@ -2107,11 +2107,64 @@ app.post('/api/auth/session', async (c) => {
     createdAt: Date.now()
   }
 
-  // Armazenar no KV com TTL de 30 dias
-  // Chave: session:{uid} — sobrescreve qualquer sessão anterior
+  // Armazenar sessão no KV com TTL de 30 dias
   await kv.put(`session:${uid}`, JSON.stringify(sessionData), { expirationTtl: 60 * 60 * 24 * 30 })
 
+  // Salvar/atualizar perfil do usuário no KV (dados reais de nome, email, provider)
+  // Preserva telefone e dados extras já existentes
+  if (name || email) {
+    let perfilExistente: any = {}
+    try {
+      const rawPerfil = await kv.get(`profile:${uid}`)
+      if (rawPerfil) perfilExistente = JSON.parse(rawPerfil)
+    } catch {}
+    const perfilAtualizado = {
+      ...perfilExistente,
+      uid,
+      name: name || perfilExistente.name || '',
+      email: email || perfilExistente.email || '',
+      photo: photo || perfilExistente.photo || '',
+      provider: provider || perfilExistente.provider || 'email',
+      ultimoLogin: Date.now(),
+      criadoEm: perfilExistente.criadoEm || Date.now(),
+    }
+    await kv.put(`profile:${uid}`, JSON.stringify(perfilAtualizado), { expirationTtl: 60 * 60 * 24 * 400 })
+  }
+
   return c.json({ sessionToken, expiresIn: 60 * 60 * 24 * 30 })
+})
+
+// POST /api/usuario/dados → salva dados extras do usuário (telefone, CEP, etc.)
+// Body: { uid, telefone?, cep?, cidade?, estado?, nome? }
+app.post('/api/usuario/dados', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false, error: 'KV indisponível' }, 503)
+  const body = await c.req.json() as any
+  const { uid, telefone, cep, cidade, estado, nome, email } = body
+  if (!uid) return c.json({ ok: false, error: 'uid obrigatório' }, 400)
+  try {
+    let perfil: any = {}
+    try {
+      const raw = await kv.get(`profile:${uid}`)
+      if (raw) perfil = JSON.parse(raw)
+    } catch {}
+    const atualizado = {
+      ...perfil,
+      uid,
+      ...(telefone !== undefined && { telefone }),
+      ...(cep !== undefined && { cep }),
+      ...(cidade !== undefined && { cidade }),
+      ...(estado !== undefined && { estado }),
+      ...(nome !== undefined && { name: nome }),
+      ...(email !== undefined && { email }),
+      atualizadoEm: Date.now(),
+      criadoEm: perfil.criadoEm || Date.now(),
+    }
+    await kv.put(`profile:${uid}`, JSON.stringify(atualizado), { expirationTtl: 60 * 60 * 24 * 400 })
+    return c.json({ ok: true })
+  } catch (e) {
+    return c.json({ ok: false, error: String(e) }, 500)
+  }
 })
 
 // GET /api/auth/session/verify?uid=...&token=...&deviceId=...
@@ -5903,6 +5956,20 @@ function salvarCompletarPerfil() {
   const perfil = { telefone: tel, cep: cep, rua: rua, cidade: cid, estado: est };
   localStorage.setItem('rp_perfil_extra_' + _cpUser.uid, JSON.stringify(perfil));
   localStorage.setItem('rp_perfil_completo_' + _cpUser.uid, '1');
+  // Enviar dados para o servidor (persiste no KV para o admin ver)
+  fetch('/api/usuario/dados', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      uid: _cpUser.uid,
+      nome: _cpUser.displayName || _cpUser.name || '',
+      email: _cpUser.email || '',
+      telefone: tel,
+      cep: cep,
+      cidade: cid,
+      estado: est
+    })
+  }).catch(function(){});
   fecharModalCompletarPerfil();
   mostrarToast('Perfil atualizado! ✓');
 }
@@ -6781,6 +6848,86 @@ app.delete('/api/admin/app-usuarios/:uid', async (c) => {
   return c.json({ ok: true, uid })
 })
 
+// ─── GET /api/admin/usuarios-dados — lista usuários com dados reais (nome/email/telefone/provider) ──
+app.get('/api/admin/usuarios-dados', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  try {
+    // Listar todos os perfis (profile:*)
+    const listProfiles = await kv.list({ prefix: 'profile:' })
+    // Listar todas as sessões para cruzar dados
+    const listSessions = await kv.list({ prefix: 'session:' })
+    const sessionUids = new Set(listSessions.keys.map((k: any) => k.name.replace('session:', '')))
+
+    const usuarios: unknown[] = []
+    for (const k of listProfiles.keys) {
+      try {
+        const raw = await kv.get(k.name)
+        if (!raw) continue
+        const perfil = JSON.parse(raw) as any
+        const uid = perfil.uid || k.name.replace('profile:', '')
+        // Buscar assinatura
+        const assinRaw = await kv.get(`assin:${uid}`)
+        const assin = assinRaw ? JSON.parse(assinRaw) as any : null
+        usuarios.push({
+          uid,
+          name: perfil.name || '—',
+          email: perfil.email || '—',
+          telefone: perfil.telefone || '—',
+          photo: perfil.photo || '',
+          provider: perfil.provider || 'email',
+          cidade: perfil.cidade || '—',
+          estado: perfil.estado || '—',
+          cep: perfil.cep || '—',
+          ultimoLogin: perfil.ultimoLogin ? new Date(perfil.ultimoLogin).toISOString() : '—',
+          criadoEm: perfil.criadoEm ? new Date(perfil.criadoEm).toISOString() : '—',
+          atualizadoEm: perfil.atualizadoEm ? new Date(perfil.atualizadoEm).toISOString() : '—',
+          ativo: sessionUids.has(uid),
+          plano: assin?.status === 'ACTIVE' ? (assin.plano || 'premium') : 'gratuito',
+        })
+      } catch {}
+    }
+    // Ordenar por mais recente primeiro
+    usuarios.sort((a: any, b: any) => (b.ultimoLogin > a.ultimoLogin ? 1 : -1))
+    return c.json({ total: usuarios.length, usuarios })
+  } catch (e) {
+    return c.json({ erro: 'Erro', detalhes: String(e) }, 500)
+  }
+})
+
+// ─── POST /api/admin/usuarios/:uid/editar — editar dados do usuário ───────────
+app.post('/api/admin/usuarios/:uid/editar', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const uid = c.req.param('uid')
+  const body = await c.req.json() as any
+  try {
+    let perfil: any = {}
+    try {
+      const raw = await kv.get(`profile:${uid}`)
+      if (raw) perfil = JSON.parse(raw)
+    } catch {}
+    const campos = ['name', 'email', 'telefone', 'cep', 'cidade', 'estado']
+    for (const campo of campos) {
+      if (body[campo] !== undefined) perfil[campo] = body[campo]
+    }
+    perfil.uid = uid
+    perfil.editadoPeloAdmin = true
+    perfil.editadoEm = Date.now()
+    perfil.criadoEm = perfil.criadoEm || Date.now()
+    await kv.put(`profile:${uid}`, JSON.stringify(perfil), { expirationTtl: 60 * 60 * 24 * 400 })
+    return c.json({ ok: true, uid, perfil })
+  } catch (e) {
+    return c.json({ erro: String(e) }, 500)
+  }
+})
+
 // ─── POST /api/admin/assinatura/:uid/cancelar — cancelar assinatura de usuário ─
 app.post('/api/admin/assinatura/:uid/cancelar', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -7028,6 +7175,24 @@ app.get('/admin', (c) => {
     .cidade-opt:last-child{border-bottom:none}
     .cidade-opt:hover{background:rgba(255,109,0,0.15);color:#FF6D00}
     .cidade-opt.selected{color:#FF6D00;background:rgba(255,109,0,0.08)}
+    /* Dados Usuários */
+    .provider-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:800}
+    .provider-google{background:rgba(66,133,244,0.2);color:#4285F4}
+    .provider-facebook{background:rgba(24,119,242,0.2);color:#1877F2}
+    .provider-email{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.5)}
+    .provider-unknown{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.3)}
+    .modal-edit{background:#112035;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+    .modal-edit h4{font-size:18px;font-weight:900;color:#fff;margin-bottom:4px}
+    .modal-edit .sub{font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:24px}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+    .form-group{display:flex;flex-direction:column;gap:5px}
+    .form-group label{font-size:10px;font-weight:800;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px}
+    .form-group input{background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;transition:border-color 0.2s}
+    .form-group input:focus{border-color:#FF6D00}
+    .form-group input::placeholder{color:rgba(255,255,255,0.2)}
+    .form-group input.edited{border-color:rgba(255,109,0,0.5);background:rgba(255,109,0,0.05)}
+    .uid-display{background:#0A1520;border:1px dashed rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;font-size:10px;color:rgba(255,255,255,0.3);font-family:monospace;word-break:break-all;margin-bottom:16px}
+    .du-search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   </style>
 </head>
 <body>
@@ -7042,6 +7207,7 @@ app.get('/admin', (c) => {
     <div class="nav-item active" id="nav-dashboard" onclick="showSection('dashboard',this)"><i class="fas fa-tachometer-alt"></i>Dashboard</div>
     <div class="nav-section">App & Usuários</div>
     <div class="nav-item" id="nav-app-usuarios" onclick="showSection('app-usuarios',this)"><i class="fas fa-mobile-alt"></i>Usuários do App</div>
+    <div class="nav-item" id="nav-dados-usuarios" onclick="showSection('dados-usuarios',this)"><i class="fas fa-id-card"></i>Dados & Contatos</div>
     <div class="nav-item" id="nav-assinaturas" onclick="showSection('assinaturas',this)"><i class="fas fa-crown"></i>Assinaturas</div>
     <div class="nav-section">Postos & Dados</div>
     <div class="nav-item" id="nav-postos-parceiros" onclick="showSection('postos-parceiros',this)"><i class="fas fa-star"></i>Postos Parceiros</div>
@@ -7086,6 +7252,49 @@ app.get('/admin', (c) => {
     <div id="modal-detalhe-body" style="margin-bottom:20px"></div>
     <div class="modal-actions">
       <button class="btn-info" onclick="fecharModalDetalhe()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR DADOS DO USUÁRIO -->
+<div class="modal-overlay" id="modal-editar-usuario" style="display:none">
+  <div class="modal-edit">
+    <h4>✏️ Editar Dados do Usuário</h4>
+    <p class="sub" id="modal-edit-uid-label">UID: —</p>
+    <div class="uid-display" id="modal-edit-uid-box">—</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nome Completo</label>
+        <input type="text" id="edit-name" placeholder="Nome do usuário" oninput="this.classList.add('edited')"/>
+      </div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="edit-email" placeholder="email@exemplo.com" oninput="this.classList.add('edited')"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Telefone</label>
+        <input type="tel" id="edit-telefone" placeholder="(11) 99999-9999" oninput="this.classList.add('edited')"/>
+      </div>
+      <div class="form-group">
+        <label>CEP</label>
+        <input type="text" id="edit-cep" placeholder="00000-000" oninput="this.classList.add('edited')"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Cidade</label>
+        <input type="text" id="edit-cidade" placeholder="Cidade" oninput="this.classList.add('edited')"/>
+      </div>
+      <div class="form-group">
+        <label>Estado (UF)</label>
+        <input type="text" id="edit-estado" placeholder="SP" maxlength="2" oninput="this.classList.add('edited')"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
+      <button class="btn-danger" onclick="fecharModalEditarUsuario()">Cancelar</button>
+      <button class="btn-success" id="btn-salvar-usuario" onclick="salvarEdicaoUsuario()"><i class="fas fa-save"></i> Salvar Dados</button>
     </div>
   </div>
 </div>
@@ -7233,6 +7442,74 @@ app.get('/admin', (c) => {
             <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ DADOS & CONTATOS DOS USUÁRIOS ══ -->
+  <section id="section-dados-usuarios" style="display:none">
+    <div class="page-header">
+      <h2>🪪 Dados & Contatos</h2>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="du-count" style="background:rgba(66,165,245,0.12);color:#42A5F5;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">–</span>
+        <button class="btn-refresh" onclick="carregarDadosUsuarios()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+      </div>
+    </div>
+    <!-- KPIs rápidos -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;margin-bottom:6px">TOTAL CADASTROS</div>
+        <div style="font-size:26px;font-weight:900;color:#fff" id="du-total">–</div>
+      </div>
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:10px;color:#4285F4;font-weight:700;margin-bottom:6px"><i class="fab fa-google"></i> GOOGLE</div>
+        <div style="font-size:26px;font-weight:900;color:#4285F4" id="du-google">–</div>
+      </div>
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:10px;color:#1877F2;font-weight:700;margin-bottom:6px"><i class="fab fa-facebook"></i> FACEBOOK</div>
+        <div style="font-size:26px;font-weight:900;color:#1877F2" id="du-facebook">–</div>
+      </div>
+      <div class="kpi-card" style="padding:16px">
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:700;margin-bottom:6px">✉️ E-MAIL/OUTROS</div>
+        <div style="font-size:26px;font-weight:900;color:rgba(255,255,255,0.6)" id="du-email">–</div>
+      </div>
+    </div>
+    <!-- Tabela -->
+    <div class="section-card">
+      <div class="section-header">
+        <h3><i class="fas fa-address-book" style="color:#42A5F5;margin-right:8px"></i>Cadastros com Dados Reais</h3>
+        <div class="du-search-row">
+          <input id="du-search" type="text" placeholder="🔍 Buscar por nome, e-mail ou telefone..." oninput="filtrarDadosUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:280px"/>
+          <select id="du-filtro-provider" onchange="filtrarDadosUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer">
+            <option value="">Todos os provedores</option>
+            <option value="google.com">Google</option>
+            <option value="facebook.com">Facebook</option>
+            <option value="email">E-mail</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="min-width:960px">
+          <thead><tr>
+            <th>Avatar</th>
+            <th>Nome Completo</th>
+            <th>E-mail</th>
+            <th>Telefone</th>
+            <th>Login Via</th>
+            <th>Cidade / UF</th>
+            <th>Plano</th>
+            <th>Último Login</th>
+            <th>Ações</th>
+          </tr></thead>
+          <tbody id="dados-usuarios-tbody">
+            <tr><td colspan="9" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="du-empty" style="display:none;text-align:center;padding:48px 24px">
+        <div style="font-size:48px;margin-bottom:12px">📭</div>
+        <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:6px">Nenhum dado encontrado</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.35);max-width:360px;margin:0 auto">Os dados aparecem aqui quando os usuários fazem login ou preenchem o perfil no app.</div>
       </div>
     </div>
   </section>
@@ -7684,6 +7961,147 @@ function verDetalheUsuario(uid) {
   document.getElementById('modal-detalhe').style.display = 'flex';
 }
 function fecharModalDetalhe() { document.getElementById('modal-detalhe').style.display = 'none'; }
+
+// ── DADOS & CONTATOS DOS USUÁRIOS ────────────────────────────────────────────
+let _dadosUsuarios = [];
+
+async function carregarDadosUsuarios() {
+  const tbody = document.getElementById('dados-usuarios-tbody');
+  const empty = document.getElementById('du-empty');
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando dados...</td></tr>';
+  if (empty) empty.style.display = 'none';
+  try {
+    const res = await fetch('/api/admin/usuarios-dados?key=' + encodeURIComponent(ADMIN_KEY));
+    const data = await res.json();
+    if (!res.ok) { showToast('Erro: ' + (data.erro || 'falha'), 'err'); return; }
+    _dadosUsuarios = data.usuarios || [];
+    document.getElementById('du-count').textContent = _dadosUsuarios.length + ' usuários';
+    // KPIs por provider
+    const google = _dadosUsuarios.filter(u => u.provider === 'google.com').length;
+    const facebook = _dadosUsuarios.filter(u => u.provider === 'facebook.com').length;
+    const outros = _dadosUsuarios.length - google - facebook;
+    document.getElementById('du-total').textContent = _dadosUsuarios.length;
+    document.getElementById('du-google').textContent = google;
+    document.getElementById('du-facebook').textContent = facebook;
+    document.getElementById('du-email').textContent = outros;
+    renderDadosUsuarios(_dadosUsuarios);
+  } catch(e) { showToast('Erro de conexão', 'err'); }
+}
+
+function renderDadosUsuarios(lista) {
+  const tbody = document.getElementById('dados-usuarios-tbody');
+  const empty = document.getElementById('du-empty');
+  if (!lista.length) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  tbody.innerHTML = lista.map(u => {
+    const providerLabel = u.provider === 'google.com'
+      ? '<span class="provider-badge provider-google"><i class="fab fa-google"></i> Google</span>'
+      : u.provider === 'facebook.com'
+      ? '<span class="provider-badge provider-facebook"><i class="fab fa-facebook"></i> Facebook</span>'
+      : u.provider === 'password' || u.provider === 'email'
+      ? '<span class="provider-badge provider-email"><i class="fas fa-envelope"></i> E-mail</span>'
+      : '<span class="provider-badge provider-unknown"><i class="fas fa-question"></i> ' + (u.provider || '?') + '</span>';
+    const avatar = u.photo
+      ? \`<img src="\${u.photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.1)" onerror="this.style.display='none'">\`
+      : \`<div style="width:32px;height:32px;border-radius:50%;background:rgba(255,109,0,0.2);color:#FF6D00;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900">\${(u.name||'?').charAt(0).toUpperCase()}</div>\`;
+    const loginData = u.ultimoLogin !== '—' ? new Date(u.ultimoLogin).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'2-digit' }) : '—';
+    const cidade = u.cidade !== '—' ? (u.cidade + (u.estado !== '—' ? ', ' + u.estado : '')) : '—';
+    const plano = u.plano === 'gratuito'
+      ? '<span class="badge badge-free">Gratuito</span>'
+      : '<span class="badge badge-premium">⭐ Premium</span>';
+    return \`<tr class="tr-hover">
+      <td>\${avatar}</td>
+      <td style="font-weight:800;color:#fff">\${u.name || '<span style="color:rgba(255,255,255,0.3)">—</span>'}</td>
+      <td style="color:rgba(255,255,255,0.7)">\${u.email || '—'}</td>
+      <td style="color:rgba(255,255,255,0.7)">\${u.telefone !== '—' ? u.telefone : '<span style="color:rgba(255,255,255,0.2)">Não informado</span>'}</td>
+      <td>\${providerLabel}</td>
+      <td style="color:rgba(255,255,255,0.5);font-size:12px">\${cidade}</td>
+      <td>\${plano}</td>
+      <td style="color:rgba(255,255,255,0.4);font-size:11px">\${loginData}</td>
+      <td><button class="btn-info" onclick="abrirModalEditarUsuario('\${u.uid}')"><i class="fas fa-pen"></i> Editar</button></td>
+    </tr>\`;
+  }).join('');
+}
+
+function filtrarDadosUsuarios() {
+  const busca = (document.getElementById('du-search').value || '').toLowerCase();
+  const provider = document.getElementById('du-filtro-provider').value;
+  const filtrado = _dadosUsuarios.filter(u => {
+    const matchBusca = !busca
+      || (u.name||'').toLowerCase().includes(busca)
+      || (u.email||'').toLowerCase().includes(busca)
+      || (u.telefone||'').includes(busca);
+    const matchProvider = !provider || u.provider === provider;
+    return matchBusca && matchProvider;
+  });
+  renderDadosUsuarios(filtrado);
+}
+
+// ── Modal Editar Usuário ──────────────────────────────────────────────────────
+let _editUid = null;
+
+function abrirModalEditarUsuario(uid) {
+  const u = _dadosUsuarios.find(x => x.uid === uid);
+  if (!u) return;
+  _editUid = uid;
+  document.getElementById('modal-edit-uid-label').textContent = 'Usuário: ' + (u.name || u.email || uid);
+  document.getElementById('modal-edit-uid-box').textContent = uid;
+  document.getElementById('edit-name').value = u.name !== '—' ? (u.name || '') : '';
+  document.getElementById('edit-email').value = u.email !== '—' ? (u.email || '') : '';
+  document.getElementById('edit-telefone').value = u.telefone !== '—' ? (u.telefone || '') : '';
+  document.getElementById('edit-cep').value = u.cep !== '—' ? (u.cep || '') : '';
+  document.getElementById('edit-cidade').value = u.cidade !== '—' ? (u.cidade || '') : '';
+  document.getElementById('edit-estado').value = u.estado !== '—' ? (u.estado || '') : '';
+  // Limpar classes edited
+  ['edit-name','edit-email','edit-telefone','edit-cep','edit-cidade','edit-estado'].forEach(id => {
+    document.getElementById(id).classList.remove('edited');
+  });
+  document.getElementById('modal-editar-usuario').style.display = 'flex';
+}
+
+function fecharModalEditarUsuario() {
+  document.getElementById('modal-editar-usuario').style.display = 'none';
+  _editUid = null;
+}
+
+async function salvarEdicaoUsuario() {
+  if (!_editUid) return;
+  const btn = document.getElementById('btn-salvar-usuario');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+  const payload = {
+    name:      document.getElementById('edit-name').value.trim(),
+    email:     document.getElementById('edit-email').value.trim(),
+    telefone:  document.getElementById('edit-telefone').value.trim(),
+    cep:       document.getElementById('edit-cep').value.trim(),
+    cidade:    document.getElementById('edit-cidade').value.trim(),
+    estado:    document.getElementById('edit-estado').value.trim().toUpperCase(),
+  };
+  try {
+    const res = await fetch('/api/admin/usuarios/' + encodeURIComponent(_editUid) + '/editar?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      showToast('✅ Dados salvos com sucesso!', 'ok');
+      fecharModalEditarUsuario();
+      await carregarDadosUsuarios();
+    } else {
+      showToast('Erro: ' + (data.erro || 'falha ao salvar'), 'err');
+    }
+  } catch(e) {
+    showToast('Erro de conexão', 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> Salvar Dados';
+  }
+}
 
 // ── ASSINATURAS ──────────────────────────────────────────────────────────────
 async function carregarAssinaturas() {
