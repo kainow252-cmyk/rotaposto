@@ -1,7 +1,7 @@
 name: rotaposto
-description: RotaPosto - Encontre os melhores postos de combustível
+description: RotaPosto - Encontre os melhores postos de combustível perto de você
 publish_to: 'none'
-version: 2.0.1+52
+version: 2.1.0+53
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -10,37 +10,36 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # GPS nativo direto - sem limitações TWA
-  geolocator: ^13.0.1
+  # GPS nativo direto — sem WebView, sem TWA, sem PWA
+  geolocator: 13.0.2
 
   # Google Maps nativo
-  google_maps_flutter: ^2.9.0
+  google_maps_flutter: 2.9.0
 
-  # HTTP requests
-  http: ^1.2.0
+  # HTTP para chamar a API real do RotaPosto
+  http: 1.5.0
 
-  # Storage local
-  shared_preferences: ^2.3.2
+  # Storage local (preferências, histórico de buscas)
+  shared_preferences: 2.5.3
 
-  # Firebase Auth
-  firebase_core: ^3.6.0
-  firebase_auth: ^5.3.1
-  google_sign_in: ^6.2.1
+  # Abrir Google Maps externo para navegação
+  url_launcher: 6.3.1
+
+  # Permissões nativas (localização)
+  permission_handler: 11.4.0
 
   # UI
-  flutter_svg: ^2.0.10+1
-  cached_network_image: ^3.4.1
-  shimmer: ^3.0.0
-  url_launcher: ^6.3.0
-  permission_handler: ^11.3.1
-  flutter_rating_bar: ^4.0.1
+  flutter_svg: 2.0.10+1
+  cached_network_image: 3.4.1
+  shimmer: 3.0.0
+  flutter_rating_bar: 4.0.1
 
-  cupertino_icons: ^1.0.8
+  cupertino_icons: 1.0.8
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: 4.0.0
 
 flutter:
   uses-material-design: true

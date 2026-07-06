@@ -126,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
               right: 16,
               child: Material(
                 borderRadius: BorderRadius.circular(12),
-                color: AppTheme.orange.withOpacity(0.95),
+                color: AppTheme.orange.withValues(alpha: 0.95),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   child: Row(

@@ -25,7 +25,6 @@ class AppTheme {
           primary: orange,
           secondary: orangeDark,
           surface: white,
-          background: grayBg,
         ),
         fontFamily: 'Roboto',
         appBarTheme: const AppBarTheme(

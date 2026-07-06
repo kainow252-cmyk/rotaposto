@@ -64,7 +64,7 @@ class _MapaScreenState extends State<MapaScreen> {
         position: LatLng(widget.lat, widget.lng),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         infoWindow: const InfoWindow(title: 'Você está aqui'),
-        zIndex: 10,
+        zIndexInt: 10,
       ),
     );
 
@@ -132,7 +132,7 @@ class _MapaScreenState extends State<MapaScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
+                        color: Colors.black.withValues(alpha: 0.12),
                         blurRadius: 12,
                       ),
                     ],
@@ -305,7 +305,7 @@ class _MapaScreenState extends State<MapaScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
