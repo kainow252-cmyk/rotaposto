@@ -8417,6 +8417,19 @@ app.post('/api/parceiros/config', async (c) => {
   }
 })
 
+// ─── Download APK direto ──────────────────────────────────────────────────────
+app.get('/download/apk', async (c) => {
+  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  if (!r2) return c.text('R2 indisponível', 503)
+  const obj = await r2.get('apk/RotaPosto-latest.apk')
+  if (!obj) return c.text('APK não encontrado', 404)
+  const headers = new Headers()
+  headers.set('Content-Type', 'application/vnd.android.package-archive')
+  headers.set('Content-Disposition', 'attachment; filename="RotaPosto-v1.1.3.apk"')
+  headers.set('Cache-Control', 'no-cache')
+  return new Response(obj.body, { headers })
+})
+
 // ─── Export: fetch handler + scheduled (cron) ─────────────────────────────────
 export default {
   fetch: app.fetch,
