@@ -78,6 +78,54 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('*', cors())
 
+// ─── Proxy de Assets Estáticos ────────────────────────────────────────────────
+// O Worker standalone não tem binding ASSETS, então fazemos proxy
+// para o Cloudflare Pages que tem os arquivos (icons, static, logo)
+const PAGES_ASSETS_URL = 'https://rotaposto.pages.dev'
+
+app.use('/icons/*', async (c) => {
+  const url = PAGES_ASSETS_URL + c.req.path
+  const res = await fetch(url)
+  if (!res.ok) return c.notFound()
+  const body = await res.arrayBuffer()
+  const ct = res.headers.get('content-type') || 'image/png'
+  return new Response(body, {
+    headers: {
+      'Content-Type': ct,
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
+})
+
+app.use('/static/*', async (c) => {
+  const url = PAGES_ASSETS_URL + c.req.path
+  const res = await fetch(url)
+  if (!res.ok) return c.notFound()
+  const body = await res.arrayBuffer()
+  const ct = res.headers.get('content-type') || 'application/octet-stream'
+  return new Response(body, {
+    headers: {
+      'Content-Type': ct,
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
+})
+
+app.get('/logo-rotaposto.png', async (c) => {
+  const res = await fetch(PAGES_ASSETS_URL + '/logo-rotaposto.png')
+  if (!res.ok) return c.notFound()
+  const body = await res.arrayBuffer()
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
+})
+
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {

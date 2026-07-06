@@ -1168,14 +1168,14 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
 
   // ── Init: verificar se já logado / resultado de redirect ──
   (function init() {
-    // SW v15: network-first — registrar sem reload automático
-);
-        });
-        if (reg.waiting) {
-          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-      }).catch(function() {});
-      // SEM controllerchange reload — network-first já garante conteúdo atualizado
+    // Registrar Service Worker (PWA/TWA) — network-first, sem forçar reload
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(function(reg) {
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        }).catch(function() {});
     }
 
     // Se já tem usuário logado → vai direto pro app
