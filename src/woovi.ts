@@ -304,8 +304,9 @@ export async function verificarAssinatura(
 ): Promise<{ status: string; ativa: boolean; nextCharge?: string }> {
   const WOOVI_TOKEN = (env?.WOOVI_API_KEY as string) || ''
 
+  // Modo demo: sem token real → assinatura nunca ativa automaticamente
   if (!WOOVI_TOKEN || subscriptionId.startsWith('demo')) {
-    return { status: 'ACTIVE', ativa: true }
+    return { status: 'PENDING', ativa: false }
   }
 
   try {
@@ -333,7 +334,8 @@ export async function verificarAssinatura(
 export async function verificarPagamento(env: any, txid: string): Promise<boolean> {
   const WOOVI_TOKEN = (env?.WOOVI_API_KEY as string) || ''
 
-  if (!WOOVI_TOKEN || txid.startsWith('demo')) return true
+  // Modo demo: sem token real → charge nunca marcado como pago
+  if (!WOOVI_TOKEN || txid.startsWith('demo')) return false
 
   try {
     const res = await fetch(`${WOOVI_BASE}/charge/${txid}`, {

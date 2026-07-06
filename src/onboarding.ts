@@ -22,6 +22,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   ${firebaseScripts}
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -1027,17 +1028,35 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   }
   aguardarFirebase(function() { verificarRedirectResult(); });
 
-  // ── Google Login ──
+  // ── Google Login via OAuth manual (funciona em qualquer WebView) ──
+  // Fluxo: navega para accounts.google.com dentro do WebView →
+  //        Google autentica → redireciona para /auth/google/callback#id_token=xxx →
+  //        página de callback extrai id_token → signInWithCredential → onLoginSuccess
   function loginGoogle() {
     var btn = document.getElementById('btn-google-login');
     if (btn) btn.disabled = true;
     showLoading(true);
 
+    // WebView nativo: OAuth implicit hybrid — response_type=token id_token
+    // Google retorna id_token direto no fragment (#) sem precisar de client_secret
+    if (usarRedirect()) {
+      var clientId = '1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com';
+      var redirectUri = 'https://rotaposto.com.br/auth/google/callback';
+      var nonce = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      localStorage.setItem('google_oauth_nonce', nonce);
+      var oauthUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
+        '?client_id=' + encodeURIComponent(clientId) +
+        '&redirect_uri=' + encodeURIComponent(redirectUri) +
+        '&response_type=' + encodeURIComponent('token id_token') +
+        '&scope=' + encodeURIComponent('openid email profile') +
+        '&nonce=' + encodeURIComponent(nonce) +
+        '&prompt=select_account';
+      window.location.href = oauthUrl;
+      return;
+    }
+
+    // Browser/PWA normal: signInWithPopup
     aguardarFirebase(function() {
-      if (usarRedirect()) {
-        loginComRedirect(window._fbGoogleProvider);
-        return;
-      }
       window._fbSignInWithPopup(window._fbAuth, window._fbGoogleProvider)
         .then(function(result) {
           showLoading(false);

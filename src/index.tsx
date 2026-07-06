@@ -126,6 +126,36 @@ app.get('/logo-rotaposto.png', async (c) => {
   })
 })
 
+// ─── Proxy Firebase Auth Handler (/__/auth/*) ────────────────────────────────
+// Firebase signInWithPopup/signInWithRedirect requer que authDomain sirva /__/auth/handler
+// rotaposto.com.br não é Firebase Hosting, então fazemos proxy para rotaposto-32e33.firebaseapp.com
+// Isso permite usar authDomain: "rotaposto.com.br" e o Google aceita o popup/redirect
+app.use('/__/auth/*', async (c) => {
+  const firebaseDomain = 'https://rotaposto-32e33.firebaseapp.com'
+  const targetUrl = firebaseDomain + c.req.path + (c.req.url.includes('?') ? '?' + c.req.url.split('?')[1] : '')
+  const res = await fetch(targetUrl, {
+    method: c.req.method,
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      'Accept': c.req.header('accept') || '*/*',
+      'Accept-Language': c.req.header('accept-language') || 'pt-BR,pt;q=0.9',
+    },
+    body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ? await c.req.arrayBuffer() : undefined,
+  })
+  const body = await res.arrayBuffer()
+  const ct = res.headers.get('content-type') || 'text/html'
+  return new Response(body, {
+    status: res.status,
+    headers: {
+      'Content-Type': ct,
+      'Cache-Control': 'no-cache, no-store',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    }
+  })
+})
+
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
@@ -2152,6 +2182,148 @@ app.get('/.well-known/assetlinks.json', (c) => {
 
 // ─── Frontend Principal ───────────────────────────────────────────────────────
 // Rota raiz → onboarding (splash + login) como app nativo
+// ─── API: trocar Google OAuth code por id_token via PKCE ─────────────────────
+// O frontend envia { code, code_verifier, redirect_uri }
+// O servidor troca pelo Google Token Endpoint e retorna { id_token }
+app.post('/api/auth/google-code', async (c) => {
+  try {
+    const { code, code_verifier, redirect_uri } = await c.req.json() as any
+    if (!code || !code_verifier) return c.json({ error: 'Parâmetros faltando' }, 400)
+
+    const clientId = '1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com'
+    // Client secret do OAuth Web Client (necessário para troca de code)
+    const clientSecret = (c.env as any)?.GOOGLE_CLIENT_SECRET as string || ''
+
+    const body = new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirect_uri || 'https://rotaposto.com.br/auth/google/callback',
+      grant_type: 'authorization_code',
+      code_verifier,
+    })
+
+    const resp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    })
+    const data = await resp.json() as any
+    if (!resp.ok || !data.id_token) {
+      return c.json({ error: data.error || 'Falha ao obter token', detail: data.error_description }, 400)
+    }
+    return c.json({ id_token: data.id_token })
+  } catch (e) {
+    return c.json({ error: String(e) }, 500)
+  }
+})
+
+// ─── Callback OAuth Google (WebView nativo) ──────────────────────────────────
+// Google redireciona para cá após autenticação com ?code=xxx&state=yyy
+// Esta página lê o code, busca o id_token via /api/auth/google-code,
+// faz signInWithCredential e redireciona para /app
+app.get('/auth/google/callback', (c) => {
+  const firebaseScripts = getFirebaseAuthScripts()
+  return c.html(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RotaPosto – Entrando...</title>
+  <style>
+    body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff;font-family:sans-serif;flex-direction:column;gap:16px;}
+    .spinner{width:40px;height:40px;border:4px solid #FFE0B2;border-top-color:#FF6D00;border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    p{color:#666;font-size:14px;}
+    .erro{color:#E53935;font-size:13px;text-align:center;padding:0 24px;max-width:320px;}
+  </style>
+  ${firebaseScripts}
+</head>
+<body>
+  <div class="spinner"></div>
+  <p>Finalizando login...</p>
+  <div class="erro" id="erro" style="display:none"></div>
+  <script>
+    function mostrarErro(msg) {
+      document.querySelector('.spinner').style.display = 'none';
+      document.querySelector('p').style.display = 'none';
+      var el = document.getElementById('erro');
+      el.textContent = msg;
+      el.style.display = 'block';
+      setTimeout(function(){ window.location.href = '/'; }, 4000);
+    }
+
+    // Google envia id_token no FRAGMENT (#) — não nos query params
+    // Ex: /auth/google/callback#access_token=...&id_token=JWT&token_type=Bearer
+    var fragment = window.location.hash.substring(1); // remove o '#'
+    var params = {};
+    fragment.split('&').forEach(function(part) {
+      var eq = part.indexOf('=');
+      if (eq > 0) params[decodeURIComponent(part.substring(0,eq))] = decodeURIComponent(part.substring(eq+1));
+    });
+
+    // Também verificar erros nos query params (Google às vezes manda erro ali)
+    var queryParams = {};
+    window.location.search.substring(1).split('&').forEach(function(part) {
+      var eq = part.indexOf('=');
+      if (eq > 0) queryParams[decodeURIComponent(part.substring(0,eq))] = decodeURIComponent(part.substring(eq+1));
+    });
+
+    var idToken = params['id_token'];
+    var erro = params['error'] || queryParams['error'];
+
+    if (erro) {
+      mostrarErro('Google recusou: ' + erro);
+    } else if (!idToken) {
+      mostrarErro('Token não recebido. Tente novamente.');
+    } else {
+      localStorage.removeItem('google_oauth_nonce');
+      // Aguardar Firebase carregar e fazer signInWithCredential
+      var tentativas = 0;
+      var t = setInterval(function() {
+        tentativas++;
+        if (window._fbAuth && window._fbSignInWithCredential && window._fbGoogleAuthProvider) {
+          clearInterval(t);
+          var cred = window._fbGoogleAuthProvider.credential(idToken);
+          window._fbSignInWithCredential(window._fbAuth, cred)
+            .then(function(result) {
+              var user = result.user;
+              var userData = {
+                uid: user.uid,
+                name: user.displayName || (user.email||'').split('@')[0] || 'Usuário',
+                email: user.email || '',
+                photo: user.photoURL || '',
+                provider: 'google.com'
+              };
+              localStorage.setItem('rp_user', JSON.stringify(userData));
+              fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: user.uid, name: userData.name, email: userData.email, photo: userData.photo })
+              }).catch(function(){}).finally(function() {
+                var v = localStorage.getItem('rp_vehicle');
+                if (v) { window.location.href = '/app'; return; }
+                fetch('/api/usuario/veiculo/' + user.uid)
+                  .then(function(r){ return r.json(); })
+                  .then(function(d) {
+                    if (d.veiculo) localStorage.setItem('rp_vehicle', JSON.stringify(d.veiculo));
+                    window.location.href = '/app';
+                  })
+                  .catch(function(){ window.location.href = '/app'; });
+              });
+            })
+            .catch(function(err){ mostrarErro('Erro Firebase: ' + (err.code||err.message)); });
+        } else if (tentativas > 60) {
+          clearInterval(t);
+          mostrarErro('Firebase não carregou. Tente novamente.');
+        }
+      }, 100);
+    }
+  </script>
+</body>
+</html>`)
+})
+
 app.get('/', (c) => {
   // Redirecionar domínio antigo para rotaposto.com.br
   const host = c.req.header('host') || ''

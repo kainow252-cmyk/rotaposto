@@ -1962,7 +1962,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     <!-- Step 2: QR Code PIX -->
     <div id="assin-step2" style="display:none;">
       <h2 style="font-size:18px;font-weight:700;color:#1A1A1A;text-align:center;margin:0 0 4px;">Pague com PIX</h2>
-      <p id="assin-step2-desc" style="text-align:center;font-size:13px;color:#757575;margin:0 0 20px;">Escaneie o QR Code para ativar o Premium</p>
+      <p id="assin-step2-desc" style="text-align:center;font-size:13px;color:#757575;margin:0 0 12px;">Escaneie o QR Code para ativar o Premium</p>
+      <!-- Banner modo demo (oculto por padrão) -->
+      <div id="assin-demo-warn" style="display:none;background:#FFF3E0;border:1.5px solid #FF6D00;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#E65100;text-align:center;">
+        ⚠️ <strong>Modo demonstração</strong> — integração de pagamento em configuração.<br>Em breve você poderá assinar o Premium com PIX real.
+      </div>
 
       <div style="display:flex;justify-content:center;margin-bottom:16px;">
         <div style="background:#fff;border:2px solid #E0E0E0;border-radius:20px;padding:16px;">
@@ -2323,8 +2327,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       var coordsLat = s.lat || '';
       var coordsLng = s.lng || '';
       var btnIrLa = (coordsLat && coordsLng)
-        ? '<a href="https://www.google.com/maps/dir/?api=1&destination=' + coordsLat + ',' + coordsLng + '&travelmode=driving" target="_blank" class="sos-btn-irla">🗺️ Ir até lá</a>'
-        : '<a href="https://www.google.com/maps/search/' + encodeURIComponent(s.nome + ' ' + (s.endereco || '')) + '" target="_blank" class="sos-btn-irla">🗺️ Ir até lá</a>';
+        ? '<a href="https://www.google.com/maps/dir/?api=1&destination=' + coordsLat + ',' + coordsLng + '&travelmode=driving" class="sos-btn-irla" onclick="window.location.href=this.href;return false;">🗺️ Ir até lá</a>'
+        : '<a href="https://www.google.com/maps/search/' + encodeURIComponent(s.nome + ' ' + (s.endereco || '')) + '" class="sos-btn-irla" onclick="window.location.href=this.href;return false;">🗺️ Ir até lá</a>';
       return '<div class="sos-card">'
         + '<div class="sos-card-emoji">' + s.emoji + '</div>'
         + '<div class="sos-card-info">'
@@ -4084,7 +4088,33 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   // ── Notificações ──────────────────────────────────────────────────────────
+  function _isWebView() {
+    var ua = navigator.userAgent || '';
+    return (/wv/.test(ua) || /WebView/i.test(ua)) && !/Chrome/.test(ua);
+  }
+
   function abrirNotificacoes() {
+    // WebView Android puro não suporta Notification API
+    if (_isWebView() || !('Notification' in window)) {
+      var html = '<div class="st-card" style="text-align:center;padding:28px 16px;">'
+        + '<div style="font-size:48px;margin-bottom:12px;">🔔</div>'
+        + '<div style="font-size:17px;font-weight:800;color:#1A1A1A;margin-bottom:8px;">Notificações Push</div>'
+        + '<div style="font-size:14px;color:#555;line-height:1.7;margin-bottom:16px;">'
+        + 'As notificações push estão <strong>disponíveis automaticamente</strong> no app RotaPosto.<br><br>'
+        + 'Você será avisado sobre:<br>• Quedas de preço nos seus postos favoritos<br>• Promoções na sua região<br>• Novidades do RotaPosto'
+        + '</div>'
+        + '</div>'
+        + '<div class="st-card">'
+        + '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;">'
+        + '<span style="font-size:24px;">✅</span>'
+        + '<div><div style="font-size:14px;font-weight:700;color:#1A1A1A;">Notificações ativas</div>'
+        + '<div style="font-size:12px;color:#888;">O app envia alertas automaticamente</div></div>'
+        + '</div>'
+        + '</div>';
+      abrirTela('Notificações', html);
+      return;
+    }
+
     var ativas = Notification.permission === 'granted';
     var html = '<div class="st-card" style="text-align:center;padding:24px 16px;">'
       + '<div style="font-size:48px;margin-bottom:10px;">' + (ativas ? '🔔' : '🔕') + '</div>'
@@ -4095,16 +4125,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<p style="font-size:14px;color:#555;line-height:1.7;">Receba alertas quando:<br>• Preços próximos de você caírem<br>• Postos favoritos atualizarem preços<br>• Novas promoções na sua região</p>'
       + '</div>'
       + (!ativas ? '<button class="st-btn" onclick="pedirPermissaoNotificacao()">Ativar notificações</button>'
-      : '<div style="text-align:center;font-size:13px;color:#888;padding:12px;">Para desativar, acesse as configurações do seu navegador.</div>');
+      : '<div style="text-align:center;font-size:13px;color:#888;padding:12px;">Para desativar, acesse as configurações do seu dispositivo → Apps → RotaPosto → Notificações.</div>');
     abrirTela('Notificações', html);
   }
 
   function pedirPermissaoNotificacao() {
-    if (!('Notification' in window)) { showToast('Notificações não suportadas'); return; }
+    if (!('Notification' in window)) { showToast('Notificações ativas no app! 🔔'); fecharTela(); return; }
     Notification.requestPermission().then(function(result) {
       fecharTela();
       if (result === 'granted') { showToast('Notificações ativadas! 🔔'); setTimeout(function(){ abrirNotificacoes(); }, 300); }
-      else showToast('Permissão negada pelo navegador');
+      else showToast('Permissão negada. Ative nas configurações do dispositivo.');
     });
   }
 
@@ -4371,7 +4401,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
       if (data.sucesso && data.qrCode) {
         assinaturaSubscriptionId = data.subscriptionId;
-        mostrarQRCode(data.qrCode, data.brcode, data.subscriptionId, planoSelecionado);
+        // Aviso visível se em modo demo (sem integração Woovi real configurada)
+        if (data.demo) {
+          showToast('⚠️ Modo demonstração — pagamento não será processado');
+        }
+        mostrarQRCode(data.qrCode, data.brcode, data.subscriptionId, planoSelecionado, data.demo);
       } else {
         const msg = data.mensagem || data.error || 'Erro ao gerar PIX. Tente novamente.';
         console.error('[PIX] Falha:', JSON.stringify(data));
@@ -4385,7 +4419,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
   }
 
-  function mostrarQRCode(qrCode, brcode, subscriptionId, plano) {
+  function mostrarQRCode(qrCode, brcode, subscriptionId, plano, isDemoMode?) {
     document.getElementById('assin-step1').style.display = 'none';
     document.getElementById('assin-step2').style.display = 'block';
     document.getElementById('assin-step3').style.display = 'none';
@@ -4411,9 +4445,15 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     assinaturaSubscriptionId = subscriptionId;
 
-    // Polling: verificar pagamento a cada 5s
+    // Banner de aviso modo demo
+    var demoWarn = document.getElementById('assin-demo-warn');
+    if (demoWarn) demoWarn.style.display = isDemoMode ? 'block' : 'none';
+
+    // Polling: verificar pagamento a cada 5s (só se não for demo)
     if (assinaturaInterval) clearInterval(assinaturaInterval);
-    assinaturaInterval = setInterval(() => verificarPagamentoPIX(), 5000);
+    if (!isDemoMode) {
+      assinaturaInterval = setInterval(() => verificarPagamentoPIX(), 5000);
+    }
   }
 
   async function verificarPagamentoPIX() {

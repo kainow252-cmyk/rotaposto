@@ -2,11 +2,10 @@
 //  RotaPosto – Módulo de Autenticação Firebase
 //  Projeto: rotaposto-32e33 (projeto oficial RotaPosto)
 //  Login: Google Sign-In · Facebook Login (signInWithPopup)
-//  authDomain: rotaposto-32e33.firebaseapp.com
-//  NOTA: authDomain customizado (rotaposto.com.br) exige /__/auth/handler no servidor
-//  que só existe no Firebase Hosting. Usando o domínio padrão do Firebase.
-//  O login funciona desde que rotaposto.com.br esteja nos Authorized domains do Firebase
-//  E nos JavaScript origins do Google OAuth Console.
+//  authDomain: rotaposto.com.br (customizado com proxy /__/auth/* → firebaseapp.com)
+//  NOTA: authDomain customizado exige /__/auth/handler no servidor.
+//  Implementado via proxy em index.tsx: /__/auth/* → rotaposto-32e33.firebaseapp.com
+//  Isso permite signInWithPopup funcionar em WebViews sem "missing initial state".
 // ═══════════════════════════════════════════════════════════════════════
 
 // Config Firebase do projeto rotaposto-32e33
@@ -27,7 +26,7 @@ export const GOOGLE_CLIENT_ID = "1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.
 export const GOOGLE_API_KEY = "AIzaSyBuPqI-hxHV33dqYbVC2G3LrM5uTCVol-8"
 
 // ─── HTML do Firebase Auth ────────────────────────────────────────────────────
-// signInWithPopup — sem redirect_uri_mismatch
+// authDomain = rotaposto.com.br com proxy /__/auth/* ativo no Cloudflare Worker
 // Domínio rotaposto.com.br deve estar em:
 // Firebase Console → rotaposto-32e33 → Authentication → Settings → Authorized domains
 export function getFirebaseAuthScripts(): string {
@@ -41,6 +40,7 @@ export function getFirebaseAuthScripts(): string {
       signInWithPopup,
       signInWithRedirect,
       getRedirectResult,
+      signInWithCredential,
       signInWithEmailAndPassword,
       createUserWithEmailAndPassword,
       signOut,
@@ -82,6 +82,8 @@ export function getFirebaseAuthScripts(): string {
     window._fbSignInWithPopup = signInWithPopup;
     window._fbSignInWithRedirect = signInWithRedirect;
     window._fbGetRedirectResult = getRedirectResult;
+    window._fbSignInWithCredential = signInWithCredential;
+    window._fbGoogleAuthProvider = GoogleAuthProvider;
     window._fbSignInWithEmailAndPassword = signInWithEmailAndPassword;
     window._fbCreateUserWithEmailAndPassword = createUserWithEmailAndPassword;
     window._fbSignOut = signOut;
