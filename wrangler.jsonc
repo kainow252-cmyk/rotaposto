@@ -6,6 +6,12 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  "kv_namespaces": [
+    {
+      "binding": "ROTAPOSTO_KV",
+      "id": "9875387ed3434643838b38cf945eccde"
+    }
+  ],
   "r2_buckets": [
     {
       "binding": "ROTAPOSTO_R2",
