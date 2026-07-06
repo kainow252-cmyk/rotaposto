@@ -1,10 +1,8 @@
-v2.1.1 — Correção de crash e logo
+v2.1.2 — Correção de crash e logo oficial
 
-🔧 Correções urgentes:
-
-• Corrigido: app abria e fechava (crash na inicialização)
-• Corrigido: logo incorreta substituída pela logo oficial
-• Removido Google Maps SDK (não precisava de API key)
-• Navegação abre Google Maps externo (mais confiável)
-• Ícone do app atualizado com logo real do RotaPosto
-• GPS nativo Android mantido (sem WebView)
+• Corrigido: app abria e fechava imediatamente (crash na inicialização)
+• Corrigido: logo incorreta substituída pela logo oficial do RotaPosto
+• Removido Google Maps SDK interno (causava crash sem API key)
+• Navegação agora abre Google Maps externo (mais confiável e rápido)
+• Ícone do app atualizado com a logo real do RotaPosto
+• GPS nativo Android mantido com alta precisão
