@@ -4937,7 +4937,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // ── Google Maps Geolocation API — fallback quando GPS nativo demora/falha ──
   // NOTA: sem cell towers/WiFi no body, Google usa IP do device (não do servidor Cloudflare,
   // pois a chamada é feita pelo browser do celular diretamente para api.google.com)
-  function _buscarLocalizacaoGoogle(callback?) {
+  function _buscarLocalizacaoGoogle(callback) {
     if (!_GKEY) {
       console.warn('[GPS] _GKEY vazio — sem chave Google');
       if (callback) callback(-23.5505, -46.6333);
