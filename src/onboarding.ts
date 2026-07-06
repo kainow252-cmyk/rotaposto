@@ -16,7 +16,6 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
   <title>RotaPosto – Boas-vindas</title>
-  <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -947,7 +946,6 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     var ua = navigator.userAgent || '';
     // TWA (Trusted Web Activity) usa Chrome — signInWithPopup funciona corretamente
     // Detectar TWA: referrer android-app:// OU standalone+Chrome+Android
-    var isTWA = document.referrer.indexOf('android-app://') === 0
       || (window.matchMedia('(display-mode: standalone)').matches && /Chrome/.test(ua) && /Android/.test(ua));
     if (isTWA) return false; // No TWA usar popup (Chrome suporta)
     // WebView puro (sem Chrome) nao suporta popup
@@ -1117,17 +1115,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   var _deferredInstallPrompt = null;
 
   // Capturar evento de instalação do browser
-  window.addEventListener('beforeinstallprompt', function(e) {
-    e.preventDefault();
-    _deferredInstallPrompt = e;
-    // Só mostrar banner se não está instalado e não dispensou antes
-    var dispensado = localStorage.getItem('rp_pwa_dispensado');
-    var jaInstalado = window.matchMedia('(display-mode: standalone)').matches
-      || window.navigator.standalone === true;
-    if (!dispensado && !jaInstalado) {
-      setTimeout(function() { mostrarBannerPWA(); }, 2000);
-    }
-  });
+
 
   function mostrarBannerPWA() {
     if (document.getElementById('pwa-banner')) return;
@@ -1162,7 +1150,6 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     _deferredInstallPrompt.prompt();
     _deferredInstallPrompt.userChoice.then(function(result) {
       if (result.outcome === 'accepted') {
-        localStorage.setItem('rp_pwa_instalado', '1');
         var banner = document.getElementById('pwa-banner');
         if (banner) banner.remove();
         showToast('RotaPosto instalado! ✓');
@@ -1172,33 +1159,16 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   }
 
   function dispensarBannerPWA() {
-    localStorage.setItem('rp_pwa_dispensado', '1');
     var banner = document.getElementById('pwa-banner');
     if (banner) banner.remove();
   }
 
   // Quando instalado com sucesso via browser
-  window.addEventListener('appinstalled', function() {
-    localStorage.setItem('rp_pwa_instalado', '1');
-    var banner = document.getElementById('pwa-banner');
-    if (banner) banner.remove();
-    showToast('RotaPosto instalado com sucesso! ✓');
-  });
 
   // ── Init: verificar se já logado / resultado de redirect ──
   (function init() {
     // SW v15: network-first — registrar sem reload automático
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').then(function(reg) {
-        // Novo SW → ativar silenciosamente, SEM reload
-        reg.addEventListener('updatefound', function() {
-          var newSW = reg.installing;
-          if (!newSW) return;
-          newSW.addEventListener('statechange', function() {
-            if (newSW.state === 'installed') {
-              newSW.postMessage({ type: 'SKIP_WAITING' });
-            }
-          });
+);
         });
         if (reg.waiting) {
           reg.waiting.postMessage({ type: 'SKIP_WAITING' });

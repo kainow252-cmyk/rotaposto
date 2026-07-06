@@ -16,7 +16,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
   <title>RotaPosto</title>
-  <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -3368,10 +3367,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _abrirNavegacaoExterna(lat, lng, nome) {
     // No Android (TWA/Chrome) usa geo: URI que abre o app de mapas padrão
     var isAndroid = /Android/i.test(navigator.userAgent);
-    var isTWA = document.referrer.indexOf('android-app://') === 0
-      || (window.matchMedia('(display-mode: standalone)').matches && isAndroid);
-
-    if (isTWA || isAndroid) {
+    if (isAndroid) {
       // geo: URI abre Google Maps nativo no Android
       var geoUrl = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng + (nome ? '(' + encodeURIComponent(nome) + ')' : '');
       // Tentar geo: primeiro, fallback para google maps web
@@ -4387,10 +4383,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       }
     } catch(e) {}
 
-    // No TWA (Android app), redirecionar para /onboarding (tela de login) — NÃO para /app
-    // Redirecionar para /app causava loop: localStorage vazio mas app carregava sem tela de login
-    var isTWA = document.referrer.includes('android-app://') || window.matchMedia('(display-mode: standalone)').matches;
-    window.location.href = isTWA ? '/onboarding' : '/';
+    window.location.href = '/';
   }
 
   function showToast(msg, dur = 2500) {
@@ -4406,212 +4399,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // ══════════════════════════════════════════════════════
   //  INIT
   // ══════════════════════════════════════════════════════
-  // ══════════════════════════════════════════════════════
-  //  PWA – Instalar atalho + Auto-update silencioso
-  // ══════════════════════════════════════════════════════
-  let _deferredPrompt = null;
-
-  window.addEventListener('beforeinstallprompt', function(e) {
-    e.preventDefault();
-    _deferredPrompt = e;
-    // Mostrar item "Instalar app" no menu perfil sempre que o evento disparar
-    const menuItem = document.getElementById('menu-item-instalar');
-    if (menuItem) menuItem.style.display = 'block';
-    // Só mostrar banner automático se não está instalado e não dispensou recentemente
-    const jaEstaInstalado = window.matchMedia('(display-mode: standalone)').matches
-      || (window.navigator['standalone'] === true);
-    const dispensado = localStorage.getItem('rp_pwa_dispensado');
-    // Resetar flag de dispensado após 7 dias para dar nova chance
-    const dispensadoTs = localStorage.getItem('rp_pwa_dispensado_ts');
-    if (dispensado && dispensadoTs && (Date.now() - parseInt(dispensadoTs)) > 7 * 24 * 3600 * 1000) {
-      localStorage.removeItem('rp_pwa_dispensado');
-      localStorage.removeItem('rp_pwa_dispensado_ts');
-    }
-    const dispensadoAtual = localStorage.getItem('rp_pwa_dispensado');
-    if (!jaEstaInstalado && !dispensadoAtual) {
-      setTimeout(mostrarBannerInstalar, 3000);
-    }
-  });
-
-  function mostrarBannerInstalar() {
-    if (document.getElementById('pwa-install-banner')) return;
-    const banner = document.createElement('div');
-    banner.id = 'pwa-install-banner';
-    banner.style.cssText = 'position:fixed;bottom:80px;left:16px;right:16px;z-index:9999;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:16px;display:flex;align-items:center;gap:12px;animation:slideUp 0.3s ease';
-    // Construir banner via DOM (sem innerHTML com aspas problemáticas)
-    const img = document.createElement('img');
-    img.src = '/icons/icon-96x96.png';
-    img.style.cssText = 'width:44px;height:44px;border-radius:10px;flex-shrink:0';
-    img.addEventListener('error', function() { img.style.display = 'none'; });
-
-    const txtWrap = document.createElement('div');
-    txtWrap.style.flex = '1';
-    const txtTitle = document.createElement('div');
-    txtTitle.style.cssText = 'font-weight:700;font-size:14px;color:#1A1A1A';
-    txtTitle.textContent = 'Adicionar \u00e0 tela inicial';
-    const txtSub = document.createElement('div');
-    txtSub.style.cssText = 'font-size:12px;color:#888;margin-top:1px';
-    txtSub.textContent = 'Acesso r\u00e1pido ao RotaPosto';
-    txtWrap.appendChild(txtTitle);
-    txtWrap.appendChild(txtSub);
-
-    const btnDismiss = document.createElement('button');
-    btnDismiss.style.cssText = 'background:none;border:none;padding:6px;cursor:pointer;color:#bbb;font-size:18px';
-    btnDismiss.textContent = '\u2715';
-    btnDismiss.addEventListener('click', function() {
-      document.getElementById('pwa-install-banner')?.remove();
-      localStorage.setItem('rp_pwa_dispensado', '1');
-      localStorage.setItem('rp_pwa_dispensado_ts', String(Date.now()));
-    });
-
-    const btnInstall = document.createElement('button');
-    btnInstall.style.cssText = 'background:#FF6D00;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0';
-    btnInstall.textContent = 'Instalar';
-    btnInstall.addEventListener('click', instalarAppPWA);
-
-    banner.appendChild(img);
-    banner.appendChild(txtWrap);
-    banner.appendChild(btnDismiss);
-    banner.appendChild(btnInstall);
-    document.body.appendChild(banner);
-  }
-
-  function instalarAppPWA() {
-    if (!_deferredPrompt) return;
-    _deferredPrompt.prompt();
-    _deferredPrompt.userChoice.then(function(r) {
-      if (r.outcome === 'accepted') {
-        localStorage.setItem('rp_pwa_instalado', '1');
-        document.getElementById('pwa-install-banner')?.remove();
-        // Ocultar menu item pois já instalou
-        const menuItem = document.getElementById('menu-item-instalar');
-        if (menuItem) menuItem.style.display = 'none';
-        showToast('RotaPosto instalado! \u2713');
-      }
-      _deferredPrompt = null;
-    });
-  }
-
-  function verificarMenuInstalar() {
-    var menuItem = document.getElementById('menu-item-instalar');
-    if (!menuItem) return;
-
-    // No TWA (já é app nativo Android) — nunca mostrar "Instalar app"
-    var isTWA = document.referrer.indexOf('android-app://') === 0
-      || (window.matchMedia('(display-mode: standalone)').matches
-          && /Android/.test(navigator.userAgent)
-          && /Chrome/.test(navigator.userAgent));
-    if (isTWA) {
-      menuItem.style.display = 'none';
-      return;
-    }
-
-    // Verificar se app já está rodando como PWA instalado
-    var jaInstalado = window.matchMedia('(display-mode: standalone)').matches
-      || (window.navigator['standalone'] === true)
-      || localStorage.getItem('rp_pwa_instalado') === '1';
-    if (jaInstalado) {
-      // App já instalado: ocultar item do menu
-      menuItem.style.display = 'none';
-    } else {
-      // Ainda não instalado: mostrar apenas se prompt disponível
-      menuItem.style.display = _deferredPrompt ? 'block' : 'none';
-    }
-  }
-
-  function instalarOuMostrarPWA() {
-    if (_deferredPrompt) {
-      // Tem prompt disponível — instalar direto
-      localStorage.removeItem('rp_pwa_dispensado');
-      localStorage.removeItem('rp_pwa_dispensado_ts');
-      instalarAppPWA();
-    } else {
-      // Sem prompt (já instalado ou não suportado) — dar instrução
-      const jaInstalado = window.matchMedia('(display-mode: standalone)').matches
-        || (window.navigator['standalone'] === true);
-      if (jaInstalado) {
-        showToast('App já está instalado! ✓');
-      } else {
-        var html = '<div style="text-align:center;padding:8px 0;">'
-          + '<div style="font-size:40px;margin-bottom:12px;">📲</div>'
-          + '<div style="font-size:15px;font-weight:700;color:#1A1A1A;margin-bottom:16px;">Adicionar à tela inicial</div>'
-          + '<div style="background:#F5F5F5;border-radius:14px;padding:14px;font-size:13px;color:#555;line-height:1.7;text-align:left;">'
-          + '<b>Android (Chrome):</b><br/>Menu ⋮ → "Adicionar à tela inicial"<br/><br/>'
-          + '<b>iPhone (Safari):</b><br/>Compartilhar □↑ → "Adicionar à Tela de Início"'
-          + '</div>'
-          + '</div>';
-        abrirModal('Instalar RotaPosto', html);
-      }
-    }
-  }
-
-  window.addEventListener('appinstalled', function() {
-    localStorage.setItem('rp_pwa_instalado', '1');
-    document.getElementById('pwa-install-banner')?.remove();
-    verificarMenuInstalar();
-    showToast('App instalado com sucesso! ✓');
-  });
+  // PWA removido — app funciona como site web normal
 
   (function init() {
-    // ── SW: registrar + forçar atualização se versão desatualizada ──────────
+    // ── Desregistrar qualquer Service Worker antigo ──────────────────────
     if ('serviceWorker' in navigator) {
-
-      // Limpar cache SP padrão quando SW pedir
-      navigator.serviceWorker.addEventListener('message', function(event) {
-        if (event.data?.type === 'CLEAR_SP_CACHE') {
-          var spLat = parseFloat(localStorage.getItem('rp_lat') || '');
-          var spLng = parseFloat(localStorage.getItem('rp_lng') || '');
-          if (!isNaN(spLat) && Math.abs(spLat - (-23.5505)) < 0.001 &&
-              !isNaN(spLng) && Math.abs(spLng - (-46.6333)) < 0.001) {
-            localStorage.removeItem('rp_lat');
-            localStorage.removeItem('rp_lng');
-            localStorage.removeItem('rp_loc_ts');
-          }
-        }
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.unregister(); });
       });
-
-      navigator.serviceWorker.register('/sw.js').then(reg => {
-        // Novo SW disponível → ativar silenciosamente
-        reg.addEventListener('updatefound', () => {
-          const newSW = reg.installing;
-          if (!newSW) return;
-          newSW.addEventListener('statechange', () => {
-            if (newSW.state === 'installed') {
-              newSW.postMessage({ type: 'SKIP_WAITING' });
-            }
-          });
-        });
-        if (reg.waiting) {
-          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-
-        // ── Verificar versão do SW ativo ─────────────────────────────────
-        // Se o SW ativo for mais velho que v15, redirecionar para /launcher
-        // que limpa tudo. Usa localStorage para só fazer isso UMA VEZ.
-        var jaLimpou = localStorage.getItem('rp_sw_cleaned_v15');
-        if (!jaLimpou && navigator.serviceWorker.controller) {
-          var mc = new MessageChannel();
-          mc.port1.onmessage = function(e) {
-            var swVer = e.data?.version || '';
-            var swNum = parseInt(swVer.replace(/[^0-9]/g, '')) || 0;
-            if (swNum < 15) {
-              // SW desatualizado → marcar e ir para /launcher que limpa tudo
-              localStorage.setItem('rp_sw_cleaned_v15', '1');
-              window.location.replace('/launcher');
-            } else {
-              // SW já está atual → marcar como limpo
-              localStorage.setItem('rp_sw_cleaned_v15', '1');
-            }
-          };
-          navigator.serviceWorker.controller.postMessage(
-            { type: 'GET_VERSION' }, [mc.port2]
-          );
-        } else if (!jaLimpou) {
-          // Sem SW ativo ainda → marcar como ok (SW novo vai instalar)
-          localStorage.setItem('rp_sw_cleaned_v15', '1');
-        }
-
-      }).catch(() => {});
     }
 
     // ── Verificação de sessão única ──────────────────────────────────────
@@ -4635,10 +4430,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
             localStorage.removeItem('rp_user');
             localStorage.removeItem('rp_session_token');
             localStorage.removeItem('rp_session_uid');
-            // Mostrar aviso e redirecionar para tela de login (no TWA usar /onboarding)
+            // Mostrar aviso e redirecionar para login
             alert('Sua conta foi acessada em outro dispositivo. Por segurança, você foi desconectado.');
-            var isTWA = document.referrer.includes('android-app://') || window.matchMedia('(display-mode: standalone)').matches;
-            window.location.href = isTWA ? '/onboarding' : '/';
+            window.location.href = '/';
           }
         })
         .catch(function() { /* falha de rede: manter sessão local */ });
@@ -4677,9 +4471,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // Pedir localização logo no init — antes de qualquer coisa
     _initLocalizacao();
 
-    // No TWA: NÃO mostrar toast de boas-vindas — é confuso para o usuário
-    // (o app parece ter feito login sozinho sem avisar)
-    // Toast removido conforme feedback dos testes
+
 
     // ── Botão SOS: posição inicial = centro vertical, mas arrastável ──────────
     (function initSosDrag() {
@@ -4855,19 +4647,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       && Math.abs(lng - (-46.6333)) < 1.0;
   }
 
-  // ── Detectar se está rodando como TWA (app Play Store) ──────────────────────
-  // No TWA, document.referrer começa com "android-app://"
-  // Também checamos display-mode: standalone (PWA/TWA instalado)
-  var _isTWA = (function() {
-    try {
-      if (document.referrer && document.referrer.startsWith('android-app://')) return true;
-      if (window.matchMedia('(display-mode: standalone)').matches) return true;
-      if (window.navigator.standalone === true) return true;
-    } catch(e) {}
-    return false;
-  })();
-
-  // ── Botão flutuante GPS para TWA ────────────────────────────────────────────
+  // ── Botão flutuante GPS ──────────────────────────────────────────────────────
   function _mostrarBotaoGPS(mensagem) {
     var old = document.getElementById('rp-gps-btn');
     if (old) old.remove();
@@ -4954,13 +4734,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       return;
     }
 
-    // ── No TWA, usar watchPosition para capturar assim que Android delegar ──
-    // O DelegationService pode demorar alguns segundos para inicializar
-    if (_isTWA && !silencioso) {
-      _gpsNativoTWA();
-      return;
-    }
-
     // ── PASSO 1: baixa precisão (WiFi/rede) — <2s ──
     navigator.geolocation.getCurrentPosition(
       function(pos1) {
@@ -4987,7 +4760,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         if (err1.code === 1) {
           // Permissão negada
           showToast('📍 Ative a localização nas configurações.', 7000);
-          if (_isTWA) _mostrarBotaoGPS('Toque para ativar GPS');
+          _mostrarBotaoGPS('Toque para ativar GPS');
           if (!silencioso) {
             _buscarLocalizacaoGoogle(function(lat, lng) {
               if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
@@ -5013,103 +4786,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         }
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-    );
-  }
-
-  // ── GPS especial para TWA (Play Store app) ──────────────────────────────────
-  // No TWA, o DelegationService do Android precisa inicializar (pode demorar 1-3s).
-  // Usamos watchPosition com retry automático para capturar assim que estiver pronto.
-  function _gpsNativoTWA() {
-    console.log('[GPS-TWA] Iniciando watchPosition para TWA...');
-    var _gpsObtido = false;
-    var _tentativas = 0;
-    var _maxTentativas = 3;
-
-    // Cancelar watch anterior se existir
-    if (_watchId !== null) {
-      navigator.geolocation.clearWatch(_watchId);
-      _watchId = null;
-    }
-
-    function _iniciarWatch() {
-      _tentativas++;
-      console.log('[GPS-TWA] Tentativa ' + _tentativas + '/' + _maxTentativas);
-
-      _watchId = navigator.geolocation.watchPosition(
-        function(pos) {
-          if (_gpsObtido) {
-            // Atualização contínua — só atualiza marcador silenciosamente
-            _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, false, true);
-            return;
-          }
-          _gpsObtido = true;
-          var acc = Math.round(pos.coords.accuracy);
-          console.log('[GPS-TWA] ✅ lat=' + pos.coords.latitude + ' lng=' + pos.coords.longitude + ' acc=' + acc + 'm');
-          _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
-          showToast('📍 GPS: ' + acc + 'm', 2000);
-          // Após obter GPS, manter watch ativo por mais 30s para refinar
-          setTimeout(function() {
-            if (_watchId !== null) {
-              navigator.geolocation.clearWatch(_watchId);
-              _watchId = null;
-              console.log('[GPS-TWA] watchPosition encerrado (30s)');
-            }
-          }, 30000);
-        },
-        function(err) {
-          console.warn('[GPS-TWA] Erro watch: code=' + err.code + ' msg=' + err.message);
-          if (_watchId !== null) {
-            navigator.geolocation.clearWatch(_watchId);
-            _watchId = null;
-          }
-          if (err.code === 1) {
-            // Permissão negada pelo usuário
-            showToast('📍 Permita a localização para ver postos próximos.', 8000);
-            _mostrarBotaoGPS('Toque para ativar GPS');
-            // Fallback: Google Geolocation API
-            _buscarLocalizacaoGoogle(function(lat, lng) {
-              if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
-            });
-          } else if (_tentativas < _maxTentativas) {
-            // Timeout ou indisponível: retry com delay crescente
-            var delay = _tentativas * 2000; // 2s, 4s
-            console.log('[GPS-TWA] Retry em ' + delay + 'ms...');
-            setTimeout(_iniciarWatch, delay);
-          } else {
-            // Esgotou tentativas: usar Google API como fallback
-            console.warn('[GPS-TWA] Esgotou tentativas — usando Google API');
-            _buscarLocalizacaoGoogle(function(lat, lng) {
-              if (lat !== null) {
-                _aplicarLocalizacao(lat, lng, true, false);
-              } else {
-                // Último recurso: mostrar botão para o usuário tentar manualmente
-                _mostrarBotaoGPS('Toque para usar GPS');
-              }
-            });
-          }
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: _tentativas === 1 ? 10000 : 20000, // 10s na 1ª, 20s nas demais
-          maximumAge: 0
-        }
-      );
-    }
-
-    // Iniciar imediatamente
-    _iniciarWatch();
-
-    // Também tentar baixa precisão em paralelo para resposta rápida
-    navigator.geolocation.getCurrentPosition(
-      function(pos) {
-        if (!_gpsObtido) {
-          console.log('[GPS-TWA] Paralelo baixa precisão: acc=' + Math.round(pos.coords.accuracy) + 'm');
-          _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
-          _gpsObtido = true;
-        }
-      },
-      function() {}, // silencioso — watchPosition vai tratar erros
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
     );
   }
 

@@ -1969,70 +1969,9 @@ app.get('/app', (c) => {
   return c.html(getAppHTML(firebaseScripts, gKey))
 })
 
-// /launcher → ponto de entrada do TWA/PWA
+
 // Sempre limpa SW+cache e redireciona para /app com a versão mais recente
 // start_url do manifest aponta para cá
-app.get('/launcher', (c) => {
-  // Redirecionar domínio antigo para rotaposto.com.br
-  const host = c.req.header('host') || ''
-  if (host.includes('pages.dev') || host.includes('gensparksite.com')) {
-    return c.redirect('https://rotaposto.com.br/launcher', 301)
-  }
-  return c.html(`<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
-<meta http-equiv="Pragma" content="no-cache"/>
-<meta http-equiv="Expires" content="0"/>
-<title>RotaPosto</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{display:flex;flex-direction:column;align-items:center;justify-content:center;
-       min-height:100vh;background:#0B121E;font-family:sans-serif;text-align:center}
-  .logo{width:96px;height:96px;border-radius:22px;margin-bottom:20px;overflow:hidden}
-  .logo img{width:100%;height:100%}
-  h2{color:#fff;font-size:26px;font-weight:800;margin-bottom:6px}
-  h2 span{color:#FF6D00}
-  p{color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:28px}
-  .bar{width:180px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden}
-  .fill{height:100%;background:#FF6D00;border-radius:2px;animation:prog 1.5s ease-out forwards}
-  @keyframes prog{from{width:0%}to{width:100%}}
-</style>
-</head><body>
-<div class="logo"><img src="/icons/icon-192x192.png" alt="RotaPosto"/></div>
-<h2>Rota<span>Posto</span></h2>
-<p>Carregando versão mais recente...</p>
-<div class="bar"><div class="fill"></div></div>
-<script>
-// Garantia: redirecionar para /app em no máximo 2s independente de qualquer coisa
-var _redirecionado = false;
-function _irParaApp() {
-  if (_redirecionado) return;
-  _redirecionado = true;
-  window.location.replace('/app?v=' + Date.now());
-}
-setTimeout(_irParaApp, 2000);
-
-// Tentar limpar SW/cache antes, mas sem bloquear
-(async function() {
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const reg of regs) { await reg.unregister(); }
-    }
-  } catch(e) {}
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
-  } catch(e) {}
-  _irParaApp();
-})();
-</script>
-</body></html>`)
-})
 
 // /reset → limpa TODO o cache/SW e redireciona para o app
 app.get('/reset', (c) => {
@@ -2683,7 +2622,6 @@ app.get('/app_old', (c) => {
   <meta name="google-signin-client_id" content="${GOOGLE_CLIENT_ID}"/>
   <title>RotaPosto – Ache o Melhor Preço</title>
   <!-- PWA Manifest + Icons -->
-  <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
   <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png"/>
   <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png"/>
@@ -4842,10 +4780,7 @@ let _swRegistration = null;
 function registrarSW() {
   if (!('serviceWorker' in navigator)) return;
 
-  navigator.serviceWorker.register('/sw.js')
-    .then(reg => {
-      _swRegistration = reg;
-      console.log('[SW] Registrado ok:', reg.scope);
+
 
       // Checar por update imediatamente (importante ao abrir o PWA)
       reg.update().catch(() => {});
@@ -4929,15 +4864,7 @@ function iniciarPWAPrompt() {
 
   const btnInstalar = document.getElementById('btn-pwa-install');
 
-  // Escutar o evento beforeinstallprompt
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    _pwaPrompt = e;
-    // Mostrar banner apos 4 segundos (nao intrusivo)
-    setTimeout(() => {
-      if (!_isPWAInstalada()) banner.classList.add('visible');
-    }, 4000);
-  });
+
 
   // Botao instalar
   if (btnInstalar) {
@@ -4955,7 +4882,6 @@ function iniciarPWAPrompt() {
       if (outcome === 'accepted') {
         mostrarToast('✅ RotaPosto instalado com sucesso!');
         // Guardar que ja instalou
-        localStorage.setItem('rp_pwa_installed', '1');
       }
       _pwaPrompt = null;
     });
@@ -4966,31 +4892,6 @@ function iniciarPWAPrompt() {
     if (e.target === banner) banner.classList.remove('visible');
   });
 
-  // Detectar instalacao concluida
-  window.addEventListener('appinstalled', () => {
-    banner.classList.remove('visible');
-    banner.style.display = 'none';
-    mostrarToast('🎉 RotaPosto instalado!');
-    _pwaPrompt = null;
-    localStorage.setItem('rp_pwa_installed', '1');
-  });
-
-  // iOS: mostrar instrucao manual apos 6s se nao houver beforeinstallprompt
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window['MSStream'];
-  const jaInstalou = localStorage.getItem('rp_pwa_installed') === '1';
-  if (isIOS && !jaInstalado && !jaInstalou) {
-    setTimeout(() => {
-      banner.classList.add('visible');
-      const btnText = document.getElementById('btn-pwa-install');
-      if (btnText) {
-        btnText.textContent = 'Como instalar';
-        btnText.onclick = () => {
-          mostrarToast('📱 Toque em Compartilhar → "Adicionar a Tela de Inicio"');
-          banner.classList.remove('visible');
-        };
-      }
-    }, 6000);
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
