@@ -768,6 +768,8 @@ button{font-family:'Inter',sans-serif;cursor:pointer}
 .rv{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
 .rv.in{opacity:1;transform:translateY(0)}
   </style>
+  <!-- Mercado Pago JS SDK v2 -->
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
 </head>
 <body>
 
@@ -1619,12 +1621,23 @@ function mVal(el){
   el.value=v;
 }
 
-// ── pagamento ─────────────────────────────────────────────────
+// ── Mercado Pago SDK ──────────────────────────────────────────────────────────
+const MP_PUBLIC_KEY='APP_USR-b1c14564-1b89-4dde-8b54-1c3bf64ab8a3';
+let _mp=null;
+function getMP(){
+  if(!_mp){
+    if(typeof MercadoPago==='undefined'){throw new Error('SDK Mercado Pago não carregou. Verifique sua conexão.');}
+    _mp=new MercadoPago(MP_PUBLIC_KEY,{locale:'pt-BR'});
+  }
+  return _mp;
+}
+
+// ── pagamento ─────────────────────────────────────────────────────────────────
 async function pagar(){
   const nome=document.getElementById('pay-nome').value.trim();
   const email=document.getElementById('pay-email').value.trim();
-  const cpf=document.getElementById('pay-cpf').value.replace(/\\D/g,'');
-  const card=document.getElementById('pay-card').value.replace(/\\s/g,'');
+  const cpf=document.getElementById('pay-cpf').value.replace(/\D/g,'');
+  const card=document.getElementById('pay-card').value.replace(/\s/g,'');
   const val=document.getElementById('pay-val').value;
   const cvv=document.getElementById('pay-cvv').value;
   if(!nome||!email||cpf.length!==11){alert('Preencha nome, e-mail e CPF corretamente.');return}
@@ -1632,25 +1645,57 @@ async function pagar(){
   const btn=document.getElementById('btn-pagar');
   btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Processando...';
   try{
+    // 1. Tokenizar cartão via SDK Mercado Pago (nunca envia dados brutos ao backend)
     const[m,a]=val.split('/');
+    const mp=getMP();
+    let cardToken;
+    try{
+      cardToken=await mp.createCardToken({
+        cardNumber:card,
+        cardholderName:nome,
+        cardExpirationMonth:m.padStart(2,'0'),
+        cardExpirationYear:'20'+a,
+        securityCode:cvv,
+        identificationType:'CPF',
+        identificationNumber:cpf
+      });
+    }catch(tokenErr){
+      const cause=tokenErr?.cause;
+      const msg=cause&&Array.isArray(cause)
+        ?cause.map(e=>e.description||e.message||e.code).filter(Boolean).join('; ')
+        :(tokenErr?.message||'Dados do cartão inválidos. Verifique o número, validade e CVV.');
+      alert('Erro no cartão: '+msg);
+      btn.disabled=false;btn.innerHTML='<i class="fas fa-lock"></i> Pagar R$'+planos[plano].val;
+      return;
+    }
+    if(!cardToken||!cardToken.id){
+      alert('Não foi possível tokenizar o cartão. Verifique os dados e tente novamente.');
+      btn.disabled=false;btn.innerHTML='<i class="fas fa-lock"></i> Pagar R$'+planos[plano].val;
+      return;
+    }
+    // 2. userId salvo no localStorage pelo app após login
+    const userId=localStorage.getItem('rp_uid')||'';
+    // 3. Enviar somente o token ao backend — dados do cartão nunca saem do browser
     const res=await fetch('/api/pagamento/assinar',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({plano,nome,email,cpf,cartao:{numero:card,mes:parseInt(m),ano:parseInt('20'+a),cvv}})});
+      body:JSON.stringify({plano,nome,email,cpf,cardToken:cardToken.id,userId})});
     const data=await res.json();
     if(data.sucesso){
       document.getElementById('pay-form').style.display='none';
       document.getElementById('pay-ok').classList.add('ok');
       localStorage.setItem('rp_premium','1');
+      if(data.subscriptionId)localStorage.setItem('rp_sub_id',data.subscriptionId);
     }else{
       alert('Erro: '+(data.mensagem||'Tente novamente.'));
       btn.disabled=false;btn.innerHTML='<i class="fas fa-lock"></i> Pagar R$'+planos[plano].val;
     }
   }catch(e){
+    console.error('[pagar]',e);
     alert('Erro de conexão. Tente novamente.');
     btn.disabled=false;btn.innerHTML='<i class="fas fa-lock"></i> Pagar R$'+planos[plano].val;
   }
 }
 
-// ── faq ───────────────────────────────────────────────────────
+// ── faq ───────────────────────────────────────────────────────────
 function faq(btn){
   const a=btn.nextElementSibling;
   const open=a.classList.contains('open');

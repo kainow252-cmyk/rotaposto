@@ -35,6 +35,14 @@ import {
   PLANOS
 } from './woovi'
 import {
+  criarAssinaturaCartao,
+  consultarAssinaturaMP,
+  cancelarAssinaturaMP,
+  interpretarWebhookMP,
+  verificarPagamentoMP,
+  MP_PLANOS
+} from './mercadopago'
+import {
   buscarTodosPostosANP,
   getMapaBrasilHTML,
   getEstatisticasNacionaisANP,
@@ -1719,63 +1727,184 @@ app.get('/api/planos', (c) => {
   })
 })
 
-// ─── API: Pagamento via cartão (MercadoPago) ─────────────────────────────────
+// ─── API: Assinatura Cartão de Crédito (Mercado Pago Recorrente) ─────────────
 app.post('/api/pagamento/assinar', async (c) => {
   try {
     const body = await c.req.json() as any
-    const { plano, nome, email, cpf } = body
+    const { plano, nome, email, cpf, cardToken, userId } = body
 
-    if (!nome || !email || !cpf) {
-      return c.json({ sucesso: false, mensagem: 'Dados incompletos' }, 400)
+    if (!nome || !email || !userId) {
+      return c.json({ sucesso: false, mensagem: 'Dados incompletos. Nome, e-mail e login são obrigatórios.' }, 400)
+    }
+    if (!cardToken) {
+      return c.json({ sucesso: false, mensagem: 'Token do cartão não gerado. Use o formulário seguro MP.' }, 400)
     }
 
-    const MP_ACCESS_TOKEN = (c.env as any)?.MP_ACCESS_TOKEN || ''
-    const valores: Record<string, number> = { premium: 9.90, anual: 89.00 }
-    const valor = valores[plano] || 9.90
+    const planoValido = plano in MP_PLANOS ? plano : 'premium'
+    const kv = getKV(c.env)
 
-    if (!MP_ACCESS_TOKEN) {
-      return c.json({
-        sucesso: true,
-        mensagem: 'Modo demo – use PIX para assinar de verdade!',
-        recomendacao: 'PIX e mais facil e rapido. Use /api/pix/assinar',
-        demo: true
-      })
+    // Verificar se já tem assinatura ativa (cartão ou PIX)
+    if (kv) {
+      const existente = await kvGetAssinatura(kv, userId)
+      if (existente?.status === 'ACTIVE') {
+        return c.json({
+          sucesso: true,
+          jaAssinante: true,
+          plano: existente.plano,
+          mensagem: 'Você já tem uma assinatura ativa!'
+        })
+      }
     }
 
-    // Criar preferencia MP
-    const prefRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        items: [{ id: `rp-${plano}`, title: PLANOS[plano]?.nome || 'RotaPosto Premium',
-          quantity: 1, unit_price: valor, currency_id: 'BRL' }],
-        payer: { name: nome, email },
-        back_urls: {
-          success: 'https://rotaposto.com.br/app',
-          failure: 'https://rotaposto.com.br/app',
-          pending: 'https://rotaposto.com.br/app'
-        },
-        external_reference: `rp-${plano}-${Date.now()}`
-      })
+    // Criar assinatura recorrente no MP
+    const resultado = await criarAssinaturaCartao(c.env, {
+      cardToken,
+      email,
+      nome,
+      cpf: cpf || '',
+      plano: planoValido,
+      userId
     })
-    const prefData = await prefRes.json() as any
 
-    if (prefData?.id) {
-      return c.json({ sucesso: true, preferencia_id: prefData.id, checkout_url: prefData.init_point })
+    if (!resultado.sucesso) {
+      return c.json({ sucesso: false, mensagem: resultado.error || 'Erro ao processar cartão. Verifique os dados e tente novamente.' }, 500)
     }
-    return c.json({ sucesso: false, mensagem: 'Erro ao criar preferencia MP' }, 500)
-  } catch {
-    return c.json({ sucesso: false, mensagem: 'Erro interno' }, 500)
+
+    // Salvar assinatura no KV
+    if (kv) {
+      const planoInfo = MP_PLANOS[planoValido as keyof typeof MP_PLANOS]
+      const assinatura: AssinaturaUsuario = {
+        userId,
+        nome,
+        email,
+        cpf: (cpf || '').replace(/\D/g, ''),
+        plano: planoValido,
+        status: resultado.status === 'authorized' ? 'ACTIVE' : 'PENDING',
+        subscriptionId: resultado.subscriptionId!,
+        criadaEm: Date.now(),
+        expiraEm: Date.now() + 32 * 24 * 3600 * 1000, // +32 dias
+        pagamentos: resultado.status === 'authorized' ? 1 : 0
+      }
+      await kvSetAssinatura(kv, assinatura)
+    }
+
+    return c.json({
+      sucesso: true,
+      plano: planoValido,
+      valor: MP_PLANOS[planoValido as keyof typeof MP_PLANOS]?.valor,
+      subscriptionId: resultado.subscriptionId,
+      status: resultado.status,
+      proximaCobranca: resultado.proximaCobranca,
+      demo: resultado.demo || false,
+      mensagem: resultado.status === 'authorized'
+        ? '✅ Pagamento aprovado! RotaPosto Premium ativado!'
+        : '⏳ Pagamento em análise. Você receberá confirmação em breve.'
+    })
+
+  } catch (e: any) {
+    console.error('[MP assinar]', e)
+    return c.json({ sucesso: false, mensagem: 'Erro ao processar pagamento. Tente novamente.' }, 500)
   }
 })
 
+// ─── Webhook Mercado Pago ─────────────────────────────────────────────────────
 app.post('/api/pagamento/webhook', async (c) => {
-  const body = await c.req.json() as any
-  console.log('MP Webhook:', JSON.stringify(body))
-  return c.json({ status: 'ok' })
+  try {
+    const body = await c.req.json() as any
+    console.log('[MP Webhook]', JSON.stringify(body).slice(0, 300))
+
+    const evento = interpretarWebhookMP(body)
+    const kv = getKV(c.env)
+
+    if (!kv) return c.json({ status: 'ok' })
+
+    // Pagamento aprovado via subscription
+    if (evento.tipo === 'pagamento_aprovado' && evento.subscriptionId) {
+      const userId = await kvGetUserBySubId(kv, evento.subscriptionId)
+      if (userId) {
+        const assin = await kvGetAssinatura(kv, userId)
+        if (assin) {
+          assin.status = 'ACTIVE'
+          assin.pagamentos = (assin.pagamentos || 0) + 1
+          assin.expiraEm = Date.now() + 32 * 24 * 3600 * 1000
+          await kvSetAssinatura(kv, assin)
+          console.log('[MP Webhook] Assinatura ativada para userId:', userId)
+        }
+      }
+    }
+
+    // Pagamento individual aprovado
+    if (evento.tipo === 'pagamento_aprovado' && evento.paymentId) {
+      const pagInfo = await verificarPagamentoMP(c.env, evento.paymentId)
+      if (pagInfo.aprovado && pagInfo.subscriptionId) {
+        const userId = await kvGetUserBySubId(kv, pagInfo.subscriptionId)
+        if (userId) {
+          const assin = await kvGetAssinatura(kv, userId)
+          if (assin) {
+            assin.status = 'ACTIVE'
+            assin.pagamentos = (assin.pagamentos || 0) + 1
+            assin.expiraEm = Date.now() + 32 * 24 * 3600 * 1000
+            await kvSetAssinatura(kv, assin)
+          }
+        }
+      }
+    }
+
+    // Assinatura cancelada
+    if (evento.tipo === 'assinatura_cancelada' && evento.subscriptionId) {
+      const userId = await kvGetUserBySubId(kv, evento.subscriptionId)
+      if (userId) {
+        const assin = await kvGetAssinatura(kv, userId)
+        if (assin) {
+          assin.status = 'CANCELLED'
+          await kvSetAssinatura(kv, assin)
+          console.log('[MP Webhook] Assinatura cancelada para userId:', userId)
+        }
+      }
+    }
+
+    return c.json({ status: 'ok' })
+  } catch (e: any) {
+    console.error('[MP Webhook] Erro:', e.message)
+    return c.json({ status: 'error' }, 500)
+  }
+})
+
+// ─── Consultar status da assinatura MP ───────────────────────────────────────
+app.get('/api/pagamento/status/:subscriptionId', async (c) => {
+  try {
+    const subscriptionId = c.req.param('subscriptionId')
+    const resultado = await consultarAssinaturaMP(c.env, subscriptionId)
+    return c.json({ sucesso: true, ...resultado })
+  } catch {
+    return c.json({ sucesso: false, mensagem: 'Erro ao consultar status' }, 500)
+  }
+})
+
+// ─── Cancelar assinatura MP ───────────────────────────────────────────────────
+app.post('/api/pagamento/cancelar', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const { subscriptionId, userId } = body
+    if (!subscriptionId || !userId) {
+      return c.json({ sucesso: false, mensagem: 'Dados incompletos' }, 400)
+    }
+
+    const ok = await cancelarAssinaturaMP(c.env, subscriptionId)
+
+    const kv = getKV(c.env)
+    if (kv && ok) {
+      const assin = await kvGetAssinatura(kv, userId)
+      if (assin) {
+        assin.status = 'CANCELLED'
+        await kvSetAssinatura(kv, assin)
+      }
+    }
+
+    return c.json({ sucesso: ok, mensagem: ok ? 'Assinatura cancelada.' : 'Erro ao cancelar.' })
+  } catch {
+    return c.json({ sucesso: false, mensagem: 'Erro interno' }, 500)
+  }
 })
 
 // ─── API: Upload de foto de perfil (base64) ───────────────────────────────────
