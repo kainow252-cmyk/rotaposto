@@ -1233,21 +1233,81 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       padding: 16px 16px calc(var(--sab) + 80px);
     }
     /* Filtros de tipo */
+    /* ── SOS filtros: "Todos" + chevron + bottom sheet de categorias ── */
     .sos-filtros {
-      display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto;
-      padding-bottom: 2px; scrollbar-width: none;
+      display: flex; gap: 8px; margin-bottom: 16px; align-items: center;
     }
-    .sos-filtros::-webkit-scrollbar { display: none; }
-    .sos-chip {
+    /* Botão "Todos" — ocupa a linha toda com seta de dropdown */
+    .sos-chip-todos {
+      flex: 1;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; border-radius: 100px;
+      background: #D32F2F; border: none;
+      font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
+      transition: background 0.15s; gap: 8px;
+    }
+    .sos-chip-todos svg {
+      width: 18px; height: 18px; stroke: #fff; fill: none;
+      transition: transform 0.2s;
       flex-shrink: 0;
-      padding: 8px 16px; border-radius: 100px;
-      background: #fff; border: 1.5px solid #E0E0E0;
-      font-size: 13px; font-weight: 600; color: #555; cursor: pointer;
-      transition: all 0.15s;
     }
-    .sos-chip.ativo {
-      background: #D32F2F; border-color: #D32F2F; color: #fff;
+    .sos-chip-todos.aberto svg { transform: rotate(180deg); }
+    /* Bottom sheet de categorias */
+    #sos-cat-sheet-overlay {
+      position: fixed; inset: 0; z-index: 9990;
+      background: rgba(0,0,0,0.45);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.22s;
     }
+    #sos-cat-sheet-overlay.visivel { opacity: 1; pointer-events: auto; }
+    #sos-cat-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 9991;
+      background: #fff; border-radius: 20px 20px 0 0;
+      padding: 0 0 calc(env(safe-area-inset-bottom,0px) + 16px);
+      transform: translateY(100%);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+    }
+    #sos-cat-sheet.visivel { transform: translateY(0); }
+    .sos-sheet-handle {
+      width: 36px; height: 4px; background: #DDD; border-radius: 2px;
+      margin: 12px auto 20px;
+    }
+    .sos-sheet-titulo {
+      font-size: 13px; font-weight: 800; color: #888;
+      text-transform: uppercase; letter-spacing: 0.8px;
+      padding: 0 20px; margin-bottom: 12px;
+    }
+    .sos-cat-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 20px; cursor: pointer;
+      transition: background 0.12s; border: none;
+      background: none; width: 100%; text-align: left;
+    }
+    .sos-cat-item:active { background: #FFF3E0; }
+    .sos-cat-item + .sos-cat-item {
+      border-top: 1px solid #F5F5F5;
+    }
+    .sos-cat-ico {
+      width: 46px; height: 46px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .sos-cat-ico.guincho   { background: #FFF3E0; }
+    .sos-cat-ico.borracha  { background: #E8F5E9; }
+    .sos-cat-ico.mecanica  { background: #E3F2FD; }
+    .sos-cat-info { flex: 1; }
+    .sos-cat-nome { font-size: 15px; font-weight: 700; color: #1A1A1A; }
+    .sos-cat-desc { font-size: 12px; color: #888; margin-top: 2px; }
+    .sos-cat-check {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #D32F2F; display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .sos-cat-check svg { width: 12px; height: 12px; stroke: #fff; fill: none; }
+    .sos-cat-item.ativo .sos-cat-check { opacity: 1; }
+    .sos-cat-item.ativo .sos-cat-nome { color: #D32F2F; }
     /* Card de serviço */
     .sos-card {
       background: #fff; border-radius: 16px;
@@ -1747,6 +1807,43 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   </div><!-- #app-content -->
 
+  <!-- SOS: overlay + bottom sheet de categorias -->
+  <div id="sos-cat-sheet-overlay" onclick="fecharSOSCatSheet()"></div>
+  <div id="sos-cat-sheet">
+    <div class="sos-sheet-handle"></div>
+    <div class="sos-sheet-titulo">Tipo de serviço</div>
+    <button class="sos-cat-item ativo" id="sos-cat-guincho" onclick="selecionarSOSCategoria('guincho')">
+      <div class="sos-cat-ico guincho">🚛</div>
+      <div class="sos-cat-info">
+        <div class="sos-cat-nome">Guinchos</div>
+        <div class="sos-cat-desc">Reboque e resgate 24h</div>
+      </div>
+      <div class="sos-cat-check">
+        <svg viewBox="0 0 24 24" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </button>
+    <button class="sos-cat-item" id="sos-cat-borracheiro" onclick="selecionarSOSCategoria('borracheiro')">
+      <div class="sos-cat-ico borracha">🔧</div>
+      <div class="sos-cat-info">
+        <div class="sos-cat-nome">Borracheiros</div>
+        <div class="sos-cat-desc">Pneus, reparos e calibragem</div>
+      </div>
+      <div class="sos-cat-check">
+        <svg viewBox="0 0 24 24" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </button>
+    <button class="sos-cat-item" id="sos-cat-mecanica" onclick="selecionarSOSCategoria('mecanica')">
+      <div class="sos-cat-ico mecanica">🔩</div>
+      <div class="sos-cat-info">
+        <div class="sos-cat-nome">Mecânicas</div>
+        <div class="sos-cat-desc">Oficinas e auto centers</div>
+      </div>
+      <div class="sos-cat-check">
+        <svg viewBox="0 0 24 24" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </button>
+  </div>
+
   <!-- BOTÃO SOS FLUTUANTE -->
   <!-- O overlay #plan-busca-overlay é criado dinamicamente no body por abrirBuscaDestino() -->
 
@@ -2178,14 +2275,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   function renderSOSResultados(lat, lng, tipo, isDegustacao) {
     const body = document.getElementById('sos-body');
-    const tipoLabels = { todos: '🆘 Todos', guincho: '🚛 Guinchos', borracheiro: '🔧 Borracheiros', mecanica: '🔩 Mecânicas' };
-
-    // Filtros de tipo
-    var filtrosHTML = '<div class="sos-filtros">';
-    Object.entries(tipoLabels).forEach(([k, v]) => {
-      filtrosHTML += '<button class="sos-chip' + (sosTipoAtivo === k ? ' ativo' : '') + '" onclick="buscarServicosSOSAPI(' + lat + ',' + lng + ',&quot;' + k + '&quot;)">' + v + '</button>';
-    });
-    filtrosHTML += '</div>';
+    // Botão "Todos" com label dinâmico e chevron (abre bottom sheet)
+    var catLabel = sosTipoAtivo === 'todos' ? '🆘 Todos'
+      : sosTipoAtivo === 'guincho' ? '🚛 Guinchos'
+      : sosTipoAtivo === 'borracheiro' ? '🔧 Borracheiros'
+      : '🔩 Mecânicas';
+    var filtrosHTML = '<div class="sos-filtros">'
+      + '<button class="sos-chip-todos" onclick="abrirSOSCatSheet()">'
+      + '<span>' + catLabel + '</span>'
+      + '<svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>'
+      + '</button>'
+      + '</div>';
 
     // Banner de aviso de degustação (discreta - só 1 uso restante)
     var bannerHTML = '';
@@ -2238,14 +2338,50 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     body.innerHTML = filtrosHTML + bannerHTML + cardsHTML;
   }
 
+  // ── Bottom sheet de categorias SOS ────────────────────────────────────────
+  function abrirSOSCatSheet() {
+    var overlay = document.getElementById('sos-cat-sheet-overlay');
+    var sheet   = document.getElementById('sos-cat-sheet');
+    var btn     = document.querySelector('.sos-chip-todos');
+    if (!overlay || !sheet) return;
+    // Marcar item ativo no sheet
+    var catMap = { guincho: 'sos-cat-guincho', borracheiro: 'sos-cat-borracheiro', mecanica: 'sos-cat-mecanica' };
+    document.querySelectorAll('.sos-cat-item').forEach(el => el.classList.remove('ativo'));
+    var activeId = catMap[sosTipoAtivo];
+    if (activeId) { var el = document.getElementById(activeId); if (el) el.classList.add('ativo'); }
+    overlay.classList.add('visivel');
+    sheet.classList.add('visivel');
+    if (btn) btn.classList.add('aberto');
+  }
+
+  function fecharSOSCatSheet() {
+    var overlay = document.getElementById('sos-cat-sheet-overlay');
+    var sheet   = document.getElementById('sos-cat-sheet');
+    var btn     = document.querySelector('.sos-chip-todos');
+    if (overlay) overlay.classList.remove('visivel');
+    if (sheet)   sheet.classList.remove('visivel');
+    if (btn)     btn.classList.remove('aberto');
+  }
+
+  function selecionarSOSCategoria(tipo) {
+    fecharSOSCatSheet();
+    // Disparar nova busca com o tipo selecionado (usa userLat/userLng do GPS)
+    buscarServicosSOSComLocalizacao(tipo);
+  }
+
   function renderSOSBloqueado(lat, lng, tipo) {
     const body = document.getElementById('sos-body');
-    const tipoLabels = { todos: '🆘 Todos', guincho: '🚛 Guinchos', borracheiro: '🔧 Borracheiros', mecanica: '🔩 Mecânicas' };
-    var filtrosHTML = '<div class="sos-filtros">';
-    Object.entries(tipoLabels).forEach(([k, v]) => {
-      filtrosHTML += '<button class="sos-chip' + (sosTipoAtivo === k ? ' ativo' : '') + '" onclick="buscarServicosSOSAPI(' + lat + ',' + lng + ',&quot;' + k + '&quot;)">' + v + '</button>';
-    });
-    filtrosHTML += '</div>';
+    // Botão "Todos" com label dinâmico e chevron (abre bottom sheet)
+    var catLabel2 = sosTipoAtivo === 'todos' ? '🆘 Todos'
+      : sosTipoAtivo === 'guincho' ? '🚛 Guinchos'
+      : sosTipoAtivo === 'borracheiro' ? '🔧 Borracheiros'
+      : '🔩 Mecânicas';
+    var filtrosHTML = '<div class="sos-filtros">'
+      + '<button class="sos-chip-todos" onclick="abrirSOSCatSheet()">'
+      + '<span>' + catLabel2 + '</span>'
+      + '<svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>'
+      + '</button>'
+      + '</div>';
 
     body.innerHTML = filtrosHTML
       + '<div style="text-align:center;padding:32px 20px;">'
