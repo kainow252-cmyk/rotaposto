@@ -2614,7 +2614,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       showToast('📍 Localização atualizada!');
     } else {
       showToast('📍 Buscando localização via GPS…');
-      _gpsNativo();
+      _gpsNativo(false);
     }
   }
 
@@ -4836,7 +4836,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var btn = document.getElementById('btn-gps-float');
     if (btn) { btn.style.opacity = '0.5'; btn.disabled = true; }
     showToast('📍 Atualizando localização via GPS…', 2000);
-    _gpsNativo();
+    _gpsNativo(false);
     setTimeout(function() {
       if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
     }, 5000);
@@ -4856,7 +4856,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   function _initLocalizacao() {
-    // ── Limpar TODO cache que seja da região de SP ──
+    // ── Limpar TODO cache da região de SP ──
     localStorage.removeItem('rp_geo_denied');
     localStorage.removeItem('rp_geoip_lat');
     localStorage.removeItem('rp_geoip_lng');
@@ -4864,13 +4864,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var _cLat0 = parseFloat(localStorage.getItem('rp_lat') || '');
     var _cLng0 = parseFloat(localStorage.getItem('rp_lng') || '');
     if (_ehCoordSP(_cLat0, _cLng0)) {
-      console.log('[GPS] Cache SP detectado (' + _cLat0 + ',' + _cLng0 + ') — apagando');
+      console.log('[GPS] Cache SP — apagando');
       localStorage.removeItem('rp_lat');
       localStorage.removeItem('rp_lng');
       localStorage.removeItem('rp_loc_ts');
     }
 
-    // ── Cache recente (<30min) fora de SP → usar e iniciar mapa já ──
+    // ── Cache recente (<30min) fora de SP → abrir mapa imediatamente ──
     var cLat = parseFloat(localStorage.getItem('rp_lat') || '');
     var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
@@ -4878,83 +4878,67 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
                    && !_ehCoordSP(cLat, cLng)
                    && (Date.now() - cTs) < 30 * 60 * 1000;
     if (temCache) {
-      console.log('[GPS] Cache válido fora de SP: lat=' + cLat + ' lng=' + cLng);
+      console.log('[GPS] Cache válido: lat=' + cLat + ' lng=' + cLng);
       userLat = cLat; userLng = cLng;
       _geoJaObtida = true;
       initMapMain();
-    } else {
-      _mostrarOverlayGPS();
-    }
-
-    // ── GPS nativo do celular — PRIORIDADE #1 (igual Uber/Waze) ──
-    _gpsNativo();
-  }
-
-  // ── GPS nativo do device (satélite/WiFi do Android) — fonte principal ──
-  function _gpsNativo() {
-    if (!navigator.geolocation) {
-      console.warn('[GPS] navigator.geolocation não disponível → fallback Google API');
-      _buscarLocalizacaoGoogle();
+      _gpsNativo(true); // atualizar silenciosamente em background
       return;
     }
 
-    console.log('[GPS] Pedindo GPS nativo do device (enableHighAccuracy:true)...');
+    // ── Sem cache: abrir mapa rápido (Google ~1s) + GPS preciso em paralelo ──
+    _mostrarOverlayGPS();
+    _gpsNativo(false);
+  }
 
-    // Timeout de 10s: se o GPS demorar mais, Google API inicia em paralelo como backup
-    var googleJaIniciado = false;
-    var gpsResolvido = false;
+  // silencioso=true: já tem mapa, só atualiza marcador sem recarregar postos
+  function _gpsNativo(silencioso) {
+    if (!navigator.geolocation) {
+      if (!silencioso) _buscarLocalizacaoGoogle(null);
+      return;
+    }
 
-    var tmBackup = setTimeout(function() {
-      if (!gpsResolvido) {
-        console.log('[GPS] GPS nativo demorando >10s → iniciando Google API em paralelo...');
-        googleJaIniciado = true;
-        _buscarLocalizacaoGoogle(function onGoogleResult(lat, lng) {
-          // Só aplica resultado do Google se GPS nativo ainda não respondeu E não é SP
-          if (!gpsResolvido && lat !== null && lng !== null) {
-            console.log('[GPS] Google API chegou primeiro (válido): lat=' + lat + ' lng=' + lng);
-            _aplicarLocalizacao(lat, lng, true, true);
-          } else if (!gpsResolvido && (lat === null || lng === null)) {
-            console.log('[GPS] Google API retornou inválido/SP — aguardando GPS nativo...');
-          }
-        });
-      }
-    }, 10000);
+    console.log('[GPS] Iniciando 2 fases: rápido(rede) + preciso(satélite)...');
+    var precisoFinalizado = false;
 
+    // ── FASE 1: baixa precisão — WiFi/rede, responde em <2s ──
+    // Abre o mapa já com posição aproximada enquanto satélite aquece
     navigator.geolocation.getCurrentPosition(
-      function(pos) {
-        gpsResolvido = true;
-        clearTimeout(tmBackup);
-        var acc = Math.round(pos.coords.accuracy);
-        console.log('[GPS] ✅ GPS nativo real! lat=' + pos.coords.latitude + ' lng=' + pos.coords.longitude + ' acc=' + acc + 'm');
-        // GPS nativo sempre vence (mais preciso que Google sem cell data)
-        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+      function(pos1) {
+        var acc1 = Math.round(pos1.coords.accuracy);
+        var lat1 = pos1.coords.latitude, lng1 = pos1.coords.longitude;
+        console.log('[GPS] Fase1 rápida: lat=' + lat1 + ' lng=' + lng1 + ' acc=' + acc1 + 'm');
+        if (!precisoFinalizado && !_ehCoordSP(lat1, lng1)) {
+          _aplicarLocalizacao(lat1, lng1, !silencioso, true);
+        }
+        // ── FASE 2: alta precisão (satélite), atualiza o pin quando pronto ──
+        navigator.geolocation.getCurrentPosition(
+          function(pos2) {
+            precisoFinalizado = true;
+            var acc2 = Math.round(pos2.coords.accuracy);
+            var lat2 = pos2.coords.latitude, lng2 = pos2.coords.longitude;
+            console.log('[GPS] Fase2 precisa ✅: lat=' + lat2 + ' lng=' + lng2 + ' acc=' + acc2 + 'm');
+            if (!_ehCoordSP(lat2, lng2)) {
+              _aplicarLocalizacao(lat2, lng2, false, true);
+              if (acc2 < 100) showToast('📍 GPS: ' + acc2 + 'm de precisão', 2000);
+            }
+          },
+          function(e2) { precisoFinalizado = true; console.warn('[GPS] Fase2 erro:' + e2.code); },
+          { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
+        );
       },
-      function(err) {
-        gpsResolvido = true;
-        clearTimeout(tmBackup);
-        console.warn('[GPS] GPS nativo erro código=' + err.code + ' msg=' + err.message);
-        if (err.code === 1) {
-          // PERMISSION_DENIED — usuário negou
-          showToast('📍 Permissão negada. Ative a localização nas configurações do celular.', 7000);
-          // Tentar Google API como último recurso (pode retornar SP — mas melhor que nada)
+      function(err1) {
+        console.warn('[GPS] Fase1 erro: ' + err1.code);
+        if (err1.code === 1) {
+          showToast('📍 Ative a localização nas configurações do Android.', 7000);
+        }
+        if (!silencioso) {
           _buscarLocalizacaoGoogle(function(lat, lng) {
-            if (lat !== null && lng !== null) _aplicarLocalizacao(lat, lng, true, false);
-            // Se null (SP), mapa fica parado na overlay — usuário precisa ativar GPS
+            if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
           });
-        } else {
-          // POSITION_UNAVAILABLE ou TIMEOUT — tentar Google API
-          if (!googleJaIniciado) {
-            _buscarLocalizacaoGoogle(function(lat, lng) {
-              if (lat !== null && lng !== null) _aplicarLocalizacao(lat, lng, true, false);
-            });
-          }
         }
       },
-      {
-        enableHighAccuracy: true,  // GPS satélite real (mesmo que Uber/Waze)
-        timeout: 20000,            // 20s máximo
-        maximumAge: 60000          // Aceita cache de até 1min (evita cold start GPS)
-      }
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
     );
   }
 
