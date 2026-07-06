@@ -1985,7 +1985,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // ══════════════════════════════════════════════════════
   let currentView = 'mapa';
   let mapMain = null, mapPlan = null;
-  let userLat = -23.5505, userLng = -46.6333;
+  let userLat = null, userLng = null; // null até GPS real chegar — nunca iniciar em SP
   let _geoJaObtida = false; // true após localização ser obtida (ou timeout)
   let postosData = [];
   let semanaANP = '';   // semana de referência ANP — preenchida pela API
@@ -4848,21 +4848,37 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
   }
 
+  function _ehCoordSP(lat, lng) {
+    // Raio de 1 grau (~111km) em torno do centro de SP — qualquer coisa aqui é suspeita
+    return !isNaN(lat) && !isNaN(lng)
+      && Math.abs(lat - (-23.5505)) < 1.0
+      && Math.abs(lng - (-46.6333)) < 1.0;
+  }
+
   function _initLocalizacao() {
-    // ── Limpar cache SP padrão ──
+    // ── Limpar TODO cache que seja da região de SP ──
     localStorage.removeItem('rp_geo_denied');
+    localStorage.removeItem('rp_geoip_lat');
+    localStorage.removeItem('rp_geoip_lng');
+    localStorage.removeItem('rp_geoip_ts');
     var _cLat0 = parseFloat(localStorage.getItem('rp_lat') || '');
     var _cLng0 = parseFloat(localStorage.getItem('rp_lng') || '');
-    if (!isNaN(_cLat0) && Math.abs(_cLat0 - (-23.5505)) < 0.01 && Math.abs(_cLng0 - (-46.6333)) < 0.01) {
-      localStorage.removeItem('rp_lat'); localStorage.removeItem('rp_lng'); localStorage.removeItem('rp_loc_ts');
+    if (_ehCoordSP(_cLat0, _cLng0)) {
+      console.log('[GPS] Cache SP detectado (' + _cLat0 + ',' + _cLng0 + ') — apagando');
+      localStorage.removeItem('rp_lat');
+      localStorage.removeItem('rp_lng');
+      localStorage.removeItem('rp_loc_ts');
     }
 
-    // ── Cache recente (<30min) → usar e já iniciar mapa, mas refrescar em background ──
+    // ── Cache recente (<30min) fora de SP → usar e iniciar mapa já ──
     var cLat = parseFloat(localStorage.getItem('rp_lat') || '');
     var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
-    var temCache = !isNaN(cLat) && !isNaN(cLng) && (Date.now() - cTs) < 30 * 60 * 1000;
+    var temCache = !isNaN(cLat) && !isNaN(cLng)
+                   && !_ehCoordSP(cLat, cLng)
+                   && (Date.now() - cTs) < 30 * 60 * 1000;
     if (temCache) {
+      console.log('[GPS] Cache válido fora de SP: lat=' + cLat + ' lng=' + cLng);
       userLat = cLat; userLng = cLng;
       _geoJaObtida = true;
       initMapMain();
@@ -4870,9 +4886,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       _mostrarOverlayGPS();
     }
 
-    // ── GPS nativo do celular — PRIORIDADE #1 ──
-    // navigator.geolocation com enableHighAccuracy:true aciona o GPS de satélite real do device
-    // É o mesmo que usa o Uber/Waze — preciso e local
+    // ── GPS nativo do celular — PRIORIDADE #1 (igual Uber/Waze) ──
     _gpsNativo();
   }
 
@@ -4895,10 +4909,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         console.log('[GPS] GPS nativo demorando >10s → iniciando Google API em paralelo...');
         googleJaIniciado = true;
         _buscarLocalizacaoGoogle(function onGoogleResult(lat, lng) {
-          // Só aplica resultado do Google se GPS nativo ainda não respondeu
-          if (!gpsResolvido) {
-            console.log('[GPS] Google API chegou primeiro: lat=' + lat + ' lng=' + lng);
+          // Só aplica resultado do Google se GPS nativo ainda não respondeu E não é SP
+          if (!gpsResolvido && lat !== null && lng !== null) {
+            console.log('[GPS] Google API chegou primeiro (válido): lat=' + lat + ' lng=' + lng);
             _aplicarLocalizacao(lat, lng, true, true);
+          } else if (!gpsResolvido && (lat === null || lng === null)) {
+            console.log('[GPS] Google API retornou inválido/SP — aguardando GPS nativo...');
           }
         });
       }
@@ -4919,11 +4935,19 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         console.warn('[GPS] GPS nativo erro código=' + err.code + ' msg=' + err.message);
         if (err.code === 1) {
           // PERMISSION_DENIED — usuário negou
-          showToast('📍 Permissão de localização negada. Ative nas configurações.', 6000);
-          _buscarLocalizacaoGoogle(null);
+          showToast('📍 Permissão negada. Ative a localização nas configurações do celular.', 7000);
+          // Tentar Google API como último recurso (pode retornar SP — mas melhor que nada)
+          _buscarLocalizacaoGoogle(function(lat, lng) {
+            if (lat !== null && lng !== null) _aplicarLocalizacao(lat, lng, true, false);
+            // Se null (SP), mapa fica parado na overlay — usuário precisa ativar GPS
+          });
         } else {
           // POSITION_UNAVAILABLE ou TIMEOUT — tentar Google API
-          if (!googleJaIniciado) _buscarLocalizacaoGoogle(null);
+          if (!googleJaIniciado) {
+            _buscarLocalizacaoGoogle(function(lat, lng) {
+              if (lat !== null && lng !== null) _aplicarLocalizacao(lat, lng, true, false);
+            });
+          }
         }
       },
       {
@@ -4935,23 +4959,18 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   // ── Google Maps Geolocation API — fallback quando GPS nativo demora/falha ──
-  // NOTA: sem cell towers/WiFi no body, Google usa IP do device (não do servidor Cloudflare,
-  // pois a chamada é feita pelo browser do celular diretamente para api.google.com)
   function _buscarLocalizacaoGoogle(callback) {
     if (!_GKEY) {
       console.warn('[GPS] _GKEY vazio — sem chave Google');
-      if (callback) callback(-23.5505, -46.6333);
-      else _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+      // Sem chave: manter mapa parado, não jogar em SP
       return;
     }
 
-    console.log('[GPS] Chamando Google Geolocation API (IP do device)...');
+    console.log('[GPS] Chamando Google Geolocation API...');
     fetch('https://www.googleapis.com/geolocation/v1/geolocate?key=' + _GKEY, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        considerIpAddress: true   // Usa IP do celular (não do Cloudflare — chamada vem do device)
-      })
+      body: JSON.stringify({ considerIpAddress: true })
     })
     .then(function(r) { return r.json(); })
     .then(function(d) {
@@ -4959,20 +4978,27 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         var lat = d.location.lat;
         var lng = d.location.lng;
         var acc = Math.round(d.accuracy || 9999);
+        // Se Google retornar região de SP → ignorar, não é a localização real do usuário
+        if (_ehCoordSP(lat, lng)) {
+          console.warn('[GPS] Google API retornou SP (acc=' + acc + 'm) — ignorando, aguardando GPS nativo...');
+          showToast('📡 Aguardando GPS do celular…', 3000);
+          // Não chamar _aplicarLocalizacao — deixar GPS nativo resolver
+          if (callback) callback(null, null); // sinaliza: não usar
+          return;
+        }
         console.log('[GPS] Google API ✅ lat=' + lat + ' lng=' + lng + ' acc=' + acc + 'm');
         if (callback) { callback(lat, lng); }
         else { _aplicarLocalizacao(lat, lng, true, true); }
       } else {
         var errMsg = d && d.error ? d.error.message : JSON.stringify(d);
         console.warn('[GPS] Google API sem resultado:', errMsg);
-        if (callback) callback(-23.5505, -46.6333);
-        else _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+        if (callback) callback(null, null);
+        // Não jogar em SP — aguardar GPS nativo
       }
     })
     .catch(function(e) {
       console.warn('[GPS] Google API erro de rede:', e);
-      if (callback) callback(-23.5505, -46.6333);
-      else _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+      if (callback) callback(null, null);
     });
   }
 
@@ -4983,18 +5009,19 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     userLat = lat;
     userLng = lng;
 
-    // Salvar cache só se GPS real (nunca salvar coords de SP padrão)
-    var ehSPPadrao = Math.abs(lat - (-23.5505)) < 0.001 && Math.abs(lng - (-46.6333)) < 0.001;
-    if (gpsReal && !ehSPPadrao) {
+    // Salvar cache só se GPS real E fora da região de SP
+    var ehRegSP = _ehCoordSP(lat, lng);
+    if (gpsReal && !ehRegSP) {
+      console.log('[GPS] Salvando cache real: lat=' + lat + ' lng=' + lng);
       localStorage.setItem('rp_lat', String(lat));
       localStorage.setItem('rp_lng', String(lng));
       localStorage.setItem('rp_loc_ts', String(Date.now()));
-      // GPS real obtido → limpar cache GeoIP (não precisamos mais dele)
       localStorage.removeItem('rp_geoip_lat');
       localStorage.removeItem('rp_geoip_lng');
       localStorage.removeItem('rp_geoip_ts');
-    } else if (ehSPPadrao) {
-      // Limpar cache de SP para forçar GPS real na próxima abertura
+    } else if (ehRegSP) {
+      // Recebeu SP — apagar cache para não persistir
+      console.warn('[GPS] Coord SP recebida — NÃO salvando cache: lat=' + lat + ' lng=' + lng);
       localStorage.removeItem('rp_lat');
       localStorage.removeItem('rp_lng');
       localStorage.removeItem('rp_loc_ts');
