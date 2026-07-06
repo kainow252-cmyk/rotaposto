@@ -4419,7 +4419,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
   }
 
-  function mostrarQRCode(qrCode, brcode, subscriptionId, plano, isDemoMode?) {
+  function mostrarQRCode(qrCode, brcode, subscriptionId, plano, isDemoMode) {
     document.getElementById('assin-step1').style.display = 'none';
     document.getElementById('assin-step2').style.display = 'block';
     document.getElementById('assin-step3').style.display = 'none';
