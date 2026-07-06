@@ -16,6 +16,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
   <title>RotaPosto</title>
+  <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -4538,11 +4539,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // PWA removido — app funciona como site web normal
 
   (function init() {
-    // ── Desregistrar qualquer Service Worker antigo ──────────────────────
+    // ── Registrar Service Worker (PWA / TWA) ─────────────────────────────
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        regs.forEach(function(reg) { reg.unregister(); });
-      });
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .catch(function(err) { console.warn('SW registration failed:', err); });
     }
 
     // ── Verificação de sessão única ──────────────────────────────────────
