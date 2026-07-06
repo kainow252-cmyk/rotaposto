@@ -1,4 +1,4 @@
-package br.com.rotaposto.rotaposto
+package br.com.rotaposto.app
 
 import io.flutter.embedding.android.FlutterActivity
 
