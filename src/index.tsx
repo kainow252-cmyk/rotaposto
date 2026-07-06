@@ -5098,7 +5098,7 @@ function _configurarAuth() {
 
           // Verificar se é login social (Google/Facebook) e se ainda não completou o perfil
           const isSocial = user.providerData && user.providerData.some(
-            (p: any) => p.providerId === 'google.com' || p.providerId === 'facebook.com'
+            (p) => p.providerId === 'google.com' || p.providerId === 'facebook.com'
           );
           if (isSocial) {
             const perfilCompleto = localStorage.getItem('rp_perfil_completo_' + user.uid);
@@ -5461,19 +5461,19 @@ function fecharLogin() {
 }
 
 // ─── Completar Perfil (pós login social) ─────────────────────────────────────
-let _cpUser: any = null;
+let _cpUser = null;
 
-function abrirModalCompletarPerfil(user: any) {
+function abrirModalCompletarPerfil(user) {
   _cpUser = user;
   const modal = document.getElementById('modal-completar-perfil');
   if (!modal) return;
   // Pré-preencher com dados salvos
   const perfil = _getPerfilExtra(user.uid);
-  const tel  = document.getElementById('cp-telefone') as HTMLInputElement;
-  const cep  = document.getElementById('cp-cep')      as HTMLInputElement;
-  const rua  = document.getElementById('cp-rua')      as HTMLInputElement;
-  const cid  = document.getElementById('cp-cidade')   as HTMLInputElement;
-  const est  = document.getElementById('cp-estado')   as HTMLInputElement;
+  const tel  = document.getElementById('cp-telefone');
+  const cep  = document.getElementById('cp-cep');
+  const rua  = document.getElementById('cp-rua');
+  const cid  = document.getElementById('cp-cidade');
+  const est  = document.getElementById('cp-estado');
   if (tel)  tel.value  = perfil.telefone || '';
   if (cep)  cep.value  = perfil.cep      || '';
   if (rua)  rua.value  = perfil.rua      || '';
@@ -5499,11 +5499,11 @@ function pularCompletarPerfil() {
 
 function salvarCompletarPerfil() {
   if (!_cpUser) { fecharModalCompletarPerfil(); return; }
-  const tel  = (document.getElementById('cp-telefone') as HTMLInputElement)?.value?.trim() || '';
-  const cep  = (document.getElementById('cp-cep')      as HTMLInputElement)?.value?.trim() || '';
-  const rua  = (document.getElementById('cp-rua')      as HTMLInputElement)?.value?.trim() || '';
-  const cid  = (document.getElementById('cp-cidade')   as HTMLInputElement)?.value?.trim() || '';
-  const est  = (document.getElementById('cp-estado')   as HTMLInputElement)?.value?.trim() || '';
+  const tel  = (document.getElementById('cp-telefone')?.value || '').trim();
+  const cep  = (document.getElementById('cp-cep')?.value      || '').trim();
+  const rua  = (document.getElementById('cp-rua')?.value      || '').trim();
+  const cid  = (document.getElementById('cp-cidade')?.value   || '').trim();
+  const est  = (document.getElementById('cp-estado')?.value   || '').trim();
   const perfil = { telefone: tel, cep: cep, rua: rua, cidade: cid, estado: est };
   localStorage.setItem('rp_perfil_extra_' + _cpUser.uid, JSON.stringify(perfil));
   localStorage.setItem('rp_perfil_completo_' + _cpUser.uid, '1');
@@ -5511,11 +5511,11 @@ function salvarCompletarPerfil() {
   mostrarToast('Perfil atualizado! ✓');
 }
 
-function _getPerfilExtra(uid: string) {
+function _getPerfilExtra(uid) {
   try { return JSON.parse(localStorage.getItem('rp_perfil_extra_' + uid) || '{}'); } catch { return {}; }
 }
 
-function formatarTelefone(input: HTMLInputElement) {
+function formatarTelefone(input) {
   let v = input.value.replace(/\D/g,'');
   if (v.length > 11) v = v.slice(0,11);
   if (v.length > 7)      input.value = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
@@ -5523,7 +5523,7 @@ function formatarTelefone(input: HTMLInputElement) {
   else if (v.length > 0) input.value = '(' + v;
 }
 
-function formatarCEP(input: HTMLInputElement) {
+function formatarCEP(input) {
   let v = input.value.replace(/\D/g,'');
   if (v.length > 8) v = v.slice(0,8);
   if (v.length > 5) input.value = v.slice(0,5) + '-' + v.slice(5);
@@ -5531,7 +5531,7 @@ function formatarCEP(input: HTMLInputElement) {
 }
 
 async function buscarCEP() {
-  const cepEl = document.getElementById('cp-cep') as HTMLInputElement;
+  const cepEl = document.getElementById('cp-cep');
   if (!cepEl) return;
   const cep = cepEl.value.replace(/\D/g,'');
   if (cep.length !== 8) { mostrarToast('CEP inválido'); return; }
@@ -5539,9 +5539,9 @@ async function buscarCEP() {
     const r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
     const d = await r.json();
     if (d.erro) { mostrarToast('CEP não encontrado'); return; }
-    const rua  = document.getElementById('cp-rua')    as HTMLInputElement;
-    const cid  = document.getElementById('cp-cidade') as HTMLInputElement;
-    const est  = document.getElementById('cp-estado') as HTMLInputElement;
+    const rua  = document.getElementById('cp-rua');
+    const cid  = document.getElementById('cp-cidade');
+    const est  = document.getElementById('cp-estado');
     if (rua) rua.value   = (d.logradouro || '') + (d.bairro ? ', ' + d.bairro : '');
     if (cid) cid.value   = d.localidade || '';
     if (est) est.value   = d.uf         || '';
