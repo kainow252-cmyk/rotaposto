@@ -1878,9 +1878,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       </div>
 
       <div style="background:#F5F5F5;border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;">
-        <span id="assin-brcode-txt" style="font-size:11px;color:#424242;word-break:break-all;flex:1;font-family:monospace;max-height:44px;overflow:hidden;"></span>
-        <button onclick="copiarCodigo()" style="background:#FF6D00;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Copiar</button>
+        <span id="assin-brcode-txt" style="font-size:10px;color:#424242;word-break:break-all;flex:1;font-family:monospace;line-height:1.5;user-select:all;cursor:text;"></span>
       </div>
+      <button onclick="copiarCodigo()" style="background:#FF6D00;color:#fff;border:none;border-radius:10px;padding:11px 20px;font-size:13px;font-weight:700;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;"><i class="fas fa-copy"></i> Copiar código PIX completo</button>
 
       <div id="assin-status-box" style="background:#FFF3E0;border:1px solid #FFB300;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
         <div id="assin-status-dot" style="width:10px;height:10px;border-radius:50%;background:#FFB300;flex-shrink:0;animation:pulse-dot 1.5s infinite;"></div>

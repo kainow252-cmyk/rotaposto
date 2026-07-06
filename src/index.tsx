@@ -5684,11 +5684,11 @@ async function abrirModalPIX(plano = 'premium') {
         \${data.brcode ? \`
           <div style="margin:14px 0">
             <p style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px">Ou copie o código PIX:</p>
-            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:10px 12px;font-size:11px;font-family:monospace;color:rgba(255,255,255,0.7);word-break:break-all;text-align:left;max-height:80px;overflow:hidden">
-              \${data.brcode.substring(0, 120)}...
+            <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px;font-size:10px;font-family:monospace;color:rgba(255,255,255,0.8);word-break:break-all;text-align:left;user-select:all;cursor:text;line-height:1.5">
+              \${data.brcode}
             </div>
-            <button onclick="copiarCodigo('\${data.brcode}')" style="background:rgba(255,255,255,0.1);border:none;color:white;font-weight:700;padding:10px 20px;border-radius:10px;cursor:pointer;margin-top:10px;font-size:13px">
-              <i class="fas fa-copy"></i> Copiar código PIX
+            <button onclick="copiarCodigo('\${data.brcode}')" style="background:var(--laranja);border:none;color:white;font-weight:700;padding:12px 20px;border-radius:10px;cursor:pointer;margin-top:10px;font-size:13px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
+              <i class="fas fa-copy"></i> Copiar código PIX completo
             </button>
           </div>
         \` : ''}
