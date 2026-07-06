@@ -40,6 +40,7 @@ import {
   cancelarAssinaturaMP,
   interpretarWebhookMP,
   verificarPagamentoMP,
+  validarAssinaturaWebhookMP,
   MP_PLANOS
 } from './mercadopago'
 import {
@@ -1810,8 +1811,30 @@ app.post('/api/pagamento/assinar', async (c) => {
 // ─── Webhook Mercado Pago ─────────────────────────────────────────────────────
 app.post('/api/pagamento/webhook', async (c) => {
   try {
-    const body = await c.req.json() as any
+    // Clonar request antes de ler body (necessário para validação)
+    const rawBody = await c.req.text()
+    let body: any
+    try { body = JSON.parse(rawBody) } catch { body = {} }
+
     console.log('[MP Webhook]', JSON.stringify(body).slice(0, 300))
+
+    // ── Validar assinatura HMAC-SHA256 ──────────────────────────────────────
+    const webhookSecret = (c.env as any)?.MP_WEBHOOK_SECRET as string | undefined
+    if (webhookSecret) {
+      const dataId = String(body?.data?.id || body?.data_id || '')
+      const assinaturaValida = await validarAssinaturaWebhookMP(
+        webhookSecret,
+        c.req.raw.headers,
+        dataId
+      )
+      if (!assinaturaValida) {
+        console.warn('[MP Webhook] Assinatura inválida — request rejeitado')
+        return c.json({ status: 'unauthorized' }, 401)
+      }
+      console.log('[MP Webhook] Assinatura OK ✅')
+    } else {
+      console.warn('[MP Webhook] MP_WEBHOOK_SECRET não configurado — validação ignorada')
+    }
 
     const evento = interpretarWebhookMP(body)
     const kv = getKV(c.env)

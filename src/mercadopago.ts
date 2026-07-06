@@ -195,7 +195,64 @@ export async function cancelarAssinaturaMP(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  4. Processar webhook do Mercado Pago
+//  4. Validar assinatura secreta do webhook (HMAC-SHA256)
+//
+//  O MP envia 3 partes no header x-signature: ts, v1
+//  Template: "id:{data.id};request-id:{x-request-id};ts:{ts};"
+//  Docs: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks
+// ═══════════════════════════════════════════════════════════════════════
+export async function validarAssinaturaWebhookMP(
+  secret: string,
+  headers: Headers,
+  dataId: string           // body.data.id
+): Promise<boolean> {
+  try {
+    const xSignature = headers.get('x-signature') || ''
+    const xRequestId = headers.get('x-request-id') || ''
+
+    // Extrair ts e v1 do header x-signature: "ts=1234567890,v1=abcdef..."
+    const parts = Object.fromEntries(
+      xSignature.split(',').map(p => p.split('=').map(s => s.trim()))
+    )
+    const ts = parts['ts']
+    const v1 = parts['v1']
+
+    if (!ts || !v1) {
+      console.warn('[MP Webhook] x-signature inválido:', xSignature)
+      return false
+    }
+
+    // Montar template exato conforme documentação MP
+    const template = `id:${dataId};request-id:${xRequestId};ts:${ts};`
+
+    // HMAC-SHA256 usando Web Crypto API (compatível com Cloudflare Workers)
+    const encoder = new TextEncoder()
+    const keyData = encoder.encode(secret)
+    const msgData = encoder.encode(template)
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw', keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false, ['sign']
+    )
+    const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, msgData)
+    const computed = Array.from(new Uint8Array(signatureBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+
+    const valid = computed === v1
+    if (!valid) {
+      console.warn('[MP Webhook] Assinatura inválida. computed:', computed.slice(0, 16), 'v1:', v1.slice(0, 16))
+    }
+    return valid
+  } catch (e: any) {
+    console.error('[MP Webhook] Erro ao validar assinatura:', e.message)
+    return false
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  5. Processar webhook do Mercado Pago
 // ═══════════════════════════════════════════════════════════════════════
 export interface WebhookEventoMP {
   tipo: 'pagamento_aprovado' | 'assinatura_cancelada' | 'pagamento_recusado' | 'desconhecido'
