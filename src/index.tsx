@@ -1965,7 +1965,8 @@ app.get('/app', (c) => {
     return c.redirect(dest, 301)
   }
   const firebaseScripts = getFirebaseAuthScripts()
-  return c.html(getAppHTML(firebaseScripts))
+  const gKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+  return c.html(getAppHTML(firebaseScripts, gKey))
 })
 
 // /launcher → ponto de entrada do TWA/PWA

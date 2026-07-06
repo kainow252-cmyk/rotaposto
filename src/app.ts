@@ -4,7 +4,7 @@
 //  Tema: BRANCO com laranja #FF6D00, mapa claro
 // ═══════════════════════════════════════════════════════════════════════
 
-export function getAppHTML(firebaseScripts: string): string {
+export function getAppHTML(firebaseScripts: string, googleApiKey?: string): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1977,6 +1977,9 @@ export function getAppHTML(firebaseScripts: string): string {
 </div>
 
 <script>
+  // Chave Google injetada pelo servidor
+  const _GKEY = '${googleApiKey || ''}';
+
   // ══════════════════════════════════════════════════════
   //  ESTADO
   // ══════════════════════════════════════════════════════
@@ -2131,27 +2134,12 @@ export function getAppHTML(firebaseScripts: string): string {
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => buscarServicosSOSAPI(pos.coords.latitude, pos.coords.longitude, tipo),
-      (err) => {
-        // Tentar fallback com coordenada do mapa (já obtida no init do app)
-        if (userLat && userLng) {
-          buscarServicosSOSAPI(userLat, userLng, tipo);
-          return;
-        }
-        var msgErro = '⚠️ Não foi possível obter sua localização.';
-        if (err.code === 1) { // PERMISSION_DENIED
-          msgErro = '🔒 Permissão de localização negada.<br><br><small>Vá em Configurações → Aplicativos → Chrome → Permissões → Localização → Permitir.</small>';
-        } else if (err.code === 3) { // TIMEOUT
-          msgErro = '⏱️ Timeout ao obter localização.<br><br><small>Verifique se o GPS está ativo e tente novamente.</small>';
-        }
-        // Usar sosTipoAtivo (variável global) para evitar problema de aspas no onclick inline
-        body.innerHTML = '<div class="sos-loading">' + msgErro
-          + '<br><br><button onclick="buscarServicosSOSComLocalizacao(sosTipoAtivo)" '
-          + 'style="margin-top:12px;padding:10px 20px;background:#FF6D00;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">🔄 Tentar novamente</button></div>';
-      },
-      { timeout: 15000, maximumAge: 120000, enableHighAccuracy: false }
-    );
+    // Usar localização já obtida pelo GPS Google
+    if (userLat && userLng) {
+      buscarServicosSOSAPI(userLat, userLng, tipo);
+    } else {
+      body.innerHTML = '<div class="sos-loading">⚠️ Localização não disponível ainda. Aguarde e tente novamente.</div>';
+    }
   }
 
   async function buscarServicosSOSAPI(lat, lng, tipo) {
@@ -2621,37 +2609,13 @@ export function getAppHTML(firebaseScripts: string): string {
   function usarLocalizacaoAtual() {
     var el = document.getElementById('plan-origin');
     if (el) el.textContent = 'Minha localização';
-    showToast('📍 Buscando localização…');
-    if (!navigator.geolocation) { showToast('GPS não disponível'); return; }
-
-    function _onOkPlan(pos) {
-      _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+    if (userLat && userLng) {
+      _aplicarLocalizacao(userLat, userLng, true, true);
       showToast('📍 Localização atualizada!');
+    } else {
+      showToast('📍 Buscando localização…');
+      _buscarLocalizacaoGoogle();
     }
-    function _onErrPlan(err) {
-      console.warn('[GPS usarLocalizacaoAtual] falhou. code:', err.code, err.message);
-      if (err.code === 1) {
-        showToast('Permita acesso à localização: Configurações → Apps → RotaPosto → Permissões');
-        return;
-      }
-      // TIMEOUT ou POSITION_UNAVAILABLE → tentar rede/WiFi
-      navigator.geolocation.getCurrentPosition(
-        _onOkPlan,
-        function(err2) {
-          console.warn('[GPS usarLocalizacaoAtual] baixa precisão falhou. code:', err2.code);
-          if (err2.code === 1) {
-            showToast('Permita acesso à localização: Configurações → Apps → RotaPosto → Permissões');
-          } else {
-            showToast('GPS indisponível. Vá para um local aberto e tente novamente.');
-          }
-        },
-        { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
-      );
-    }
-    // 1ª tentativa: alta precisão, aceita cache de até 30s
-    navigator.geolocation.getCurrentPosition(_onOkPlan, _onErrPlan,
-      { timeout: 15000, maximumAge: 30000, enableHighAccuracy: true }
-    );
   }
 
   // ── Destino livre no Planejar — overlay fullscreen ───────────────────────
@@ -4863,8 +4827,7 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function _forcarGPS() {
-    // Limpar todos os flags e forçar GPS do zero
-    localStorage.removeItem('rp_geo_denied');
+    // Limpar cache e buscar localização fresh via Google
     localStorage.removeItem('rp_lat');
     localStorage.removeItem('rp_lng');
     localStorage.removeItem('rp_loc_ts');
@@ -4872,62 +4835,11 @@ export function getAppHTML(firebaseScripts: string): string {
     _geoGPSConfirmado = false;
     var btn = document.getElementById('btn-gps-float');
     if (btn) { btn.style.opacity = '0.5'; btn.disabled = true; }
-    var _fgConcluido = false;
-
-    function _fgRestoreBtn() {
+    showToast('Atualizando localização…', 2000);
+    _buscarLocalizacaoGoogle();
+    setTimeout(function() {
       if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
-    }
-
-    function onOk(pos) {
-      if (_fgConcluido) return;
-      _fgConcluido = true;
-      _fgRestoreBtn();
-      console.log('[GPS _forcarGPS] ok:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
-      _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
-    }
-
-    function onFail2(err2) {
-      _fgConcluido = true;
-      _fgRestoreBtn();
-      console.warn('[GPS _forcarGPS] falhou tudo. code2:', err2.code, err2.message);
-      var isTWAdiag = document.referrer.includes('android-app://') || navigator.userAgent.includes('wv');
-      console.warn('[GPS] isTWA:', isTWAdiag, 'referrer:', document.referrer, 'UA:', navigator.userAgent.substring(0, 80));
-      if (err2.code === 1) {
-        showToast('Ative a localização: Configurações → Apps → RotaPosto → Permissões → Localização', 5000);
-      } else {
-        // Código 2=POSITION_UNAVAILABLE, 3=TIMEOUT — mostrar código para diagnóstico
-        var nomeErro = err2.code === 2 ? 'UNAVAILABLE' : err2.code === 3 ? 'TIMEOUT' : 'ERR' + err2.code;
-        showToast('GPS: ' + nomeErro + ' — Vá para local aberto ou verifique permissão de localização no Android.', 6000);
-      }
-    }
-
-    function onFail(err) {
-      if (_fgConcluido) return;
-      console.warn('[GPS _forcarGPS] 1ª tentativa falhou. code:', err.code, err.message);
-      if (err.code === 1) {
-        // PERMISSION_DENIED — avisar e encerrar imediatamente
-        _fgConcluido = true;
-        _fgRestoreBtn();
-        showToast('Permissão de localização negada. Ative em: Configurações → Apps → RotaPosto → Permissões', 5000);
-        return;
-      }
-      if (err.code === 2) {
-        // POSITION_UNAVAILABLE imediato — serviço de localização desligado no Android
-        // Ir direto para baixa precisão com maximumAge alto (usa tower/IP)
-        console.warn('[GPS _forcarGPS] POSITION_UNAVAILABLE — tentando geoloc por rede...');
-      }
-      // TIMEOUT (3) ou POSITION_UNAVAILABLE (2) → tentar rede (WiFi/torre) sem alta precisão
-      // maximumAge:300000 aceita leitura recente de 5min — mais rápido em ambientes fechados
-      navigator.geolocation.getCurrentPosition(onOk, onFail2,
-        { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
-      );
-    }
-
-    // 1ª tentativa: GPS de alta precisão
-    // maximumAge:30000 aceita cache de 30s — evita GPS frio desnecessariamente
-    navigator.geolocation.getCurrentPosition(onOk, onFail,
-      { timeout: 15000, maximumAge: 30000, enableHighAccuracy: true }
-    );
+    }, 3000);
   }
 
   function _haversineFast(la1, lo1, la2, lo2) {
@@ -4937,217 +4849,87 @@ export function getAppHTML(firebaseScripts: string): string {
   }
 
   function _initLocalizacao() {
-    var _diagIsTWA = document.referrer.includes('android-app://') || navigator.userAgent.includes('wv');
-    var _diagStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    console.log('[GPS init] isTWA:', _diagIsTWA, '| standalone:', _diagStandalone, '| referrer:', document.referrer || '(vazio)');
-
-    // ── Limpar flag geo_denied legado (valor '1' fixo — sem timestamp) ──
-    var geoDeniedRaw = localStorage.getItem('rp_geo_denied') || '0';
-    if (geoDeniedRaw === '1') {
-      localStorage.removeItem('rp_geo_denied');
-      console.log('[GPS] Flag rp_geo_denied legado removido');
-    }
-
-    // ── LIMPEZA PREVENTIVA: remover cache de SP padrão ──
+    // ── Limpar cache SP padrão ──
+    localStorage.removeItem('rp_geo_denied');
     var _cLat0 = parseFloat(localStorage.getItem('rp_lat') || '');
     var _cLng0 = parseFloat(localStorage.getItem('rp_lng') || '');
-    if (!isNaN(_cLat0) && !isNaN(_cLng0) &&
-        Math.abs(_cLat0 - (-23.5505)) < 0.001 && Math.abs(_cLng0 - (-46.6333)) < 0.001) {
-      localStorage.removeItem('rp_lat');
-      localStorage.removeItem('rp_lng');
-      localStorage.removeItem('rp_loc_ts');
+    if (!isNaN(_cLat0) && Math.abs(_cLat0 - (-23.5505)) < 0.01 && Math.abs(_cLng0 - (-46.6333)) < 0.01) {
+      localStorage.removeItem('rp_lat'); localStorage.removeItem('rp_lng'); localStorage.removeItem('rp_loc_ts');
     }
 
-    // ── PASSO 1: verificar cache GPS recente (<60 min) ──
+    // ── Cache recente (<60min) → usar direto ──
     var cLat = parseFloat(localStorage.getItem('rp_lat') || '');
     var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
-    var isSPPadrao = Math.abs(cLat - (-23.5505)) < 0.001 && Math.abs(cLng - (-46.6333)) < 0.001;
-    var temCache = !isNaN(cLat) && !isNaN(cLng) && (Date.now() - cTs) < 60 * 60 * 1000 && !isSPPadrao;
-
+    var temCache = !isNaN(cLat) && !isNaN(cLng) && (Date.now() - cTs) < 60 * 60 * 1000;
     if (temCache) {
       userLat = cLat; userLng = cLng;
       _geoJaObtida = true;
-      console.log('[GPS] Cache válido:', cLat, cLng, '(', Math.round((Date.now()-cTs)/60000), 'min atrás)');
+      initMapMain();
+    } else {
+      _mostrarOverlayGPS();
     }
 
-    // ── PASSO 2: verificar suporte ──
-    if (!navigator.geolocation) {
-      console.warn('[GPS] navigator.geolocation não suportado');
-      if (!temCache) _usarSPPadrao();
-      else initMapMain();
+    // ── Google Geolocation API — única fonte de localização ──
+    _buscarLocalizacaoGoogle();
+  }
+
+  function _buscarLocalizacaoGoogle() {
+    if (!_GKEY) {
+      _aplicarLocalizacao(-23.5505, -46.6333, true, false);
       return;
     }
 
-    // ── PASSO 3: verificar permissão via Permissions API (sem pedir ao usuário) ──
-    // Isso evita que o geoDenied block bloqueie desnecessariamente
-    if (navigator.permissions) {
-      navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
-        console.log('[GPS] Permissions API:', result.state);
-        if (result.state === 'denied') {
-          // Permissão definitivamente negada nas config do sistema
-          localStorage.setItem('rp_geo_denied', String(Date.now()));
-          console.warn('[GPS] Permissão negada pelo sistema');
-          if (!temCache) {
-            _mostrarOverlayGPS();
-            var ov = document.getElementById('geo-loading-overlay');
-            if (ov) {
-              ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
-                + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
-                + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Localização não autorizada</div>'
-                + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Ative em <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
-                + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px;">Usar localização aproximada</button>'
-                + '</div>';
-            }
-            _usarSPPadrao(); // GeoIP como fallback
-          } else {
-            initMapMain();
-          }
-          return;
-        }
-        // 'granted' ou 'prompt' → tentar GPS
-        _iniciarBuscaGPS(temCache, cLat, cLng);
-      }).catch(function() {
-        // Permissions API falhou → tentar GPS mesmo assim
-        _iniciarBuscaGPS(temCache, cLat, cLng);
-      });
-    } else {
-      // Sem Permissions API → tentar GPS diretamente
-      _iniciarBuscaGPS(temCache, cLat, cLng);
-    }
-  }
-
-  function _iniciarBuscaGPS(temCache, cLat, cLng) {
-    // Mostrar overlay se não tem cache
-    if (!temCache) {
-      _mostrarOverlayGPS();
-      // Safety timeout: 25s → GeoIP → SP
-      setTimeout(function() {
-        if (!_geoJaObtida) {
-          console.warn('[GPS] Safety timeout 25s — chamando GeoIP');
-          var ov = document.getElementById('geo-loading-overlay');
-          if (ov) {
-            var _sp = ov.querySelector('div:nth-child(2)');
-            if (_sp) _sp.textContent = 'Detectando pela rede…';
-          }
-          _usarSPPadrao();
-        }
-      }, 25000);
-    } else {
-      initMapMain();
-    }
-    _pedirGPSReal(temCache, cLat, cLng);
-  }
-
-  // ── Pede GPS real (extraído para ser reusado pelo Permissions API check) ──
-  function _pedirGPSReal(temCache, cLat, cLng) {
-    var _gpsConcluido = false;
-
-    // Sucesso: aplicar localização e iniciar watchPosition
-    function _onSuccess(pos) {
-      if (_gpsConcluido) return;
-      _gpsConcluido = true;
-      console.log('[GPS] ✅ obtido:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
-      _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
-      // watchPosition — atualiza se mover >50m
-      if (_geoWatchId === null) {
-        _geoWatchId = navigator.geolocation.watchPosition(
-          function(wp) {
-            var d = _haversineFast(userLat, userLng, wp.coords.latitude, wp.coords.longitude);
-            if (d > 0.05) _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, d > 0.5, true);
-          },
-          function(e) { console.warn('[GPS] watch erro:', e.code); },
-          { enableHighAccuracy: true, maximumAge: 30000, timeout: 60000 }
-        );
-      }
-    }
-
-    // Fallback final: usar cache se disponível, senão GeoIP → SP
-    function _falharParaFallback(motivo) {
-      console.warn('[GPS] ❌ ' + motivo + ' — usando fallback');
-      if (temCache) {
-        console.log('[GPS] usando cache como fallback (age ~' + Math.round((Date.now()-parseInt(localStorage.getItem('rp_loc_ts')||'0'))/60000) + 'min)');
-        _aplicarLocalizacao(cLat, cLng, true, false);
+    // ── Google Maps Geolocation API ──
+    // Chamada feita pelo BROWSER do celular → Google recebe os dados de WiFi/GPS do device
+    // Muito mais preciso que navigator.geolocation no TWA que usa antena celular
+    fetch('https://www.googleapis.com/geolocation/v1/geolocate?key=' + _GKEY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        homeMobileCountryCode: 724,  // Brasil MCC
+        homeMobileNetworkCode: 0,
+        radioType: 'lte',
+        carrier: 'Android',
+        considerIpAddress: false     // NÃO usar IP — usar só WiFi/GPS do device
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.location && d.location.lat && d.location.lng) {
+        var lat = d.location.lat;
+        var lng = d.location.lng;
+        var acc = Math.round(d.accuracy || 0);
+        console.log('[GPS] Google Maps ✅ lat=' + lat + ' lng=' + lng + ' acc=' + acc + 'm');
+        _aplicarLocalizacao(lat, lng, true, true);
       } else {
-        // Mostrar "detectando pela rede" no overlay se ainda visível
-        var ov2 = document.getElementById('geo-loading-overlay');
-        if (ov2) {
-          ov2.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
-            + '<div style="width:36px;height:36px;border:3px solid #FF6D00;border-top-color:transparent;border-radius:50%;animation:spin360 0.8s linear infinite;margin-bottom:14px;"></div>'
-            + '<div style="font-size:14px;color:#444;font-weight:700;margin-bottom:6px;">GPS indisponível</div>'
-            + '<div style="font-size:12px;color:#999;">Detectando localização pela rede…</div>'
-            + '</div>';
-        }
-        _usarSPPadrao(); // tenta GeoIP antes de SP
+        console.warn('[GPS] Google Maps sem resultado — erro:', d && d.error ? d.error.message : JSON.stringify(d));
+        // Fallback: navigator.geolocation com alta precisão
+        _gpsNativo();
       }
+    })
+    .catch(function(e) {
+      console.warn('[GPS] Google Maps erro de rede:', e);
+      _gpsNativo();
+    });
+  }
+
+  function _gpsNativo() {
+    if (!navigator.geolocation) {
+      _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+      return;
     }
-
-    function _onError(err) {
-      if (_gpsConcluido) return;
-      console.warn('[GPS] ⚠️ erro código', err.code, ':', err.message);
-
-      if (err.code === 1) {
-        // PERMISSION_DENIED — mostrar overlay de permissão e usar GeoIP para o mapa
-        _gpsConcluido = true;
-        localStorage.setItem('rp_geo_denied', String(Date.now()));
-        var ov = document.getElementById('geo-loading-overlay');
-        if (ov) {
-          ov.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;">'
-            + '<div style="font-size:36px;margin-bottom:12px;">📍</div>'
-            + '<div style="font-size:15px;font-weight:700;color:#444;margin-bottom:8px;">Localização não autorizada</div>'
-            + '<div style="font-size:13px;color:#888;margin-bottom:20px;">Ative em <b>Configurações → Apps → RotaPosto → Permissões → Localização</b></div>'
-            + '<button onclick="_forcarGPS()" style="padding:10px 24px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px;">Tentar novamente</button>'
-            + '<button onclick="_usarSPPadrao()" style="padding:10px 24px;background:#eee;color:#666;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">Usar localização aproximada</button>'
-            + '</div>';
-        } else {
-          // Sem overlay → usar GeoIP silenciosamente
-          _falharParaFallback('PERMISSION_DENIED sem overlay');
-        }
-        return;
-      }
-
-      // TIMEOUT (3) ou POSITION_UNAVAILABLE (2) → tentar baixa precisão (rede/WiFi/torre)
-      _gpsConcluido = true;
-      console.warn('[GPS] Tentando baixa precisão (rede/WiFi/torre celular)...');
-      navigator.geolocation.getCurrentPosition(
-        function(pos) {
-          console.log('[GPS] ✅ baixa precisão ok:', pos.coords.latitude, pos.coords.longitude, 'acc:', pos.coords.accuracy + 'm');
-          _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
-        },
-        function(err2) {
-          console.warn('[GPS] ❌ baixa precisão falhou. code:', err2.code);
-          _falharParaFallback('GPS alta+baixa precisão falharam');
-        },
-        { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false }
-      );
-    }
-
-    // Estratégia dupla: getCurrentPosition (rápido) + watchPosition (persiste)
-    // watchPosition continua tentando mesmo com GPS frio — cancela quando obtém ou quando fallback age
-    if (_geoWatchId === null) {
-      _geoWatchId = navigator.geolocation.watchPosition(
-        function(wp) {
-          if (_gpsConcluido) {
-            // Já temos localização mas watchPosition chegou com update — atualizar se moveu
-            var d = _haversineFast(userLat, userLng, wp.coords.latitude, wp.coords.longitude);
-            if (d > 0.05) _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, d > 0.5, true);
-            return;
-          }
-          // Primeira leitura do watchPosition
-          _gpsConcluido = true;
-          console.log('[GPS] watchPosition ✅:', wp.coords.latitude, wp.coords.longitude, 'acc:', wp.coords.accuracy + 'm');
-          _aplicarLocalizacao(wp.coords.latitude, wp.coords.longitude, true, true);
-        },
-        function(we) {
-          console.warn('[GPS] watchPosition erro:', we.code, '— getCurrentPosition como backup');
-        },
-        { enableHighAccuracy: true, maximumAge: 30000, timeout: 30000 }
-      );
-    }
-
-    // getCurrentPosition como disparo rápido (aceita cache 5min)
-    navigator.geolocation.getCurrentPosition(_onSuccess, _onError,
-      { timeout: 10000, maximumAge: 300000, enableHighAccuracy: true }
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        console.log('[GPS] nativo ✅ acc=' + Math.round(pos.coords.accuracy) + 'm');
+        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+      },
+      function(err) {
+        console.warn('[GPS] nativo erro ' + err.code);
+        if (err.code === 1) showToast('Permissão de localização negada. Ative nas configurações.', 5000);
+        _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }
 
