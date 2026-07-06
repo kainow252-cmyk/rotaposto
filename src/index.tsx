@@ -176,6 +176,12 @@ app.use('*', async (c, next) => {
   // Não afeta segurança: não usamos SharedArrayBuffer nem Atomics
   c.res.headers.set('Cross-Origin-Opener-Policy', 'unsafe-none')
   c.res.headers.set('Cross-Origin-Embedder-Policy', 'unsafe-none')
+  // Preservar Cache-Control do assetlinks.json (não sobrescrever com cache do CDN)
+  if (c.req.path === '/.well-known/assetlinks.json') {
+    c.res.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+    c.res.headers.set('Pragma', 'no-cache')
+    c.res.headers.set('Expires', '0')
+  }
 })
 
 // ─── Cache em memória (válido por 10 min por cidade) ─────────────────────────
@@ -2120,7 +2126,7 @@ app.delete('/api/auth/session', async (c) => {
 
 // ─── Digital Asset Links (TWA/Android) ───────────────────────────────────────
 app.get('/.well-known/assetlinks.json', (c) => {
-  return c.json([{
+  const payload = [{
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
@@ -2132,7 +2138,16 @@ app.get('/.well-known/assetlinks.json', (c) => {
         "9C:27:9E:1F:5F:BE:A0:4D:93:CC:7D:E2:D0:3A:BA:47:41:59:18:29:1F:DA:5B:88:CB:F8:06:57:26:7C:DB:38"
       ]
     }
-  }])
+  }]
+  return new Response(JSON.stringify(payload), {
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
 })
 
 // ─── Frontend Principal ───────────────────────────────────────────────────────
