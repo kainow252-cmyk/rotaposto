@@ -4862,13 +4862,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     try {
       if (document.referrer && document.referrer.startsWith('android-app://')) return true;
       if (window.matchMedia('(display-mode: standalone)').matches) return true;
-      if ((window.navigator as any).standalone === true) return true;
+      if (window.navigator.standalone === true) return true;
     } catch(e) {}
     return false;
   })();
 
   // ── Botão flutuante GPS para TWA ────────────────────────────────────────────
-  function _mostrarBotaoGPS(mensagem: string) {
+  function _mostrarBotaoGPS(mensagem) {
     var old = document.getElementById('rp-gps-btn');
     if (old) old.remove();
     var btn = document.createElement('div');
@@ -4899,7 +4899,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }, 15000);
   }
 
-  (window as any)._tentarGPSNovamente = function() {
+  window._tentarGPSNovamente = function() {
     var old = document.getElementById('rp-gps-btn');
     if (old) old.remove();
     showToast('📍 Solicitando GPS...', 2000);
