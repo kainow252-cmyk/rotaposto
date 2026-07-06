@@ -4855,6 +4855,57 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       && Math.abs(lng - (-46.6333)) < 1.0;
   }
 
+  // ── Detectar se está rodando como TWA (app Play Store) ──────────────────────
+  // No TWA, document.referrer começa com "android-app://"
+  // Também checamos display-mode: standalone (PWA/TWA instalado)
+  var _isTWA = (function() {
+    try {
+      if (document.referrer && document.referrer.startsWith('android-app://')) return true;
+      if (window.matchMedia('(display-mode: standalone)').matches) return true;
+      if ((window.navigator as any).standalone === true) return true;
+    } catch(e) {}
+    return false;
+  })();
+
+  // ── Botão flutuante GPS para TWA ────────────────────────────────────────────
+  function _mostrarBotaoGPS(mensagem: string) {
+    var old = document.getElementById('rp-gps-btn');
+    if (old) old.remove();
+    var btn = document.createElement('div');
+    btn.id = 'rp-gps-btn';
+    btn.innerHTML = \`
+      <div onclick="_tentarGPSNovamente()" style="
+        position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+        background:#FF6D00;color:#fff;border-radius:24px;padding:12px 20px;
+        font-size:14px;font-weight:700;cursor:pointer;z-index:9999;
+        box-shadow:0 4px 16px rgba(255,109,0,0.5);
+        display:flex;align-items:center;gap:8px;white-space:nowrap;
+        animation:rpGpsPulse 2s infinite">
+        <span style="font-size:18px">📍</span>
+        <span>\${mensagem}</span>
+      </div>
+      <style>
+        @keyframes rpGpsPulse {
+          0%,100%{box-shadow:0 4px 16px rgba(255,109,0,0.5)}
+          50%{box-shadow:0 4px 24px rgba(255,109,0,0.9)}
+        }
+      </style>
+    \`;
+    document.body.appendChild(btn);
+    // Auto-remover após 15s
+    setTimeout(function() {
+      var el = document.getElementById('rp-gps-btn');
+      if (el) el.remove();
+    }, 15000);
+  }
+
+  (window as any)._tentarGPSNovamente = function() {
+    var old = document.getElementById('rp-gps-btn');
+    if (old) old.remove();
+    showToast('📍 Solicitando GPS...', 2000);
+    _gpsNativo(false);
+  };
+
   function _initLocalizacao() {
     // ── Limpar cache SP ──
     localStorage.removeItem('rp_geo_denied');
@@ -4892,10 +4943,21 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     _gpsNativo(false);
   }
 
+  // ── GPS com suporte TWA ─────────────────────────────────────────────────────
   // silencioso=true: só atualiza marcador, não recarrega postos
+  var _watchId: number | null = null; // ID do watchPosition ativo
+
   function _gpsNativo(silencioso) {
     if (!navigator.geolocation) {
+      console.warn('[GPS] navigator.geolocation indisponível');
       if (!silencioso) _buscarLocalizacaoGoogle(null);
+      return;
+    }
+
+    // ── No TWA, usar watchPosition para capturar assim que Android delegar ──
+    // O DelegationService pode demorar alguns segundos para inicializar
+    if (_isTWA && !silencioso) {
+      _gpsNativoTWA();
       return;
     }
 
@@ -4905,7 +4967,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         var acc1 = Math.round(pos1.coords.accuracy);
         var lat1 = pos1.coords.latitude, lng1 = pos1.coords.longitude;
         console.log('[GPS] Rápido: lat=' + lat1 + ' lng=' + lng1 + ' acc=' + acc1 + 'm');
-        // Sempre aplica — mesmo que seja SP, é melhor que placeholder ES
         _aplicarLocalizacao(lat1, lng1, !silencioso, true);
 
         // ── PASSO 2: alta precisão (satélite) — refina quando pronto ──
@@ -4924,7 +4985,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       function(err1) {
         console.warn('[GPS] Rápido erro: ' + err1.code);
         if (err1.code === 1) {
+          // Permissão negada
           showToast('📍 Ative a localização nas configurações.', 7000);
+          if (_isTWA) _mostrarBotaoGPS('Toque para ativar GPS');
           if (!silencioso) {
             _buscarLocalizacaoGoogle(function(lat, lng) {
               if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
@@ -4950,6 +5013,103 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         }
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+    );
+  }
+
+  // ── GPS especial para TWA (Play Store app) ──────────────────────────────────
+  // No TWA, o DelegationService do Android precisa inicializar (pode demorar 1-3s).
+  // Usamos watchPosition com retry automático para capturar assim que estiver pronto.
+  function _gpsNativoTWA() {
+    console.log('[GPS-TWA] Iniciando watchPosition para TWA...');
+    var _gpsObtido = false;
+    var _tentativas = 0;
+    var _maxTentativas = 3;
+
+    // Cancelar watch anterior se existir
+    if (_watchId !== null) {
+      navigator.geolocation.clearWatch(_watchId);
+      _watchId = null;
+    }
+
+    function _iniciarWatch() {
+      _tentativas++;
+      console.log('[GPS-TWA] Tentativa ' + _tentativas + '/' + _maxTentativas);
+
+      _watchId = navigator.geolocation.watchPosition(
+        function(pos) {
+          if (_gpsObtido) {
+            // Atualização contínua — só atualiza marcador silenciosamente
+            _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, false, true);
+            return;
+          }
+          _gpsObtido = true;
+          var acc = Math.round(pos.coords.accuracy);
+          console.log('[GPS-TWA] ✅ lat=' + pos.coords.latitude + ' lng=' + pos.coords.longitude + ' acc=' + acc + 'm');
+          _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+          showToast('📍 GPS: ' + acc + 'm', 2000);
+          // Após obter GPS, manter watch ativo por mais 30s para refinar
+          setTimeout(function() {
+            if (_watchId !== null) {
+              navigator.geolocation.clearWatch(_watchId);
+              _watchId = null;
+              console.log('[GPS-TWA] watchPosition encerrado (30s)');
+            }
+          }, 30000);
+        },
+        function(err) {
+          console.warn('[GPS-TWA] Erro watch: code=' + err.code + ' msg=' + err.message);
+          if (_watchId !== null) {
+            navigator.geolocation.clearWatch(_watchId);
+            _watchId = null;
+          }
+          if (err.code === 1) {
+            // Permissão negada pelo usuário
+            showToast('📍 Permita a localização para ver postos próximos.', 8000);
+            _mostrarBotaoGPS('Toque para ativar GPS');
+            // Fallback: Google Geolocation API
+            _buscarLocalizacaoGoogle(function(lat, lng) {
+              if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
+            });
+          } else if (_tentativas < _maxTentativas) {
+            // Timeout ou indisponível: retry com delay crescente
+            var delay = _tentativas * 2000; // 2s, 4s
+            console.log('[GPS-TWA] Retry em ' + delay + 'ms...');
+            setTimeout(_iniciarWatch, delay);
+          } else {
+            // Esgotou tentativas: usar Google API como fallback
+            console.warn('[GPS-TWA] Esgotou tentativas — usando Google API');
+            _buscarLocalizacaoGoogle(function(lat, lng) {
+              if (lat !== null) {
+                _aplicarLocalizacao(lat, lng, true, false);
+              } else {
+                // Último recurso: mostrar botão para o usuário tentar manualmente
+                _mostrarBotaoGPS('Toque para usar GPS');
+              }
+            });
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: _tentativas === 1 ? 10000 : 20000, // 10s na 1ª, 20s nas demais
+          maximumAge: 0
+        }
+      );
+    }
+
+    // Iniciar imediatamente
+    _iniciarWatch();
+
+    // Também tentar baixa precisão em paralelo para resposta rápida
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        if (!_gpsObtido) {
+          console.log('[GPS-TWA] Paralelo baixa precisão: acc=' + Math.round(pos.coords.accuracy) + 'm');
+          _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+          _gpsObtido = true;
+        }
+      },
+      function() {}, // silencioso — watchPosition vai tratar erros
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
     );
   }
 
