@@ -4602,7 +4602,18 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       setTimeout(function() { if (splash && splash.parentNode) splash.parentNode.removeChild(splash); }, 450);
     }
 
-    // Iniciar na view mapa (com header)
+    // ── Verificar autenticação antes de abrir o app ──────────────────────────
+    var _rpUserStr = localStorage.getItem('rp_user');
+    var _rpUser = null;
+    try { _rpUser = _rpUserStr ? JSON.parse(_rpUserStr) : null; } catch {}
+
+    if (!_rpUser || !_rpUser.uid) {
+      // Não logado → redirecionar para a landing/onboarding
+      window.location.replace('/');
+      return;
+    }
+
+    // Logado → iniciar na view mapa normalmente
     goToView('mapa');
     // Pedir localização logo no init — antes de qualquer coisa
     _initLocalizacao();
