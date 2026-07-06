@@ -17,6 +17,11 @@ on:
           - beta
           - production
 
+# Limita a 1 run por vez no mesmo grupo — evita OutOfMemoryError por runs paralelos
+concurrency:
+  group: rotaposto-deploy
+  cancel-in-progress: false
+
 jobs:
   build_and_deploy:
     name: Build AAB & Publish
@@ -71,7 +76,10 @@ jobs:
             --release \
             --no-tree-shake-icons
         env:
-          GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g"
+          # Runner ubuntu-latest tem 7GB RAM; reservamos 5GB para o Gradle+D8
+          GRADLE_OPTS: "-Xmx5g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError"
+          # Limitar paralelismo interno do Gradle para não estourar heap
+          ORG_GRADLE_PROJECT_android.enableR8.fullMode: "false"
 
       # ── 8. Verificar AAB gerado ──────────────────────────────────
       - name: Verify AAB
