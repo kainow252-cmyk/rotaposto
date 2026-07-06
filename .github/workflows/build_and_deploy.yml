@@ -88,16 +88,31 @@ jobs:
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 7
 
-      # ── 10. Publicar na Play Store ───────────────────────────────
-      - name: Publish to Play Store
+      # ── 10a. Publicar na Play Store — track internal ─────────────
+      # changesNotSentForReview=true é obrigatório APENAS para 'internal'
+      # Para tracks de teste fechado (ex: 'rota'), o parâmetro NÃO deve existir
+      - name: Publish to Play Store (internal)
+        if: ${{ (github.event.inputs.track || 'internal') == 'internal' }}
         uses: r0adkll/upload-google-play@v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
           packageName: br.com.rotaposto.app
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          track: ${{ github.event.inputs.track || 'internal' }}
+          track: internal
           status: completed
           changesNotSentForReview: true
+          whatsNewDirectory: .github/whatsnew/
+
+      # ── 10b. Publicar na Play Store — outros tracks (rota, alpha, beta, production)
+      - name: Publish to Play Store (other tracks)
+        if: ${{ (github.event.inputs.track || 'internal') != 'internal' }}
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          packageName: br.com.rotaposto.app
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: ${{ github.event.inputs.track }}
+          status: completed
           whatsNewDirectory: .github/whatsnew/
 
       - name: Deploy summary
