@@ -2,7 +2,7 @@ name: Build Flutter & Deploy Play Store
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, flutter ]
   workflow_dispatch:
     inputs:
       track:
