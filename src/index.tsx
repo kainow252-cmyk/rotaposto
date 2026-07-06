@@ -168,10 +168,13 @@ app.get('/api/debug/env', async (c) => {
 })
 
 // ─── Headers COOP/COEP: necessário para signInWithPopup do Firebase funcionar ─
-// sem isso, o Cloudflare Pages aplica COOP: same-origin que bloqueia popups OAuth
+// Firebase Auth recomenda unsafe-none para evitar warning "window.closed blocked"
+// same-origin-allow-popups ainda bloqueia window.closed em Chrome/TWA
 app.use('*', async (c, next) => {
   await next()
-  c.res.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+  // unsafe-none: permite Firebase verificar window.closed no popup OAuth
+  // Não afeta segurança: não usamos SharedArrayBuffer nem Atomics
+  c.res.headers.set('Cross-Origin-Opener-Policy', 'unsafe-none')
   c.res.headers.set('Cross-Origin-Embedder-Policy', 'unsafe-none')
 })
 
