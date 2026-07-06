@@ -50,7 +50,7 @@ android {
         applicationId = "br.com.rotaposto.app"
         minSdk = 23
         targetSdk = 35
-        versionCode = 50
+        versionCode = 51
         versionName = "2.0.0"
     }
 
