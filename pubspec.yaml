@@ -1,7 +1,7 @@
 name: rotaposto
 description: RotaPosto - Encontre os melhores postos de combustível perto de você
 publish_to: 'none'
-version: 2.1.2+55
+version: 2.1.3+56
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
