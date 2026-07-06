@@ -4856,7 +4856,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   function _initLocalizacao() {
-    // ── Limpar TODO cache da região de SP ──
+    // ── Limpar cache SP ──
     localStorage.removeItem('rp_geo_denied');
     localStorage.removeItem('rp_geoip_lat');
     localStorage.removeItem('rp_geoip_lng');
@@ -4864,13 +4864,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var _cLat0 = parseFloat(localStorage.getItem('rp_lat') || '');
     var _cLng0 = parseFloat(localStorage.getItem('rp_lng') || '');
     if (_ehCoordSP(_cLat0, _cLng0)) {
-      console.log('[GPS] Cache SP — apagando');
       localStorage.removeItem('rp_lat');
       localStorage.removeItem('rp_lng');
       localStorage.removeItem('rp_loc_ts');
     }
 
-    // ── Cache recente (<30min) fora de SP → abrir mapa imediatamente ──
+    // ── Cache recente (<30min) fora de SP → abrir mapa já ──
     var cLat = parseFloat(localStorage.getItem('rp_lat') || '');
     var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
@@ -4878,67 +4877,79 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
                    && !_ehCoordSP(cLat, cLng)
                    && (Date.now() - cTs) < 30 * 60 * 1000;
     if (temCache) {
-      console.log('[GPS] Cache válido: lat=' + cLat + ' lng=' + cLng);
       userLat = cLat; userLng = cLng;
       _geoJaObtida = true;
       initMapMain();
-      _gpsNativo(true); // atualizar silenciosamente em background
+      _gpsNativo(true);
       return;
     }
 
-    // ── Sem cache: abrir mapa rápido (Google ~1s) + GPS preciso em paralelo ──
-    _mostrarOverlayGPS();
+    // ── Sem cache: ABRIR MAPA IMEDIATAMENTE + GPS em background ──
+    // Não espera GPS — abre o mapa na posição que tiver e atualiza quando GPS chegar
+    userLat = -20.3155; userLng = -40.3128; // ES como placeholder (Vitória)
+    _geoJaObtida = true;
+    initMapMain();
     _gpsNativo(false);
   }
 
-  // silencioso=true: já tem mapa, só atualiza marcador sem recarregar postos
+  // silencioso=true: só atualiza marcador, não recarrega postos
   function _gpsNativo(silencioso) {
     if (!navigator.geolocation) {
       if (!silencioso) _buscarLocalizacaoGoogle(null);
       return;
     }
 
-    console.log('[GPS] Iniciando 2 fases: rápido(rede) + preciso(satélite)...');
-    var precisoFinalizado = false;
-
-    // ── FASE 1: baixa precisão — WiFi/rede, responde em <2s ──
-    // Abre o mapa já com posição aproximada enquanto satélite aquece
+    // ── PASSO 1: baixa precisão (WiFi/rede) — <2s ──
     navigator.geolocation.getCurrentPosition(
       function(pos1) {
         var acc1 = Math.round(pos1.coords.accuracy);
         var lat1 = pos1.coords.latitude, lng1 = pos1.coords.longitude;
-        console.log('[GPS] Fase1 rápida: lat=' + lat1 + ' lng=' + lng1 + ' acc=' + acc1 + 'm');
-        if (!precisoFinalizado && !_ehCoordSP(lat1, lng1)) {
-          _aplicarLocalizacao(lat1, lng1, !silencioso, true);
-        }
-        // ── FASE 2: alta precisão (satélite), atualiza o pin quando pronto ──
+        console.log('[GPS] Rápido: lat=' + lat1 + ' lng=' + lng1 + ' acc=' + acc1 + 'm');
+        // Sempre aplica — mesmo que seja SP, é melhor que placeholder ES
+        _aplicarLocalizacao(lat1, lng1, !silencioso, true);
+
+        // ── PASSO 2: alta precisão (satélite) — refina quando pronto ──
         navigator.geolocation.getCurrentPosition(
           function(pos2) {
-            precisoFinalizado = true;
             var acc2 = Math.round(pos2.coords.accuracy);
             var lat2 = pos2.coords.latitude, lng2 = pos2.coords.longitude;
-            console.log('[GPS] Fase2 precisa ✅: lat=' + lat2 + ' lng=' + lng2 + ' acc=' + acc2 + 'm');
-            if (!_ehCoordSP(lat2, lng2)) {
-              _aplicarLocalizacao(lat2, lng2, false, true);
-              if (acc2 < 100) showToast('📍 GPS: ' + acc2 + 'm de precisão', 2000);
-            }
+            console.log('[GPS] Preciso ✅: lat=' + lat2 + ' lng=' + lng2 + ' acc=' + acc2 + 'm');
+            _aplicarLocalizacao(lat2, lng2, false, true);
+            showToast('📍 GPS: ' + acc2 + 'm', 2000);
           },
-          function(e2) { precisoFinalizado = true; console.warn('[GPS] Fase2 erro:' + e2.code); },
-          { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
+          function(e2) { console.warn('[GPS] Preciso erro: ' + e2.code); },
+          { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
         );
       },
       function(err1) {
-        console.warn('[GPS] Fase1 erro: ' + err1.code);
+        console.warn('[GPS] Rápido erro: ' + err1.code);
         if (err1.code === 1) {
-          showToast('📍 Ative a localização nas configurações do Android.', 7000);
-        }
-        if (!silencioso) {
-          _buscarLocalizacaoGoogle(function(lat, lng) {
-            if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
-          });
+          showToast('📍 Ative a localização nas configurações.', 7000);
+          if (!silencioso) {
+            _buscarLocalizacaoGoogle(function(lat, lng) {
+              if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
+            });
+          }
+        } else {
+          // Timeout/indisponível: tentar direto com alta precisão
+          navigator.geolocation.getCurrentPosition(
+            function(pos) {
+              _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, !silencioso, true);
+              console.log('[GPS] Direto ✅: acc=' + Math.round(pos.coords.accuracy) + 'm');
+            },
+            function(e) {
+              console.warn('[GPS] Direto erro: ' + e.code);
+              if (!silencioso) {
+                _buscarLocalizacaoGoogle(function(lat, lng) {
+                  if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
+                });
+              }
+            },
+            { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+          );
         }
       },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
     );
   }
 
