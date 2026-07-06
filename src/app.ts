@@ -4945,7 +4945,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // ── GPS com suporte TWA ─────────────────────────────────────────────────────
   // silencioso=true: só atualiza marcador, não recarrega postos
-  var _watchId: number | null = null; // ID do watchPosition ativo
+  var _watchId = null; // ID do watchPosition ativo
 
   function _gpsNativo(silencioso) {
     if (!navigator.geolocation) {
