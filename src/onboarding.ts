@@ -946,6 +946,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     var ua = navigator.userAgent || '';
     // TWA (Trusted Web Activity) usa Chrome — signInWithPopup funciona corretamente
     // Detectar TWA: referrer android-app:// OU standalone+Chrome+Android
+    var isTWA = (document.referrer && document.referrer.startsWith('android-app://'))
       || (window.matchMedia('(display-mode: standalone)').matches && /Chrome/.test(ua) && /Android/.test(ua));
     if (isTWA) return false; // No TWA usar popup (Chrome suporta)
     // WebView puro (sem Chrome) nao suporta popup
