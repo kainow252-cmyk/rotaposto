@@ -1,0 +1,28 @@
+{
+  "name": "rotaposto-worker",
+  "main": "dist/_worker.js",
+  "compatibility_date": "2026-04-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    {
+      "pattern": "rotaposto.com.br/*",
+      "zone_id": "634c7e644d0780214288d7e636990fd3"
+    },
+    {
+      "pattern": "www.rotaposto.com.br/*",
+      "zone_id": "634c7e644d0780214288d7e636990fd3"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "ROTAPOSTO_KV",
+      "id": "9875387ed3434643838b38cf945eccde"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ROTAPOSTO_R2",
+      "bucket_name": "rotaposto-kv"
+    }
+  ]
+}
