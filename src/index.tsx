@@ -2176,6 +2176,46 @@ app.get('/reset', (c) => {
 })
 
 // ══════════════════════════════════════════════════════
+//  PWA Manifest — servido via Worker para forçar cache fresco
+//  (sobrepõe o arquivo estático do Cloudflare Pages)
+// ══════════════════════════════════════════════════════
+app.get('/manifest.json', (c) => {
+  const manifest = {
+    name: "RotaPosto - Combustível Barato",
+    short_name: "RotaPosto",
+    description: "Encontre os postos mais baratos na sua rota. Guinchos, borracheiros e mecânicas próximos de você.",
+    start_url: "/",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#FFFFFF",
+    theme_color: "#FF6D00",
+    lang: "pt-BR",
+    scope: "/",
+    id: "br.com.rotaposto.app",
+    icons: [
+      { src: "/icons/icon-72x72.png",   sizes: "72x72",   type: "image/png", purpose: "any" },
+      { src: "/icons/icon-96x96.png",   sizes: "96x96",   type: "image/png", purpose: "any" },
+      { src: "/icons/icon-128x128.png", sizes: "128x128", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-144x144.png", sizes: "144x144", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-152x152.png", sizes: "152x152", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: "/icons/icon-384x384.png", sizes: "384x384", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+    ],
+    screenshots: [],
+    categories: ["travel", "navigation", "utilities"],
+    prefer_related_applications: false
+  }
+  return new Response(JSON.stringify(manifest, null, 2), {
+    headers: {
+      'Content-Type': 'application/manifest+json; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
+})
+
+// ══════════════════════════════════════════════════════
 //  Página de Privacidade (exigida pelo Facebook e Google)
 // ══════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════
