@@ -5639,24 +5639,39 @@ async function abrirModalPIX(plano = 'premium') {
 
   // Coletar dados do usuário
   const usuario = _usuarioLogado;
-  const nome = usuario?.displayName || 'Usuário RotaPosto';
-  const email = usuario?.email || 'usuario@rotaposto.com.br';
-  const cpf = '';  // Pode ser pedido em formulário futuro
+
+  // Verificar se está logado antes de chamar a API
+  if (!usuario?.uid) {
+    content.innerHTML = \`
+      <div style="text-align:center;padding:32px 16px">
+        <div style="font-size:48px;margin-bottom:12px">🔒</div>
+        <p style="font-size:15px;font-weight:700;color:#FF6D00">Faça login primeiro</p>
+        <p style="font-size:13px;color:rgba(255,255,255,0.5);margin:10px 0">Você precisa estar logado para assinar o Premium.</p>
+        <button onclick="fecharPixModal(null,true)" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;margin-top:12px">Fechar</button>
+      </div>
+    \`;
+    return;
+  }
+
+  const nome = usuario?.displayName || usuario?.email?.split('@')[0] || 'Usuário RotaPosto';
+  const email = usuario?.email || '';
+  const userId = usuario?.uid || '';
+  const cpf = '';
 
   try {
     const res = await fetch('/api/pix/assinar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome, email, cpf, plano })
+      body: JSON.stringify({ nome, email, cpf, plano, userId })
     });
     const data = await res.json();
 
-    if (data.error) {
+    if (!data.sucesso) {
       content.innerHTML = \`
         <div style="text-align:center;padding:24px 16px">
           <div style="font-size:48px;margin-bottom:12px">❌</div>
           <p style="font-size:14px;font-weight:700;color:#FF6D00">Erro ao gerar cobrança</p>
-          <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:8px 0">\${data.error}</p>
+          <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:8px 0">\${data.mensagem || data.error || 'Tente novamente.'}</p>
           <button onclick="fecharPixModal(null,true)" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;margin-top:12px">Fechar</button>
         </div>
       \`;
@@ -5693,7 +5708,7 @@ async function abrirModalPIX(plano = 'premium') {
           </div>
         \` : ''}
 
-        \${data.txid ? \`
+        \${data.subscriptionId ? \`
           <div style="margin-top:12px;padding:10px;background:rgba(0,200,83,0.1);border-radius:10px;border:1px solid rgba(0,200,83,0.2)">
             <p style="font-size:11px;color:var(--verde);margin:0">✅ Após o pagamento, sua conta é ativada automaticamente</p>
           </div>
@@ -5703,8 +5718,8 @@ async function abrirModalPIX(plano = 'premium') {
           <button onclick="fecharPixModal(null,true)" style="flex:1;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);font-weight:600;padding:12px;border-radius:12px;cursor:pointer">
             Agora não
           </button>
-          \${data.txid ? \`
-          <button onclick="verificarPagamentoPIX('\${data.txid}')" style="flex:1;background:var(--laranja);border:none;color:white;font-weight:800;padding:12px;border-radius:12px;cursor:pointer">
+          \${data.subscriptionId ? \`
+          <button onclick="verificarPagamentoPIX('\${data.subscriptionId}')" style="flex:1;background:var(--laranja);border:none;color:white;font-weight:800;padding:12px;border-radius:12px;cursor:pointer">
             <i class="fas fa-check"></i> Já paguei
           </button>
           \` : ''}
