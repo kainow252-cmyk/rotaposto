@@ -1,11 +1,11 @@
-v2.0.0 — App nativo Flutter
+v2.1.0 — App 100% Flutter nativo
 
-🚀 Nova versão completamente reconstruída!
+🚀 GPS nativo Android — sem WebView, sem limitações!
 
-• GPS nativo Android — localização real e precisa
+• GPS real de alta precisão (LocationAccuracy.high)
+• Busca direta na API rotaposto.com.br (sem intermediários)
+• Lista de postos ordenada por custo-benefício
 • Google Maps integrado nativamente
-• Mapa abre instantaneamente com sua localização
-• Lista de postos ordenada por menor preço
-• Calculadora de economia real (considera distância)
-• Interface mais rápida e fluida
+• Calculadora de economia real
 • Suporte a Gasolina, Etanol, Diesel, GNV e GLP
+• Interface mais rápida e fluida

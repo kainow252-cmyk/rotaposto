@@ -95,18 +95,18 @@ class ListaScreen extends StatelessWidget {
   }
 
   Widget _buildVazio() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.local_gas_station_outlined, size: 64, color: AppTheme.grayLight),
-          const SizedBox(height: 16),
-          const Text(
+          Icon(Icons.local_gas_station_outlined, size: 64, color: AppTheme.grayLight),
+          SizedBox(height: 16),
+          Text(
             'Nenhum posto encontrado',
             style: TextStyle(fontSize: 16, color: AppTheme.gray, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          SizedBox(height: 8),
+          Text(
             'Tente aumentar o raio de busca',
             style: TextStyle(fontSize: 13, color: AppTheme.grayLight),
           ),
