@@ -1,18 +1,18 @@
 name: Build Flutter & Deploy Play Store
 
 on:
-  push:
-    branches: [ main, flutter ]
+  # SOMENTE dispatch manual — push automático consumia versionCode no internal
+  # antes do dispatch para rota, causando "Version code already been used"
   workflow_dispatch:
     inputs:
       track:
         description: 'Play Store track'
         required: true
-        default: 'internal'
+        default: 'rota'
         type: choice
         options:
-          - internal
           - rota
+          - internal
           - alpha
           - beta
           - production
