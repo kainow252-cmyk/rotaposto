@@ -2613,8 +2613,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       _aplicarLocalizacao(userLat, userLng, true, true);
       showToast('📍 Localização atualizada!');
     } else {
-      showToast('📍 Buscando localização…');
-      _buscarLocalizacaoGoogle();
+      showToast('📍 Buscando localização via GPS…');
+      _gpsNativo();
     }
   }
 
@@ -4827,7 +4827,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   function _forcarGPS() {
-    // Limpar cache e buscar localização fresh via Google
+    // Limpar cache e buscar localização fresh via GPS nativo
     localStorage.removeItem('rp_lat');
     localStorage.removeItem('rp_lng');
     localStorage.removeItem('rp_loc_ts');
@@ -4835,11 +4835,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     _geoGPSConfirmado = false;
     var btn = document.getElementById('btn-gps-float');
     if (btn) { btn.style.opacity = '0.5'; btn.disabled = true; }
-    showToast('Atualizando localização…', 2000);
-    _buscarLocalizacaoGoogle();
+    showToast('📍 Atualizando localização via GPS…', 2000);
+    _gpsNativo();
     setTimeout(function() {
       if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
-    }, 3000);
+    }, 5000);
   }
 
   function _haversineFast(la1, lo1, la2, lo2) {
@@ -4857,11 +4857,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       localStorage.removeItem('rp_lat'); localStorage.removeItem('rp_lng'); localStorage.removeItem('rp_loc_ts');
     }
 
-    // ── Cache recente (<60min) → usar direto ──
+    // ── Cache recente (<30min) → usar e já iniciar mapa, mas refrescar em background ──
     var cLat = parseFloat(localStorage.getItem('rp_lat') || '');
     var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
-    var temCache = !isNaN(cLat) && !isNaN(cLng) && (Date.now() - cTs) < 60 * 60 * 1000;
+    var temCache = !isNaN(cLat) && !isNaN(cLng) && (Date.now() - cTs) < 30 * 60 * 1000;
     if (temCache) {
       userLat = cLat; userLng = cLng;
       _geoJaObtida = true;
@@ -4870,28 +4870,87 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       _mostrarOverlayGPS();
     }
 
-    // ── Google Geolocation API — única fonte de localização ──
-    _buscarLocalizacaoGoogle();
+    // ── GPS nativo do celular — PRIORIDADE #1 ──
+    // navigator.geolocation com enableHighAccuracy:true aciona o GPS de satélite real do device
+    // É o mesmo que usa o Uber/Waze — preciso e local
+    _gpsNativo();
   }
 
-  function _buscarLocalizacaoGoogle() {
-    if (!_GKEY) {
-      _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+  // ── GPS nativo do device (satélite/WiFi do Android) — fonte principal ──
+  function _gpsNativo() {
+    if (!navigator.geolocation) {
+      console.warn('[GPS] navigator.geolocation não disponível → fallback Google API');
+      _buscarLocalizacaoGoogle();
       return;
     }
 
-    // ── Google Maps Geolocation API ──
-    // Chamada feita pelo BROWSER do celular → Google recebe os dados de WiFi/GPS do device
-    // Muito mais preciso que navigator.geolocation no TWA que usa antena celular
+    console.log('[GPS] Pedindo GPS nativo do device (enableHighAccuracy:true)...');
+
+    // Timeout de 10s: se o GPS demorar mais, Google API inicia em paralelo como backup
+    var googleJaIniciado = false;
+    var gpsResolvido = false;
+
+    var tmBackup = setTimeout(function() {
+      if (!gpsResolvido) {
+        console.log('[GPS] GPS nativo demorando >10s → iniciando Google API em paralelo...');
+        googleJaIniciado = true;
+        _buscarLocalizacaoGoogle(function onGoogleResult(lat, lng) {
+          // Só aplica resultado do Google se GPS nativo ainda não respondeu
+          if (!gpsResolvido) {
+            console.log('[GPS] Google API chegou primeiro: lat=' + lat + ' lng=' + lng);
+            _aplicarLocalizacao(lat, lng, true, true);
+          }
+        });
+      }
+    }, 10000);
+
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        gpsResolvido = true;
+        clearTimeout(tmBackup);
+        var acc = Math.round(pos.coords.accuracy);
+        console.log('[GPS] ✅ GPS nativo real! lat=' + pos.coords.latitude + ' lng=' + pos.coords.longitude + ' acc=' + acc + 'm');
+        // GPS nativo sempre vence (mais preciso que Google sem cell data)
+        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
+      },
+      function(err) {
+        gpsResolvido = true;
+        clearTimeout(tmBackup);
+        console.warn('[GPS] GPS nativo erro código=' + err.code + ' msg=' + err.message);
+        if (err.code === 1) {
+          // PERMISSION_DENIED — usuário negou
+          showToast('📍 Permissão de localização negada. Ative nas configurações.', 6000);
+          _buscarLocalizacaoGoogle(null);
+        } else {
+          // POSITION_UNAVAILABLE ou TIMEOUT — tentar Google API
+          if (!googleJaIniciado) _buscarLocalizacaoGoogle(null);
+        }
+      },
+      {
+        enableHighAccuracy: true,  // GPS satélite real (mesmo que Uber/Waze)
+        timeout: 20000,            // 20s máximo
+        maximumAge: 60000          // Aceita cache de até 1min (evita cold start GPS)
+      }
+    );
+  }
+
+  // ── Google Maps Geolocation API — fallback quando GPS nativo demora/falha ──
+  // NOTA: sem cell towers/WiFi no body, Google usa IP do device (não do servidor Cloudflare,
+  // pois a chamada é feita pelo browser do celular diretamente para api.google.com)
+  function _buscarLocalizacaoGoogle(callback?) {
+    if (!_GKEY) {
+      console.warn('[GPS] _GKEY vazio — sem chave Google');
+      if (callback) callback(-23.5505, -46.6333);
+      else _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+      return;
+    }
+
+    console.log('[GPS] Chamando Google Geolocation API (IP do device)...');
     fetch('https://www.googleapis.com/geolocation/v1/geolocate?key=' + _GKEY, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        homeMobileCountryCode: 724,  // Brasil MCC
-        homeMobileNetworkCode: 0,
-        radioType: 'lte',
-        carrier: 'Android',
-        considerIpAddress: false     // NÃO usar IP — usar só WiFi/GPS do device
+        considerIpAddress: true   // Usa IP do celular (não do Cloudflare — chamada vem do device)
       })
     })
     .then(function(r) { return r.json(); })
@@ -4899,38 +4958,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       if (d && d.location && d.location.lat && d.location.lng) {
         var lat = d.location.lat;
         var lng = d.location.lng;
-        var acc = Math.round(d.accuracy || 0);
-        console.log('[GPS] Google Maps ✅ lat=' + lat + ' lng=' + lng + ' acc=' + acc + 'm');
-        _aplicarLocalizacao(lat, lng, true, true);
+        var acc = Math.round(d.accuracy || 9999);
+        console.log('[GPS] Google API ✅ lat=' + lat + ' lng=' + lng + ' acc=' + acc + 'm');
+        if (callback) { callback(lat, lng); }
+        else { _aplicarLocalizacao(lat, lng, true, true); }
       } else {
-        console.warn('[GPS] Google Maps sem resultado — erro:', d && d.error ? d.error.message : JSON.stringify(d));
-        // Fallback: navigator.geolocation com alta precisão
-        _gpsNativo();
+        var errMsg = d && d.error ? d.error.message : JSON.stringify(d);
+        console.warn('[GPS] Google API sem resultado:', errMsg);
+        if (callback) callback(-23.5505, -46.6333);
+        else _aplicarLocalizacao(-23.5505, -46.6333, true, false);
       }
     })
     .catch(function(e) {
-      console.warn('[GPS] Google Maps erro de rede:', e);
-      _gpsNativo();
+      console.warn('[GPS] Google API erro de rede:', e);
+      if (callback) callback(-23.5505, -46.6333);
+      else _aplicarLocalizacao(-23.5505, -46.6333, true, false);
     });
-  }
-
-  function _gpsNativo() {
-    if (!navigator.geolocation) {
-      _aplicarLocalizacao(-23.5505, -46.6333, true, false);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      function(pos) {
-        console.log('[GPS] nativo ✅ acc=' + Math.round(pos.coords.accuracy) + 'm');
-        _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, true, true);
-      },
-      function(err) {
-        console.warn('[GPS] nativo erro ' + err.code);
-        if (err.code === 1) showToast('Permissão de localização negada. Ative nas configurações.', 5000);
-        _aplicarLocalizacao(-23.5505, -46.6333, true, false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
   }
 
   // lat, lng = coordenadas | recarregarPostos = buscar postos novamente | gpsReal = veio do GPS (não cache)
