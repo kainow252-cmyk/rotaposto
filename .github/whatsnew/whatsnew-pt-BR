@@ -1,11 +1,10 @@
-v2.1.0 — App 100% Flutter nativo
+v2.1.1 — Correção de crash e logo
 
-🚀 GPS nativo Android — sem WebView, sem limitações!
+🔧 Correções urgentes:
 
-• GPS real de alta precisão (LocationAccuracy.high)
-• Busca direta na API rotaposto.com.br (sem intermediários)
-• Lista de postos ordenada por custo-benefício
-• Google Maps integrado nativamente
-• Calculadora de economia real
-• Suporte a Gasolina, Etanol, Diesel, GNV e GLP
-• Interface mais rápida e fluida
+• Corrigido: app abria e fechava (crash na inicialização)
+• Corrigido: logo incorreta substituída pela logo oficial
+• Removido Google Maps SDK (não precisava de API key)
+• Navegação abre Google Maps externo (mais confiável)
+• Ícone do app atualizado com logo real do RotaPosto
+• GPS nativo Android mantido (sem WebView)

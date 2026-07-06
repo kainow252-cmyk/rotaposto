@@ -25,7 +25,7 @@ class _SplashScreenState extends State<SplashScreen>
     _fade = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeIn),
     );
-    _scale = Tween<double>(begin: 0.8, end: 1).animate(
+    _scale = Tween<double>(begin: 0.85, end: 1).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
     );
     _controller.forward();
@@ -58,33 +58,35 @@ class _SplashScreenState extends State<SplashScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    color: AppTheme.orange,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.orange.withValues(alpha: 0.35),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
+                // Logo real do RotaPosto (do site oficial)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.asset(
+                    'assets/icons/icon_rotaposto.png',
+                    width: 96,
+                    height: 96,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        color: AppTheme.orange,
+                        borderRadius: BorderRadius.circular(24),
                       ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.local_gas_station,
-                    color: Colors.white,
-                    size: 48,
+                      child: const Icon(
+                        Icons.local_gas_station,
+                        color: Colors.white,
+                        size: 52,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Nome
+                // Nome do app igual ao site
                 RichText(
                   text: const TextSpan(
                     style: TextStyle(
-                      fontSize: 32,
+                      fontSize: 34,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -1,
                     ),
@@ -109,13 +111,12 @@ class _SplashScreenState extends State<SplashScreen>
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 48),
-                // Loading
+                const SizedBox(height: 52),
                 const SizedBox(
-                  width: 32,
-                  height: 32,
+                  width: 28,
+                  height: 28,
                   child: CircularProgressIndicator(
-                    strokeWidth: 3,
+                    strokeWidth: 2.5,
                     valueColor: AlwaysStoppedAnimation<Color>(AppTheme.orange),
                   ),
                 ),

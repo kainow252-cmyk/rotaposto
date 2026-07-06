@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../models/posto.dart';
 import 'detalhes_screen.dart';
@@ -31,9 +31,6 @@ class MapaScreen extends StatefulWidget {
 }
 
 class _MapaScreenState extends State<MapaScreen> {
-  GoogleMapController? _mapController;
-  Posto? _postoSelecionado;
-
   static const _combustiveis = [
     ('gasolina', 'Gasolina'),
     ('etanol', 'Etanol'),
@@ -43,145 +40,43 @@ class _MapaScreenState extends State<MapaScreen> {
     ('glp', 'GLP'),
   ];
 
-  @override
-  void didUpdateWidget(MapaScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Centraliza mapa quando posição muda
-    if (oldWidget.lat != widget.lat || oldWidget.lng != widget.lng) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(LatLng(widget.lat, widget.lng)),
-      );
+  Future<void> _abrirMapsExterno(Posto posto) async {
+    // Abre Google Maps com rota até o posto
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1'
+      '&destination=${posto.lat},${posto.lng}'
+      '&destination_place_id=${Uri.encodeComponent(posto.nome)}'
+      '&travelmode=driving',
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
-  Set<Marker> get _markers {
-    final markers = <Marker>{};
-
-    // Marcador do usuário
-    markers.add(
-      Marker(
-        markerId: const MarkerId('user'),
-        position: LatLng(widget.lat, widget.lng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        infoWindow: const InfoWindow(title: 'Você está aqui'),
-        zIndexInt: 10,
-      ),
+  Future<void> _abrirMapaGeral() async {
+    // Abre Google Maps centrado na localização do usuário com todos os postos
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/posto+de+combustível/'
+      '@${widget.lat},${widget.lng},14z',
     );
-
-    // Marcadores dos postos
-    for (final posto in widget.postos) {
-      final preco = posto.precos.getPorTipo(widget.combustivel);
-      markers.add(
-        Marker(
-          markerId: MarkerId(posto.id),
-          position: LatLng(posto.lat, posto.lng),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-          infoWindow: InfoWindow(
-            title: posto.nome,
-            snippet: preco != null ? 'R\$ ${preco.toStringAsFixed(3)}' : 'Sem preço',
-          ),
-          onTap: () {
-            setState(() => _postoSelecionado = posto);
-          },
-        ),
-      );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-    return markers;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.white,
-      body: Stack(
+      backgroundColor: AppTheme.grayBg,
+      body: Column(
         children: [
-          // Google Maps
-          GoogleMap(
-            onMapCreated: (ctrl) => _mapController = ctrl,
-            initialCameraPosition: CameraPosition(
-              target: LatLng(widget.lat, widget.lng),
-              zoom: 14,
-            ),
-            markers: _markers,
-            myLocationEnabled: widget.gpsReal,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            mapToolbarEnabled: false,
-            onTap: (_) => setState(() => _postoSelecionado = null),
-          ),
-
-          // Header com busca e chips
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _buildHeader(context),
-          ),
-
-          // Loading overlay
-          if (widget.carregando)
-            Positioned(
-              bottom: 120,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 12,
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation(AppTheme.orange),
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Obtendo localização GPS...',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          // Card do posto selecionado
-          if (_postoSelecionado != null)
-            Positioned(
-              bottom: 16,
-              left: 16,
-              right: 16,
-              child: _buildPostoCard(_postoSelecionado!),
-            ),
-
-          // Botão de centralizar mapa
-          Positioned(
-            bottom: _postoSelecionado != null ? 160 : 16,
-            right: 16,
-            child: FloatingActionButton.small(
-              backgroundColor: AppTheme.white,
-              foregroundColor: AppTheme.orange,
-              onPressed: () {
-                _mapController?.animateCamera(
-                  CameraUpdate.newLatLng(LatLng(widget.lat, widget.lng)),
-                );
-              },
-              child: const Icon(Icons.my_location),
-            ),
+          _buildHeader(context),
+          Expanded(
+            child: widget.carregando
+                ? _buildLoading()
+                : widget.postos.isEmpty
+                    ? _buildVazio()
+                    : _buildLista(),
           ),
         ],
       ),
@@ -200,7 +95,6 @@ class _MapaScreenState extends State<MapaScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Logo + ícones
           Row(
             children: [
               RichText(
@@ -217,7 +111,7 @@ class _MapaScreenState extends State<MapaScreen> {
                 ),
               ),
               const Spacer(),
-              // GPS indicator
+              // Status GPS
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -245,6 +139,13 @@ class _MapaScreenState extends State<MapaScreen> {
                 ),
               ),
               const SizedBox(width: 8),
+              // Botão abrir mapa geral
+              IconButton(
+                icon: const Icon(Icons.map_outlined),
+                onPressed: _abrirMapaGeral,
+                color: AppTheme.orange,
+                tooltip: 'Abrir no Google Maps',
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: widget.onRefresh,
@@ -289,8 +190,87 @@ class _MapaScreenState extends State<MapaScreen> {
     );
   }
 
-  Widget _buildPostoCard(Posto posto) {
+  Widget _buildLoading() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation(AppTheme.orange),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Obtendo localização GPS...',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.gray,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVazio() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppTheme.orangeLight,
+              borderRadius: BorderRadius.circular(36),
+            ),
+            child: const Icon(Icons.local_gas_station_outlined,
+                size: 36, color: AppTheme.orange),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Nenhum posto encontrado',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.black,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tente aumentar o raio de busca',
+            style: TextStyle(fontSize: 13, color: AppTheme.gray),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: widget.onRefresh,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Tentar novamente'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLista() {
+    // Ordenar por distância
+    final ordenados = List<Posto>.from(widget.postos);
+    ordenados.sort((a, b) => (a.distanciaKm ?? 99).compareTo(b.distanciaKm ?? 99));
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: ordenados.length,
+      itemBuilder: (context, index) {
+        final posto = ordenados[index];
+        return _buildPostoCard(posto, index);
+      },
+    );
+  }
+
+  Widget _buildPostoCard(Posto posto, int index) {
     final preco = posto.precos.getPorTipo(widget.combustivel);
+    final isMelhor = index == 0;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -299,115 +279,204 @@ class _MapaScreenState extends State<MapaScreen> {
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isMelhor ? AppTheme.orange : AppTheme.border,
+            width: isMelhor ? 2 : 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(posto.emojiBandeira, style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    posto.nome,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            if (isMelhor)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                decoration: const BoxDecoration(
+                  color: AppTheme.orange,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(14),
+                    topRight: Radius.circular(14),
                   ),
                 ),
-                if (preco != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.orangeLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'R\$ ${preco.toStringAsFixed(3)}',
-                      style: const TextStyle(
-                        color: AppTheme.orange,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.star, size: 13, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text(
+                      'Melhor opção para você',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(Icons.location_on_outlined, size: 14, color: AppTheme.gray),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    posto.endereco,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.gray),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  ],
                 ),
-                if (posto.distanciaKm != null)
-                  Text(
-                    '${posto.distanciaKm!.toStringAsFixed(1)} km',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.grayDark,
-                    ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(posto.emojiBandeira,
+                          style: const TextStyle(fontSize: 22)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              posto.nome,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: AppTheme.black,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              posto.bandeira,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.gray,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (preco != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.orangeLight,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'R\$ ${preco.toStringAsFixed(3)}',
+                            style: const TextStyle(
+                              color: AppTheme.orange,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: posto.estaAberto ? AppTheme.greenBg : AppTheme.redBg,
-                    borderRadius: BorderRadius.circular(6),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined,
+                          size: 13, color: AppTheme.gray),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          posto.enderecoCompleto,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppTheme.gray),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (posto.distanciaKm != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.grayBg,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${posto.distanciaKm!.toStringAsFixed(1)} km',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.grayDark,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  child: Text(
-                    posto.estaAberto ? 'Aberto' : 'Fechado',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: posto.estaAberto ? AppTheme.greenText : AppTheme.red,
-                    ),
-                  ),
-                ),
-                if (posto.rating != null) ...[
-                  const SizedBox(width: 8),
-                  const Icon(Icons.star, size: 13, color: Colors.amber),
-                  const SizedBox(width: 2),
-                  Text(
-                    posto.rating!.toStringAsFixed(1),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: posto.estaAberto
+                              ? AppTheme.greenBg
+                              : AppTheme.redBg,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          posto.estaAberto ? 'Aberto' : 'Fechado',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: posto.estaAberto
+                                ? AppTheme.greenText
+                                : AppTheme.red,
+                          ),
+                        ),
+                      ),
+                      if (posto.rating != null) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.star, size: 13, color: Colors.amber),
+                        const SizedBox(width: 2),
+                        Text(
+                          posto.rating!.toStringAsFixed(1),
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                      const Spacer(),
+                      // Botão navegação
+                      GestureDetector(
+                        onTap: () => _abrirMapsExterno(posto),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.orange,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.navigation_outlined,
+                                  size: 14, color: Colors.white),
+                              SizedBox(width: 4),
+                              Text(
+                                'Ir agora',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-                const Spacer(),
-                const Text(
-                  'Ver detalhes →',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.orange,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),

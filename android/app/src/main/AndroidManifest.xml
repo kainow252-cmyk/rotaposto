@@ -12,11 +12,6 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="false">
 
-        <!-- Google Maps API Key -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBuPqI-hxHV33dqYbVC2G3LrM5uTCVol-8"/>
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
