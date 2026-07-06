@@ -2216,6 +2216,71 @@ app.get('/manifest.json', (c) => {
 })
 
 // ══════════════════════════════════════════════════════
+//  Service Worker — servido pelo Worker (evita cache Pages)
+// ══════════════════════════════════════════════════════
+app.get('/sw.js', (c) => {
+  const swCode = `// RotaPosto — Service Worker PWA v2.0
+// IMPORTANTE: Nunca cachear páginas HTML dinâmicas (/, /app, /onboarding)
+const CACHE_NAME = 'rotaposto-v2';
+const STATIC_ASSETS = [
+  '/icons/icon-192x192.png',
+  '/icons/icon-512x512.png'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return Promise.allSettled(
+        STATIC_ASSETS.map(url => cache.add(url).catch(() => {}))
+      );
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/') || url.hostname !== self.location.hostname) {
+    return;
+  }
+  const isDynamicPage = ['/', '/app', '/onboarding', '/landing', '/manifest.json'].includes(url.pathname);
+  if (isDynamicPage) {
+    return;
+  }
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        if (event.request.method === 'GET' && response.ok &&
+            (url.pathname.startsWith('/icons/') || url.pathname.startsWith('/static/'))) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
+});`
+
+  return new Response(swCode, {
+    headers: {
+      'Content-Type': 'application/javascript; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Service-Worker-Allowed': '/'
+    }
+  })
+})
+
+// ══════════════════════════════════════════════════════
 //  Página de Privacidade (exigida pelo Facebook e Google)
 // ══════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════
