@@ -3748,6 +3748,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var rua    = perfilExtra['rua']      || '';
     var cidade = perfilExtra['cidade']   || '';
     var estado = perfilExtra['estado']   || '';
+    var cpf    = perfilExtra['cpf']      || localStorage.getItem('rp_cpf') || '';
+    // Formatar CPF salvo para exibição
+    var cpfFmt = cpf.replace(/\D/g,'');
+    if (cpfFmt.length === 11) cpfFmt = cpfFmt.slice(0,3)+'.'+cpfFmt.slice(3,6)+'.'+cpfFmt.slice(6,9)+'-'+cpfFmt.slice(9);
 
     var html = '<div style="text-align:center;margin-bottom:20px;padding:20px 0;">'
       + (foto ? '<img src="' + foto + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:12px;border:3px solid #FF6D00;">'
@@ -3762,6 +3766,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       // Contato e endereço
       + '<div class="st-card">'
       + '<div style="font-size:13px;font-weight:800;color:#1A1A1A;margin-bottom:12px;">📋 Contato &amp; Endereço</div>'
+      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🪪 CPF</label>'
+      + '<input id="mc-cpf" type="tel" inputmode="numeric" value="' + cpfFmt + '" placeholder="000.000.000-00" maxlength="14" oninput="_mascaraCPF(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;letter-spacing:1px;">'
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📱 Celular / WhatsApp</label>'
       + '<input id="mc-telefone" type="tel" value="' + tel + '" placeholder="(11) 99999-9999" maxlength="15" oninput="formatarTelefoneConta(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;">'
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📮 CEP</label>'
@@ -3792,14 +3798,19 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   function salvarContaConta() {
     var u = currentUser || {};
+    var cpf    = ((document.getElementById('mc-cpf')      || {}).value || '').replace(/\D/g,'');
     var tel    = (document.getElementById('mc-telefone') || {}).value || '';
     var cep    = (document.getElementById('mc-cep')      || {}).value || '';
     var rua    = (document.getElementById('mc-rua')      || {}).value || '';
     var cidade = (document.getElementById('mc-cidade')   || {}).value || '';
     var estado = (document.getElementById('mc-estado')   || {}).value || '';
-    var perfil = { telefone: tel, cep: cep, rua: rua, cidade: cidade, estado: estado };
+    // Validar CPF se preenchido
+    if (cpf && cpf.length !== 11) { showToast('CPF inválido — deve ter 11 dígitos.'); return; }
+    var perfil = { cpf: cpf, telefone: tel, cep: cep, rua: rua, cidade: cidade, estado: estado };
     localStorage.setItem('rp_perfil_extra_' + u.uid, JSON.stringify(perfil));
     localStorage.setItem('rp_perfil_completo_' + u.uid, '1');
+    // Salvar CPF também no rp_cpf para acesso rápido
+    if (cpf) localStorage.setItem('rp_cpf', cpf);
     // Enviar dados para o servidor (persiste no KV para o admin ver)
     if (u.uid) {
       fetch('/api/usuario/dados', {
@@ -3809,6 +3820,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
           uid: u.uid,
           nome: u.name || u.displayName || '',
           email: u.email || '',
+          cpf: cpf,
           telefone: tel,
           cep: cep,
           cidade: cidade,
@@ -4437,10 +4449,23 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     showLoading(true);
     try {
+      // SEGURANÇA: buscar CPF sempre do servidor (KV profile:{uid})
+      // Nunca usar currentUser.cpf ou localStorage que podem conter CPF de outro usuário
+      var cpfDoServidor = '';
+      try {
+        var perfilRes = await fetch('/api/usuario/perfil/' + userId);
+        if (perfilRes.ok) {
+          var perfilData = await perfilRes.json();
+          cpfDoServidor = (perfilData && perfilData.cpf) ? perfilData.cpf : '';
+        }
+      } catch (e) {
+        console.warn('[PIX] Nao foi possivel buscar CPF do servidor:', e);
+      }
+
       const body = {
         nome: currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario',
         email: currentUser.email || '',
-        cpf: currentUser.cpf || localStorage.getItem('rp_cpf') || '',
+        cpf: cpfDoServidor,
         plano: planoSelecionado,
         userId: userId
       };
@@ -4545,10 +4570,20 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       if (erroEl) { erroEl.textContent = 'CPF deve ter 11 dígitos.'; erroEl.style.display = 'block'; }
       return;
     }
-    // Salvar CPF no localStorage e no currentUser
-    localStorage.setItem('rp_cpf', cpfLimpo);
-    if (currentUser) currentUser.cpf = cpfLimpo;
-    // Fechar modal e tentar gerar PIX novamente
+    // SEGURANÇA: salvar CPF no servidor (KV) — fonte autoritativa
+    var userId = currentUser && (currentUser.uid || currentUser.id || currentUser.email);
+    if (userId) {
+      try {
+        await fetch('/api/usuario/dados', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: userId, cpf: cpfLimpo })
+        });
+      } catch (e) {
+        console.warn('[CPF] Falha ao salvar CPF no servidor:', e);
+      }
+    }
+    // Fechar modal e tentar gerar PIX novamente (CPF será buscado do servidor)
     var modal = document.getElementById('assin-cpf-modal');
     if (modal) modal.remove();
     await iniciarPagamentoPIX();

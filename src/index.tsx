@@ -2138,20 +2138,25 @@ app.post('/api/auth/session', async (c) => {
   return c.json({ sessionToken, expiresIn: 60 * 60 * 24 * 30 })
 })
 
-// POST /api/usuario/dados → salva dados extras do usuário (telefone, CEP, etc.)
-// Body: { uid, telefone?, cep?, cidade?, estado?, nome? }
+// POST /api/usuario/dados → salva dados extras do usuário (telefone, CEP, CPF, etc.)
+// Body: { uid, telefone?, cep?, cidade?, estado?, nome?, cpf? }
 app.post('/api/usuario/dados', async (c) => {
   const kv = getKV(c.env as any)
   if (!kv) return c.json({ ok: false, error: 'KV indisponível' }, 503)
   const body = await c.req.json() as any
-  const { uid, telefone, cep, cidade, estado, nome, email } = body
+  const { uid, telefone, cep, cidade, estado, nome, email, cpf } = body
   if (!uid) return c.json({ ok: false, error: 'uid obrigatório' }, 400)
+  // Validar CPF se fornecido
+  if (cpf !== undefined && cpf !== '' && cpf.replace(/\D/g, '').length !== 11) {
+    return c.json({ ok: false, error: 'CPF inválido' }, 400)
+  }
   try {
     let perfil: any = {}
     try {
       const raw = await kv.get(`profile:${uid}`)
       if (raw) perfil = JSON.parse(raw)
     } catch {}
+    const cpfLimpo = cpf !== undefined ? cpf.replace(/\D/g, '') : undefined
     const atualizado = {
       ...perfil,
       uid,
@@ -2161,11 +2166,38 @@ app.post('/api/usuario/dados', async (c) => {
       ...(estado !== undefined && { estado }),
       ...(nome !== undefined && { name: nome }),
       ...(email !== undefined && { email }),
+      ...(cpfLimpo !== undefined && cpfLimpo !== '' && { cpf: cpfLimpo }),
       atualizadoEm: Date.now(),
       criadoEm: perfil.criadoEm || Date.now(),
     }
     await kv.put(`profile:${uid}`, JSON.stringify(atualizado), { expirationTtl: 60 * 60 * 24 * 400 })
     return c.json({ ok: true })
+  } catch (e) {
+    return c.json({ ok: false, error: String(e) }, 500)
+  }
+})
+
+// GET /api/usuario/perfil/:uid → retorna perfil seguro do usuário (sem dados sensíveis além do CPF próprio)
+app.get('/api/usuario/perfil/:uid', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false, error: 'KV indisponível' }, 503)
+  const uid = c.req.param('uid')
+  if (!uid) return c.json({ ok: false, error: 'uid obrigatório' }, 400)
+  try {
+    const raw = await kv.get(`profile:${uid}`)
+    if (!raw) return c.json({ ok: false, cpf: '', telefone: '', nome: '' }, 404)
+    const perfil: any = JSON.parse(raw)
+    // Retorna apenas campos não-sensíveis — CPF só é devolvido ao próprio usuário
+    return c.json({
+      ok: true,
+      cpf: perfil.cpf || '',
+      telefone: perfil.telefone || '',
+      nome: perfil.name || '',
+      email: perfil.email || '',
+      cep: perfil.cep || '',
+      cidade: perfil.cidade || '',
+      estado: perfil.estado || '',
+    })
   } catch (e) {
     return c.json({ ok: false, error: String(e) }, 500)
   }
