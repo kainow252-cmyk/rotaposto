@@ -1894,6 +1894,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     <!-- Step 1: Escolher plano -->
     <div id="assin-step1">
+
+      <!-- Banner: já é premium (oculto por padrão, JS exibe quando ativa) -->
+      <div id="assin-banner-ativo" style="display:none;background:linear-gradient(135deg,#1B5E20,#2E7D32);border-radius:16px;padding:16px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="font-size:24px;">👑</span>
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#fff;">Plano Premium Ativo!</div>
+            <div id="assin-banner-expira" style="font-size:12px;color:rgba(255,255,255,0.8);"></div>
+          </div>
+          <span id="assin-banner-plano-badge" style="margin-left:auto;background:rgba(255,255,255,0.15);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;"></span>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.7);border-top:1px solid rgba(255,255,255,0.15);padding-top:8px;">
+          Você pode gerar um novo QR Code abaixo para renovar ou trocar de plano.
+        </div>
+      </div>
+
       <!-- Hero Premium -->
       <div style="background:linear-gradient(135deg,#FF6D00,#FF8F00);border-radius:20px;padding:24px;margin-bottom:16px;text-align:center;">
         <div style="font-size:40px;margin-bottom:8px;">👑</div>
@@ -1950,7 +1966,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       </div>
 
       <!-- Botão assinar -->
-      <button onclick="iniciarPagamentoPIX()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+      <button onclick="iniciarPagamentoPIX()" id="assin-btn-pix" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
         <svg width="22" height="22" viewBox="0 0 512 512" fill="currentColor"><path d="M242.4 292.5C247.8 287.1 255.1 284.1 262.5 284.1C269.9 284.1 277.2 287.1 282.6 292.5L350.2 360.1C355.6 365.5 358.7 372.8 358.7 380.2C358.7 387.6 355.6 394.9 350.2 400.3L282.6 467.9C277.2 473.3 269.9 476.4 262.5 476.4C255.1 476.4 247.8 473.3 242.4 467.9L174.8 400.3C169.4 394.9 166.3 387.6 166.3 380.2C166.3 372.8 169.4 365.5 174.8 360.1L242.4 292.5zM374.7 111.7C380.1 106.3 387.4 103.2 394.8 103.2C402.2 103.2 409.5 106.3 414.9 111.7L482.5 179.3C487.9 184.7 491 192 491 199.4C491 206.8 487.9 214.1 482.5 219.5L414.9 287.1C409.5 292.5 402.2 295.6 394.8 295.6C387.4 295.6 380.1 292.5 374.7 287.1L307.1 219.5C301.7 214.1 298.6 206.8 298.6 199.4C298.6 192 301.7 184.7 307.1 179.3L374.7 111.7zM110.1 111.7C115.5 106.3 122.8 103.2 130.2 103.2C137.6 103.2 144.9 106.3 150.3 111.7L217.9 179.3C223.3 184.7 226.4 192 226.4 199.4C226.4 206.8 223.3 214.1 217.9 219.5L150.3 287.1C144.9 292.5 137.6 295.6 130.2 295.6C122.8 295.6 115.5 292.5 110.1 287.1L42.5 219.5C37.1 214.1 34 206.8 34 199.4C34 192 37.1 184.7 42.5 179.3L110.1 111.7z"/></svg>
         Pagar com PIX
       </button>
@@ -2007,9 +2023,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       <div style="width:80px;height:80px;background:#E8F5E9;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 20px;">🎉</div>
       <h2 style="font-size:22px;font-weight:800;color:#1A1A1A;margin:0 0 8px;">Premium ativado!</h2>
       <p style="font-size:14px;color:#757575;margin:0 0 24px;">Bem-vindo ao RotaPosto Premium!<br/>Aproveite todos os benefícios.</p>
-      <div id="assin-expira-label" style="background:#F1F8E9;border-radius:12px;padding:12px;margin-bottom:24px;font-size:13px;color:#558B2F;font-weight:600;"></div>
-      <button onclick="fecharAssinatura()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;">
+      <div id="assin-expira-label" style="background:#F1F8E9;border-radius:12px;padding:12px;margin-bottom:20px;font-size:13px;color:#558B2F;font-weight:600;"></div>
+      <button onclick="fecharAssinatura()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;">
         Aproveitar o Premium!
+      </button>
+      <button onclick="mostrarStep1()" style="width:100%;padding:14px;background:#F5F5F5;color:#424242;border:none;border-radius:16px;font-size:14px;font-weight:600;cursor:pointer;">
+        Ver planos / Gerar novo PIX
       </button>
     </div>
 
@@ -4309,26 +4328,32 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   let assinaturaSubscriptionId = null;
 
   function goToAssinatura() {
-    // Verificar status atual antes de abrir
+    // Sempre abre Step1 (planos + PIX), mas verifica status para mostrar banner
+    abrirModalAssinatura();
     if (currentUser?.uid) {
       fetch('/api/assinatura/status/' + currentUser.uid)
         .then(r => r.json())
         .then(data => {
           if (data.ativa) {
-            // Já é premium – mostrar step3 direto
-            abrirModalAssinatura();
-            mostrarStep3(data);
+            // Já é premium — mostrar banner de ativo no Step1 e ajustar botão
+            const banner = document.getElementById('assin-banner-ativo');
+            const expiraEl = document.getElementById('assin-banner-expira');
+            const badgeEl = document.getElementById('assin-banner-plano-badge');
+            const btnPix = document.getElementById('assin-btn-pix');
+            if (banner) banner.style.display = 'block';
+            if (expiraEl && data.expiraEm) {
+              const d = new Date(data.expiraEm);
+              expiraEl.textContent = 'Ativo até ' + d.toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
+            }
+            if (badgeEl) badgeEl.textContent = data.plano === 'anual' ? 'ANUAL' : 'MENSAL';
+            if (btnPix) btnPix.textContent = '🔄 Gerar novo PIX (renovar)';
           } else if (data.status === 'PENDING' && data.qrCode) {
-            // Tem pagamento pendente – mostrar QR existente
-            abrirModalAssinatura();
-            mostrarQRCode(data.qrCode, data.brcode, data.subscriptionId, planoSelecionado);
-          } else {
-            abrirModalAssinatura();
+            // Pagamento pendente — mostrar QR existente direto
+            mostrarQRCode(data.qrCode, data.brcode, data.subscriptionId, planoSelecionado || data.plano || 'premium');
           }
+          // else: FREE → Step1 normal sem banner
         })
-        .catch(() => abrirModalAssinatura());
-    } else {
-      abrirModalAssinatura();
+        .catch(() => { /* fica no Step1 normal */ });
     }
   }
 
@@ -4370,7 +4395,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     document.getElementById('assin-step1').style.display = 'block';
     document.getElementById('assin-step2').style.display = 'none';
     document.getElementById('assin-step3').style.display = 'none';
-    selecionarPlano('premium'); // reset
+    selecionarPlano(planoSelecionado || 'premium');
+    // Restaurar texto do botão PIX
+    var btnPix = document.getElementById('assin-btn-pix');
+    if (btnPix) {
+      btnPix.innerHTML = '<svg width="22" height="22" viewBox="0 0 512 512" fill="currentColor"><path d="M242.4 292.5C247.8 287.1 255.1 284.1 262.5 284.1C269.9 284.1 277.2 287.1 282.6 292.5L350.2 360.1C355.6 365.5 358.7 372.8 358.7 380.2C358.7 387.6 355.6 394.9 350.2 400.3L282.6 467.9C277.2 473.3 269.9 476.4 262.5 476.4C255.1 476.4 247.8 473.3 242.4 467.9L174.8 400.3C169.4 394.9 166.3 387.6 166.3 380.2C166.3 372.8 169.4 365.5 174.8 360.1L242.4 292.5zM374.7 111.7C380.1 106.3 387.4 103.2 394.8 103.2C402.2 103.2 409.5 106.3 414.9 111.7L482.5 179.3C487.9 184.7 491 192 491 199.4C491 206.8 487.9 214.1 482.5 219.5L414.9 287.1C409.5 292.5 402.2 295.6 394.8 295.6C387.4 295.6 380.1 292.5 374.7 287.1L307.1 219.5C301.7 214.1 298.6 206.8 298.6 199.4C298.6 192 301.7 184.7 307.1 179.3L374.7 111.7zM110.1 111.7C115.5 106.3 122.8 103.2 130.2 103.2C137.6 103.2 144.9 106.3 150.3 111.7L217.9 179.3C223.3 184.7 226.4 192 226.4 199.4C226.4 206.8 223.3 214.1 217.9 219.5L150.3 287.1C144.9 292.5 137.6 295.6 130.2 295.6C122.8 295.6 115.5 292.5 110.1 287.1L42.5 219.5C37.1 214.1 34 206.8 34 199.4C34 192 37.1 184.7 42.5 179.3L110.1 111.7z"/></svg> Pagar com PIX';
+    }
   }
 
   function voltarStep1() {
