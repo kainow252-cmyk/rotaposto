@@ -298,7 +298,7 @@ export function getParceriasLandingHTML(): string {
       flex-shrink:0;width:100%;
       box-sizing:border-box;
     }
-    .sp-content{flex:1;padding:48px 40px;max-width:860px;margin:0 auto;width:100%;box-sizing:border-box}
+    .sp-content{flex:1;padding:48px 40px;width:100%;box-sizing:border-box}
     .sp-tag{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#FF6D00;margin-bottom:12px}
     .sp-h1{font-size:clamp(28px,4vw,48px);font-weight:900;margin-bottom:16px;line-height:1.1}
     .sp-h1 span{color:#FF6D00}
