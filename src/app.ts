@@ -3792,7 +3792,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<div class="st-card">'
       + '<div style="font-size:13px;font-weight:800;color:#1A1A1A;margin-bottom:12px;">📋 Contato &amp; Endereço</div>'
       + '<label style="font-size:13px;font-weight:700;color:' + (destacarCPF ? '#E65100' : '#555') + ';display:block;margin-bottom:5px;">🪪 CPF' + (destacarCPF ? ' <span style="color:#E65100;font-size:11px;font-weight:600;">(obrigatório para o PIX)</span>' : '') + '</label>'
-      + '<input id="mc-cpf" type="text" inputmode="numeric" value="" data-cpf-salvo="' + cpfRaw + '" placeholder="' + (cpfRaw.length===11 ? cpfRaw.slice(0,3)+'.'+cpfRaw.slice(3,6)+'.'+cpfRaw.slice(6,9)+'-'+cpfRaw.slice(9) : '000.000.000-00') + '" maxlength="14" oninput="_mascaraCPF(this)" style="width:100%;padding:11px;' + cpfBorder + 'font-size:14px;box-sizing:border-box;margin-bottom:4px;font-family:inherit;letter-spacing:1px;">'
+      + '<input id="mc-cpf" type="text" inputmode="numeric" value="" data-cpf-salvo="' + cpfRaw + '" placeholder="' + (cpfRaw.length===11 ? '●●●.●●●.●●●-●● (já salvo)' : 'Digite os 11 números') + '" maxlength="11" oninput="_mascaraCPF(this)" autocomplete="off" style="width:100%;padding:11px;' + cpfBorder + 'font-size:14px;box-sizing:border-box;margin-bottom:4px;font-family:inherit;letter-spacing:2px;">'
       + (destacarCPF ? '<div style="font-size:11px;color:#E65100;margin-bottom:10px;">👆 Preencha e clique em Salvar dados</div>' : '<div style="margin-bottom:8px;"></div>')
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📱 Celular / WhatsApp</label>'
       + '<input id="mc-telefone" type="tel" value="' + tel + '" placeholder="(11) 99999-9999" maxlength="15" oninput="formatarTelefoneConta(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;">'
@@ -4540,16 +4540,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
   }
 
-  // Máscara CPF global — sempre parte dos dígitos puros, cursor sempre no final
+  // Máscara CPF global — só dígitos, sem formatação durante digitação
   window._mascaraCPF = function(el) {
     var v = el.value.replace(/\D/g, '').slice(0, 11);
-    var r = v;
-    if (v.length > 9)      r = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
-    else if (v.length > 6) r = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6);
-    else if (v.length > 3) r = v.slice(0,3) + '.' + v.slice(3);
-    el.value = r;
-    // Cursor sempre ao final — evita bug de reposicionamento em type="tel" mobile
-    try { el.setSelectionRange(r.length, r.length); } catch(e) {}
+    el.value = v;
+    try { el.setSelectionRange(v.length, v.length); } catch(e) {}
   };
 
   // Preço médio dos postos carregados (ou fallback ANP nacional)
