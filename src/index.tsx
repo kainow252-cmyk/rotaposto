@@ -8586,12 +8586,6 @@ app.get('/admin', (c) => {
             <input id="ep-cnpj" type="text" placeholder="00.000.000/0001-00"/>
           </div>
           <div class="form-group">
-            <label>Plano</label>
-            <select id="ep-plano" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
-              <option value="">Carregando planos...</option>
-            </select>
-          </div>
-          <div class="form-group">
             <label>Status</label>
             <select id="ep-status" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
               <option value="ativo">Ativo</option>
@@ -8599,6 +8593,34 @@ app.get('/admin', (c) => {
               <option value="suspenso">Suspenso</option>
               <option value="cancelado">Cancelado</option>
             </select>
+          </div>
+        </div>
+
+        <!-- ══ PLANO DA EMPRESA ══ -->
+        <div style="font-size:10px;font-weight:900;color:#FFD600;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">
+          <i class="fas fa-crown" style="margin-right:6px"></i>Plano da Empresa
+        </div>
+        <div style="background:rgba(255,214,0,0.04);border:1.5px solid rgba(255,214,0,0.18);border-radius:14px;padding:16px;margin-bottom:16px">
+
+          <!-- Select de plano + botão gerenciar -->
+          <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px">
+            <div style="flex:1">
+              <label style="font-size:11px;color:rgba(255,255,255,0.45);font-weight:700;display:block;margin-bottom:6px">Plano Contratado</label>
+              <select id="ep-plano" onchange="epAtualizarPreviewPlano()" style="width:100%;background:#0A1520;border:1.5px solid rgba(255,214,0,0.3);border-radius:10px;padding:11px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:700;outline:none">
+                <option value="">Carregando planos...</option>
+              </select>
+            </div>
+            <button onclick="irParaGerenciarPlanos()" title="Criar ou editar planos" style="background:rgba(255,214,0,0.12);color:#FFD600;border:1px solid rgba(255,214,0,0.3);border-radius:10px;padding:11px 14px;cursor:pointer;font-size:11px;font-weight:800;white-space:nowrap;flex-shrink:0">
+              <i class="fas fa-cog"></i> Gerenciar Planos
+            </button>
+          </div>
+
+          <!-- Preview visual do plano selecionado -->
+          <div id="ep-plano-preview" style="display:none">
+            <!-- preenchido por epAtualizarPreviewPlano() -->
+          </div>
+          <div id="ep-plano-vazio" style="color:rgba(255,255,255,0.25);font-size:12px;text-align:center;padding:12px 0;font-style:italic">
+            Selecione um plano para ver os benefícios incluídos
           </div>
         </div>
 
@@ -8631,22 +8653,11 @@ app.get('/admin', (c) => {
           </div>
         </div>
 
-        <!-- Flags -->
-        <div style="font-size:10px;font-weight:900;color:#FF6D00;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Configurações</div>
-        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:22px;padding:14px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.07)">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7)">
-            <input id="ep-seloVerificado" type="checkbox" style="accent-color:#FF6D00;width:16px;height:16px"/> Selo Verificado ✅
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7)">
-            <input id="ep-pinDourado" type="checkbox" style="accent-color:#FFD600;width:16px;height:16px"/> Pin Dourado 📍
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7)">
-            <input id="ep-topoLista" type="checkbox" style="accent-color:#42A5F5;width:16px;height:16px"/> Topo da Lista 🔝
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7)">
-            <input id="ep-cuponsAtivos" type="checkbox" style="accent-color:#00C853;width:16px;height:16px"/> Cupons Ativos 🎟️
-          </label>
-        </div>
+        <!-- Flags ocultas (mantidas para compatibilidade, controladas pelo plano) -->
+        <input id="ep-seloVerificado" type="checkbox" style="display:none"/>
+        <input id="ep-pinDourado"     type="checkbox" style="display:none"/>
+        <input id="ep-topoLista"      type="checkbox" style="display:none"/>
+        <input id="ep-cuponsAtivos"   type="checkbox" style="display:none"/>
 
         <!-- ── Área do convite gerado ── -->
         <div id="ep-convite-area" style="display:none;background:rgba(0,200,83,0.07);border:1.5px solid rgba(0,200,83,0.25);border-radius:12px;padding:16px;margin-bottom:4px">
@@ -9631,6 +9642,116 @@ async function popularSelectPlanosModal(planoAtual) {
   }
   if (planoAtual) sel.value = planoAtual;
   if (!sel.value && sel.options.length) sel.value = sel.options[0].value;
+  // Atualiza preview logo após popular
+  epAtualizarPreviewPlano();
+}
+
+// Atualiza o preview visual de benefícios ao trocar o plano no modal do posto
+function epAtualizarPreviewPlano() {
+  const sel     = document.getElementById('ep-plano');
+  const preview = document.getElementById('ep-plano-preview');
+  const vazio   = document.getElementById('ep-plano-vazio');
+  if (!sel || !preview || !vazio) return;
+
+  const planoId = sel.value;
+  const plano   = (_planosData || []).find(x => x.id === planoId);
+
+  if (!plano) {
+    preview.style.display = 'none';
+    vazio.style.display   = 'block';
+    return;
+  }
+
+  vazio.style.display   = 'none';
+  preview.style.display = 'block';
+
+  const cor        = plano.cor || '#FF6D00';
+  const beneficios = Array.isArray(plano.beneficios) ? plano.beneficios : [];
+  const features   = Array.isArray(plano.features)   ? plano.features   : [];
+  const valorFmt   = plano.valor === 0 ? 'Grátis' : 'R$ ' + (plano.valor / 100).toFixed(2).replace('.', ',');
+  const cicloLabel = { forever:'para sempre', monthly:'/mês', yearly:'/ano', trial:'período de teste' };
+  const cicloFmt   = cicloLabel[plano.ciclo] || plano.ciclo;
+
+  // Badge de período
+  let periodoBadge = '';
+  if (plano.ciclo === 'trial' && plano.diasTeste > 0) {
+    periodoBadge = '<span style="background:rgba(255,214,0,0.15);color:#FFD600;border:1px solid rgba(255,214,0,0.3);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800">⏱️ ' + plano.diasTeste + ' dias de teste</span>';
+  } else if (plano.ciclo === 'forever') {
+    periodoBadge = '<span style="background:rgba(0,200,83,0.12);color:#00C853;border:1px solid rgba(0,200,83,0.25);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800">♾️ Para sempre</span>';
+  } else if (plano.valor > 0) {
+    periodoBadge = '<span style="background:rgba(66,165,245,0.1);color:#42A5F5;border:1px solid rgba(66,165,245,0.2);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800">💳 ' + cicloFmt + '</span>';
+  }
+
+  // Benefícios fixos do plano
+  const bAtivos = BENEFICIOS_POSTO.filter(b => beneficios.includes(b.id));
+  const bHTML = bAtivos.length > 0
+    ? bAtivos.map(b =>
+        '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:rgba(255,255,255,0.8)">'
+        + '<i class="' + b.icon + '" style="color:' + cor + ';width:14px;text-align:center;font-size:11px;flex-shrink:0"></i>'
+        + '<span>' + b.label + '</span>'
+        + '</div>'
+      ).join('')
+    : '';
+
+  // Features extras (legado)
+  const fAtivos = features.filter(f => f.incluido);
+  const fHTML = fAtivos.length > 0
+    ? fAtivos.map(f =>
+        '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:rgba(255,255,255,0.65)">'
+        + '<i class="fas fa-check" style="color:' + cor + ';width:14px;text-align:center;font-size:10px;flex-shrink:0"></i>'
+        + '<span>' + f.texto + '</span>'
+        + '</div>'
+      ).join('')
+    : '';
+
+  const totalBeneficios = bAtivos.length + fAtivos.length;
+
+  preview.innerHTML =
+    // Cabeçalho do plano
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">'
+    + '<div style="display:flex;align-items:center;gap:10px">'
+    +   '<div style="font-size:28px;line-height:1">' + (plano.emoji || '📦') + '</div>'
+    +   '<div>'
+    +     '<div style="font-size:14px;font-weight:900;color:#fff">' + plano.nome + '</div>'
+    +     '<div style="font-size:18px;font-weight:900;color:' + cor + ';line-height:1.2">' + valorFmt
+    +       (plano.valor > 0 ? '<span style="font-size:11px;color:rgba(255,255,255,0.35)"> ' + cicloFmt + '</span>' : '')
+    +     '</div>'
+    +   '</div>'
+    + '</div>'
+    + periodoBadge
+    + '</div>'
+    // Benefícios
+    + (totalBeneficios > 0
+      ? '<div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:12px">'
+        + '<div style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Benefícios incluídos</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' + bHTML + fHTML + '</div>'
+        + '</div>'
+      : '<div style="color:rgba(255,255,255,0.25);font-size:11px;font-style:italic;text-align:center;padding:8px">Nenhum benefício configurado neste plano</div>'
+    )
+    // Botão editar plano
+    + '<div style="margin-top:10px;text-align:right">'
+    + '<button onclick="irParaEditarPlano(\'' + plano.id + '\')" style="background:rgba(255,214,0,0.1);color:#FFD600;border:1px solid rgba(255,214,0,0.25);border-radius:8px;padding:5px 12px;font-size:10px;font-weight:800;cursor:pointer">'
+    + '<i class="fas fa-pen"></i> Editar este plano</button>'
+    + '</div>';
+}
+
+// Navega para a aba de Produtos & Planos e fecha o modal do posto
+function irParaGerenciarPlanos() {
+  fecharModalParceiro();
+  setTimeout(() => {
+    const navBtn = document.getElementById('nav-planos');
+    if (navBtn) navBtn.click();
+  }, 150);
+}
+
+// Navega para Produtos & Planos e abre o modal de edição do plano específico
+function irParaEditarPlano(planoId) {
+  fecharModalParceiro();
+  setTimeout(() => {
+    const navBtn = document.getElementById('nav-planos');
+    if (navBtn) navBtn.click();
+    setTimeout(() => { abrirModalEditarPlano(planoId); }, 400);
+  }, 150);
 }
 
 function abrirModalEditarParceiro(id) {
@@ -9683,6 +9804,12 @@ async function salvarParceiroModal() {
   const fv = (id) => document.getElementById(id).value.trim();
   const fn = (id) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? 0 : v; };
 
+  // Derivar flags de configuração a partir dos benefícios do plano selecionado
+  const planoSel   = document.getElementById('ep-plano').value;
+  const planoObj   = (_planosData || []).find(x => x.id === planoSel);
+  const bPlano     = Array.isArray(planoObj?.beneficios) ? planoObj.beneficios : [];
+  const temBeneficio = (id) => bPlano.includes(id);
+
   const body = {
     nomePosto:        fv('ep-nomePosto'),
     email:            fv('ep-email'),
@@ -9693,12 +9820,14 @@ async function salvarParceiroModal() {
     bairro:           fv('ep-bairro'),
     bandeira:         fv('ep-bandeira'),
     cnpj:             fv('ep-cnpj'),
-    plano:            document.getElementById('ep-plano').value,
+    plano:            planoSel,
     status:           document.getElementById('ep-status').value,
-    seloVerificado:   document.getElementById('ep-seloVerificado').checked,
-    pinDourado:       document.getElementById('ep-pinDourado').checked,
-    topoLista:        document.getElementById('ep-topoLista').checked,
-    cuponsAtivos:     document.getElementById('ep-cuponsAtivos').checked,
+    // Flags derivadas automaticamente dos benefícios do plano
+    seloVerificado:   temBeneficio('selo_verificado'),
+    pinDourado:       temBeneficio('pin_dourado'),
+    topoLista:        temBeneficio('topo_lista'),
+    cuponsAtivos:     temBeneficio('cupons_ativos'),
+    notificacoesAtivas: temBeneficio('notificacoes'),
     precos: {
       gasolina:          fn('ep-preco-gasolina'),
       gasolinaAditivada: fn('ep-preco-gasolinaAditivada'),
@@ -9733,17 +9862,22 @@ async function gerarConviteParceiro() {
     // 1. Salvar o posto automaticamente antes de gerar o convite
     const fv = (id) => (document.getElementById(id)||{value:''}).value.trim();
     const fn = (id) => { const v = parseFloat((document.getElementById(id)||{value:'0'}).value); return isNaN(v) ? 0 : v; };
+    const planoSel2  = (document.getElementById('ep-plano')||{value:''}).value;
+    const planoObj2  = (_planosData || []).find(x => x.id === planoSel2);
+    const bPlano2    = Array.isArray(planoObj2?.beneficios) ? planoObj2.beneficios : [];
+    const tem2 = (id) => bPlano2.includes(id);
     const body = {
       nomePosto: fv('ep-nomePosto'), email: fv('ep-email'), tel: fv('ep-tel'),
       telTelemarketing: fv('ep-telTelemarketing'), cidade: fv('ep-cidade'),
       estado: (document.getElementById('ep-estado')||{value:''}).value,
       bairro: fv('ep-bairro'), bandeira: fv('ep-bandeira'), cnpj: fv('ep-cnpj'),
-      plano: (document.getElementById('ep-plano')||{value:'visibilidade'}).value,
+      plano:  planoSel2,
       status: (document.getElementById('ep-status')||{value:'ativo'}).value,
-      seloVerificado: (document.getElementById('ep-seloVerificado')||{checked:false}).checked,
-      pinDourado: (document.getElementById('ep-pinDourado')||{checked:false}).checked,
-      topoLista: (document.getElementById('ep-topoLista')||{checked:false}).checked,
-      cuponsAtivos: (document.getElementById('ep-cuponsAtivos')||{checked:false}).checked,
+      seloVerificado:    tem2('selo_verificado'),
+      pinDourado:        tem2('pin_dourado'),
+      topoLista:         tem2('topo_lista'),
+      cuponsAtivos:      tem2('cupons_ativos'),
+      notificacoesAtivas: tem2('notificacoes'),
       precos: {
         gasolina: fn('ep-preco-gasolina'), gasolinaAditivada: fn('ep-preco-gasolinaAditivada'),
         etanol: fn('ep-preco-etanol'), diesel: fn('ep-preco-diesel'),
