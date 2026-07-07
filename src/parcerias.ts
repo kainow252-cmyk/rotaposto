@@ -1088,6 +1088,49 @@ export function getPainelEmpresaHTML(): string {
 
     .page-content { padding:28px; flex:1; }
 
+    /* ── BANNER INADIMPLÊNCIA POSTO ── */
+    #banner-inadimplencia-posto {
+      display:none; position:fixed; top:0; left:0; right:0; z-index:9990;
+      background:linear-gradient(90deg,#b71c1c,#d32f2f);
+      padding:12px 20px; box-shadow:0 4px 20px rgba(0,0,0,0.35);
+      display:none; align-items:center; gap:12px; flex-wrap:wrap;
+    }
+    #banner-inadimplencia-posto .bip-texto {
+      flex:1; color:#fff; font-size:13px; font-weight:700; line-height:1.4;
+    }
+    #banner-inadimplencia-posto .bip-btn {
+      background:#fff; color:#b71c1c; border:none; padding:8px 18px;
+      border-radius:10px; font-weight:900; font-size:13px; cursor:pointer;
+      flex-shrink:0; white-space:nowrap; transition:opacity .15s;
+    }
+    #banner-inadimplencia-posto .bip-btn:hover { opacity:0.85; }
+    #banner-inadimplencia-posto .bip-fechar {
+      background:rgba(255,255,255,0.15); border:none; color:#fff;
+      width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:14px;
+      flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    }
+    /* Empurrar main para baixo quando banner estiver visível */
+    body.inadimplente-posto .main { padding-top:48px; }
+    body.inadimplente-posto .sidebar { top:48px; }
+    body.inadimplente-posto .topbar { top:48px; }
+
+    /* ── MODAL PIX POSTO ── */
+    #pix-posto-overlay {
+      display:none; position:fixed; inset:0; z-index:10000;
+      background:rgba(0,0,0,0.65); align-items:flex-end; justify-content:center;
+    }
+    #pix-posto-overlay.visivel { display:flex; }
+    #pix-posto-modal {
+      background:#fff; border-radius:24px 24px 0 0; width:100%; max-width:480px;
+      padding:28px 24px 32px; max-height:90vh; overflow-y:auto;
+    }
+    #pix-posto-modal .ppm-titulo {
+      font-size:18px; font-weight:900; margin-bottom:4px; color:#1A1A1A;
+    }
+    #pix-posto-modal .ppm-sub {
+      font-size:13px; color:#757575; margin-bottom:20px;
+    }
+
     /* ── INPUT REUTILIZÁVEL (perfil, promoções, etc.) ── */
     .login-input { width:100%; padding:13px 14px; border:1.5px solid var(--border); border-radius:12px; font-size:15px; margin-bottom:14px; font-family:'Inter',sans-serif; transition:border-color .2s; }
     .login-input:focus { outline:none; border-color:var(--laranja); }
@@ -1361,6 +1404,32 @@ export function getPainelEmpresaHTML(): string {
 
   <!-- MAIN -->
   <main class="main">
+
+    <!-- Banner inadimplência posto -->
+    <div id="banner-inadimplencia-posto">
+      <div class="bip-texto">
+        ⚠️ <strong>Assinatura vencida</strong> — seu plano foi rebaixado para Gratuito.<br>
+        <span style="font-weight:500;font-size:12px">Gere um novo PIX para reativar seu plano.</span>
+      </div>
+      <button class="bip-btn" onclick="abrirPIXRenovacaoPosto()">💳 Renovar agora</button>
+      <button class="bip-fechar" onclick="fecharBannerInadimplenciaPosto()" title="Fechar">✕</button>
+    </div>
+
+    <!-- Modal PIX Posto (renovação) -->
+    <div id="pix-posto-overlay" onclick="if(event.target===this)fecharModalPixPosto()">
+      <div id="pix-posto-modal">
+        <div class="ppm-titulo">💳 Renovar Plano do Posto</div>
+        <div class="ppm-sub" id="ppm-sub-texto">Gere um PIX para reativar seu plano.</div>
+        <div id="ppm-conteudo">
+          <div style="text-align:center;padding:32px 0;color:#999">
+            <i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:12px;display:block"></i>
+            Carregando...
+          </div>
+        </div>
+        <button onclick="fecharModalPixPosto()" style="margin-top:16px;width:100%;padding:13px;background:#F5F5F5;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;color:#555">Fechar</button>
+      </div>
+    </div>
+
     <div class="topbar">
       <div style="display:flex;align-items:center;gap:12px">
         <button class="btn-menu-mobile" onclick="abrirSidebar()"><i class="fas fa-bars"></i></button>
@@ -1926,6 +1995,8 @@ function mostrarPainel() {
   const cargo = ((_sessao && _sessao.cargo) || 'gerente').toLowerCase();
   const paginaInicial = cargo === 'frentista' ? 'validar' : 'dashboard';
   irPara(paginaInicial);
+  // Verificar inadimplência PIX (assíncrono, não bloqueia)
+  verificarInadimplenciaPosto();
 }
 
 // ── Logout ─────────────────────────────────────────────
@@ -2650,6 +2721,175 @@ async function removerFuncionario(funcId) {
     if (d.ok) { carregarEquipe(); }
     else { alert(d.erro || 'Erro ao remover funcionário.'); }
   } catch(e) { alert('Erro de conexão.'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── PIX RECORRENTE — INADIMPLÊNCIA DO POSTO ────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _postoInadimplente = false;
+
+// Verifica status da assinatura PIX do posto e exibe banner se inadimplente
+async function verificarInadimplenciaPosto() {
+  if (!_sessao || !_sessao.postoId) return;
+  try {
+    const r = await fetch('/api/pix/posto/status/' + _sessao.postoId, {
+      headers: { 'Authorization': 'Bearer ' + _sessao.token }
+    });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.avisoInadimplencia || d.status === 'EXPIRED') {
+      _postoInadimplente = true;
+      _mostrarBannerInadimplenciaPosto();
+    }
+  } catch(e) {
+    // Silencioso — não bloquear carregamento do painel
+  }
+}
+
+function _mostrarBannerInadimplenciaPosto() {
+  const banner = document.getElementById('banner-inadimplencia-posto');
+  if (banner) {
+    banner.style.display = 'flex';
+    document.body.classList.add('inadimplente-posto');
+  }
+}
+
+function fecharBannerInadimplenciaPosto() {
+  const banner = document.getElementById('banner-inadimplencia-posto');
+  if (banner) banner.style.display = 'none';
+  document.body.classList.remove('inadimplente-posto');
+}
+
+// Abre modal PIX para renovação do plano do posto
+async function abrirPIXRenovacaoPosto() {
+  const overlay  = document.getElementById('pix-posto-overlay');
+  const conteudo = document.getElementById('ppm-conteudo');
+  const subTexto = document.getElementById('ppm-sub-texto');
+  if (!overlay || !conteudo) return;
+
+  // Mostrar modal com loading
+  overlay.classList.add('visivel');
+  conteudo.innerHTML = '<div style="text-align:center;padding:32px 0;color:#999"><i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:12px;display:block"></i>Gerando PIX...</div>';
+
+  try {
+    const r = await fetch('/api/pix/posto/renovar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_sessao?.token || '') },
+      body: JSON.stringify({ postoId: _sessao?.postoId })
+    });
+    const d = await r.json();
+
+    if (d.sucesso) {
+      subTexto.textContent = 'Escaneie o QR Code ou copie o código PIX para renovar seu plano.';
+      _exibirQRPosto(d);
+    } else {
+      conteudo.innerHTML = '<div style="text-align:center;padding:24px">'
+        + '<div style="font-size:32px;margin-bottom:12px">❌</div>'
+        + '<p style="color:#d32f2f;font-weight:700;margin-bottom:8px">' + (d.erro || 'Erro ao gerar PIX') + '</p>'
+        + '<button onclick="abrirPIXRenovacaoPosto()" style="margin-top:8px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Tentar novamente</button>'
+        + '</div>';
+    }
+  } catch(e) {
+    conteudo.innerHTML = '<div style="text-align:center;padding:24px">'
+      + '<p style="color:#d32f2f;font-weight:700">Erro de rede. Tente novamente.</p>'
+      + '<button onclick="abrirPIXRenovacaoPosto()" style="margin-top:12px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Tentar novamente</button>'
+      + '</div>';
+  }
+}
+
+function _exibirQRPosto(data) {
+  const conteudo = document.getElementById('ppm-conteudo');
+  if (!conteudo) return;
+
+  const valorFmt = data.valor ? 'R$ ' + (data.valor / 100).toFixed(2).replace('.', ',') : '';
+  const planoFmt = { posto_basico: 'Plano Básico', posto_premium: 'Plano Premium', posto_profissional: 'Plano Profissional' }[data.plano] || data.plano || 'Plano';
+
+  conteudo.innerHTML = '<div style="text-align:center">'
+    + (data.demo ? '<div style="background:#FFF8E1;border:1px solid #FFD54F;border-radius:10px;padding:8px 14px;font-size:12px;color:#E65100;font-weight:700;margin-bottom:16px">⚠️ Modo demonstração — PIX não é real</div>' : '')
+    + '<div style="background:#F5F5F5;border-radius:14px;padding:16px;margin-bottom:16px;display:inline-block">'
+    +   '<canvas id="qr-canvas-posto" style="display:block;margin:0 auto"></canvas>'
+    + '</div>'
+    + '<div style="font-size:15px;font-weight:800;margin-bottom:4px">' + planoFmt + '</div>'
+    + (valorFmt ? '<div style="font-size:22px;font-weight:900;color:#FF6D00;margin-bottom:16px">' + valorFmt + '/mês</div>' : '')
+    + '<div style="background:#F9F9F9;border-radius:12px;border:1.5px solid #E0E0E0;padding:12px;margin-bottom:16px;word-break:break-all;font-size:11px;color:#555;font-family:monospace;max-height:80px;overflow:hidden;cursor:pointer" id="brcode-posto-txt" onclick="_copiarBrcodePosto()">'
+    + (data.brcode || '') + '</div>'
+    + '<button onclick="_copiarBrcodePosto()" style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:900;cursor:pointer;margin-bottom:10px">'
+    +   '<i class="fas fa-copy"></i> Copiar código PIX'
+    + '</button>'
+    + '<p style="font-size:12px;color:#999;margin-top:4px">Após o pagamento, o plano é reativado automaticamente.</p>'
+    + '</div>';
+
+  // Gerar QR Code
+  if (data.qrCode || data.brcode) {
+    try {
+      QRCode.toCanvas(document.getElementById('qr-canvas-posto'), data.qrCode || data.brcode, { width: 180, margin: 1 }, function(err) {
+        if (err) document.getElementById('qr-canvas-posto').style.display = 'none';
+      });
+    } catch(e) {
+      document.getElementById('qr-canvas-posto').style.display = 'none';
+    }
+  }
+
+  // Polling de verificação de pagamento (a cada 5s por 3 minutos)
+  if (data.txid) {
+    _iniciarPollingPixPosto(data.txid);
+  }
+}
+
+function _copiarBrcodePosto() {
+  const el = document.getElementById('brcode-posto-txt');
+  if (!el) return;
+  const txt = el.textContent.trim();
+  navigator.clipboard.writeText(txt).then(() => {
+    el.style.borderColor = '#00C853';
+    el.style.color = '#00C853';
+    setTimeout(() => { el.style.borderColor = '#E0E0E0'; el.style.color = '#555'; }, 2000);
+  }).catch(() => { alert('Código PIX: ' + txt); });
+}
+
+let _pollingPixPosto = null;
+function _iniciarPollingPixPosto(txid) {
+  let tentativas = 0;
+  _pollingPixPosto = setInterval(async function() {
+    tentativas++;
+    if (tentativas > 36) { clearInterval(_pollingPixPosto); return; } // 3 min
+    try {
+      const r = await fetch('/api/pix/verificar/' + txid);
+      const d = await r.json();
+      if (d.pago) {
+        clearInterval(_pollingPixPosto);
+        _postoInadimplente = false;
+        fecharBannerInadimplenciaPosto();
+        fecharModalPixPosto();
+        // Atualizar plano na sidebar
+        await _recarregarPlanoSessao();
+        alert('✅ Pagamento confirmado! Seu plano foi reativado.');
+      }
+    } catch(e) {}
+  }, 5000);
+}
+
+async function _recarregarPlanoSessao() {
+  try {
+    const r = await fetch('/api/pix/posto/status/' + _sessao.postoId, {
+      headers: { 'Authorization': 'Bearer ' + _sessao.token }
+    });
+    const d = await r.json();
+    if (d.plano && d.plano !== _sessao.plano) {
+      _sessao.plano = d.plano;
+      localStorage.setItem('rp_empresa_sessao', JSON.stringify(_sessao));
+      const planoLabel = { posto_gratis:'Gratuito', posto_basico:'Plano Básico', posto_premium:'Plano Premium', posto_profissional:'Plano Profissional' };
+      const el = document.getElementById('sb-posto-plano');
+      if (el) el.textContent = '⭐ ' + (planoLabel[d.plano] || d.plano);
+    }
+  } catch(e) {}
+}
+
+function fecharModalPixPosto() {
+  const overlay = document.getElementById('pix-posto-overlay');
+  if (overlay) overlay.classList.remove('visivel');
+  if (_pollingPixPosto) { clearInterval(_pollingPixPosto); _pollingPixPosto = null; }
 }
 </script>
 </body>

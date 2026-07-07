@@ -1439,9 +1439,11 @@ app.get('/api/assinatura/status/:userId', async (c) => {
     ativadaEm: assinatura.ativadaEm,
     pagamentos: assinatura.pagamentos || 0,
     proximoPagamento: assinatura.proximoPagamento,
-    // Se pendente, retornar QR para o usuário pagar
-    qrCode: assinatura.status === 'PENDING' ? assinatura.qrCode : null,
-    brcode: assinatura.status === 'PENDING' ? assinatura.brcode : null,
+    avisoInadimplencia: assinatura.avisoInadimplencia || false,
+    inadimplenciaEm: assinatura.inadimplenciaEm || null,
+    // QR Code: retornar se PENDING ou se inadimplente (para renovação)
+    qrCode: (assinatura.status === 'PENDING' || assinatura.avisoInadimplencia) ? assinatura.qrCode : null,
+    brcode: (assinatura.status === 'PENDING' || assinatura.avisoInadimplencia) ? assinatura.brcode : null,
     subscriptionId: assinatura.status === 'PENDING' ? assinatura.subscriptionId : null
   })
 })
@@ -1492,7 +1494,79 @@ app.post('/api/pix/gerar-manual', async (c) => {
 app.get('/api/pix/verificar/:txid', async (c) => {
   const txid = c.req.param('txid')
   const pago = await verificarPagamento(c.env as any, txid)
+  // Se pago, limpar aviso de inadimplência do usuário pelo correlationID
+  if (pago) {
+    const kv = getKV(c.env)
+    if (kv) {
+      const userId = await kvGetUserBySubId(kv, txid)
+      if (userId) {
+        const assin = await kvGetAssinatura(kv, userId)
+        if (assin) {
+          assin.avisoInadimplencia = false
+          await kvSetAssinatura(kv, assin)
+        }
+      }
+    }
+  }
   return c.json({ pago, txid })
+})
+
+// ─── API: PIX Renovação Manual — gera novo QR para assinante inadimplente ────
+// Usado quando a cobrança recorrente falhou e o usuário quer pagar manualmente
+app.post('/api/pix/renovar', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const { userId, nome, email, cpf } = body
+    if (!userId) return c.json({ sucesso: false, mensagem: 'userId obrigatório' }, 400)
+
+    const kv = getKV(c.env)
+    if (!kv) return c.json({ sucesso: false, mensagem: 'Serviço indisponível' }, 500)
+
+    const assin = await kvGetAssinatura(kv, userId)
+    if (!assin) return c.json({ sucesso: false, mensagem: 'Nenhuma assinatura encontrada' }, 404)
+
+    // Só permite renovar se está EXPIRED ou PENDING (não ACTIVE)
+    if (assin.status === 'ACTIVE') {
+      return c.json({ sucesso: false, mensagem: 'Sua assinatura já está ativa!', jaAtiva: true })
+    }
+
+    const planoId = assin.plano && assin.plano !== 'free' ? assin.plano : 'premium'
+    const cpfFinal = (cpf || assin.cpf || '').replace(/\D/g, '')
+    if (cpfFinal.length !== 11) {
+      return c.json({ sucesso: false, mensagem: 'CPF obrigatório para gerar PIX', precisaCPF: true }, 400)
+    }
+    const nomeFinal = nome || assin.nome || 'Usuário RotaPosto'
+    const emailFinal = email || assin.email || `user-${userId.slice(-8)}@rotaposto.app`
+
+    const resultado = await criarAssinaturaPIX(c.env as any, nomeFinal, emailFinal, cpfFinal, planoId)
+    if (!resultado.sucesso) {
+      return c.json({ sucesso: false, mensagem: resultado.error || 'Erro ao gerar PIX' }, 500)
+    }
+
+    // Atualizar KV: status PENDING, novo QR, manter aviso até pagar
+    assin.status = 'PENDING'
+    assin.qrCode = resultado.qrCode
+    assin.brcode = resultado.brcode
+    assin.subscriptionId = resultado.subscriptionId
+    assin.plano = planoId
+    assin.cpf = cpfFinal
+    await kvSetAssinatura(kv, assin)
+
+    return c.json({
+      sucesso: true,
+      qrCode: resultado.qrCode,
+      brcode: resultado.brcode,
+      subscriptionId: resultado.subscriptionId,
+      txid: resultado.chargeId, // Para polling de verificação
+      plano: planoId,
+      valor: PLANOS[planoId]?.valor ?? 990,
+      demo: resultado.demo || false,
+      mensagem: 'Novo QR Code gerado! Pague para reativar seu plano.'
+    })
+  } catch (e: any) {
+    console.error('[PIX renovar]', e)
+    return c.json({ sucesso: false, mensagem: 'Erro ao gerar PIX de renovação' }, 500)
+  }
 })
 
 // ─── API: SOS — Guinchos, Borracheiros e Mecânicas próximos ─────────────────
@@ -1747,7 +1821,37 @@ app.post('/api/pix/webhook', async (c) => {
     }
 
     if (status === 'PAGO') {
-      // Buscar userId pelo subscriptionId
+      const agora = Date.now()
+
+      // ── Verificar se é pagamento de POSTO ──────────────────────────────────
+      const postoId = await kv.get(`sub:posto:${subscriptionId}`) ||
+                      await kv.get(`sub:posto:${correlationID}`)
+      if (postoId) {
+        const assinPosto = await kvGetAssinaturaPostoPix(kv, postoId)
+        if (assinPosto) {
+          const cicloMs = 30 * 24 * 3600 * 1000 // postos são sempre mensais
+          const baseExpira = (assinPosto.expiraEm && assinPosto.expiraEm > agora) ? assinPosto.expiraEm : agora
+          assinPosto.status = 'ACTIVE'
+          assinPosto.ativadaEm = assinPosto.ativadaEm || agora
+          assinPosto.expiraEm = baseExpira + cicloMs
+          assinPosto.proximoPagamento = assinPosto.expiraEm
+          assinPosto.pagamentos = (assinPosto.pagamentos || 0) + 1
+          assinPosto.avisoInadimplencia = false
+          assinPosto.qrCode = undefined
+          assinPosto.brcode = undefined
+          await kvSetAssinaturaPostoPix(kv, postoId, assinPosto)
+          // Garantir que o plano do posto está correto no cadastro
+          const parceiro = await kvGetParceiro(kv, postoId, undefined)
+          if (parceiro && (parceiro as any).plano !== assinPosto.plano) {
+            (parceiro as any).plano = assinPosto.plano
+            await kvSetParceiro(kv, postoId, parceiro as Record<string,unknown>, undefined, undefined)
+          }
+          console.log(`[Woovi] ✅ Posto ATIVO: ${postoId} - plano ${assinPosto.plano}, expira ${new Date(assinPosto.expiraEm).toISOString()}`)
+        }
+        return c.json({ status: 'ok', evento, tipo: 'posto', processado: true })
+      }
+
+      // ── Pagamento de USUÁRIO DO APP ────────────────────────────────────────
       let userId = await kvGetUserBySubId(kv, subscriptionId) ||
                    await kvGetUserBySubId(kv, correlationID)
 
@@ -1763,10 +1867,10 @@ app.post('/api/pix/webhook', async (c) => {
       }
 
       // Ativar/renovar assinatura
-      const agora = Date.now()
       assin.status = 'ACTIVE'
       assin.ativadaEm = assin.ativadaEm || agora
       assin.pagamentos = (assin.pagamentos || 0) + 1
+      assin.avisoInadimplencia = false
       assin.qrCode = undefined
       assin.brcode = undefined
 
@@ -1784,15 +1888,41 @@ app.post('/api/pix/webhook', async (c) => {
       console.log(`[Woovi] ✅ Assinatura ATIVA para ${userId} - pagamento #${assin.pagamentos}, expira em ${new Date(assin.expiraEm).toISOString()}`)
 
     } else if (status === 'EXPIRADO') {
-      // Cobrança expirou sem pagamento — marcar como EXPIRED no KV
+      // Cobrança expirou sem pagamento → downgrade imediato para FREE + aviso
       const userId = await kvGetUserBySubId(kv, subscriptionId) ||
                      await kvGetUserBySubId(kv, correlationID)
       if (userId) {
         const assin = await kvGetAssinatura(kv, userId)
-        if (assin && assin.status === 'PENDING') {
+        if (assin) {
           assin.status = 'EXPIRED'
+          assin.plano = 'free'
+          assin.avisoInadimplencia = true
+          assin.inadimplenciaEm = Date.now()
+          assin.qrCode = undefined
+          assin.brcode = undefined
           await kvSetAssinatura(kv, assin)
-          console.log('[Woovi] Cobrança EXPIRADA para:', userId)
+          console.log('[Woovi] ⚠️ Downgrade FREE por inadimplência:', userId)
+        }
+      }
+      // Verificar também postos parceiros
+      const postoId = await kv.get(`sub:posto:${subscriptionId}`) ||
+                      await kv.get(`sub:posto:${correlationID}`)
+      if (postoId) {
+        const assinPosto = await kvGetAssinaturaPostoPix(kv, postoId)
+        if (assinPosto) {
+          assinPosto.status = 'EXPIRED'
+          assinPosto.avisoInadimplencia = true
+          assinPosto.inadimplenciaEm = Date.now()
+          assinPosto.qrCode = undefined
+          assinPosto.brcode = undefined
+          await kvSetAssinaturaPostoPix(kv, postoId, assinPosto)
+          // Rebaixar plano do posto para gratuito
+          const parceiro = await kvGetParceiro(kv, postoId, undefined)
+          if (parceiro) {
+            (parceiro as any).plano = 'posto_gratis'
+            await kvSetParceiro(kv, postoId, parceiro as Record<string,unknown>, undefined, undefined)
+          }
+          console.log('[Woovi] ⚠️ Posto rebaixado para Gratuito por inadimplência:', postoId)
         }
       }
     }
@@ -4406,6 +4536,19 @@ app.get('/app_old', (c) => {
   <button class="btn-install" id="btn-pwa-install">Instalar</button>
 </div>
 
+<!-- Banner Inadimplência App -->
+<div id="banner-inadimplencia" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9990;background:linear-gradient(90deg,#b71c1c,#d32f2f);padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.4)">
+  <div style="display:flex;align-items:center;gap:12px;max-width:600px;margin:0 auto">
+    <span style="font-size:20px;flex-shrink:0">⚠️</span>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:800;color:#fff">Renovação pendente — plano rebaixado para Gratuito</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px">Não conseguimos cobrar sua assinatura. Pague agora para reativar o Premium.</div>
+    </div>
+    <button onclick="abrirPIXRenovacao()" style="background:#fff;color:#b71c1c;border:none;padding:8px 16px;border-radius:10px;font-weight:900;font-size:12px;cursor:pointer;flex-shrink:0;white-space:nowrap">💳 Pagar agora</button>
+    <button onclick="document.getElementById('banner-inadimplencia').style.display='none'" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;flex-shrink:0">✕</button>
+  </div>
+</div>
+
 <!-- Loading -->
 <div class="loading-overlay" id="loading">
   <div class="spinner"></div>
@@ -5577,6 +5720,8 @@ let _assinaturaStatus = null; // 'FREE' | 'ACTIVE' | 'PENDING' | 'EXPIRED'
 let _assinaturaTxid = null;
 let _assinaturaQrCode = null;
 let _assinaturaBrcode = null;
+let _assinaturaPlano = null;
+let _assinaturaInadimplente = false;
 
 // Verificar status de assinatura do usuário
 async function verificarStatusAssinatura(userId) {
@@ -5584,14 +5729,114 @@ async function verificarStatusAssinatura(userId) {
     const res = await fetch(\`/api/assinatura/status/\${userId}\`);
     const data = await res.json();
     _assinaturaStatus = data.status || 'FREE';
+    _assinaturaPlano = data.plano || null;
     _assinaturaTxid = data.txidPendente || null;
-    _assinaturaQrCode = data.qrCodePendente || null;
-    _assinaturaBrcode = data.brcodePendente || null;
+    _assinaturaQrCode = data.qrCode || data.qrCodePendente || null;
+    _assinaturaBrcode = data.brcode || data.brcodePendente || null;
+    _assinaturaInadimplente = !!(data.avisoInadimplencia);
     return data;
   } catch {
     _assinaturaStatus = 'FREE';
     return { status: 'FREE', ativa: false };
   }
+}
+
+// Exibir/esconder banner de inadimplência do app
+function _atualizarBannerInadimplencia() {
+  const banner = document.getElementById('banner-inadimplencia');
+  if (!banner) return;
+  if (_assinaturaInadimplente || _assinaturaStatus === 'EXPIRED') {
+    banner.style.display = 'block';
+    // Empurrar conteúdo para baixo
+    document.body.style.paddingTop = (parseInt(document.body.style.paddingTop || '0') > 52 ? document.body.style.paddingTop : '52px');
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// Abrir modal de renovação PIX (pagamento manual após falha na cobrança)
+async function abrirPIXRenovacao() {
+  const user = _usuarioLogado;
+  if (!user) { abrirLogin(); return; }
+  const overlay = document.getElementById('pix-modal-overlay');
+  const content = document.getElementById('pix-modal-content');
+  if (!overlay || !content) return;
+  overlay.classList.add('visible');
+  content.innerHTML = '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:24px;color:#FF6D00"></i><p style="color:rgba(255,255,255,0.6);margin-top:12px">Gerando PIX de renovação...</p></div>';
+  try {
+    const res = await fetch('/api/pix/renovar', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId: user.uid, nome: user.displayName || '', email: user.email || '', cpf: localStorage.getItem('rp_cpf_' + user.uid) || '' })
+    });
+    const data = await res.json();
+    if (data.precisaCPF) {
+      // Pedir CPF antes de gerar
+      content.innerHTML = \`
+        <div style="padding:24px">
+          <h3 style="font-size:16px;font-weight:800;color:white;margin:0 0 8px">♻️ Renovar Assinatura</h3>
+          <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:0 0 16px">Informe seu CPF para gerar o PIX de renovação.</p>
+          <label style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:600;display:block;margin-bottom:6px">SEU CPF</label>
+          <input id="renov-cpf" type="tel" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;padding:12px;font-size:16px;box-sizing:border-box;outline:none"/>
+          <p id="renov-cpf-erro" style="color:#FF6D00;font-size:11px;margin:6px 0 0;display:none">CPF inválido.</p>
+          <button onclick="_confirmarCPFRenovacao('${user.uid}','${user.displayName||''}','${user.email||''}')" style="width:100%;margin-top:14px;background:#FF6D00;border:none;color:white;font-weight:800;padding:12px;border-radius:12px;cursor:pointer;font-size:14px"><i class="fas fa-qrcode"></i> Gerar PIX</button>
+          <button onclick="fecharModalPIX(true)" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.07);border:none;color:rgba(255,255,255,0.5);padding:10px;border-radius:10px;cursor:pointer;font-size:13px">Cancelar</button>
+        </div>\`;
+      setTimeout(() => { const el = document.getElementById('renov-cpf'); if (el) el.focus(); }, 100);
+      return;
+    }
+    if (!data.sucesso) {
+      content.innerHTML = \`<div style="padding:24px;text-align:center"><p style="color:#FF5252;font-weight:700">\${data.mensagem || 'Erro ao gerar PIX'}</p><button onclick="fecharModalPIX(true)" style="margin-top:14px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Fechar</button></div>\`;
+      return;
+    }
+    _exibirQRRenovacao(data);
+  } catch(e) {
+    content.innerHTML = \`<div style="padding:24px;text-align:center"><p style="color:#FF5252">Erro de rede. Tente novamente.</p><button onclick="abrirPIXRenovacao()" style="margin-top:12px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Tentar novamente</button></div>\`;
+  }
+}
+
+async function _confirmarCPFRenovacao(userId, nome, email) {
+  const input = document.getElementById('renov-cpf');
+  const erro = document.getElementById('renov-cpf-erro');
+  if (!input) return;
+  const cpf = input.value.replace(/\\D/g, '');
+  if (cpf.length !== 11) { if (erro) { erro.style.display = 'block'; } return; }
+  localStorage.setItem('rp_cpf_' + userId, cpf);
+  const content = document.getElementById('pix-modal-content');
+  if (content) content.innerHTML = '<div style="text-align:center;padding:30px"><i class="fas fa-spinner fa-spin" style="font-size:24px;color:#FF6D00"></i></div>';
+  try {
+    const res = await fetch('/api/pix/renovar', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId, nome, email, cpf })
+    });
+    const data = await res.json();
+    if (data.sucesso) { _exibirQRRenovacao(data); }
+    else if (content) { content.innerHTML = \`<div style="padding:24px;text-align:center"><p style="color:#FF5252">\${data.mensagem}</p><button onclick="fecharModalPIX(true)" style="margin-top:12px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Fechar</button></div>\`; }
+  } catch(e) { if (content) content.innerHTML = '<div style="padding:24px;text-align:center;color:#FF5252">Erro de rede.</div>'; }
+}
+
+function _exibirQRRenovacao(data) {
+  const content = document.getElementById('pix-modal-content');
+  if (!content) return;
+  const valorFmt = data.valor ? 'R$ ' + (data.valor / 100).toFixed(2).replace('.', ',') : '';
+  content.innerHTML = \`
+    <div style="padding:24px;text-align:center">
+      <div style="font-size:28px;margin-bottom:8px">♻️</div>
+      <h3 style="font-size:16px;font-weight:800;color:white;margin:0 0 4px">Renovar Assinatura</h3>
+      <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:0 0 16px">Pague o PIX para reativar seu plano Premium \${valorFmt ? '— ' + valorFmt : ''}</p>
+      \${data.qrCode ? \`<img src="\${data.qrCode}" style="width:200px;height:200px;border-radius:12px;border:3px solid #FF6D00;margin-bottom:12px"/>\` : ''}
+      \${data.brcode ? \`
+        <p style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:6px">Ou copie o código PIX:</p>
+        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px;word-break:break-all;font-size:9px;color:rgba(255,255,255,0.4);margin-bottom:12px;cursor:pointer" onclick="navigator.clipboard.writeText('\${data.brcode}').then(()=>mostrarToast('✅ Código PIX copiado!'))">
+          \${data.brcode.substring(0,60)}...<br><span style="color:#FF6D00;font-size:10px;font-weight:700">Toque para copiar</span>
+        </div>
+      \` : ''}
+      \${data.demo ? '<p style="font-size:10px;color:#FFD600;margin-bottom:8px">⚠️ Modo demonstração — PIX não processado</p>' : ''}
+      <div style="display:flex;gap:8px">
+        <button onclick="fecharModalPIX(true)" style="flex:1;background:rgba(255,255,255,0.07);border:none;color:rgba(255,255,255,0.6);padding:10px;border-radius:10px;cursor:pointer;font-size:13px">Fechar</button>
+        \${data.subscriptionId ? \`<button onclick="verificarPagamentoPIX('\${data.subscriptionId}')" style="flex:2;background:#FF6D00;border:none;color:white;font-weight:800;padding:10px;border-radius:10px;cursor:pointer;font-size:13px"><i class="fas fa-check-circle"></i> Já paguei</button>\` : ''}
+      </div>
+    </div>\`;
 }
 
 // Carregar foto de perfil personalizada (salva no servidor)
@@ -5659,11 +5904,13 @@ function _configurarAuth() {
 
         // Verificar status de assinatura em background
         verificarStatusAssinatura(user.uid).then(assin => {
-          // Se expirada ou pendente há muito tempo, mostrar aviso (não bloquear totalmente)
-          // O app é gratuito — premium é opcional; não bloqueamos o acesso básico
           if (assin.status === 'PENDING' && _assinaturaQrCode) {
-            // Mostrar badge pendente no avatar
             _mostrarBadgePendente();
+          }
+          // Mostrar banner se inadimplente ou expirado
+          if (assin.avisoInadimplencia || assin.status === 'EXPIRED') {
+            _assinaturaInadimplente = true;
+            _atualizarBannerInadimplencia();
           }
         });
       } else {
@@ -7540,6 +7787,188 @@ app.delete('/api/admin/planos-posto/:id', async (c) => {
   await kv.put(PLANOS_POSTO_KV_KEY, JSON.stringify(novos))
   return c.json({ ok: true })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PIX RECORRENTE B2B — POSTOS PARCEIROS
+// KV key: "assin:posto:{postoId}" → JSON AssinaturaPostoPix
+// KV index reverso: "sub:posto:{subscriptionId}" → postoId
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface AssinaturaPostoPix {
+  postoId: string
+  nomeFantasia: string
+  email: string
+  cnpj?: string
+  plano: string         // ex: 'posto_basico', 'posto_plus'
+  status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED'
+  subscriptionId?: string
+  chargeId?: string
+  qrCode?: string
+  brcode?: string
+  criadaEm: number
+  ativadaEm?: number
+  expiraEm?: number
+  proximoPagamento?: number
+  pagamentos: number
+  avisoInadimplencia?: boolean
+  inadimplenciaEm?: number
+}
+
+async function kvGetAssinaturaPostoPix(kv: KVNamespace, postoId: string): Promise<AssinaturaPostoPix | null> {
+  try {
+    const raw = await kv.get(`assin:posto:${postoId}`)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+async function kvSetAssinaturaPostoPix(kv: KVNamespace, postoId: string, assin: AssinaturaPostoPix) {
+  await kv.put(`assin:posto:${postoId}`, JSON.stringify(assin), { expirationTtl: 63072000 }) // 2 anos
+  if (assin.subscriptionId) {
+    await kv.put(`sub:posto:${assin.subscriptionId}`, postoId, { expirationTtl: 63072000 })
+  }
+  if (assin.chargeId) {
+    await kv.put(`sub:posto:${assin.chargeId}`, postoId, { expirationTtl: 63072000 })
+  }
+}
+
+// ─── POST /api/pix/posto/assinar — cria assinatura PIX para posto ────────────
+app.post('/api/pix/posto/assinar', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const { postoId, nomeFantasia, email, cnpj, plano } = body
+    if (!postoId || !nomeFantasia) {
+      return c.json({ sucesso: false, mensagem: 'postoId e nomeFantasia são obrigatórios' }, 400)
+    }
+    const kv = getKV(c.env)
+    if (!kv) return c.json({ sucesso: false, mensagem: 'Serviço indisponível' }, 500)
+
+    // Verificar plano válido (deve ser pago)
+    const planosPostoConfig = await getPlanosPostoConfig(kv)
+    const planoInfo = planosPostoConfig.find((p: any) => p.id === plano)
+    if (!planoInfo || planoInfo.valor === 0) {
+      return c.json({ sucesso: false, mensagem: 'Plano inválido ou gratuito' }, 400)
+    }
+
+    // Verificar assinatura existente
+    const existente = await kvGetAssinaturaPostoPix(kv, postoId)
+    if (existente?.status === 'ACTIVE') {
+      return c.json({ sucesso: true, jaAssinante: true, plano: existente.plano, expiraEm: existente.expiraEm, mensagem: 'Posto já tem assinatura ativa!' })
+    }
+    if (existente?.status === 'PENDING' && existente.qrCode) {
+      return c.json({ sucesso: true, jaPendente: true, qrCode: existente.qrCode, brcode: existente.brcode, subscriptionId: existente.subscriptionId, plano: existente.plano, valor: planoInfo.valor })
+    }
+
+    // CPF/CNPJ para Woovi — usar CNPJ como taxID ou gerar fallback
+    const docLimpo = (cnpj || '').replace(/\D/g, '') || postoId.replace(/\D/g, '').slice(0, 14).padEnd(11, '0')
+    const emailFinal = (email || '').trim() || `posto-${postoId.slice(-8)}@rotaposto.app`
+
+    const resultado = await criarAssinaturaPIX(c.env as any, nomeFantasia, emailFinal, docLimpo.slice(0, 11), plano)
+    if (!resultado.sucesso) {
+      return c.json({ sucesso: false, mensagem: resultado.error || 'Erro ao gerar PIX' }, 500)
+    }
+
+    const assin: AssinaturaPostoPix = {
+      postoId, nomeFantasia, email: emailFinal, cnpj: docLimpo,
+      plano, status: 'PENDING',
+      subscriptionId: resultado.subscriptionId,
+      chargeId: resultado.chargeId,
+      qrCode: resultado.qrCode, brcode: resultado.brcode,
+      criadaEm: Date.now(), pagamentos: 0
+    }
+    await kvSetAssinaturaPostoPix(kv, postoId, assin)
+
+    return c.json({
+      sucesso: true, qrCode: resultado.qrCode, brcode: resultado.brcode,
+      subscriptionId: resultado.subscriptionId, plano, valor: planoInfo.valor,
+      demo: resultado.demo || false,
+      mensagem: 'QR Code PIX gerado! Pague para ativar o plano ' + planoInfo.nome + '.'
+    })
+  } catch (e: any) {
+    console.error('[PIX posto assinar]', e)
+    return c.json({ sucesso: false, mensagem: 'Erro ao gerar PIX' }, 500)
+  }
+})
+
+// ─── POST /api/pix/posto/renovar — gera novo PIX para posto inadimplente ─────
+app.post('/api/pix/posto/renovar', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const { postoId } = body
+    if (!postoId) return c.json({ sucesso: false, mensagem: 'postoId obrigatório' }, 400)
+    const kv = getKV(c.env)
+    if (!kv) return c.json({ sucesso: false, mensagem: 'Serviço indisponível' }, 500)
+
+    const assin = await kvGetAssinaturaPostoPix(kv, postoId)
+    if (!assin) return c.json({ sucesso: false, mensagem: 'Nenhuma assinatura encontrada' }, 404)
+    if (assin.status === 'ACTIVE') return c.json({ sucesso: false, mensagem: 'Assinatura já está ativa!', jaAtiva: true })
+
+    const planosConfig = await getPlanosPostoConfig(kv)
+    const planoInfo = planosConfig.find((p: any) => p.id === assin.plano) || planosConfig.find((p: any) => p.id === 'posto_basico')
+    const docLimpo = (assin.cnpj || postoId.replace(/\D/g, '').slice(0, 11).padEnd(11, '0'))
+
+    const resultado = await criarAssinaturaPIX(c.env as any, assin.nomeFantasia, assin.email, docLimpo.slice(0, 11), assin.plano)
+    if (!resultado.sucesso) return c.json({ sucesso: false, mensagem: resultado.error || 'Erro ao gerar PIX' }, 500)
+
+    assin.status = 'PENDING'
+    assin.qrCode = resultado.qrCode
+    assin.brcode = resultado.brcode
+    assin.subscriptionId = resultado.subscriptionId
+    assin.chargeId = resultado.chargeId
+    await kvSetAssinaturaPostoPix(kv, postoId, assin)
+
+    return c.json({
+      sucesso: true, qrCode: resultado.qrCode, brcode: resultado.brcode,
+      subscriptionId: resultado.subscriptionId,
+      txid: resultado.chargeId, // Para polling de verificação
+      plano: assin.plano,
+      valor: planoInfo?.valor ?? 9900, demo: resultado.demo || false,
+      mensagem: 'Novo QR Code gerado! Pague para reativar o plano do posto.'
+    })
+  } catch (e: any) {
+    return c.json({ sucesso: false, mensagem: 'Erro ao renovar' }, 500)
+  }
+})
+
+// ─── GET /api/pix/posto/status/:postoId — status da assinatura do posto ──────
+app.get('/api/pix/posto/status/:postoId', async (c) => {
+  const postoId = c.req.param('postoId')
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ status: 'UNKNOWN', ativa: false })
+
+  const assin = await kvGetAssinaturaPostoPix(kv, postoId)
+  if (!assin) return c.json({ status: 'FREE', plano: 'posto_gratis', ativa: false })
+
+  // Verificar expiração por tempo
+  const agora = Date.now()
+  const GRACE = 3 * 24 * 3600 * 1000 // 3 dias de carência
+  if (assin.status === 'ACTIVE' && assin.expiraEm && agora > assin.expiraEm + GRACE) {
+    assin.status = 'EXPIRED'
+    assin.avisoInadimplencia = true
+    assin.inadimplenciaEm = agora
+    await kvSetAssinaturaPostoPix(kv, postoId, assin)
+    // Rebaixar plano
+    const parceiro = await kvGetParceiro(kv, postoId, undefined)
+    if (parceiro) {
+      (parceiro as any).plano = 'posto_gratis'
+      await kvSetParceiro(kv, postoId, parceiro as Record<string,unknown>, undefined, undefined)
+    }
+  }
+
+  return c.json({
+    status: assin.status, plano: assin.plano, ativa: assin.status === 'ACTIVE',
+    expiraEm: assin.expiraEm, pagamentos: assin.pagamentos,
+    avisoInadimplencia: assin.avisoInadimplencia || false,
+    qrCode: assin.status === 'PENDING' ? assin.qrCode : null,
+    brcode: assin.status === 'PENDING' ? assin.brcode : null,
+    subscriptionId: assin.status === 'PENDING' ? assin.subscriptionId : null
+  })
+})
+
+// Atualizar webhook para processar pagamentos de postos também
+// (handler unificado — a lógica de EXPIRADO para postos já está no webhook app acima)
+// Pagamento PAGO de posto:
+// O webhook do Woovi usa /api/pix/webhook — expandir lá o bloco PAGO para verificar postos
+// via sub:posto:{id} index
 
 // ─── DELETE /api/admin/postos/:id — remover posto parceiro do R2 ──────────────
 app.delete('/api/admin/postos/:id', async (c) => {
