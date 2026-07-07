@@ -7591,63 +7591,65 @@ app.put('/api/admin/parceiros/:id', async (c) => {
 })
 
 // ─── GET /api/admin/anp-busca — busca postos na API ANP + preços por CNPJ ────
+// Usa a mesma função buscarPostosANP() do app (paginação automática + lookup CNPJ)
 app.get('/api/admin/anp-busca', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
   if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
 
-  const uf        = (c.req.query('uf')        || '').toUpperCase().trim()
-  const municipio = (c.req.query('municipio') || '').trim()
+  const uf        = (c.req.query('uf') || '').toUpperCase().trim()
+  // Normalizar município: maiúsculas + sem acento (ANP exige esse formato)
+  const municipioRaw = (c.req.query('municipio') || '').trim()
+  const municipio = municipioRaw
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9 ]/g, '')
+    .trim()
+
   if (!uf || !municipio) return c.json({ erro: 'UF e municipio obrigatorios' }, 400)
 
   const kv = getKV(c.env as any)
+  const { ANP_SEMANA_POSTOS: _semana } = await import('./precos_anp_posto')
 
   try {
-    // Buscar postos na API ANP
-    const url = `https://revendedoresapi.anp.gov.br/v1/combustivel?uf=${encodeURIComponent(uf)}&municipio=${encodeURIComponent(municipio)}&numeropagina=1`
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json', 'User-Agent': 'RotaPosto-Admin/1.0' },
-      signal: AbortSignal.timeout(15000)
-    })
-    if (!res.ok) return c.json({ erro: `ANP retornou HTTP ${res.status}` }, 502)
+    // Usa a mesma função do app — já faz paginação automática (até pág 3)
+    // e já faz lookup de preços por CNPJ via bundle PRECOS_POR_CNPJ
+    const postosReais = await buscarPostosANP(uf, municipio, 1, kv ?? undefined)
 
-    const json = await res.json() as any
-    if (!json.succeeded || !Array.isArray(json.data)) {
-      return c.json({ erro: 'Resposta inesperada da ANP', postos: [] })
-    }
-
-    const { getPrecosPorCNPJ: _getPrecos, expandirPrecos: _expandir, ANP_SEMANA_POSTOS: _semana } =
-      await import('./precos_anp_posto')
-
-    const postos = json.data.map((p: any) => {
-      const cnpj       = String(p.cnpj || '').replace(/\D/g, '').padStart(14, '0')
-      const bundled    = _getPrecos(cnpj)
-      const precosBundle = bundled ? (_expandir(bundled) as Record<string, number>) : null
-
+    const postos = postosReais.map(p => {
+      const cnpjNorm = (p.cnpj || '').replace(/\D/g, '').padStart(14, '0')
+      // Formatar CNPJ para exibição: XX.XXX.XXX/XXXX-XX
+      const cnpjFmt = cnpjNorm.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
       return {
-        codigoSIMP: String(p.codigoSIMP || ''),
-        cnpj,
-        cnpjFmt: p.cnpj || '',
-        nome: p.razaoSocial || 'Posto sem nome',
-        bandeira: p.distribuidora || 'BANDEIRA BRANCA',
-        endereco: [p.endereco, p.numero].filter(Boolean).join(', '),
+        cnpj: cnpjNorm,
+        cnpjFmt,
+        nome: p.nome,
+        bandeira: p.bandeira,
+        endereco: p.endereco,
         bairro: p.bairro || '',
-        municipio: p.municipio || municipio,
-        uf,
-        lat: parseFloat(p.latitude) || 0,
-        lng: parseFloat(p.longitude) || 0,
-        produtos: (p.produtos || []).map((pr: any) => pr.produto).filter(Boolean),
-        precos: precosBundle || {},
-        semanaPrecos: precosBundle ? _semana : null,
+        municipio: p.cidade,
+        uf: p.estado,
+        lat: p.lat,
+        lng: p.lng,
+        produtos: p.produtos || [],
+        precos: {
+          gasolina:          p.precos?.gasolina          || 0,
+          gasolinaAditivada: p.precos?.gasolinaAditivada || 0,
+          etanol:            p.precos?.etanol            || 0,
+          diesel:            p.precos?.diesel            || 0,
+          dieselS10:         p.precos?.dieselS10         || 0,
+          gnv:               p.precos?.gnv               || 0,
+        },
+        temPreco: !!(p.precos?.gasolina || p.precos?.etanol || p.precos?.diesel),
       }
     })
 
-    const filter = json.searchPageFilter || {}
     return c.json({
       postos,
-      total: filter.totalRegistro || postos.length,
+      total: postos.length,
       semana: _semana,
-      municipio,
+      municipio: municipioRaw,
       uf
     })
   } catch(e: any) {
