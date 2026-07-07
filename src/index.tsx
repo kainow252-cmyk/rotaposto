@@ -9397,16 +9397,19 @@ const MENU_APP_ITENS_PADRAO = [
   { id: 'configuracoes',   label: 'Configurações',        icone: '⚙️', ativo: true },
 ];
 
+let _menuAppItens = [];
+
 async function carregarMenuApp() {
   const el = document.getElementById('menu-app-itens');
   if (!el) return;
   try {
     const res = await fetch('/api/admin/menu-app?key=' + encodeURIComponent(ADMIN_KEY));
     const data = await res.json();
-    const itens = data.itens || MENU_APP_ITENS_PADRAO;
-    renderMenuAppItens(itens);
+    _menuAppItens = data.itens || MENU_APP_ITENS_PADRAO;
+    renderMenuAppItens(_menuAppItens);
   } catch(e) {
-    renderMenuAppItens(MENU_APP_ITENS_PADRAO);
+    _menuAppItens = MENU_APP_ITENS_PADRAO;
+    renderMenuAppItens(_menuAppItens);
   }
 }
 
@@ -9414,33 +9417,66 @@ function renderMenuAppItens(itens) {
   const el = document.getElementById('menu-app-itens');
   if (!el) return;
   el.innerHTML = itens.map(item => \`
-    <div style="display:flex;align-items:center;justify-content:space-between;background:#0A1520;border-radius:12px;padding:14px 18px;border:1px solid rgba(255,255,255,0.07)">
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#0A1520;border-radius:12px;padding:14px 18px;border:1px solid rgba(255,255,255,\${item.ativo?'0.12':'0.05'});transition:border-color 0.2s" id="menu-row-\${item.id}">
       <div style="display:flex;align-items:center;gap:12px">
-        <span style="font-size:22px">\${item.icone}</span>
+        <span style="font-size:22px;opacity:\${item.ativo?'1':'0.35'};transition:opacity 0.2s" id="menu-icone-\${item.id}">\${item.icone}</span>
         <div>
-          <div style="font-size:14px;font-weight:700;color:#fff">\${item.label}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px">ID: \${item.id}</div>
+          <div style="font-size:14px;font-weight:700;color:\${item.ativo?'#fff':'rgba(255,255,255,0.35)'};transition:color 0.2s" id="menu-label-\${item.id}">\${item.label}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:2px">ID: \${item.id}</div>
         </div>
       </div>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <span style="font-size:12px;color:rgba(255,255,255,0.4)">\${item.ativo ? 'Visível' : 'Oculto'}</span>
-        <div style="position:relative;width:44px;height:24px">
-          <input type="checkbox" id="menu-toggle-\${item.id}" \${item.ativo ? 'checked' : ''}
-            onchange="this.nextElementSibling.style.background=this.checked?'#FF6D00':'rgba(255,255,255,0.1)';this.parentElement.previousElementSibling.textContent=this.checked?'Visível':'Oculto'"
-            style="opacity:0;width:0;height:0;position:absolute">
-          <div style="position:absolute;inset:0;border-radius:12px;background:\${item.ativo ? '#FF6D00' : 'rgba(255,255,255,0.1)'};transition:0.2s;cursor:pointer" onclick="var cb=this.previousElementSibling;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"></div>
-          <div style="position:absolute;top:2px;left:\${item.ativo ? '22px' : '2px'};width:20px;height:20px;border-radius:50%;background:#fff;transition:0.2s;pointer-events:none" id="knob-\${item.id}"></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:11px;font-weight:700;color:\${item.ativo?'#FF6D00':'rgba(255,255,255,0.25)'};min-width:40px;text-align:right;transition:color 0.2s" id="menu-status-\${item.id}">\${item.ativo?'Visível':'Oculto'}</span>
+        <div onclick="toggleMenuitem('\${item.id}')" id="menu-track-\${item.id}"
+          style="position:relative;width:46px;height:26px;border-radius:13px;background:\${item.ativo?'#FF6D00':'rgba(255,255,255,0.1)'};cursor:pointer;transition:background 0.25s;flex-shrink:0">
+          <div id="menu-knob-\${item.id}"
+            style="position:absolute;top:3px;left:\${item.ativo?'23px':'3px'};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);transition:left 0.25s;pointer-events:none"></div>
         </div>
-      </label>
+      </div>
     </div>
   \`).join('');
 }
 
+function toggleMenuitem(id) {
+  const track  = document.getElementById('menu-track-' + id);
+  const knob   = document.getElementById('menu-knob-' + id);
+  const status = document.getElementById('menu-status-' + id);
+  const label  = document.getElementById('menu-label-' + id);
+  const icone  = document.getElementById('menu-icone-' + id);
+  const row    = document.getElementById('menu-row-' + id);
+  if (!track) return;
+  const ativo = track.dataset.ativo !== 'false' && knob.style.left !== '3px';
+  const novoAtivo = !ativo;
+  // Atualiza visual
+  track.style.background    = novoAtivo ? '#FF6D00' : 'rgba(255,255,255,0.1)';
+  knob.style.left           = novoAtivo ? '23px' : '3px';
+  status.textContent        = novoAtivo ? 'Visível' : 'Oculto';
+  status.style.color        = novoAtivo ? '#FF6D00' : 'rgba(255,255,255,0.25)';
+  label.style.color         = novoAtivo ? '#fff' : 'rgba(255,255,255,0.35)';
+  icone.style.opacity       = novoAtivo ? '1' : '0.35';
+  row.style.borderColor     = novoAtivo ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)';
+  // Salva estado no input hidden para o salvarMenuApp ler
+  let inp = document.getElementById('menu-toggle-' + id);
+  if (!inp) {
+    inp = document.createElement('input');
+    inp.type = 'checkbox';
+    inp.id   = 'menu-toggle-' + id;
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+  }
+  inp.checked = novoAtivo;
+}
+
 async function salvarMenuApp() {
-  const itens = MENU_APP_ITENS_PADRAO.map(item => ({
-    ...item,
-    ativo: (document.getElementById('menu-toggle-' + item.id) || {}).checked ?? item.ativo
-  }));
+  const base = _menuAppItens.length ? _menuAppItens : MENU_APP_ITENS_PADRAO;
+  const itens = base.map(item => {
+    const knob = document.getElementById('menu-knob-' + item.id);
+    // knob em left:23px = ativo, left:3px = inativo
+    const ativo = knob ? knob.style.left === '23px' : item.ativo;
+    return { ...item, ativo };
+  });
+  const btn = document.querySelector('#section-menu-app .btn-refresh');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
   try {
     const res = await fetch('/api/admin/menu-app', {
       method: 'POST',
@@ -9448,9 +9484,17 @@ async function salvarMenuApp() {
       body: JSON.stringify({ key: ADMIN_KEY, itens })
     });
     const data = await res.json();
-    if (data.ok) showToast('✅ Menu salvo com sucesso!');
-    else showToast('❌ Erro ao salvar: ' + (data.error || ''));
-  } catch(e) { showToast('❌ Erro de conexão'); }
+    if (data.ok) {
+      _menuAppItens = itens;
+      showToast('✅ Menu salvo com sucesso!', 'ok');
+    } else {
+      showToast('❌ Erro ao salvar: ' + (data.error || ''), 'err');
+    }
+  } catch(e) {
+    showToast('❌ Erro de conexão', 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar'; }
+  }
 }
 </script>
 </body>
