@@ -4,6 +4,14 @@
 //  Tema: BRANCO com laranja #FF6D00, mapa claro
 // ═══════════════════════════════════════════════════════════════════════
 
+// Extensões globais do window usadas dentro dos scripts HTML embutidos
+declare global {
+  interface Window {
+    _mascaraCPF: (el: HTMLInputElement) => void;
+    _deferredInstallPrompt: any;
+  }
+}
+
 export function getAppHTML(firebaseScripts: string, googleApiKey?: string): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -2968,20 +2976,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     document.getElementById('btn-iniciar-nav').style.display = 'block';
 
     // Calcular custo usando preço médio dos postos próximos carregados
-    var precoEstimado = 0;
-    if (postosData && postosData.length > 0) {
-      var precos = postosData.slice(0, 10)
-        .map(function(p: any) { return p.preco || (p.precos && p.precos[selectedFuel]) || 0; })
-        .filter(function(v: number) { return v > 0; });
-      if (precos.length > 0) {
-        precoEstimado = precos.reduce(function(a: number, b: number) { return a + b; }, 0) / precos.length;
-      }
-    }
-    // Fallback: preço médio nacional por combustível (ANP ~2025)
-    if (precoEstimado === 0) {
-      var fallbacks: Record<string, number> = { gasolina: 6.10, etanol: 4.20, diesel: 6.30, gnv: 4.80 };
-      precoEstimado = fallbacks[selectedFuel] || 6.10;
-    }
+    var precoEstimado = _getPrecoMedioPosros();
     // Mostrar preço estimado no card
     document.getElementById('plan-preco').innerHTML = 'R$ ' + precoEstimado.toFixed(2).replace('.', ',')
       + '<span class="plan-preco-unit">/L est.</span>';
@@ -4507,11 +4502,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // Botão cancelar via JS direto (evitar problema de aspas no onclick)
     var cancelBtn = document.getElementById('assin-cpf-cancel');
     if (cancelBtn) cancelBtn.onclick = function() { var m = document.getElementById('assin-cpf-modal'); if(m) m.remove(); };
-    setTimeout(function() { var inp = document.getElementById('assin-cpf-input'); if(inp) (inp as HTMLInputElement).focus(); }, 100);
+    setTimeout(function() { var inp = document.getElementById('assin-cpf-input'); if(inp) inp.focus(); }, 100);
   }
 
   async function _confirmarCPFInline() {
-    var inp = document.getElementById('assin-cpf-input') as HTMLInputElement;
+    var inp = document.getElementById('assin-cpf-input');
     var erroEl = document.getElementById('assin-cpf-erro');
     if (!inp) return;
     var cpfLimpo = inp.value.replace(/\D/g, '');
@@ -4529,7 +4524,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   // Máscara CPF global (chamada via oninput="_mascaraCPF(this)")
-  (window as any)._mascaraCPF = function(el: HTMLInputElement) {
+  window._mascaraCPF = function(el) {
     var v = el.value.replace(/\D/g, '').slice(0, 11);
     var r = '';
     if (v.length > 9)      r = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
@@ -4539,12 +4534,27 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     el.value = r;
   };
 
+  // Preço médio dos postos carregados (ou fallback ANP nacional)
+  function _getPrecoMedioPosros() {
+    if (postosData && postosData.length > 0) {
+      var precos = postosData.slice(0, 10)
+        .map(function(p) { return p.preco || (p.precos && p.precos[selectedFuel]) || 0; })
+        .filter(function(v) { return v > 0; });
+      if (precos.length > 0) {
+        return precos.reduce(function(a, b) { return a + b; }, 0) / precos.length;
+      }
+    }
+    // Fallback ANP médio nacional ~2025
+    var fallbacks = { gasolina: 6.10, etanol: 4.20, diesel: 6.30, gnv: 4.80 };
+    return fallbacks[selectedFuel] || 6.10;
+  }
+
   // ── PWA install ─────────────────────────────────────────────────────────────
   function instalarOuMostrarPWA() {
-    var prompt = (window as any)._deferredInstallPrompt;
+    var prompt = window._deferredInstallPrompt;
     if (prompt) {
       prompt.prompt();
-      prompt.userChoice.then(function() { (window as any)._deferredInstallPrompt = null; });
+      prompt.userChoice.then(function() { window._deferredInstallPrompt = null; });
     } else {
       showToast('Abra no navegador e use "Adicionar à tela inicial"');
     }
@@ -4712,7 +4722,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // Capturar prompt de instalação PWA globalmente
   window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
-    (window as any)._deferredInstallPrompt = e;
+    window._deferredInstallPrompt = e;
     var item = document.getElementById('menu-item-instalar');
     if (item) item.style.display = 'block';
   });
