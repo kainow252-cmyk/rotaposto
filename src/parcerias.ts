@@ -233,9 +233,27 @@ export function getParceriasLandingHTML(): string {
     }
 
     /* ── TELA CHEIA CADASTRO ── */
-    .tela-cheia{display:none;position:fixed;inset:0;z-index:9999;background:#07111C;overflow-y:auto;flex-direction:column}
+    .tela-cheia{
+      display:none;
+      position:fixed !important;
+      top:0 !important;left:0 !important;
+      right:0 !important;bottom:0 !important;
+      width:100vw !important;height:100vh !important;
+      max-width:100% !important;margin:0 !important;
+      z-index:9999;background:#07111C;
+      overflow-y:auto;overflow-x:hidden;
+      flex-direction:column;
+      -webkit-overflow-scrolling:touch;
+    }
     .tela-cheia.open{display:flex}
-    .tc-nav{height:60px;background:#07111C;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;padding:0 32px;gap:16px;position:sticky;top:0;z-index:10;flex-shrink:0}
+    .tc-nav{
+      height:60px;background:#07111C;
+      border-bottom:1px solid rgba(255,255,255,0.08);
+      display:flex;align-items:center;
+      padding:0 32px;gap:16px;
+      position:sticky;top:0;z-index:10;
+      flex-shrink:0;width:100%;
+    }
     .tc-back{display:flex;align-items:center;gap:8px;background:transparent;border:1.5px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);padding:8px 16px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Raleway',sans-serif;transition:all .18s}
     .tc-back:hover{border-color:#FF6D00;color:#FF6D00}
     .tc-title{font-size:15px;font-weight:800;color:#fff}
@@ -258,10 +276,29 @@ export function getParceriasLandingHTML(): string {
     }
 
     /* ── TELA CHEIA SUBPÁGINAS ── */
-    .subpagina{display:none;position:fixed;inset:0;z-index:9998;background:#07111C;overflow-y:auto;flex-direction:column}
+    .subpagina{
+      display:none;
+      position:fixed !important;
+      top:0 !important;left:0 !important;
+      right:0 !important;bottom:0 !important;
+      width:100vw !important;height:100vh !important;
+      max-width:100% !important;margin:0 !important;
+      z-index:9998;background:#07111C;
+      overflow-y:auto;overflow-x:hidden;
+      flex-direction:column;
+      -webkit-overflow-scrolling:touch;
+    }
     .subpagina.open{display:flex}
-    .sp-nav{height:60px;background:#07111C;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;padding:0 32px;gap:16px;position:sticky;top:0;z-index:10}
-    .sp-content{flex:1;padding:48px 40px;max-width:860px;margin:0 auto;width:100%}
+    .sp-nav{
+      height:60px;background:#07111C;
+      border-bottom:1px solid rgba(255,255,255,0.08);
+      display:flex;align-items:center;
+      padding:0 32px;gap:16px;
+      position:sticky;top:0;z-index:10;
+      flex-shrink:0;width:100%;
+      box-sizing:border-box;
+    }
+    .sp-content{flex:1;padding:48px 40px;max-width:860px;margin:0 auto;width:100%;box-sizing:border-box}
     .sp-tag{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#FF6D00;margin-bottom:12px}
     .sp-h1{font-size:clamp(28px,4vw,48px);font-weight:900;margin-bottom:16px;line-height:1.1}
     .sp-h1 span{color:#FF6D00}
@@ -336,17 +373,25 @@ export function getParceriasLandingHTML(): string {
       .f-social-col{align-items:flex-start}
       .f-bottom{flex-direction:column;gap:6px;text-align:center}
       /* Subpáginas mobile */
-      .sp-content{padding:24px 16px}
+      .sp-content{padding:20px 16px 32px;box-sizing:border-box}
       .sp-h1{font-size:clamp(22px,6vw,32px)}
-      .sp-grid{grid-template-columns:1fr}
+      .sp-sub{font-size:14px;margin-bottom:24px}
+      .sp-grid{grid-template-columns:1fr;gap:12px}
+      .sp-card{padding:18px}
       /* Nav mobile */
-      .tc-nav,.sp-nav{padding:0 16px}
+      .tc-nav,.sp-nav{padding:0 14px;gap:10px;box-sizing:border-box}
+      .tc-title{font-size:14px}
+      /* Formulário cadastro mobile */
+      .fr{grid-template-columns:1fr}
+      .tc-right{padding:20px 16px 32px}
     }
 
     /* Extra small (≤400px) */
     @media(max-width:400px){
       .cards-grid{grid-template-columns:1fr}
       h1{font-size:clamp(22px,8vw,34px)}
+      .sp-content{padding:16px 12px 24px;box-sizing:border-box}
+      .sp-nav,.tc-nav{padding:0 12px;box-sizing:border-box}
     }
   </style>
 </head>
@@ -1189,17 +1234,25 @@ export function getPainelEmpresaHTML(): string {
       .f-social-col{align-items:flex-start}
       .f-bottom{flex-direction:column;gap:6px;text-align:center}
       /* Subpáginas mobile */
-      .sp-content{padding:24px 16px}
+      .sp-content{padding:20px 16px 32px;box-sizing:border-box}
       .sp-h1{font-size:clamp(22px,6vw,32px)}
-      .sp-grid{grid-template-columns:1fr}
+      .sp-sub{font-size:14px;margin-bottom:24px}
+      .sp-grid{grid-template-columns:1fr;gap:12px}
+      .sp-card{padding:18px}
       /* Nav mobile */
-      .tc-nav,.sp-nav{padding:0 16px}
+      .tc-nav,.sp-nav{padding:0 14px;gap:10px;box-sizing:border-box}
+      .tc-title{font-size:14px}
+      /* Formulário cadastro mobile */
+      .fr{grid-template-columns:1fr}
+      .tc-right{padding:20px 16px 32px}
     }
 
     /* Extra small (≤400px) */
     @media(max-width:400px){
       .cards-grid{grid-template-columns:1fr}
       h1{font-size:clamp(22px,8vw,34px)}
+      .sp-content{padding:16px 12px 24px;box-sizing:border-box}
+      .sp-nav,.tc-nav{padding:0 12px;box-sizing:border-box}
     }
   </style>
 </head>
@@ -2197,17 +2250,25 @@ export function getValidadorHTML(): string {
       .f-social-col{align-items:flex-start}
       .f-bottom{flex-direction:column;gap:6px;text-align:center}
       /* Subpáginas mobile */
-      .sp-content{padding:24px 16px}
+      .sp-content{padding:20px 16px 32px;box-sizing:border-box}
       .sp-h1{font-size:clamp(22px,6vw,32px)}
-      .sp-grid{grid-template-columns:1fr}
+      .sp-sub{font-size:14px;margin-bottom:24px}
+      .sp-grid{grid-template-columns:1fr;gap:12px}
+      .sp-card{padding:18px}
       /* Nav mobile */
-      .tc-nav,.sp-nav{padding:0 16px}
+      .tc-nav,.sp-nav{padding:0 14px;gap:10px;box-sizing:border-box}
+      .tc-title{font-size:14px}
+      /* Formulário cadastro mobile */
+      .fr{grid-template-columns:1fr}
+      .tc-right{padding:20px 16px 32px}
     }
 
     /* Extra small (≤400px) */
     @media(max-width:400px){
       .cards-grid{grid-template-columns:1fr}
       h1{font-size:clamp(22px,8vw,34px)}
+      .sp-content{padding:16px 12px 24px;box-sizing:border-box}
+      .sp-nav,.tc-nav{padding:0 12px;box-sizing:border-box}
     }
   </style>
 </head>
