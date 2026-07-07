@@ -3748,10 +3748,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var rua    = perfilExtra['rua']      || '';
     var cidade = perfilExtra['cidade']   || '';
     var estado = perfilExtra['estado']   || '';
-    var cpf    = perfilExtra['cpf']      || localStorage.getItem('rp_cpf') || '';
-    // Formatar CPF salvo para exibição
-    var cpfFmt = cpf.replace(/\D/g,'');
-    if (cpfFmt.length === 11) cpfFmt = cpfFmt.slice(0,3)+'.'+cpfFmt.slice(3,6)+'.'+cpfFmt.slice(6,9)+'-'+cpfFmt.slice(9);
+    var cpfRaw = (perfilExtra['cpf'] || localStorage.getItem('rp_cpf') || '').replace(/\D/g,'').slice(0,11);
+    // Nunca pré-formatar no value= — o script abaixo aplica a máscara após render
 
     // Banner de alerta CPF (mostrado quando chamado a partir do fluxo PIX)
     var bannerCPF = destacarCPF
@@ -3784,7 +3782,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<div class="st-card">'
       + '<div style="font-size:13px;font-weight:800;color:#1A1A1A;margin-bottom:12px;">📋 Contato &amp; Endereço</div>'
       + '<label style="font-size:13px;font-weight:700;color:' + (destacarCPF ? '#E65100' : '#555') + ';display:block;margin-bottom:5px;">🪪 CPF' + (destacarCPF ? ' <span style="color:#E65100;font-size:11px;font-weight:600;">(obrigatório para o PIX)</span>' : '') + '</label>'
-      + '<input id="mc-cpf" type="tel" inputmode="numeric" value="' + cpfFmt + '" placeholder="000.000.000-00" maxlength="14" oninput="_mascaraCPF(this)" style="width:100%;padding:11px;' + cpfBorder + 'font-size:14px;box-sizing:border-box;margin-bottom:4px;font-family:inherit;letter-spacing:1px;">'
+      + '<input id="mc-cpf" type="tel" inputmode="numeric" value="' + cpfRaw + '" placeholder="000.000.000-00" maxlength="14" oninput="_mascaraCPF(this)" style="width:100%;padding:11px;' + cpfBorder + 'font-size:14px;box-sizing:border-box;margin-bottom:4px;font-family:inherit;letter-spacing:1px;">'
       + (destacarCPF ? '<div style="font-size:11px;color:#E65100;margin-bottom:10px;">👆 Preencha e clique em Salvar dados</div>' : '<div style="margin-bottom:8px;"></div>')
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📱 Celular / WhatsApp</label>'
       + '<input id="mc-telefone" type="tel" value="' + tel + '" placeholder="(11) 99999-9999" maxlength="15" oninput="formatarTelefoneConta(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;">'
@@ -3809,7 +3807,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<div><div style="font-size:13px;font-weight:700;color:#FF6D00;">⭐ Pontos &amp; Níveis</div>'
       + '<div id="mc-gamif-info" style="font-size:12px;color:#888;margin-top:3px;">Carregando...</div></div>'
       + '<div style="font-size:20px;">›</div></div></div>'
-      + '<script>setTimeout(function(){var el=document.getElementById("mc-gamif-info");if(el&&typeof getPontosGamif==="function"){var pts=getPontosGamif();var nv=getNivelGamif();el.textContent=nv.icone+" "+pts+" pts \u2022 "+nv.nome;}},200);<' + '/script>'
+      + '<script>setTimeout(function(){'
+      + 'var el=document.getElementById("mc-gamif-info");if(el&&typeof getPontosGamif==="function"){var pts=getPontosGamif();var nv=getNivelGamif();el.textContent=nv.icone+" "+pts+" pts \u2022 "+nv.nome;}'
+      + 'var cpfEl=document.getElementById("mc-cpf");if(cpfEl&&cpfEl.value&&typeof window._mascaraCPF==="function"){window._mascaraCPF(cpfEl);}'
+      + (destacarCPF ? 'setTimeout(function(){var c=document.getElementById("mc-cpf");if(c)c.focus();},100);' : '')
+      + '},200);<' + '/script>'
       + '<button class="st-btn st-btn-danger" onclick="doLogout();fecharTela();">Sair da conta</button>';
     abrirTela('Minha Conta', html);
   }
