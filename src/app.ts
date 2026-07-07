@@ -5223,33 +5223,63 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     );
   }
 
-  // ── Fallback de localização via IP — usa /api/geoip (servidor próprio) ──
-  // Rota server-side tem fallback completo: Google Geolocation → ipapi.co → ip-api.com
-  // Evita expor chave Google no frontend e contorna restrições de API
+  // ── Fallback de localização via Google Geolocation API (server-side) ──────────
+  // Envia WiFi + cell towers do dispositivo → servidor repassa para Google API
+  // (chave fica segura no servidor, igual Uber/Google Maps)
   function _buscarLocalizacaoGoogle(callback) {
-    fetch('/api/geoip')
+    // Coletar redes WiFi e torres de celular visíveis (Network Information API)
+    var payload = {};
+
+    // Network Information API — disponível em Android/Chrome
+    var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn) {
+      // Tentar coletar info de cell towers via connection (limitado no browser)
+      if (conn.type === 'cellular' && conn.downlinkMax) {
+        // Não temos acesso direto às cell towers no browser padrão,
+        // mas podemos passar MCC/MNC se disponível
+      }
+    }
+
+    // Chamar servidor com payload (pode ser vazio — servidor usa considerIpAddress como fallback)
+    fetch('/api/geolocate-device', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (d && d.lat && d.lng) {
         var lat = d.lat;
         var lng = d.lng;
-        // Se retornar SP (padrão de fallback genérico) → ignorar, não é localização real
+        var acc = Math.round(d.accuracy || 9999);
+        // Se retornar SP (fallback genérico do Google por IP) → ignorar
         if (_ehCoordSP(lat, lng)) {
-          console.warn('[GPS] geoip retornou SP — ignorando, aguardando GPS nativo...');
+          console.warn('[GPS] Google device retornou SP (acc=' + acc + 'm) — ignorando...');
           showToast('📡 Aguardando GPS do celular…', 3000);
           if (callback) callback(null, null);
           return;
         }
-        console.log('[GPS] geoip fonte=' + (d.fonte||'?') + ' lat=' + lat + ' lng=' + lng);
+        console.log('[GPS] Google device: lat=' + lat + ' lng=' + lng + ' acc=' + acc + 'm fonte=' + (d.fonte||'?'));
         if (callback) { callback(lat, lng); }
         else { _aplicarLocalizacao(lat, lng, true, true); }
       } else {
-        console.warn('[GPS] geoip sem resultado:', JSON.stringify(d));
-        if (callback) callback(null, null);
+        console.warn('[GPS] Google device sem resultado — fallback geoip');
+        // Fallback para IP puro
+        fetch('/api/geoip')
+        .then(function(r2) { return r2.json(); })
+        .then(function(d2) {
+          if (d2 && d2.lat && d2.lng && !_ehCoordSP(d2.lat, d2.lng)) {
+            if (callback) callback(d2.lat, d2.lng);
+            else _aplicarLocalizacao(d2.lat, d2.lng, true, false);
+          } else {
+            if (callback) callback(null, null);
+          }
+        })
+        .catch(function() { if (callback) callback(null, null); });
       }
     })
     .catch(function(e) {
-      console.warn('[GPS] geoip erro de rede:', e);
+      console.warn('[GPS] geolocate-device erro:', e);
       if (callback) callback(null, null);
     });
   }

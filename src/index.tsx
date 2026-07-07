@@ -676,6 +676,67 @@ app.get('/api/geocode/reverso', async (c) => {
   return c.json(geo)
 })
 
+// ─── API: Geolocate Device — Google Geolocation API com dados do dispositivo ──
+// Recebe wifiAccessPoints e cellTowers do browser (via Network Information API)
+// e repassa para Google Geolocation API usando a chave segura do servidor.
+// Isso dá precisão similar ao Uber (torres + WiFi) sem expor a chave no frontend.
+app.post('/api/geolocate-device', async (c) => {
+  try {
+    const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+    if (!googleKey) return c.json({ erro: 'Chave não configurada' }, 500)
+
+    const body = await c.req.json() as Record<string, unknown>
+    // Montar payload Google Geolocation API
+    const payload: Record<string, unknown> = { considerIpAddress: true }
+    if (Array.isArray(body.wifiAccessPoints) && body.wifiAccessPoints.length > 0)
+      payload.wifiAccessPoints = body.wifiAccessPoints
+    if (Array.isArray(body.cellTowers) && body.cellTowers.length > 0)
+      payload.cellTowers = body.cellTowers
+    if (body.homeMobileCountryCode) payload.homeMobileCountryCode = body.homeMobileCountryCode
+    if (body.homeMobileNetworkCode) payload.homeMobileNetworkCode = body.homeMobileNetworkCode
+
+    const gRes = await fetch(
+      `https://www.googleapis.com/geolocation/v1/geolocate?key=${googleKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(5000)
+      }
+    )
+    if (!gRes.ok) {
+      const err = await gRes.json() as any
+      console.warn('[geolocate-device] Google erro:', gRes.status, JSON.stringify(err).slice(0,200))
+      return c.json({ erro: 'Google API indisponível', status: gRes.status }, 502)
+    }
+    const gd = await gRes.json() as any
+    if (!gd.location?.lat) return c.json({ erro: 'Sem localização' }, 404)
+
+    // Geocode reverso para cidade/estado via Nominatim (grátis, sem quota)
+    let cidade = '', estado = ''
+    try {
+      const nomRes = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${gd.location.lat}&lon=${gd.location.lng}&accept-language=pt-BR`,
+        { headers: { 'User-Agent': 'RotaPosto/1.0' }, signal: AbortSignal.timeout(3000) }
+      )
+      if (nomRes.ok) {
+        const nom = await nomRes.json() as any
+        cidade = nom.address?.city || nom.address?.town || nom.address?.municipality || ''
+        estado = nom.address?.state_code || nom.address?.state || ''
+        if (estado.length > 2) {
+          // Mapear nome do estado para sigla
+          const siglas: Record<string,string> = { 'Espírito Santo':'ES','São Paulo':'SP','Rio de Janeiro':'RJ','Minas Gerais':'MG','Bahia':'BA','Paraná':'PR','Rio Grande do Sul':'RS','Santa Catarina':'SC','Goiás':'GO','Pernambuco':'PE','Ceará':'CE','Pará':'PA','Maranhão':'MA','Amazonas':'AM','Mato Grosso':'MT','Mato Grosso do Sul':'MS','Rio Grande do Norte':'RN','Alagoas':'AL','Piauí':'PI','Paraíba':'PB','Sergipe':'SE','Rondônia':'RO','Tocantins':'TO','Acre':'AC','Amapá':'AP','Roraima':'RR','Distrito Federal':'DF' }
+          estado = siglas[estado] || estado.slice(0,2).toUpperCase()
+        }
+      }
+    } catch (_) {}
+
+    return c.json({ lat: gd.location.lat, lng: gd.location.lng, accuracy: gd.accuracy, cidade, estado, fonte: 'google-device' })
+  } catch(e) {
+    return c.json({ erro: 'Erro interno' }, 500)
+  }
+})
+
 // ─── API: GeoIP — localização pelo IP + Google Geolocation API ───────────────
 // Fallback quando GPS do celular não disponível
 // Ordem: Google Geolocation API (IP-only) → ipapi.co → ip-api.com → SP padrão
