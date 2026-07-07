@@ -9143,7 +9143,7 @@ async function deletarParceiroModal() {
 
 async function deletarParceiro(id, nome) {
   if (id === 'p_teste') { showToast('⚠️ Posto de teste não pode ser removido', ''); return; }
-  if (!confirm('Remover o posto "' + nome + '"?\nEsta ação é irreversível.')) return;
+  if (!confirm('Remover o posto "' + nome + '"? Esta acao e irreversivel.')) return;
   try {
     const res = await fetch('/api/admin/postos/' + encodeURIComponent(id) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
