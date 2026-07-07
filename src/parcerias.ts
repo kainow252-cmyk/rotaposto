@@ -1131,9 +1131,14 @@ export function getPainelEmpresaHTML(): string {
     /* ── VALIDADOR QR ── */
     .validador-card { background:#fff; border-radius:16px; padding:28px; border:1.5px solid var(--border); max-width:480px; margin:0 auto; }
     .validador-input-row { display:flex; gap:10px; margin-bottom:16px; }
-    .validador-input { flex:1; padding:14px 16px; border:2px solid var(--border); border-radius:12px; font-size:18px; letter-spacing:4px; font-weight:700; text-align:center; font-family:monospace; }
+    .validador-input { flex:1; padding:14px 16px; border:2px solid var(--border); border-radius:12px; font-size:18px; letter-spacing:4px; font-weight:700; text-align:center; font-family:monospace; min-width:0; }
     .validador-input:focus { outline:none; border-color:var(--laranja); }
-    .btn-validar { padding:14px 20px; background:var(--laranja); color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; white-space:nowrap; }
+    .btn-validar { padding:14px 20px; background:var(--laranja); color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+    @media(max-width:900px){
+      .validador-input-row { flex-direction:column; gap:8px; }
+      .btn-validar { width:100%; padding:16px; font-size:16px; }
+      .validador-card { padding:20px 16px; }
+    }
     .resultado-validacao { border-radius:14px; padding:20px; text-align:center; margin-top:16px; display:none; }
     .resultado-ok { background:#E8F5E9; border:2px solid #A5D6A7; }
     .resultado-erro { background:#FFEBEE; border:2px solid #EF9A9A; }
