@@ -2566,7 +2566,7 @@ async function carregarEquipe() {
             + '<td style="padding:10px 14px;color:var(--sub);font-size:13px">' + f.email + '</td>'
             + '<td style="padding:10px 14px;text-align:center"><span class="badge ' + (cargoBadge[f.cargo]||'badge-cinza') + '">' + (cargoLabel[f.cargo]||f.cargo) + '</span></td>'
             + '<td style="padding:10px 14px;text-align:center">'
-            + '<button onclick="removerFuncionario(\'' + f.id + '\')" style="padding:6px 14px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer"><i class="fas fa-trash"></i> Remover</button>'
+            + '<button data-funcid="' + f.id + '" onclick="removerFuncionario(this.dataset.funcid)" style="padding:6px 14px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer"><i class="fas fa-trash"></i> Remover</button>'
             + '</td></tr>';
         }).join('')
       + '</tbody></table>';
