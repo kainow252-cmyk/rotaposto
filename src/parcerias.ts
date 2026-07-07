@@ -1336,7 +1336,8 @@ export function getPainelEmpresaHTML(): string {
       <div class="nav-item" onclick="irPara('validar')"><i class="fas fa-qrcode"></i> Validar Cupom <span class="nav-badge" id="badge-cupons">0</span></div>
       <div class="nav-group-label">Gestão</div>
       <div class="nav-item" onclick="irPara('precos')"><i class="fas fa-gas-pump"></i> Preços e Desconto</div>
-      <div class="nav-item" onclick="irPara('cupons')"><i class="fas fa-ticket-alt"></i> Histórico de Cupons</div>
+      <div class="nav-item" onclick="irPara('criar-cupom')"><i class="fas fa-ticket-alt"></i> Criar Cupom</div>
+      <div class="nav-item" onclick="irPara('cupons')"><i class="fas fa-history"></i> Histórico de Cupons</div>
       <div class="nav-item" onclick="irPara('notificacoes')"><i class="fas fa-bell"></i> Notificações</div>
       <div class="nav-item" onclick="irPara('promocoes')"><i class="fas fa-percentage"></i> Promoções</div>
       <div class="nav-group-label">Conta</div>
@@ -1473,6 +1474,100 @@ export function getPainelEmpresaHTML(): string {
       </div>
 
       <!-- ── HISTÓRICO CUPONS ── -->
+      <!-- ── CRIAR CUPOM ── -->
+      <div id="page-criar-cupom" style="display:none">
+
+        <!-- Formulário de criação -->
+        <div class="chart-card" style="max-width:560px;margin-bottom:20px">
+          <div class="chart-titulo" style="margin-bottom:18px"><i class="fas fa-ticket-alt" style="color:var(--laranja);margin-right:8px"></i>Criar novo cupom de desconto</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Combustível *</label>
+              <select id="cc-comb" style="width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:#fff;font-family:'Inter',sans-serif">
+                <option value="Gasolina Comum">Gasolina Comum</option>
+                <option value="Gasolina Aditivada">Gasolina Aditivada</option>
+                <option value="Etanol">Etanol</option>
+                <option value="Diesel S-10">Diesel S-10</option>
+                <option value="Diesel Comum">Diesel Comum</option>
+                <option value="GNV">GNV</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Desconto por litro *</label>
+              <div style="position:relative">
+                <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:700;color:var(--sub)">R$</span>
+                <input id="cc-desconto" type="number" min="0.01" max="2.00" step="0.01" value="0.10"
+                  style="width:100%;padding:11px 12px 11px 36px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:'Inter',sans-serif"
+                  placeholder="0,10"/>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Validade</label>
+              <select id="cc-validade" style="width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:#fff;font-family:'Inter',sans-serif">
+                <option value="5">5 minutos (uso imediato)</option>
+                <option value="60">1 hora</option>
+                <option value="480">8 horas</option>
+                <option value="1440" selected>1 dia</option>
+                <option value="4320">3 dias</option>
+                <option value="10080">7 dias</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Quantidade de usos</label>
+              <input id="cc-usos" type="number" min="1" max="999" value="1"
+                style="width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:'Inter',sans-serif"
+                placeholder="1"/>
+            </div>
+          </div>
+
+          <div style="margin-bottom:14px">
+            <label style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Descrição / observação (opcional)</label>
+            <input id="cc-obs" type="text" maxlength="80"
+              style="width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:'Inter',sans-serif"
+              placeholder="Ex: Promoção fim de semana, clientes fidelidade..."/>
+          </div>
+
+          <!-- Preview do cupom -->
+          <div id="cc-preview" style="background:linear-gradient(135deg,#FF6D00,#E65100);border-radius:14px;padding:18px 20px;margin-bottom:16px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;opacity:.8;text-transform:uppercase;margin-bottom:4px">Cupom RotaPosto</div>
+              <div style="font-size:22px;font-weight:900;letter-spacing:4px;font-family:monospace" id="cc-prev-codigo">— — — —</div>
+              <div style="font-size:13px;opacity:.9;margin-top:4px" id="cc-prev-desc">Gasolina Comum • R$ 0,10/L</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:11px;opacity:.7;margin-bottom:2px">Válido por</div>
+              <div style="font-size:15px;font-weight:800" id="cc-prev-validade">1 dia</div>
+              <div style="font-size:11px;opacity:.7;margin-top:4px" id="cc-prev-usos">1 uso</div>
+            </div>
+          </div>
+
+          <div id="cc-msg" style="display:none;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:700;margin-bottom:14px"></div>
+
+          <button onclick="criarCupomPosto()" id="btn-criar-cupom"
+            style="width:100%;padding:14px;background:var(--laranja);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s">
+            <i class="fas fa-plus-circle"></i> Gerar cupom
+          </button>
+        </div>
+
+        <!-- Lista de cupons criados pelo posto -->
+        <div class="table-card">
+          <div class="table-header">
+            <div class="table-titulo">Cupons criados pelo posto</div>
+            <button onclick="listarCuponsPosto()" style="background:none;border:1.5px solid var(--border);padding:7px 14px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;color:var(--sub)">
+              <i class="fas fa-sync"></i> Atualizar
+            </button>
+          </div>
+          <div id="lista-cupons-posto" style="padding:0">
+            <div style="text-align:center;padding:32px;color:#aaa"><i class="fas fa-ticket-alt" style="font-size:24px;display:block;margin-bottom:8px;opacity:.3"></i>Nenhum cupom criado ainda.<br><span style="font-size:12px">Crie seu primeiro cupom acima!</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── HISTÓRICO DE CUPONS ── -->
       <div id="page-cupons" style="display:none">
         <div class="table-card">
           <div class="table-header">
@@ -1736,8 +1831,8 @@ function irParaCadastroExterno() {
 }
 
 // ── Navegação ──────────────────────────────────────────
-const PAGES = ['dashboard','validar','precos','cupons','notificacoes','promocoes','perfil','configuracoes'];
-const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', cupons:'Histórico de Cupons', notificacoes:'Notificações', promocoes:'Promoções', perfil:'Perfil do Posto', configuracoes:'Configurações' };
+const PAGES = ['dashboard','validar','precos','criar-cupom','cupons','notificacoes','promocoes','perfil','configuracoes'];
+const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', 'criar-cupom':'Criar Cupom', cupons:'Histórico de Cupons', notificacoes:'Notificações', promocoes:'Promoções', perfil:'Perfil do Posto', configuracoes:'Configurações' };
 
 function irPara(pg) {
   PAGES.forEach(p => {
@@ -1750,12 +1845,13 @@ function irPara(pg) {
   });
   document.getElementById('topbar-titulo').textContent = TITULOS[pg] || pg;
   fecharSidebar();
-  if (pg === 'dashboard') carregarDashboard();
-  if (pg === 'precos')    renderizarPrecos();
-  if (pg === 'cupons')    carregarHistoricoCupons();
-  if (pg === 'perfil')    carregarPerfil();
+  if (pg === 'dashboard')   carregarDashboard();
+  if (pg === 'precos')      renderizarPrecos();
+  if (pg === 'criar-cupom') { listarCuponsPosto(); atualizarPreviewCupom(); }
+  if (pg === 'cupons')      carregarHistoricoCupons();
+  if (pg === 'perfil')      carregarPerfil();
   if (pg === 'notificacoes') carregarNotifConfig();
-  if (pg === 'promocoes')    carregarPromocoes();
+  if (pg === 'promocoes')   carregarPromocoes();
 }
 
 function abrirSidebar() {
@@ -1962,6 +2058,125 @@ async function salvarPrecos() {
   } catch {}
   const msg = document.getElementById('precos-msg');
   msg.style.display='inline'; setTimeout(()=>msg.style.display='none',3000);
+}
+
+// ── Criar Cupom (pelo posto) ───────────────────────────
+function atualizarPreviewCupom() {
+  const comb     = document.getElementById('cc-comb')?.value || 'Gasolina Comum';
+  const desconto = parseFloat(document.getElementById('cc-desconto')?.value || '0.10') || 0.10;
+  const valMin   = parseInt(document.getElementById('cc-validade')?.value || '1440');
+  const usos     = parseInt(document.getElementById('cc-usos')?.value || '1');
+
+  // Texto de validade legível
+  const validadeTexto = valMin < 60 ? valMin + ' min'
+    : valMin < 1440 ? (valMin/60) + 'h'
+    : valMin < 10080 ? (valMin/1440) + (valMin/1440 === 1 ? ' dia' : ' dias')
+    : (valMin/10080) + (valMin/10080 === 1 ? ' semana' : ' semanas');
+
+  const el_codigo   = document.getElementById('cc-prev-codigo');
+  const el_desc     = document.getElementById('cc-prev-desc');
+  const el_val      = document.getElementById('cc-prev-validade');
+  const el_usos     = document.getElementById('cc-prev-usos');
+  if (el_codigo)  el_codigo.textContent  = '• • •  • • •';
+  if (el_desc)    el_desc.textContent    = comb + ' • R$ ' + desconto.toFixed(2).replace('.',',') + '/L';
+  if (el_val)     el_val.textContent     = validadeTexto;
+  if (el_usos)    el_usos.textContent    = usos + (usos === 1 ? ' uso' : ' usos');
+}
+
+// Atualizar preview ao mudar campos
+document.addEventListener('change', e => {
+  if (['cc-comb','cc-desconto','cc-validade','cc-usos'].includes(e.target?.id)) atualizarPreviewCupom();
+});
+document.addEventListener('input', e => {
+  if (['cc-desconto','cc-usos'].includes(e.target?.id)) atualizarPreviewCupom();
+});
+
+async function criarCupomPosto() {
+  const btn  = document.getElementById('btn-criar-cupom');
+  const msg  = document.getElementById('cc-msg');
+  const comb     = document.getElementById('cc-comb').value;
+  const desconto = parseFloat(document.getElementById('cc-desconto').value);
+  const valMin   = parseInt(document.getElementById('cc-validade').value);
+  const usos     = parseInt(document.getElementById('cc-usos').value);
+  const obs      = document.getElementById('cc-obs').value.trim();
+
+  msg.style.display = 'none';
+  if (!desconto || desconto <= 0) {
+    msg.style.cssText = 'display:block;background:#FFEBEE;color:#C62828;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:700;margin-bottom:14px';
+    msg.textContent = 'Informe um desconto válido (ex: 0,10).';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...';
+
+  try {
+    const r = await fetch('/api/parceiros/cupons/criar', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+(_sessao?.token||'') },
+      body: JSON.stringify({ postoId: _sessao?.postoId, combustivel: comb, desconto, validadeMinutos: valMin, usos, obs })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      msg.style.cssText = 'display:block;background:#E8F5E9;color:#1B5E20;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:700;margin-bottom:14px';
+      msg.innerHTML = '<i class="fas fa-check-circle"></i> Cupom <strong>' + d.codigo + '</strong> criado! Válido por ' + d.validadeTexto + '.';
+      // Mostrar código no preview
+      const el = document.getElementById('cc-prev-codigo');
+      if (el) el.textContent = d.codigo.slice(0,3) + '  ' + d.codigo.slice(3);
+      // Recarregar lista
+      listarCuponsPosto();
+      // Limpar observação
+      document.getElementById('cc-obs').value = '';
+    } else {
+      msg.style.cssText = 'display:block;background:#FFEBEE;color:#C62828;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:700;margin-bottom:14px';
+      msg.textContent = d.erro || 'Erro ao criar cupom. Tente novamente.';
+    }
+  } catch(e) {
+    msg.style.cssText = 'display:block;background:#FFEBEE;color:#C62828;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:700;margin-bottom:14px';
+    msg.textContent = 'Erro de conexão. Verifique sua internet.';
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-plus-circle"></i> Gerar cupom';
+}
+
+async function listarCuponsPosto() {
+  const lista = document.getElementById('lista-cupons-posto');
+  if (!lista) return;
+  lista.innerHTML = '<div style="text-align:center;padding:24px;color:#aaa"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
+  try {
+    const r = await fetch('/api/parceiros/cupons/posto?postoId=' + (_sessao?.postoId||''), {
+      headers: { 'Authorization': 'Bearer ' + (_sessao?.token||'') }
+    });
+    const d = await r.json();
+    const cupons = d.cupons || [];
+    if (!cupons.length) {
+      lista.innerHTML = '<div style="text-align:center;padding:32px;color:#aaa"><i class="fas fa-ticket-alt" style="font-size:24px;display:block;margin-bottom:8px;opacity:.3"></i>Nenhum cupom criado ainda.<br><span style="font-size:12px">Crie seu primeiro cupom acima!</span></div>';
+      return;
+    }
+    lista.innerHTML = '<table style="width:100%;border-collapse:collapse">' +
+      '<thead><tr>' +
+      '<th style="padding:10px 16px;font-size:11px;font-weight:700;color:#616161;text-align:left;background:#F5F5F5;text-transform:uppercase;letter-spacing:.5px">Código</th>' +
+      '<th style="padding:10px 16px;font-size:11px;font-weight:700;color:#616161;text-align:left;background:#F5F5F5;text-transform:uppercase;letter-spacing:.5px">Combustível</th>' +
+      '<th style="padding:10px 16px;font-size:11px;font-weight:700;color:#616161;text-align:left;background:#F5F5F5;text-transform:uppercase;letter-spacing:.5px">Desconto</th>' +
+      '<th style="padding:10px 16px;font-size:11px;font-weight:700;color:#616161;text-align:left;background:#F5F5F5;text-transform:uppercase;letter-spacing:.5px">Usos</th>' +
+      '<th style="padding:10px 16px;font-size:11px;font-weight:700;color:#616161;text-align:left;background:#F5F5F5;text-transform:uppercase;letter-spacing:.5px">Validade</th>' +
+      '<th style="padding:10px 16px;font-size:11px;font-weight:700;color:#616161;text-align:left;background:#F5F5F5;text-transform:uppercase;letter-spacing:.5px">Status</th>' +
+      '</tr></thead><tbody>' +
+      cupons.map(c => {
+        const statusColor = c.status === 'ATIVO' ? 'badge-verde' : c.status === 'EXPIRADO' ? 'badge-cinza' : 'badge-amarelo';
+        const exp = c.expiraEm ? new Date(c.expiraEm).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
+        return '<tr>' +
+          '<td style="padding:12px 16px;font-size:14px;font-weight:800;letter-spacing:2px;font-family:monospace">' + c.codigo + '</td>' +
+          '<td style="padding:12px 16px;font-size:13px">' + (c.combustivel||'--') + '</td>' +
+          '<td style="padding:12px 16px;font-size:14px;font-weight:700;color:#E65100">R$ ' + parseFloat(c.desconto||0).toFixed(2).replace('.',',') + '/L</td>' +
+          '<td style="padding:12px 16px;font-size:13px">' + (c.usosRestantes||c.usos||1) + ' restante(s)</td>' +
+          '<td style="padding:12px 16px;font-size:12px;color:#616161">' + exp + '</td>' +
+          '<td style="padding:12px 16px"><span class="badge ' + statusColor + '">' + (c.status||'ATIVO') + '</span></td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+  } catch(e) {
+    lista.innerHTML = '<div style="text-align:center;padding:24px;color:#aaa">Erro ao carregar. <a href="#" onclick="listarCuponsPosto()" style="color:var(--laranja)">Tentar novamente</a></div>';
+  }
 }
 
 // ── Histórico de Cupons ────────────────────────────────

@@ -9576,9 +9576,35 @@ app.post('/api/parceiros/cupons/validar', async (c) => {
       }
     }
 
-    // Marcar como utilizado
-    const cupomAtualizado = { ...cupom, status: 'UTILIZADO', dataUso: new Date().toISOString(), postoId: postoId || '' }
-    await kvSetCupom(kv, codigoLimpo, cupomAtualizado, 86400, r2)
+    // Para cupons tipo POSTO: decrementar usos; tipo USUARIO: marcar UTILIZADO
+    const tipo = String((cupom as Record<string,unknown>).tipo || 'USUARIO')
+    let cupomAtualizado: Record<string,unknown>
+    if (tipo === 'POSTO') {
+      const usosRestantes = Math.max(0, Number((cupom as Record<string,unknown>).usosRestantes || 1) - 1)
+      cupomAtualizado = { ...cupom, usosRestantes, dataUltUso: new Date().toISOString(), postoId: postoId || '',
+        status: usosRestantes <= 0 ? 'ESGOTADO' : 'ATIVO' }
+      const ttlRestante = Math.max(60, Math.floor((Number((cupom as Record<string,unknown>).expiraEm || 0) - Date.now()) / 1000))
+      await kvSetCupom(kv, codigoLimpo, cupomAtualizado, ttlRestante, r2)
+      // Atualizar também na lista do posto
+      if (postoId && kv) {
+        const listaKey = `posto_cupons:${postoId}`
+        try {
+          const listaRaw = await kv.get(listaKey)
+          if (listaRaw) {
+            const lista = JSON.parse(listaRaw) as Record<string,unknown>[]
+            const idx = lista.findIndex(x => x.codigo === codigoLimpo)
+            if (idx >= 0) lista[idx] = cupomAtualizado
+            await kv.put(listaKey, JSON.stringify(lista), { expirationTtl: 86400 * 7 })
+          }
+        } catch {}
+      }
+      // Usar desconto do próprio cupom criado pelo posto
+      desconto = Number((cupom as Record<string,unknown>).desconto || desconto)
+      precoFinal = precoBomba - desconto
+    } else {
+      cupomAtualizado = { ...cupom, status: 'UTILIZADO', dataUso: new Date().toISOString(), postoId: postoId || '' }
+      await kvSetCupom(kv, codigoLimpo, cupomAtualizado, 86400, r2)
+    }
 
     // Registrar no histórico do posto
     if (postoId && kv) {
@@ -9851,6 +9877,106 @@ app.post('/api/parceiros/promocoes', async (c) => {
   } catch (e) {
     console.error('[parceiros/promocoes POST]', e)
     return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/cupons/criar ─────────────────────────────────────────
+// Chamado pelo POSTO para criar um cupom de desconto para clientes usarem
+app.post('/api/parceiros/cupons/criar', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+
+    // Verificar autenticação
+    const auth = c.req.header('Authorization') || ''
+    const token = auth.replace('Bearer ', '').trim()
+    if (!token) return c.json({ ok: false, erro: 'Não autorizado.' }, 401)
+
+    const body = await c.req.json() as Record<string, unknown>
+    const { postoId, combustivel, desconto, validadeMinutos, usos, obs } = body as {
+      postoId: string, combustivel: string, desconto: number,
+      validadeMinutos: number, usos: number, obs: string
+    }
+
+    if (!postoId) return c.json({ ok: false, erro: 'postoId obrigatório.' }, 400)
+    if (!desconto || desconto <= 0 || desconto > 5) return c.json({ ok: false, erro: 'Desconto inválido (0,01 a 5,00).' }, 400)
+
+    const validMin  = Math.min(Math.max(Number(validadeMinutos) || 1440, 5), 10080)
+    const usosTotal = Math.min(Math.max(Number(usos) || 1, 1), 999)
+
+    // Gerar código de 6 dígitos único
+    const codigo = String(Math.floor(100000 + Math.random() * 900000))
+    const agora = Date.now()
+    const expiraEm = agora + validMin * 60 * 1000
+
+    // Texto legível da validade
+    const validadeTexto = validMin < 60 ? validMin + ' min'
+      : validMin < 1440 ? Math.round(validMin/60) + 'h'
+      : validMin < 10080 ? Math.round(validMin/1440) + (Math.round(validMin/1440) === 1 ? ' dia' : ' dias')
+      : Math.round(validMin/10080) + ' semana(s)'
+
+    const cupom = {
+      codigo,
+      postoId,
+      tipo: 'POSTO',   // criado pelo posto (diferente de 'USUARIO' criado pelo consumidor)
+      combustivel: combustivel || 'Gasolina Comum',
+      desconto: Number(desconto),
+      usos: usosTotal,
+      usosRestantes: usosTotal,
+      obs: obs || '',
+      status: 'ATIVO',
+      criadoEm: agora,
+      expiraEm,
+      validadeTexto
+    }
+
+    // Salvar no KV com TTL em segundos
+    const ttlSeg = validMin * 60 + 300 // margem de 5 min extra
+    await kvSetCupom(kv, codigo, cupom, ttlSeg, r2)
+
+    // Também indexar na lista de cupons do posto
+    const listaKey = `posto_cupons:${postoId}`
+    let lista: unknown[] = []
+    try {
+      const listaRaw = kv ? await kv.get(listaKey) : null
+      if (listaRaw) lista = JSON.parse(listaRaw)
+    } catch {}
+    // Manter só os últimos 50 cupons
+    lista = [cupom, ...lista].slice(0, 50)
+    if (kv) await kv.put(listaKey, JSON.stringify(lista), { expirationTtl: 86400 * 7 })
+
+    return c.json({ ok: true, codigo, validadeTexto, expiraEm })
+  } catch (e) {
+    console.error('[parceiros/cupons/criar]', e)
+    return c.json({ ok: false, erro: 'Erro interno.' }, 500)
+  }
+})
+
+// ── GET /api/parceiros/cupons/posto ──────────────────────────────────────────
+// Lista cupons criados pelo posto
+app.get('/api/parceiros/cupons/posto', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const postoId = c.req.query('postoId') || ''
+    if (!postoId) return c.json({ cupons: [] })
+
+    const listaKey = `posto_cupons:${postoId}`
+    const listaRaw = kv ? await kv.get(listaKey) : null
+    const lista = listaRaw ? JSON.parse(listaRaw) as Record<string,unknown>[] : []
+
+    // Marcar expirados
+    const agora = Date.now()
+    const atualizados = lista.map(c => ({
+      ...c,
+      status: Number((c as Record<string,unknown>).expiraEm) < agora ? 'EXPIRADO'
+            : Number((c as Record<string,unknown>).usosRestantes) <= 0 ? 'ESGOTADO'
+            : (c as Record<string,unknown>).status || 'ATIVO'
+    }))
+
+    return c.json({ cupons: atualizados })
+  } catch (e) {
+    console.error('[parceiros/cupons/posto]', e)
+    return c.json({ cupons: [] })
   }
 })
 
