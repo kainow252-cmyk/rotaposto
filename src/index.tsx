@@ -7553,9 +7553,18 @@ app.put('/api/admin/parceiros/:id', async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json() as Record<string,unknown>
 
-  // Carregar dados atuais (p_teste também é persistido agora)
+  // Carregar dados atuais — se não existir, cria novo (upsert para postos vindos da ANP)
   const atual = await kvGetParceiro(kv, id, r2) as Record<string,unknown> | null
-  if (!atual) return c.json({ erro: 'Posto não encontrado' }, 404)
+  const base: Record<string,unknown> = atual || {
+    id,
+    criadoEm: new Date().toISOString(),
+    status: 'ativo',
+    plano: 'visibilidade',
+    precos: {},
+    totalCliques: 0,
+    totalCupons: 0,
+    totalImpressoes: 0,
+  }
 
   // Campos editáveis pelo admin
   const campos = [
@@ -7564,7 +7573,7 @@ app.put('/api/admin/parceiros/:id', async (c) => {
     'plano','status','seloVerificado','pinDourado',
     'notificacoesAtivas','cuponsAtivos','topoLista'
   ]
-  const atualizado: Record<string,unknown> = { ...atual }
+  const atualizado: Record<string,unknown> = { ...base }
   for (const campo of campos) {
     if (campo in body) atualizado[campo] = body[campo]
   }
@@ -8841,21 +8850,34 @@ app.get('/admin', (c) => {
         <!-- Linha 2: Valor + Ciclo + Cor -->
         <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:12px;margin-bottom:16px">
           <div>
-            <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Valor (R$)</label>
-            <input id="mp-valor" type="number" min="0" step="0.01" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:10px;font-size:14px;box-sizing:border-box" placeholder="9.90"/>
+            <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Valor (R$) / mês</label>
+            <input id="mp-valor" type="number" min="0" step="0.01" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:10px;font-size:14px;box-sizing:border-box" placeholder="0.00" oninput="mpAtualizarPeriodo()"/>
           </div>
           <div>
             <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Ciclo de Cobrança</label>
-            <select id="mp-ciclo" style="width:100%;background:#1E2128;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:10px;font-size:13px;box-sizing:border-box">
+            <select id="mp-ciclo" onchange="mpAtualizarPeriodo()" style="width:100%;background:#1E2128;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:10px;font-size:13px;box-sizing:border-box">
               <option value="forever">Grátis / Para sempre</option>
+              <option value="trial">Período de Teste (grátis)</option>
               <option value="monthly">Mensal</option>
               <option value="yearly">Anual</option>
-              <option value="weekly">Semanal</option>
             </select>
           </div>
           <div>
             <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Cor</label>
             <input id="mp-cor" type="color" style="width:100%;height:42px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:4px;cursor:pointer;box-sizing:border-box"/>
+          </div>
+        </div>
+
+        <!-- Dias de teste (só aparece quando ciclo = trial ou forever) -->
+        <div id="mp-trial-box" style="display:none;background:rgba(255,214,0,0.07);border:1px solid rgba(255,214,0,0.2);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px">
+              <label style="font-size:11px;color:#FFD600;font-weight:700;display:block;margin-bottom:6px"><i class="fas fa-clock"></i> Dias de Teste Gratuito</label>
+              <input id="mp-dias-teste" type="number" min="0" max="365" value="30" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,214,0,0.3);color:#FFD600;border-radius:8px;padding:9px 12px;font-size:16px;font-weight:900;box-sizing:border-box"/>
+            </div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.45);flex:2;min-width:160px">
+              Após o período de teste, o posto deverá assinar um plano pago para continuar ativo.
+            </div>
           </div>
         </div>
 
@@ -8877,13 +8899,21 @@ app.get('/admin', (c) => {
           </label>
         </div>
 
-        <!-- Permissões / Features -->
+        <!-- Benefícios fixos para postos parceiros -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.8);margin-bottom:12px"><i class="fas fa-gas-pump" style="color:var(--laranja);margin-right:6px"></i>Benefícios para o Posto Parceiro</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="mp-beneficios-grid">
+            <!-- benefícios renderizados via JS -->
+          </div>
+        </div>
+
+        <!-- Permissões / Features extras -->
         <div style="margin-bottom:20px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <label style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.8)"><i class="fas fa-shield-alt" style="color:var(--laranja);margin-right:6px"></i>Permissões & Recursos do Plano</label>
+            <label style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.8)"><i class="fas fa-list-check" style="color:var(--laranja);margin-right:6px"></i>Recursos Extras / App Usuário</label>
             <button onclick="adicionarFeatureModal()" style="background:rgba(255,109,0,0.15);color:var(--laranja);border:1px solid rgba(255,109,0,0.3);border-radius:8px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700">+ Adicionar</button>
           </div>
-          <div id="mp-features-list" style="display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;padding-right:4px">
+          <div id="mp-features-list" style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;padding-right:4px">
             <!-- features renderizadas via JS -->
           </div>
         </div>
@@ -9661,18 +9691,49 @@ async function salvarParceiroModal() {
 }
 
 async function gerarConviteParceiro() {
-  if (!_parceiroEditandoId) { showToast('⚠️ Salve o posto antes de gerar o convite', ''); return; }
+  if (!_parceiroEditandoId) { showToast('⚠️ Preencha os dados do posto primeiro', ''); return; }
   const btn = document.getElementById('ep-convite-btn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
   try {
+    // 1. Salvar o posto automaticamente antes de gerar o convite
+    const fv = (id) => (document.getElementById(id)||{value:''}).value.trim();
+    const fn = (id) => { const v = parseFloat((document.getElementById(id)||{value:'0'}).value); return isNaN(v) ? 0 : v; };
+    const body = {
+      nomePosto: fv('ep-nomePosto'), email: fv('ep-email'), tel: fv('ep-tel'),
+      telTelemarketing: fv('ep-telTelemarketing'), cidade: fv('ep-cidade'),
+      estado: (document.getElementById('ep-estado')||{value:''}).value,
+      bairro: fv('ep-bairro'), bandeira: fv('ep-bandeira'), cnpj: fv('ep-cnpj'),
+      plano: (document.getElementById('ep-plano')||{value:'visibilidade'}).value,
+      status: (document.getElementById('ep-status')||{value:'ativo'}).value,
+      seloVerificado: (document.getElementById('ep-seloVerificado')||{checked:false}).checked,
+      pinDourado: (document.getElementById('ep-pinDourado')||{checked:false}).checked,
+      topoLista: (document.getElementById('ep-topoLista')||{checked:false}).checked,
+      cuponsAtivos: (document.getElementById('ep-cuponsAtivos')||{checked:false}).checked,
+      precos: {
+        gasolina: fn('ep-preco-gasolina'), gasolinaAditivada: fn('ep-preco-gasolinaAditivada'),
+        etanol: fn('ep-preco-etanol'), diesel: fn('ep-preco-diesel'),
+        dieselS10: fn('ep-preco-dieselS10'), gnv: fn('ep-preco-gnv'),
+      }
+    };
+    const resSalvar = await fetch('/api/admin/parceiros/' + encodeURIComponent(_parceiroEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const dataSalvar = await resSalvar.json();
+    if (!resSalvar.ok || dataSalvar.erro) throw new Error(dataSalvar.erro || 'Erro ao salvar posto');
+
+    // 2. Agora gerar o convite
+    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando convite...';
     const res = await fetch('/api/admin/parceiros/' + encodeURIComponent(_parceiroEditandoId) + '/convite?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
     const data = await res.json();
     if (!res.ok || data.erro) throw new Error(data.erro || 'Erro ao gerar convite');
+
+    // 3. Mostrar link gerado
     const area = document.getElementById('ep-convite-area');
     document.getElementById('ep-convite-link').value = data.link;
     area.style.display = 'block';
     area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    showToast('✅ Convite gerado! Copie o link e envie ao posto.', 'ok');
+    showToast('✅ Posto salvo e convite gerado!', 'ok');
+    carregarParceirosCadastrados();
   } catch(e) {
     showToast('❌ Erro: ' + e.message, 'err');
   } finally {
@@ -10205,37 +10266,122 @@ function renderizarPlanosGrid() {
     const valorFmt = p.valor === 0 ? 'Grátis' : 'R$ ' + (p.valor / 100).toFixed(2).replace('.', ',');
     const cicloFmt = CICLO_LABEL[p.ciclo] || p.ciclo;
     const corRgb   = p.cor || '#FF6D00';
-    const featuresOk  = (p.features || []).filter(f => f.incluido).length;
-    const featuresAll = (p.features || []).length;
     const statusBg = p.ativo ? 'rgba(0,200,83,0.15)' : 'rgba(255,82,82,0.12)';
     const statusCor = p.ativo ? '#00C853' : '#FF5252';
     const statusTxt = p.ativo ? 'ATIVO' : 'INATIVO';
+
+    // Tag "Mais Popular"
     const destaqueTag = p.destaque
       ? '<div style="position:absolute;top:12px;right:12px;background:' + corRgb + ';color:white;border-radius:100px;padding:3px 10px;font-size:10px;font-weight:900">MAIS POPULAR</div>'
       : '';
-    const featuresList = (p.features || []).slice(0, 6).map(f =>
-      '<div style="font-size:11px;color:' + (f.incluido ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)') + '">'
-      + (f.incluido ? '✅' : '❌') + ' ' + f.texto + '</div>'
+
+    // Período / dias de teste
+    let periodoTag = '';
+    if (p.ciclo === 'trial' && p.diasTeste > 0) {
+      periodoTag = '<div style="display:inline-block;background:rgba(255,214,0,0.15);color:#FFD600;border:1px solid rgba(255,214,0,0.3);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800;margin-bottom:8px">⏱️ ' + p.diasTeste + ' dias de teste grátis</div>';
+    } else if (p.ciclo === 'forever') {
+      periodoTag = '<div style="display:inline-block;background:rgba(0,200,83,0.12);color:#00C853;border:1px solid rgba(0,200,83,0.25);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800;margin-bottom:8px">♾️ Para sempre</div>';
+    } else if (p.ciclo === 'monthly' || p.ciclo === 'yearly') {
+      periodoTag = '<div style="display:inline-block;background:rgba(66,165,245,0.1);color:#42A5F5;border:1px solid rgba(66,165,245,0.2);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800;margin-bottom:8px">💳 ' + cicloFmt + '</div>';
+    }
+
+    // Benefícios fixos (max 6, com ícone)
+    const beneficiosPlano = p.beneficios || [];
+    const BMAP = typeof BENEFICIOS_POSTO !== 'undefined' ? BENEFICIOS_POSTO : [];
+    const beneficiosList = BMAP.filter(b => beneficiosPlano.includes(b.id)).slice(0, 6).map(b =>
+      '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.65)">'
+      + '<i class="' + b.icon + '" style="color:' + corRgb + ';font-size:10px;width:12px;flex-shrink:0"></i>'
+      + '<span>' + b.label + '</span>'
+      + '</div>'
     ).join('');
-    const maisTag = featuresAll > 6 ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px">+' + (featuresAll - 6) + ' mais...</div>' : '';
+    const maisTagB = beneficiosPlano.length > 6
+      ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px">+' + (beneficiosPlano.length - 6) + ' benefício(s)...</div>'
+      : '';
+
+    // Features customizadas (legado) — só mostra se não tiver benefícios
+    const features = p.features || [];
+    const featuresOk  = features.filter(f => f.incluido).length;
+    const featuresList = beneficiosPlano.length === 0
+      ? features.slice(0, 4).map(f =>
+          '<div style="font-size:11px;color:' + (f.incluido ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)') + '">'
+          + (f.incluido ? '✅' : '❌') + ' ' + f.texto + '</div>'
+        ).join('')
+      : '';
+    const maisTagF = beneficiosPlano.length === 0 && features.length > 4
+      ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px">+' + (features.length - 4) + ' mais...</div>'
+      : '';
+
+    const totalBeneficios = beneficiosPlano.length;
+    const resumoBeneficios = totalBeneficios > 0
+      ? totalBeneficios + ' benefício' + (totalBeneficios !== 1 ? 's' : '') + ' incluído' + (totalBeneficios !== 1 ? 's' : '')
+      : featuresOk + '/' + features.length + ' recursos incluídos';
+
     return '<div class="kpi-card" style="padding:22px;border:1.5px solid ' + corRgb + '33;position:relative;overflow:hidden">'
       + destaqueTag
-      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">'
       +   '<div style="font-size:30px;line-height:1">' + (p.emoji || '📦') + '</div>'
       +   '<span style="background:' + statusBg + ';color:' + statusCor + ';border-radius:100px;padding:4px 12px;font-size:10px;font-weight:800">' + statusTxt + '</span>'
       + '</div>'
-      + '<div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:2px">' + p.nome + '</div>'
-      + '<div style="font-size:24px;font-weight:900;color:' + corRgb + ';margin-bottom:4px">'
-      +   valorFmt + (p.valor > 0 ? '<span style="font-size:12px;color:rgba(255,255,255,0.35)">' + cicloFmt + '</span>' : '')
+      + '<div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:3px">' + p.nome + '</div>'
+      + '<div style="font-size:24px;font-weight:900;color:' + corRgb + ';margin-bottom:6px">'
+      +   valorFmt + (p.valor > 0 ? '<span style="font-size:12px;color:rgba(255,255,255,0.35)"> /' + cicloFmt + '</span>' : '')
       + '</div>'
-      + '<div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:12px">' + (p.descricao || '') + '</div>'
-      + '<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:14px;min-height:72px">' + featuresList + maisTag + '</div>'
+      + periodoTag
+      + '<div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:10px">' + (p.descricao || '') + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px;min-height:66px">'
+      +   beneficiosList + maisTagB + featuresList + maisTagF
+      + '</div>'
       + '<div style="display:flex;gap:6px;align-items:center;padding-top:12px;border-top:1px solid rgba(255,255,255,0.07)">'
-      +   '<span style="flex:1;font-size:10px;color:rgba(255,255,255,0.3)">' + featuresOk + '/' + featuresAll + ' recursos incluídos</span>'
+      +   '<span style="flex:1;font-size:10px;color:rgba(255,255,255,0.3)">' + resumoBeneficios + '</span>'
       +   '<button data-planoid="' + p.id + '" onclick="abrirModalEditarPlano(this.dataset.planoid)" style="background:rgba(255,109,0,0.12);color:var(--laranja);border:1px solid rgba(255,109,0,0.25);border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer"><i class="fas fa-pen"></i> Editar</button>'
       + '</div>'
       + '</div>';
   }).join('');
+}
+
+// ─── Benefícios fixos disponíveis para planos de postos parceiros ────────────
+const BENEFICIOS_POSTO = [
+  { id: 'perfil_basico',       label: 'Perfil básico no app',          icon: 'fas fa-store' },
+  { id: 'exibir_precos',       label: 'Exibir preços no mapa',         icon: 'fas fa-tag' },
+  { id: 'selo_verificado',     label: 'Selo Verificado ✅',             icon: 'fas fa-badge-check' },
+  { id: 'pin_dourado',         label: 'Pin Dourado no mapa 📍',        icon: 'fas fa-map-pin' },
+  { id: 'topo_lista',          label: 'Topo da lista de resultados',    icon: 'fas fa-arrow-up' },
+  { id: 'cupons_ativos',       label: 'Gerar cupons de desconto 🎟️',  icon: 'fas fa-ticket-alt' },
+  { id: 'notificacoes',        label: 'Notificações aos usuários próximos', icon: 'fas fa-bell' },
+  { id: 'relatorio_cliques',   label: 'Relatório de cliques e visitas', icon: 'fas fa-chart-bar' },
+  { id: 'destaque_busca',      label: 'Destaque na busca por cidade',   icon: 'fas fa-search-plus' },
+  { id: 'suporte_prioritario', label: 'Suporte prioritário',           icon: 'fas fa-headset' },
+  { id: 'api_precos',          label: 'Atualização automática de preços via API', icon: 'fas fa-sync' },
+  { id: 'multiplos_usuarios',  label: 'Múltiplos usuários por posto',  icon: 'fas fa-users' },
+];
+
+function renderizarBeneficiosModal(selecionados = []) {
+  const grid = document.getElementById('mp-beneficios-grid');
+  if (!grid) return;
+  grid.innerHTML = BENEFICIOS_POSTO.map(b =>
+    \`<label style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid \${selecionados.includes(b.id) ? 'rgba(255,109,0,0.35)' : 'rgba(255,255,255,0.08)'};border-radius:9px;padding:9px 12px;cursor:pointer;transition:.15s" onmouseover="this.style.borderColor='rgba(255,109,0,0.3)'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'rgba(255,109,0,0.35)':'rgba(255,255,255,0.08)'">
+      <input type="checkbox" data-bid="\${b.id}" class="beneficio-check" style="accent-color:var(--laranja);width:15px;height:15px;flex-shrink:0" \${selecionados.includes(b.id) ? 'checked' : ''} onchange="this.closest('label').style.borderColor=this.checked?'rgba(255,109,0,0.35)':'rgba(255,255,255,0.08)'"/>
+      <i class="\${b.icon}" style="color:rgba(255,255,255,0.4);font-size:11px;flex-shrink:0"></i>
+      <span style="font-size:11px;color:rgba(255,255,255,0.75)">\${b.label}</span>
+    </label>\`
+  ).join('');
+}
+
+function coletarBeneficiosModal() {
+  return Array.from(document.querySelectorAll('#mp-beneficios-grid .beneficio-check'))
+    .filter(el => el.checked)
+    .map(el => el.dataset.bid);
+}
+
+function mpAtualizarPeriodo() {
+  const ciclo = document.getElementById('mp-ciclo').value;
+  const box   = document.getElementById('mp-trial-box');
+  if (ciclo === 'trial' || ciclo === 'forever') {
+    box.style.display = 'block';
+    if (ciclo === 'forever') document.getElementById('mp-dias-teste').value = '0';
+  } else {
+    box.style.display = 'none';
+  }
 }
 
 // ─── Modal: abrir para editar plano existente ────────────────────────────────
@@ -10244,38 +10390,41 @@ function abrirModalEditarPlano(id) {
   if (!p) return;
   _planoEditandoId = id;
   document.getElementById('modal-plano-titulo').textContent = '✏️ Editar Plano — ' + p.nome;
-  document.getElementById('mp-emoji').value    = p.emoji || '📦';
-  document.getElementById('mp-nome').value     = p.nome || '';
-  document.getElementById('mp-valor').value    = p.valor ? (p.valor / 100).toFixed(2) : '0';
-  document.getElementById('mp-ciclo').value    = p.ciclo || 'monthly';
-  document.getElementById('mp-cor').value      = p.cor || '#FF6D00';
+  document.getElementById('mp-emoji').value     = p.emoji || '📦';
+  document.getElementById('mp-nome').value      = p.nome || '';
+  document.getElementById('mp-valor').value     = p.valor ? (p.valor / 100).toFixed(2) : '0';
+  document.getElementById('mp-ciclo').value     = p.ciclo || 'monthly';
+  document.getElementById('mp-cor').value       = p.cor || '#FF6D00';
   document.getElementById('mp-descricao').value = p.descricao || '';
   document.getElementById('mp-ativo').checked   = !!p.ativo;
   document.getElementById('mp-destaque').checked = !!p.destaque;
-  // Mostrar botão excluir apenas para planos não-padrão
+  if (document.getElementById('mp-dias-teste')) document.getElementById('mp-dias-teste').value = p.diasTeste || 30;
   const btnDel = document.getElementById('mp-deletar-btn');
   btnDel.style.display = ['free','premium','anual'].includes(id) ? 'none' : 'inline-flex';
+  renderizarBeneficiosModal(p.beneficios || []);
   renderizarFeaturesModal(p.features || []);
+  mpAtualizarPeriodo();
   document.getElementById('modal-plano').style.display = 'block';
 }
 
 // ─── Modal: abrir para criar novo plano ─────────────────────────────────────
 function abrirModalNovoPLano() {
   _planoEditandoId = null;
-  document.getElementById('modal-plano-titulo').textContent = '➕ Novo Plano';
-  document.getElementById('mp-emoji').value     = '📦';
+  document.getElementById('modal-plano-titulo').textContent = '➕ Novo Plano para Postos';
+  document.getElementById('mp-emoji').value     = '⭐';
   document.getElementById('mp-nome').value      = '';
   document.getElementById('mp-valor').value     = '0';
-  document.getElementById('mp-ciclo').value     = 'monthly';
+  document.getElementById('mp-ciclo').value     = 'trial';
   document.getElementById('mp-cor').value       = '#FF6D00';
   document.getElementById('mp-descricao').value = '';
   document.getElementById('mp-ativo').checked    = true;
   document.getElementById('mp-destaque').checked = false;
   document.getElementById('mp-deletar-btn').style.display = 'none';
-  renderizarFeaturesModal([
-    { texto: 'Postos próximos', incluido: true },
-    { texto: 'Mapa ao vivo', incluido: true }
-  ]);
+  if (document.getElementById('mp-dias-teste')) document.getElementById('mp-dias-teste').value = 30;
+  // Benefícios padrão para novo plano
+  renderizarBeneficiosModal(['perfil_basico','exibir_precos','relatorio_cliques']);
+  renderizarFeaturesModal([]);
+  mpAtualizarPeriodo();
   document.getElementById('modal-plano').style.display = 'block';
 }
 
@@ -10330,15 +10479,18 @@ async function salvarPlanoModal() {
   if (!nome) { alert('Informe o nome do plano.'); return; }
   const valorStr = document.getElementById('mp-valor').value;
   const valorCentavos = Math.round(parseFloat(valorStr || '0') * 100);
+  const ciclo = document.getElementById('mp-ciclo').value;
   const body = {
     nome,
     emoji:     document.getElementById('mp-emoji').value.trim() || '📦',
     cor:       document.getElementById('mp-cor').value || '#FF6D00',
     valor:     valorCentavos,
-    ciclo:     document.getElementById('mp-ciclo').value,
+    ciclo,
     descricao: document.getElementById('mp-descricao').value.trim(),
     ativo:     document.getElementById('mp-ativo').checked,
     destaque:  document.getElementById('mp-destaque').checked,
+    diasTeste: (ciclo === 'trial' || ciclo === 'forever') ? parseInt(document.getElementById('mp-dias-teste')?.value || '0') : 0,
+    beneficios: coletarBeneficiosModal(),
     features:  coletarFeaturesModal()
   };
   const btn = document.querySelector('#modal-plano button[onclick="salvarPlanoModal()"]');
