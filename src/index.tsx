@@ -2244,19 +2244,34 @@ app.delete('/api/auth/session', async (c) => {
 
 // ─── Digital Asset Links (TWA/Android) ───────────────────────────────────────
 app.get('/.well-known/assetlinks.json', (c) => {
-  const payload = [{
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "br.com.rotaposto.app",
-      "sha256_cert_fingerprints": [
-        // SHA-256 do Play App Signing (chave gerenciada pelo Google Play)
-        "C9:9C:C8:3E:46:B1:FC:A1:B3:D1:E2:D6:93:05:29:1E:5D:C0:A6:B8:72:79:57:28:7D:68:9E:EB:27:71:49:BF",
-        // SHA-256 do keystore local (debug/sideload direto)
-        "9C:27:9E:1F:5F:BE:A0:4D:93:CC:7D:E2:D0:3A:BA:47:41:59:18:29:1F:DA:5B:88:CB:F8:06:57:26:7C:DB:38"
-      ]
+  const payload = [
+    {
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "br.com.rotaposto.app",
+        "sha256_cert_fingerprints": [
+          // SHA-256 do Play App Signing (chave gerenciada pelo Google Play)
+          "C9:9C:C8:3E:46:B1:FC:A1:B3:D1:E2:D6:93:05:29:1E:5D:C0:A6:B8:72:79:57:28:7D:68:9E:EB:27:71:49:BF",
+          // SHA-256 do keystore local (debug/sideload direto)
+          "9C:27:9E:1F:5F:BE:A0:4D:93:CC:7D:E2:D0:3A:BA:47:41:59:18:29:1F:DA:5B:88:CB:F8:06:57:26:7C:DB:38"
+        ]
+      }
+    },
+    {
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.br.rotaposto.parcerias",
+        "sha256_cert_fingerprints": [
+          // SHA-256 do Play App Signing (Google re-sign)
+          "CA:0A:38:FC:17:EC:E0:11:09:98:89:49:28:4F:19:CA:61:ED:7F:21:8D:60:B6:68:A0:1A:8B:DE:54:02:E8:48",
+          // SHA-256 do keystore local
+          "0C:8C:4C:B5:7B:FC:FB:26:1C:0E:E1:74:A0:23:DD:83:70:3B:CA:34:17:0B:CD:D5:F8:75:51:B9:E3:9D:C0:56"
+        ]
+      }
     }
-  }]
+  ]
   return new Response(JSON.stringify(payload), {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
