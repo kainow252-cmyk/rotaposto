@@ -7261,6 +7261,155 @@ app.get('/api/admin/assinaturas', async (c) => {
   }
 })
 
+// ─── API Admin: Planos — GET listar, PUT editar, POST criar, DELETE remover ────
+
+const PLANOS_KV_KEY = 'admin:planos_config'
+
+// Planos padrão (fallback quando KV não tem config)
+const PLANOS_DEFAULT = [
+  {
+    id: 'free',
+    nome: 'Gratuito',
+    emoji: '🆓',
+    cor: '#42A5F5',
+    valor: 0,
+    ciclo: 'forever',
+    descricao: 'Acesso básico gratuito para sempre',
+    ativo: true,
+    destaque: false,
+    features: [
+      { texto: 'Postos próximos (raio 5km)', incluido: true },
+      { texto: 'Preços colaborativos', incluido: true },
+      { texto: 'Mapa básico', incluido: true },
+      { texto: 'Rota de menor custo', incluido: false },
+      { texto: 'Histórico de preços', incluido: false },
+      { texto: 'Sem anúncios', incluido: false },
+      { texto: 'Suporte prioritário', incluido: false },
+      { texto: 'Relatórios avançados', incluido: false },
+      { texto: 'Export de dados', incluido: false }
+    ]
+  },
+  {
+    id: 'premium',
+    nome: 'Premium Mensal',
+    emoji: '⭐',
+    cor: '#FF6D00',
+    valor: 990,
+    ciclo: 'monthly',
+    descricao: 'Acesso completo com pagamento mensal via PIX ou cartão',
+    ativo: true,
+    destaque: true,
+    features: [
+      { texto: 'Todos os postos do Brasil', incluido: true },
+      { texto: 'Mapa com preços em tempo real', incluido: true },
+      { texto: 'Rota de menor custo', incluido: true },
+      { texto: 'Histórico completo', incluido: true },
+      { texto: 'Sem anúncios', incluido: true },
+      { texto: 'Suporte prioritário', incluido: true },
+      { texto: 'Relatórios avançados', incluido: false },
+      { texto: 'Export de dados', incluido: false },
+      { texto: 'Badge exclusivo', incluido: false }
+    ]
+  },
+  {
+    id: 'anual',
+    nome: 'Premium Anual',
+    emoji: '👑',
+    cor: '#FFD600',
+    valor: 8900,
+    ciclo: 'yearly',
+    descricao: 'Plano anual com 2 meses grátis — melhor custo-benefício',
+    ativo: true,
+    destaque: false,
+    features: [
+      { texto: 'Tudo do Premium Mensal', incluido: true },
+      { texto: '2 meses grátis', incluido: true },
+      { texto: 'Rota de menor custo', incluido: true },
+      { texto: 'Histórico completo', incluido: true },
+      { texto: 'Sem anúncios', incluido: true },
+      { texto: 'Relatórios avançados', incluido: true },
+      { texto: 'Export de dados', incluido: true },
+      { texto: 'Badge exclusivo', incluido: true },
+      { texto: 'Suporte máximo', incluido: true }
+    ]
+  }
+]
+
+async function getPlanosConfig(kv: KVNamespace): Promise<any[]> {
+  try {
+    const raw = await kv.get(PLANOS_KV_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return PLANOS_DEFAULT
+}
+
+app.get('/api/admin/planos', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const planos = await getPlanosConfig(kv)
+  return c.json({ planos })
+})
+
+app.put('/api/admin/planos/:id', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const id = c.req.param('id')
+  const body = await c.req.json() as any
+  const planos = await getPlanosConfig(kv)
+  const idx = planos.findIndex((p: any) => p.id === id)
+  if (idx === -1) return c.json({ erro: 'Plano não encontrado' }, 404)
+  planos[idx] = { ...planos[idx], ...body, id }
+  await kv.put(PLANOS_KV_KEY, JSON.stringify(planos))
+  return c.json({ ok: true, plano: planos[idx] })
+})
+
+app.post('/api/admin/planos', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const body = await c.req.json() as any
+  const planos = await getPlanosConfig(kv)
+  const novoId = body.id || ('plano_' + Date.now())
+  if (planos.find((p: any) => p.id === novoId)) return c.json({ erro: 'ID já existe' }, 400)
+  const novo = {
+    id: novoId,
+    nome: body.nome || 'Novo Plano',
+    emoji: body.emoji || '📦',
+    cor: body.cor || '#FF6D00',
+    valor: body.valor ?? 0,
+    ciclo: body.ciclo || 'monthly',
+    descricao: body.descricao || '',
+    ativo: body.ativo ?? true,
+    destaque: body.destaque ?? false,
+    features: body.features || []
+  }
+  planos.push(novo)
+  await kv.put(PLANOS_KV_KEY, JSON.stringify(planos))
+  return c.json({ ok: true, plano: novo })
+})
+
+app.delete('/api/admin/planos/:id', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const id = c.req.param('id')
+  if (['free','premium','anual'].includes(id)) return c.json({ erro: 'Planos padrão não podem ser removidos' }, 400)
+  const planos = await getPlanosConfig(kv)
+  const novos = planos.filter((p: any) => p.id !== id)
+  await kv.put(PLANOS_KV_KEY, JSON.stringify(novos))
+  return c.json({ ok: true })
+})
+
 // ─── DELETE /api/admin/postos/:id — remover posto parceiro do R2 ──────────────
 app.delete('/api/admin/postos/:id', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -7921,101 +8070,117 @@ app.get('/admin', (c) => {
 
   <!-- ══ PRODUTOS & PLANOS ══ -->
   <section id="section-planos" style="display:none">
-    <div class="page-header">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <h2>📦 Produtos & Planos</h2>
+      <button onclick="abrirModalNovoPLano()" style="background:var(--laranja);color:white;border:none;padding:10px 20px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px">
+        <i class="fas fa-plus"></i> Novo Plano
+      </button>
     </div>
-    <!-- Cards dos planos ativos -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:28px">
-      <!-- Plano Free -->
-      <div class="kpi-card" style="padding:24px;border:1px solid rgba(66,165,245,0.3)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <div style="font-size:28px">🆓</div>
-          <span style="background:rgba(66,165,245,0.15);color:#42A5F5;border-radius:100px;padding:4px 14px;font-size:11px;font-weight:800">ATIVO</span>
-        </div>
-        <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:4px">Gratuito</div>
-        <div style="font-size:28px;font-weight:900;color:#42A5F5;margin-bottom:12px">R$ 0<span style="font-size:13px;color:rgba(255,255,255,0.4)">/sempre</span></div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
-          ✅ Postos próximos (raio 5km)<br/>
-          ✅ Preços colaborativos<br/>
-          ✅ Mapa básico<br/>
-          ❌ Rota de menor custo<br/>
-          ❌ Histórico de preços<br/>
-          ❌ Sem anúncios
-        </div>
-        <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:11px;color:rgba(255,255,255,0.4)">Usuários ativos</span>
-          <span style="font-size:20px;font-weight:900;color:#42A5F5" id="plano-free-count">–</span>
-        </div>
+
+    <!-- KPIs de assinantes por plano -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px" id="planos-kpis">
+      <div class="kpi-card" style="padding:18px;text-align:center">
+        <div style="font-size:22px;margin-bottom:4px">🆓</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Gratuito</div>
+        <div style="font-size:26px;font-weight:900;color:#42A5F5" id="plano-free-count">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">usuários</div>
       </div>
-      <!-- Plano Premium Mensal -->
-      <div class="kpi-card" style="padding:24px;border:1px solid rgba(255,109,0,0.4);position:relative;overflow:hidden">
-        <div style="position:absolute;top:12px;right:12px;background:var(--laranja);color:white;border-radius:100px;padding:3px 10px;font-size:10px;font-weight:900">MAIS POPULAR</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <div style="font-size:28px">⭐</div>
-          <span style="background:rgba(0,200,83,0.15);color:#00C853;border-radius:100px;padding:4px 14px;font-size:11px;font-weight:800">ATIVO</span>
-        </div>
-        <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:4px">Premium Mensal</div>
-        <div style="font-size:28px;font-weight:900;color:#FF6D00;margin-bottom:12px">R$ 9,90<span style="font-size:13px;color:rgba(255,255,255,0.4)">/mês</span></div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
-          ✅ Todos os postos do Brasil<br/>
-          ✅ Mapa com preços em tempo real<br/>
-          ✅ Rota de menor custo<br/>
-          ✅ Histórico completo<br/>
-          ✅ Sem anúncios<br/>
-          ✅ Suporte prioritário
-        </div>
-        <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:11px;color:rgba(255,255,255,0.4)">Assinantes ativos</span>
-          <span style="font-size:20px;font-weight:900;color:#FF6D00" id="plano-premium-count">–</span>
-        </div>
+      <div class="kpi-card" style="padding:18px;text-align:center">
+        <div style="font-size:22px;margin-bottom:4px">⭐</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Premium Mensal</div>
+        <div style="font-size:26px;font-weight:900;color:#FF6D00" id="plano-premium-count">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes</div>
       </div>
-      <!-- Plano Anual -->
-      <div class="kpi-card" style="padding:24px;border:1px solid rgba(255,214,0,0.3)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <div style="font-size:28px">👑</div>
-          <span style="background:rgba(0,200,83,0.15);color:#00C853;border-radius:100px;padding:4px 14px;font-size:11px;font-weight:800">ATIVO</span>
-        </div>
-        <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:4px">Premium Anual</div>
-        <div style="font-size:28px;font-weight:900;color:#FFD600;margin-bottom:12px">R$ 89,00<span style="font-size:13px;color:rgba(255,255,255,0.4)">/ano</span></div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
-          ✅ Tudo do Premium Mensal<br/>
-          ✅ 2 meses grátis<br/>
-          ✅ Relatórios avançados<br/>
-          ✅ Export de dados<br/>
-          ✅ Badge exclusivo<br/>
-          ✅ Prioridade máxima no suporte
-        </div>
-        <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:11px;color:rgba(255,255,255,0.4)">Assinantes ativos</span>
-          <span style="font-size:20px;font-weight:900;color:#FFD600" id="plano-anual-count">–</span>
-        </div>
+      <div class="kpi-card" style="padding:18px;text-align:center">
+        <div style="font-size:22px;margin-bottom:4px">👑</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Premium Anual</div>
+        <div style="font-size:26px;font-weight:900;color:#FFD600" id="plano-anual-count">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes</div>
       </div>
     </div>
-    <!-- Comparação de features -->
-    <div class="section-card">
-      <div class="section-header">
-        <h3><i class="fas fa-table" style="color:#FF6D00;margin-right:8px"></i>Comparação de Recursos</h3>
+
+    <!-- Grid de cards dos planos (renderizado via JS) -->
+    <div id="planos-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:20px;margin-bottom:28px">
+      <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);font-size:13px">
+        <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block"></i>
+        Carregando planos...
       </div>
-      <div style="overflow-x:auto">
-        <table style="min-width:600px">
-          <thead><tr>
-            <th>Recurso</th>
-            <th style="text-align:center;color:#42A5F5">🆓 Free</th>
-            <th style="text-align:center;color:#FF6D00">⭐ Premium</th>
-            <th style="text-align:center;color:#FFD600">👑 Anual</th>
-          </tr></thead>
-          <tbody>
-            <tr><td>Postos próximos</td><td style="text-align:center">5 km</td><td style="text-align:center;color:#00C853">✅ Brasil todo</td><td style="text-align:center;color:#00C853">✅ Brasil todo</td></tr>
-            <tr><td>Mapa ao vivo</td><td style="text-align:center">Básico</td><td style="text-align:center;color:#00C853">✅ Tempo real</td><td style="text-align:center;color:#00C853">✅ Tempo real</td></tr>
-            <tr><td>Rota de menor custo</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td><td style="text-align:center;color:#00C853">✅</td></tr>
-            <tr><td>Histórico de preços</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td><td style="text-align:center;color:#00C853">✅</td></tr>
-            <tr><td>Sem anúncios</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td><td style="text-align:center;color:#00C853">✅</td></tr>
-            <tr><td>Relatórios avançados</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td></tr>
-            <tr><td>Export de dados</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td></tr>
-            <tr><td>Suporte</td><td style="text-align:center">Normal</td><td style="text-align:center;color:#FF6D00">Prioritário</td><td style="text-align:center;color:#FFD600">Máximo</td></tr>
-            <tr><td>Preço</td><td style="text-align:center;color:#42A5F5">Grátis</td><td style="text-align:center;color:#FF6D00">R$ 9,90/mês</td><td style="text-align:center;color:#FFD600">R$ 89/ano</td></tr>
-          </tbody>
-        </table>
+    </div>
+
+    <!-- Modal Editar/Criar Plano -->
+    <div id="modal-plano" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;overflow-y:auto;padding:20px">
+      <div style="background:#1A1D23;border:1px solid rgba(255,255,255,0.1);border-radius:18px;max-width:600px;margin:0 auto;padding:28px;position:relative">
+        <button onclick="fecharModalPlano()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px">✕</button>
+        <h3 id="modal-plano-titulo" style="font-size:18px;font-weight:900;color:#fff;margin:0 0 24px">Editar Plano</h3>
+
+        <!-- Linha 1: Emoji + Nome -->
+        <div style="display:grid;grid-template-columns:80px 1fr;gap:12px;margin-bottom:16px">
+          <div>
+            <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Emoji</label>
+            <input id="mp-emoji" type="text" maxlength="4" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:10px;font-size:22px;text-align:center;box-sizing:border-box" placeholder="⭐"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Nome do Plano *</label>
+            <input id="mp-nome" type="text" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:10px;font-size:14px;box-sizing:border-box" placeholder="Ex: Premium Mensal"/>
+          </div>
+        </div>
+
+        <!-- Linha 2: Valor + Ciclo + Cor -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:12px;margin-bottom:16px">
+          <div>
+            <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Valor (R$)</label>
+            <input id="mp-valor" type="number" min="0" step="0.01" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:10px;font-size:14px;box-sizing:border-box" placeholder="9.90"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Ciclo de Cobrança</label>
+            <select id="mp-ciclo" style="width:100%;background:#1E2128;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:10px;font-size:13px;box-sizing:border-box">
+              <option value="forever">Grátis / Para sempre</option>
+              <option value="monthly">Mensal</option>
+              <option value="yearly">Anual</option>
+              <option value="weekly">Semanal</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Cor</label>
+            <input id="mp-cor" type="color" style="width:100%;height:42px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:4px;cursor:pointer;box-sizing:border-box"/>
+          </div>
+        </div>
+
+        <!-- Descrição -->
+        <div style="margin-bottom:16px">
+          <label style="font-size:11px;color:rgba(255,255,255,0.5);display:block;margin-bottom:6px">Descrição</label>
+          <input id="mp-descricao" type="text" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:10px;font-size:13px;box-sizing:border-box" placeholder="Descrição exibida no checkout..."/>
+        </div>
+
+        <!-- Switches: Ativo + Destaque -->
+        <div style="display:flex;gap:20px;margin-bottom:20px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.7)">
+            <input id="mp-ativo" type="checkbox" style="width:18px;height:18px;accent-color:var(--laranja);cursor:pointer"/>
+            Plano Ativo
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.7)">
+            <input id="mp-destaque" type="checkbox" style="width:18px;height:18px;accent-color:#FFD600;cursor:pointer"/>
+            Mais Popular (destaque)
+          </label>
+        </div>
+
+        <!-- Permissões / Features -->
+        <div style="margin-bottom:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <label style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.8)"><i class="fas fa-shield-alt" style="color:var(--laranja);margin-right:6px"></i>Permissões & Recursos do Plano</label>
+            <button onclick="adicionarFeatureModal()" style="background:rgba(255,109,0,0.15);color:var(--laranja);border:1px solid rgba(255,109,0,0.3);border-radius:8px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700">+ Adicionar</button>
+          </div>
+          <div id="mp-features-list" style="display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;padding-right:4px">
+            <!-- features renderizadas via JS -->
+          </div>
+        </div>
+
+        <!-- Botões -->
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button onclick="fecharModalPlano()" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:13px">Cancelar</button>
+          <button id="mp-deletar-btn" onclick="deletarPlanoModal()" style="display:none;background:rgba(255,82,82,0.15);color:#FF5252;border:1px solid rgba(255,82,82,0.3);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700"><i class="fas fa-trash"></i> Excluir</button>
+          <button onclick="salvarPlanoModal()" style="background:var(--laranja);color:white;border:none;padding:10px 24px;border-radius:10px;font-weight:900;font-size:13px;cursor:pointer"><i class="fas fa-save"></i> Salvar Plano</button>
+        </div>
       </div>
     </div>
   </section>
@@ -8882,25 +9047,254 @@ async function alterarPermissao(uid, acao) {
 }
 
 // ── PLANOS E NÍVEIS ──────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  PRODUTOS & PLANOS — Admin
+// ════════════════════════════════════════════════════════════
+
+let _planosData = [];         // cache dos planos carregados
+let _planoEditandoId = null;  // id do plano em edição (null = novo)
+
+const CICLO_LABEL = { forever: 'Grátis', monthly: '/mês', yearly: '/ano', weekly: '/semana' };
+
 async function carregarEstatisticasPlanos() {
+  // 1. KPIs de assinantes
   try {
-    const res = await fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY));
-    const data = await res.json();
-    const assinaturas = data.assinaturas || [];
-    const premium = assinaturas.filter(a => a.status === 'ACTIVE' && a.plano === 'premium').length;
-    const anual = assinaturas.filter(a => a.status === 'ACTIVE' && a.plano === 'anual').length;
-    // Usuários free = total - premium - anual
-    const usRes = await fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY));
+    const [asRes, usRes] = await Promise.all([
+      fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY)),
+      fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY))
+    ]);
+    const asData = await asRes.json();
     const usData = await usRes.json();
-    const total = (usData.usuarios || []).length;
-    const free = total - premium - anual;
+    const assinaturas = asData.assinaturas || [];
+    const premium = assinaturas.filter(a => a.status === 'ACTIVE' && a.plano === 'premium').length;
+    const anual   = assinaturas.filter(a => a.status === 'ACTIVE' && a.plano === 'anual').length;
+    const total   = (usData.usuarios || []).length;
+    const free    = Math.max(0, total - premium - anual);
     const pfc = document.getElementById('plano-free-count');
     const ppc = document.getElementById('plano-premium-count');
     const pac = document.getElementById('plano-anual-count');
-    if (pfc) pfc.textContent = Math.max(0, free);
+    if (pfc) pfc.textContent = free;
     if (ppc) ppc.textContent = premium;
     if (pac) pac.textContent = anual;
-  } catch(e) { console.warn('carregarEstatisticasPlanos:', e); }
+  } catch(e) { console.warn('kpis-planos:', e); }
+
+  // 2. Carregar e renderizar cards dos planos
+  await carregarPlanosGrid();
+}
+
+async function carregarPlanosGrid() {
+  const grid = document.getElementById('planos-grid');
+  if (!grid) return;
+  try {
+    const res = await fetch('/api/admin/planos?key=' + encodeURIComponent(ADMIN_KEY));
+    const data = await res.json();
+    _planosData = data.planos || [];
+    renderizarPlanosGrid();
+  } catch(e) {
+    grid.innerHTML = '<div style="color:#FF5252;padding:20px;text-align:center">Erro ao carregar planos: ' + e.message + '</div>';
+  }
+}
+
+function renderizarPlanosGrid() {
+  const grid = document.getElementById('planos-grid');
+  if (!grid) return;
+  if (!_planosData.length) {
+    grid.innerHTML = '<div style="color:rgba(255,255,255,0.3);padding:40px;text-align:center">Nenhum plano cadastrado</div>';
+    return;
+  }
+  grid.innerHTML = _planosData.map(p => {
+    const valorFmt = p.valor === 0 ? 'Grátis' : 'R$ ' + (p.valor / 100).toFixed(2).replace('.', ',');
+    const cicloFmt = CICLO_LABEL[p.ciclo] || p.ciclo;
+    const corRgb   = p.cor || '#FF6D00';
+    const featuresOk  = (p.features || []).filter(f => f.incluido).length;
+    const featuresAll = (p.features || []).length;
+    const statusBg = p.ativo ? 'rgba(0,200,83,0.15)' : 'rgba(255,82,82,0.12)';
+    const statusCor = p.ativo ? '#00C853' : '#FF5252';
+    const statusTxt = p.ativo ? 'ATIVO' : 'INATIVO';
+    const destaqueTag = p.destaque
+      ? '<div style="position:absolute;top:12px;right:12px;background:' + corRgb + ';color:white;border-radius:100px;padding:3px 10px;font-size:10px;font-weight:900">MAIS POPULAR</div>'
+      : '';
+    const featuresList = (p.features || []).slice(0, 6).map(f =>
+      '<div style="font-size:11px;color:' + (f.incluido ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)') + '">'
+      + (f.incluido ? '✅' : '❌') + ' ' + f.texto + '</div>'
+    ).join('');
+    const maisTag = featuresAll > 6 ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px">+' + (featuresAll - 6) + ' mais...</div>' : '';
+    return '<div class="kpi-card" style="padding:22px;border:1.5px solid ' + corRgb + '33;position:relative;overflow:hidden">'
+      + destaqueTag
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">'
+      +   '<div style="font-size:30px;line-height:1">' + (p.emoji || '📦') + '</div>'
+      +   '<span style="background:' + statusBg + ';color:' + statusCor + ';border-radius:100px;padding:4px 12px;font-size:10px;font-weight:800">' + statusTxt + '</span>'
+      + '</div>'
+      + '<div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:2px">' + p.nome + '</div>'
+      + '<div style="font-size:24px;font-weight:900;color:' + corRgb + ';margin-bottom:4px">'
+      +   valorFmt + (p.valor > 0 ? '<span style="font-size:12px;color:rgba(255,255,255,0.35)">' + cicloFmt + '</span>' : '')
+      + '</div>'
+      + '<div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:12px">' + (p.descricao || '') + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:14px;min-height:72px">' + featuresList + maisTag + '</div>'
+      + '<div style="display:flex;gap:6px;align-items:center;padding-top:12px;border-top:1px solid rgba(255,255,255,0.07)">'
+      +   '<span style="flex:1;font-size:10px;color:rgba(255,255,255,0.3)">' + featuresOk + '/' + featuresAll + ' recursos incluídos</span>'
+      +   '<button data-planoid="' + p.id + '" onclick="abrirModalEditarPlano(this.dataset.planoid)" style="background:rgba(255,109,0,0.12);color:var(--laranja);border:1px solid rgba(255,109,0,0.25);border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer"><i class="fas fa-pen"></i> Editar</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+// ─── Modal: abrir para editar plano existente ────────────────────────────────
+function abrirModalEditarPlano(id) {
+  const p = _planosData.find(x => x.id === id);
+  if (!p) return;
+  _planoEditandoId = id;
+  document.getElementById('modal-plano-titulo').textContent = '✏️ Editar Plano — ' + p.nome;
+  document.getElementById('mp-emoji').value    = p.emoji || '📦';
+  document.getElementById('mp-nome').value     = p.nome || '';
+  document.getElementById('mp-valor').value    = p.valor ? (p.valor / 100).toFixed(2) : '0';
+  document.getElementById('mp-ciclo').value    = p.ciclo || 'monthly';
+  document.getElementById('mp-cor').value      = p.cor || '#FF6D00';
+  document.getElementById('mp-descricao').value = p.descricao || '';
+  document.getElementById('mp-ativo').checked   = !!p.ativo;
+  document.getElementById('mp-destaque').checked = !!p.destaque;
+  // Mostrar botão excluir apenas para planos não-padrão
+  const btnDel = document.getElementById('mp-deletar-btn');
+  btnDel.style.display = ['free','premium','anual'].includes(id) ? 'none' : 'inline-flex';
+  renderizarFeaturesModal(p.features || []);
+  document.getElementById('modal-plano').style.display = 'block';
+}
+
+// ─── Modal: abrir para criar novo plano ─────────────────────────────────────
+function abrirModalNovoPLano() {
+  _planoEditandoId = null;
+  document.getElementById('modal-plano-titulo').textContent = '➕ Novo Plano';
+  document.getElementById('mp-emoji').value     = '📦';
+  document.getElementById('mp-nome').value      = '';
+  document.getElementById('mp-valor').value     = '0';
+  document.getElementById('mp-ciclo').value     = 'monthly';
+  document.getElementById('mp-cor').value       = '#FF6D00';
+  document.getElementById('mp-descricao').value = '';
+  document.getElementById('mp-ativo').checked    = true;
+  document.getElementById('mp-destaque').checked = false;
+  document.getElementById('mp-deletar-btn').style.display = 'none';
+  renderizarFeaturesModal([
+    { texto: 'Postos próximos', incluido: true },
+    { texto: 'Mapa ao vivo', incluido: true }
+  ]);
+  document.getElementById('modal-plano').style.display = 'block';
+}
+
+function fecharModalPlano() {
+  document.getElementById('modal-plano').style.display = 'none';
+  _planoEditandoId = null;
+}
+
+// ─── Renderizar lista de features no modal ───────────────────────────────────
+function renderizarFeaturesModal(features) {
+  const list = document.getElementById('mp-features-list');
+  if (!list) return;
+  list.innerHTML = features.map((f, i) =>
+    '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:9px;padding:8px 10px">'
+    + '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;min-width:0">'
+    +   '<input type="checkbox" data-fi="' + i + '" class="feat-check" style="accent-color:var(--laranja);width:16px;height:16px;flex-shrink:0"' + (f.incluido ? ' checked' : '') + '/>'
+    +   '<input type="text" data-fi="' + i + '" class="feat-txt" value="' + f.texto.replace(/"/g, '&quot;') + '" style="flex:1;background:transparent;border:none;color:#fff;font-size:12px;outline:none;min-width:0"/>'
+    + '</label>'
+    + '<button data-fi="' + i + '" onclick="removerFeatureModal(parseInt(this.dataset.fi))" style="background:rgba(255,82,82,0.12);color:#FF5252;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:12px;flex-shrink:0">✕</button>'
+    + '</div>'
+  ).join('');
+}
+
+function adicionarFeatureModal() {
+  const features = coletarFeaturesModal();
+  features.push({ texto: 'Novo recurso', incluido: true });
+  renderizarFeaturesModal(features);
+  // Focar no último input adicionado
+  const inputs = document.querySelectorAll('#mp-features-list .feat-txt');
+  if (inputs.length) { inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); }
+}
+
+function removerFeatureModal(idx) {
+  const features = coletarFeaturesModal();
+  features.splice(idx, 1);
+  renderizarFeaturesModal(features);
+}
+
+function coletarFeaturesModal() {
+  const checks = document.querySelectorAll('#mp-features-list .feat-check');
+  const texts  = document.querySelectorAll('#mp-features-list .feat-txt');
+  const features = [];
+  for (let i = 0; i < texts.length; i++) {
+    features.push({ texto: texts[i].value.trim() || 'Recurso', incluido: checks[i].checked });
+  }
+  return features;
+}
+
+// ─── Salvar plano (criar ou editar) ─────────────────────────────────────────
+async function salvarPlanoModal() {
+  const nome = document.getElementById('mp-nome').value.trim();
+  if (!nome) { alert('Informe o nome do plano.'); return; }
+  const valorStr = document.getElementById('mp-valor').value;
+  const valorCentavos = Math.round(parseFloat(valorStr || '0') * 100);
+  const body = {
+    nome,
+    emoji:     document.getElementById('mp-emoji').value.trim() || '📦',
+    cor:       document.getElementById('mp-cor').value || '#FF6D00',
+    valor:     valorCentavos,
+    ciclo:     document.getElementById('mp-ciclo').value,
+    descricao: document.getElementById('mp-descricao').value.trim(),
+    ativo:     document.getElementById('mp-ativo').checked,
+    destaque:  document.getElementById('mp-destaque').checked,
+    features:  coletarFeaturesModal()
+  };
+  const btn = document.querySelector('#modal-plano button[onclick="salvarPlanoModal()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+  try {
+    let res;
+    if (_planoEditandoId) {
+      res = await fetch('/api/admin/planos/' + encodeURIComponent(_planoEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+    } else {
+      // Gerar id a partir do nome
+      body.id = nome.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now();
+      res = await fetch('/api/admin/planos?key=' + encodeURIComponent(ADMIN_KEY), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+    }
+    const data = await res.json();
+    if (!res.ok || data.erro) throw new Error(data.erro || 'Erro ao salvar');
+    fecharModalPlano();
+    await carregarPlanosGrid();
+    _mostrarToast('✅ Plano salvo com sucesso!', '#00C853');
+  } catch(e) {
+    alert('Erro ao salvar plano: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar Plano'; }
+  }
+}
+
+// ─── Deletar plano ───────────────────────────────────────────────────────────
+async function deletarPlanoModal() {
+  if (!_planoEditandoId) return;
+  const p = _planosData.find(x => x.id === _planoEditandoId);
+  if (!confirm('Excluir o plano "' + (p ? p.nome : _planoEditandoId) + '"? Esta ação não pode ser desfeita.')) return;
+  try {
+    const res = await fetch('/api/admin/planos/' + encodeURIComponent(_planoEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (!res.ok || data.erro) throw new Error(data.erro || 'Erro ao excluir');
+    fecharModalPlano();
+    await carregarPlanosGrid();
+    _mostrarToast('🗑️ Plano excluído.', '#FF5252');
+  } catch(e) {
+    alert('Erro: ' + e.message);
+  }
+}
+
+// ─── Toast helper ────────────────────────────────────────────────────────────
+function _mostrarToast(msg, cor) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:' + cor + ';color:#fff;font-weight:700;font-size:13px;padding:12px 24px;border-radius:100px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.4);pointer-events:none;transition:opacity 0.5s';
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 500); }, 2500);
 }
 
 async function carregarEstatisticasNiveis() {
