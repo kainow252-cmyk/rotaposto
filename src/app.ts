@@ -4487,8 +4487,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         if (data.demo) showToast('⚠️ Modo demonstração — pagamento não será processado');
         mostrarQRCode(data.qrCode, data.brcode, data.subscriptionId, planoSelecionado, data.demo);
       } else if (data.precisaCPF) {
-        // CPF ausente ou inválido → mostrar formulário inline
-        _mostrarFormularioCPFInline();
+        // CPF ausente ou inválido → orientar usuário a cadastrar em Minha Conta
+        showToast('⚠️ Cadastre seu CPF em "Minha Conta" para gerar o PIX.');
       } else {
         const msg = data.mensagem || data.error || 'Erro ao gerar PIX. Tente novamente.';
         console.error('[PIX] Falha:', JSON.stringify(data));
@@ -4500,93 +4500,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     } finally {
       showLoading(false);
     }
-  }
-
-  // ── Formulário de CPF inline (quando backend retorna precisaCPF:true) ──────
-  function _mostrarFormularioCPFInline() {
-    var existing = document.getElementById('assin-cpf-modal');
-    if (existing) existing.remove();
-
-    // Construir DOM via createElement — zero risco de conflito de aspas
-    var overlay = document.createElement('div');
-    overlay.id = 'assin-cpf-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:199999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
-
-    var sheet = document.createElement('div');
-    sheet.style.cssText = 'background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);';
-
-    var handle = document.createElement('div');
-    handle.style.cssText = 'width:40px;height:4px;background:#E0E0E0;border-radius:2px;margin:0 auto 20px;';
-
-    var titulo = document.createElement('div');
-    titulo.style.cssText = 'font-size:18px;font-weight:800;color:#1A1A1A;margin-bottom:6px;';
-    titulo.textContent = 'Informe seu CPF';
-
-    var subtit = document.createElement('div');
-    subtit.style.cssText = 'font-size:13px;color:#757575;margin-bottom:20px;';
-    subtit.textContent = 'Necessário para o PIX. Protegido pela LGPD.';
-
-    var inp = document.createElement('input');
-    inp.id = 'assin-cpf-input';
-    inp.type = 'tel';
-    inp.setAttribute('inputmode', 'numeric');
-    inp.maxLength = 14;
-    inp.placeholder = '000.000.000-00';
-    inp.style.cssText = 'width:100%;padding:14px 16px;border:2px solid #E0E0E0;border-radius:12px;font-size:16px;font-weight:600;text-align:center;letter-spacing:2px;box-sizing:border-box;outline:none;';
-    inp.addEventListener('input', function() { window._mascaraCPF(this); });
-
-    var erro = document.createElement('div');
-    erro.id = 'assin-cpf-erro';
-    erro.style.cssText = 'color:#E53935;font-size:12px;margin:6px 0 0;display:none;text-align:center;';
-
-    var btnOk = document.createElement('button');
-    btnOk.style.cssText = 'width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;';
-    btnOk.textContent = 'Confirmar e gerar PIX';
-    btnOk.addEventListener('click', function() { _confirmarCPFInline(); });
-
-    var btnCancel = document.createElement('button');
-    btnCancel.style.cssText = 'width:100%;padding:12px;background:transparent;color:#9E9E9E;border:none;font-size:14px;cursor:pointer;margin-top:8px;';
-    btnCancel.textContent = 'Cancelar';
-    btnCancel.addEventListener('click', function() { overlay.remove(); });
-
-    sheet.appendChild(handle);
-    sheet.appendChild(titulo);
-    sheet.appendChild(subtit);
-    sheet.appendChild(inp);
-    sheet.appendChild(erro);
-    sheet.appendChild(btnOk);
-    sheet.appendChild(btnCancel);
-    overlay.appendChild(sheet);
-    document.body.appendChild(overlay);
-    setTimeout(function() { inp.focus(); }, 100);
-  }
-
-  async function _confirmarCPFInline() {
-    var inp = document.getElementById('assin-cpf-input');
-    var erroEl = document.getElementById('assin-cpf-erro');
-    if (!inp) return;
-    var cpfLimpo = inp.value.replace(/\D/g, '');
-    if (cpfLimpo.length !== 11) {
-      if (erroEl) { erroEl.textContent = 'CPF deve ter 11 dígitos.'; erroEl.style.display = 'block'; }
-      return;
-    }
-    // SEGURANÇA: salvar CPF no servidor (KV) — fonte autoritativa
-    var userId = currentUser && (currentUser.uid || currentUser.id || currentUser.email);
-    if (userId) {
-      try {
-        await fetch('/api/usuario/dados', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: userId, cpf: cpfLimpo })
-        });
-      } catch (e) {
-        console.warn('[CPF] Falha ao salvar CPF no servidor:', e);
-      }
-    }
-    // Fechar modal e tentar gerar PIX novamente (CPF será buscado do servidor)
-    var modal = document.getElementById('assin-cpf-modal');
-    if (modal) modal.remove();
-    await iniciarPagamentoPIX();
   }
 
   // Máscara CPF global (chamada via oninput="_mascaraCPF(this)")
