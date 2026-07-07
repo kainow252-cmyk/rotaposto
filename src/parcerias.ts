@@ -2669,7 +2669,7 @@ async function salvarPerfil() {
   const horario = document.getElementById('perf-horario').value.trim();
   const email   = document.getElementById('perf-email').value.trim();
   const cnpj    = document.getElementById('perf-cnpj').value.trim();
-  const bandeira= (document.getElementById('perf-bandeira') as HTMLSelectElement).value;
+  const bandeira= document.getElementById('perf-bandeira').value;
   const cep     = document.getElementById('perf-cep').value.trim();
   const rua     = document.getElementById('perf-rua').value.trim();
   const num     = document.getElementById('perf-num').value.trim();
@@ -2684,7 +2684,7 @@ async function salvarPerfil() {
   btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
   msg.style.display = 'none';
 
-  const payload: any = {
+  const payload = {
     nome, tel, horario, email, cnpj, bandeira,
     endereco: { cep, rua, numero: num, bairro, cidade, estado },
     servicos: [..._servicosSel]
