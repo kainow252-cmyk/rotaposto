@@ -7229,28 +7229,107 @@ app.get('/api/admin/app-usuarios', async (c) => {
   const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
   if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
   try {
+    // Carregar todos os perfis em memória para cruzamento rápido
+    const profilesMap = new Map<string, any>()
+    try {
+      const listProfiles = await kv.list({ prefix: 'profile:' })
+      for (const pk of listProfiles.keys) {
+        try {
+          const raw = await kv.get(pk.name)
+          if (raw) {
+            const p = JSON.parse(raw) as any
+            const uid = p.uid || pk.name.replace('profile:', '')
+            profilesMap.set(uid, p)
+          }
+        } catch {}
+      }
+    } catch {}
+
     const list = await kv.list({ prefix: 'session:' })
     const usuarios: unknown[] = []
+    const uidsProcessados = new Set<string>()
+
     for (const k of list.keys) {
       try {
         const raw = await kv.get(k.name)
         if (!raw) continue
         const sess = JSON.parse(raw) as any
         const uid = sess.uid || k.name.replace('session:', '')
+        if (uidsProcessados.has(uid)) continue
+        uidsProcessados.add(uid)
+
         const assinRaw = await kv.get(`assin:${uid}`)
         const assin = assinRaw ? JSON.parse(assinRaw) as any : null
         let veiculo = null
         if (r2) { try { veiculo = await r2Get(r2, `usuario:${uid}:veiculo`) } catch {} }
+
+        // Cruzar com perfil
+        const perfil = profilesMap.get(uid) || {}
+
         usuarios.push({
-          uid, deviceId: sess.deviceId || '—',
-          loginEm: sess.createdAt ? new Date(sess.createdAt).toISOString() : '—',
-          plano: assin?.status === 'ACTIVE' ? (assin.plano || 'premium') : 'gratuito',
-          assinatura: assin ? { status: assin.status, plano: assin.plano, expiraEm: assin.expiraEm, ativadaEm: assin.ativadaEm, pagamentos: assin.pagamentos || 0 } : null,
+          uid,
+          // Dados do perfil
+          nome: perfil.name || sess.displayName || '—',
+          email: perfil.email || sess.email || '—',
+          telefone: perfil.telefone || '—',
+          foto: perfil.photo || sess.photoURL || '',
+          provider: perfil.provider || 'email',
+          cidade: perfil.cidade || '—',
+          estado: perfil.estado || '—',
+          cpf: perfil.cpf || '—',
+          // Dados de sessão
+          deviceId: sess.deviceId || '—',
+          loginEm: sess.updatedAt || sess.createdAt ? new Date(sess.updatedAt || sess.createdAt).toISOString() : '—',
+          criadoEm: perfil.criadoEm ? new Date(perfil.criadoEm).toISOString() : (sess.createdAt ? new Date(sess.createdAt).toISOString() : '—'),
+          // Assinatura
+          plano: assin?.status === 'ACTIVE' ? (assin.plano || 'premium') : (assin ? 'free' : 'gratuito'),
+          assinatura: assin ? {
+            status: assin.status, plano: assin.plano,
+            expiraEm: assin.expiraEm, ativadaEm: assin.ativadaEm,
+            pagamentos: assin.pagamentos || 0,
+            avisoInadimplencia: assin.avisoInadimplencia || false
+          } : null,
           veiculo: veiculo || null,
         })
       } catch {}
     }
-    return c.json({ total: usuarios.length, usuarios })
+
+    // Também incluir usuários que têm perfil mas não têm sessão ativa
+    for (const [uid, perfil] of profilesMap.entries()) {
+      if (uidsProcessados.has(uid)) continue
+      try {
+        const assinRaw = await kv.get(`assin:${uid}`)
+        const assin = assinRaw ? JSON.parse(assinRaw) as any : null
+        usuarios.push({
+          uid,
+          nome: perfil.name || '—',
+          email: perfil.email || '—',
+          telefone: perfil.telefone || '—',
+          foto: perfil.photo || '',
+          provider: perfil.provider || 'email',
+          cidade: perfil.cidade || '—',
+          estado: perfil.estado || '—',
+          cpf: perfil.cpf || '—',
+          deviceId: '—',
+          loginEm: perfil.ultimoLogin ? new Date(perfil.ultimoLogin).toISOString() : '—',
+          criadoEm: perfil.criadoEm ? new Date(perfil.criadoEm).toISOString() : '—',
+          plano: assin?.status === 'ACTIVE' ? (assin.plano || 'premium') : (assin ? 'free' : 'gratuito'),
+          assinatura: assin ? {
+            status: assin.status, plano: assin.plano,
+            expiraEm: assin.expiraEm, ativadaEm: assin.ativadaEm,
+            pagamentos: assin.pagamentos || 0,
+            avisoInadimplencia: assin.avisoInadimplencia || false
+          } : null,
+          veiculo: null,
+        })
+      } catch {}
+    }
+
+    // Ordenar por loginEm mais recente
+    ;(usuarios as any[]).sort((a: any, b: any) => (b.loginEm > a.loginEm ? 1 : -1))
+
+    const premium = (usuarios as any[]).filter((u: any) => u.plano !== 'gratuito' && u.plano !== 'free').length
+    return c.json({ total: usuarios.length, premium, gratuito: usuarios.length - premium, usuarios })
   } catch (e) {
     return c.json({ erro: 'Erro', detalhes: String(e) }, 500)
   }
@@ -7489,10 +7568,27 @@ app.get('/api/admin/assinaturas', async (c) => {
   const kv = getKV(c.env as any)
   if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
   try {
+    // Pré-carregar perfis para cruzamento
+    const profilesMap = new Map<string, any>()
+    try {
+      const listP = await kv.list({ prefix: 'profile:' })
+      for (const pk of listP.keys) {
+        try {
+          const raw = await kv.get(pk.name)
+          if (raw) {
+            const p = JSON.parse(raw) as any
+            profilesMap.set(p.uid || pk.name.replace('profile:', ''), p)
+          }
+        } catch {}
+      }
+    } catch {}
+
     const list = await kv.list({ prefix: 'assin:' })
     const assinaturas: unknown[] = []
     let ativas = 0, canceladas = 0, expiradas = 0
     for (const k of list.keys) {
+      // Ignorar chaves de postos e índices reversos
+      if (k.name.startsWith('assin:posto:')) continue
       const raw = await kv.get(k.name)
       if (!raw) continue
       const a = JSON.parse(raw) as any
@@ -7500,8 +7596,27 @@ app.get('/api/admin/assinaturas', async (c) => {
       if (a.status === 'ACTIVE') ativas++
       else if (a.status === 'CANCELLED') canceladas++
       else expiradas++
-      assinaturas.push({ uid, ...a })
+      // Cruzar com perfil
+      const perfil = profilesMap.get(uid) || {}
+      assinaturas.push({
+        uid,
+        nome: perfil.name || a.nome || '—',
+        email: perfil.email || a.email || '—',
+        telefone: perfil.telefone || '—',
+        foto: perfil.photo || '',
+        cidade: perfil.cidade || '—',
+        estado: perfil.estado || '—',
+        cpf: perfil.cpf || '—',
+        provider: perfil.provider || '—',
+        ...a
+      })
     }
+    // Ordenar: ativas primeiro, depois por data de ativação desc
+    ;(assinaturas as any[]).sort((a: any, b: any) => {
+      if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
+      if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
+      return (b.ativadaEm || 0) - (a.ativadaEm || 0)
+    })
     return c.json({ total: assinaturas.length, ativas, canceladas, expiradas, assinaturas })
   } catch (e) {
     return c.json({ erro: 'Erro', detalhes: String(e) }, 500)
@@ -8831,29 +8946,47 @@ app.get('/admin', (c) => {
       </div>
     </div>
     <div class="section-card">
-      <div class="section-header">
-        <h3><i class="fas fa-users" style="color:#42A5F5;margin-right:8px"></i>Lista de Usuários</h3>
-        <input id="au-search" type="text" placeholder="🔍 Buscar por UID..." oninput="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:200px"/>
+      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07)">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:800;color:#fff"><i class="fas fa-users" style="color:#42A5F5;margin-right:8px"></i>Lista de Usuários</h3>
+          <span id="au-result-count" style="font-size:11px;color:rgba(255,255,255,0.35);font-weight:600"></span>
+        </div>
+        <!-- Barra de filtros -->
+        <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center">
+          <input id="au-search" type="text" placeholder="🔍 Buscar por nome, e-mail, CPF, cidade ou UID..." oninput="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;min-width:0"/>
+          <select id="au-filtro-plano" onchange="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer;white-space:nowrap">
+            <option value="">Todos os planos</option>
+            <option value="premium">👑 Premium</option>
+            <option value="gratuito">🆓 Gratuito</option>
+          </select>
+          <select id="au-filtro-provider" onchange="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer;white-space:nowrap">
+            <option value="">Todos os provedores</option>
+            <option value="google.com">Google</option>
+            <option value="facebook.com">Facebook</option>
+            <option value="email">E-mail</option>
+          </select>
+          <select id="au-filtro-estado" onchange="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer;white-space:nowrap">
+            <option value="">Todos os estados</option>
+            <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option>
+            <option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option>
+            <option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option>
+            <option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE">PE</option>
+            <option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option>
+            <option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option>
+            <option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
+          </select>
+        </div>
       </div>
       <div style="overflow-x:auto">
-        <table style="min-width:760px;table-layout:fixed;width:100%">
-          <colgroup>
-            <col style="width:18%"/>
-            <col style="width:14%"/>
-            <col style="width:15%"/>
-            <col style="width:11%"/>
-            <col style="width:13%"/>
-            <col style="width:14%"/>
-            <col style="width:15%"/>
-          </colgroup>
+        <table style="min-width:900px;width:100%">
           <thead><tr>
-            <th>UID</th>
-            <th style="text-align:center">Device ID</th>
-            <th style="text-align:center">Último Login</th>
-            <th style="text-align:center">Plano</th>
-            <th style="text-align:center">Exp. Assinatura</th>
-            <th style="text-align:center">Veículo</th>
-            <th style="text-align:center">Ações</th>
+            <th style="width:220px">Cliente</th>
+            <th style="text-align:center;width:130px">CPF</th>
+            <th style="text-align:center;width:120px">Cidade / UF</th>
+            <th style="text-align:center;width:90px">Provider</th>
+            <th style="text-align:center;width:90px">Plano</th>
+            <th style="text-align:center;width:110px">Cadastro</th>
+            <th style="text-align:center;width:110px">Ações</th>
           </tr></thead>
           <tbody id="app-usuarios-tbody">
             <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
@@ -8969,39 +9102,41 @@ app.get('/admin', (c) => {
       </div>
     </div>
     <div class="section-card">
-      <div class="section-header">
-        <h3><i class="fas fa-list" style="color:#FFD600;margin-right:8px"></i>Todas as Assinaturas</h3>
-        <div style="display:flex;gap:8px;align-items:center">
-          <select id="as-filtro" onchange="filtrarAssinaturas()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer">
-            <option value="">Todos</option>
-            <option value="ACTIVE">Ativas</option>
-            <option value="CANCELLED">Canceladas</option>
-            <option value="EXPIRED">Expiradas</option>
+      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07)">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:800;color:#fff"><i class="fas fa-list" style="color:#FFD600;margin-right:8px"></i>Todas as Assinaturas</h3>
+          <span id="as-result-count" style="font-size:11px;color:rgba(255,255,255,0.35);font-weight:600"></span>
+        </div>
+        <!-- Barra de filtros assinaturas -->
+        <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center">
+          <input id="as-search" type="text" placeholder="🔍 Buscar por nome, e-mail ou CPF..." oninput="filtrarAssinaturas()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;min-width:0"/>
+          <select id="as-filtro-plano" onchange="filtrarAssinaturas()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer;white-space:nowrap">
+            <option value="">Todos os planos</option>
+            <option value="premium">premium</option>
+            <option value="anual">anual</option>
+          </select>
+          <select id="as-filtro" onchange="filtrarAssinaturas()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer;white-space:nowrap">
+            <option value="">Todos os status</option>
+            <option value="ACTIVE">✅ Ativas</option>
+            <option value="CANCELLED">❌ Canceladas</option>
+            <option value="EXPIRED">⏰ Expiradas</option>
           </select>
         </div>
       </div>
       <div style="overflow-x:auto">
-        <table style="min-width:700px;table-layout:fixed;width:100%">
-          <colgroup>
-            <col style="width:18%"/>
-            <col style="width:12%"/>
-            <col style="width:14%"/>
-            <col style="width:13%"/>
-            <col style="width:13%"/>
-            <col style="width:10%"/>
-            <col style="width:20%"/>
-          </colgroup>
+        <table style="min-width:860px;width:100%">
           <thead><tr>
-            <th>UID</th>
-            <th style="text-align:center">Plano</th>
-            <th style="text-align:center">Status</th>
-            <th style="text-align:center">Ativada em</th>
-            <th style="text-align:center">Expira em</th>
-            <th style="text-align:center">Pagamentos</th>
-            <th style="text-align:center">Ações</th>
+            <th style="width:230px">Cliente</th>
+            <th style="text-align:center;width:100px">CPF</th>
+            <th style="text-align:center;width:90px">Plano</th>
+            <th style="text-align:center;width:110px">Status</th>
+            <th style="text-align:center;width:110px">Ativada em</th>
+            <th style="text-align:center;width:110px">Expira em</th>
+            <th style="text-align:center;width:70px">Pag.</th>
+            <th style="text-align:center;width:120px">Ações</th>
           </tr></thead>
           <tbody id="assinaturas-tbody">
-            <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -9778,34 +9913,64 @@ async function carregarAppUsuarios() {
   }
 }
 
+function _auAvatar(u) {
+  if (u.foto) return '<img src="' + u.foto + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0"><div style="display:none;width:34px;height:34px;border-radius:50%;background:rgba(66,165,245,0.2);align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#42A5F5;flex-shrink:0">' + (u.nome ? u.nome.charAt(0).toUpperCase() : '?') + '</div>';
+  return '<div style="width:34px;height:34px;border-radius:50%;background:rgba(66,165,245,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#42A5F5;flex-shrink:0">' + (u.nome ? u.nome.charAt(0).toUpperCase() : '?') + '</div>';
+}
+
+function _auProviderBadge(p) {
+  if (!p) return '<span style="font-size:10px;color:rgba(255,255,255,0.3)">—</span>';
+  if (p.includes('google')) return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#4285F4;background:rgba(66,133,244,0.12);padding:2px 7px;border-radius:100px"><i class="fab fa-google" style="font-size:9px"></i>Google</span>';
+  if (p.includes('facebook')) return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#1877F2;background:rgba(24,119,242,0.12);padding:2px 7px;border-radius:100px"><i class="fab fa-facebook" style="font-size:9px"></i>Facebook</span>';
+  return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:100px"><i class="fas fa-envelope" style="font-size:9px"></i>E-mail</span>';
+}
+
+function _auMaskCpf(cpf) {
+  if (!cpf) return '—';
+  const c = cpf.replace(/\D/g, '');
+  if (c.length !== 11) return cpf;
+  return c.substring(0, 3) + '.***.***-' + c.substring(9);
+}
+
 function renderAppUsuarios(lista) {
   const tbody = document.getElementById('app-usuarios-tbody');
+  const countEl = document.getElementById('au-result-count');
+  if (countEl) countEl.textContent = lista.length + ' resultado(s)';
   if (!lista.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:rgba(255,255,255,0.3)">Nenhum usuário encontrado</td></tr>';
     return;
   }
-  const fmtDate = (v) => { if (!v || v === '—') return '—'; try { return new Date(v).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch { return v; } };
-  const fmtExp = (ms) => { if (!ms) return '—'; const d = new Date(ms); const hoje = Date.now(); if (ms < hoje) return '<span style="color:#FF5252;font-size:11px">Expirada</span>'; return '<span style="color:#69F0AE;font-size:11px">' + d.toLocaleDateString('pt-BR') + '</span>'; };
-  const planoBadge = (p) => p === 'gratuito' ? '<span class="badge badge-free">Free</span>' : '<span class="badge badge-premium">⭐ Premium</span>';
-  const veiculo = (v) => v ? (v.marca || '') + ' ' + (v.modelo || '') : '—';
+  const fmtDate = (v) => { if (!v || v === '—') return '—'; try { return new Date(v).toLocaleDateString('pt-BR'); } catch { return v; } };
+  const planoBadge = (p) => p && p !== 'gratuito' ? '<span class="badge badge-premium">👑 Premium</span>' : '<span class="badge badge-free">Free</span>';
 
   tbody.innerHTML = lista.map(u => {
-    const uidShort = u.uid ? u.uid.substring(0, 12) + '…' : '—';
-    const devShort = u.deviceId ? u.deviceId.substring(0, 10) + '…' : '—';
+    const nome = u.nome || '';
+    const email = u.email || '';
+    const cpfMask = _auMaskCpf(u.cpf);
+    const localidade = [u.cidade, u.estado].filter(Boolean).join(' / ') || '—';
+    const dataCadastro = fmtDate(u.criadoEm || u.loginEm);
+    const uidSafe = (u.uid || '').replace(/'/g, '');
     return \`<tr class="tr-hover">
-      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-        <span style="font-family:monospace;font-size:11px;color:#42A5F5;cursor:pointer" title="\${u.uid}" onclick="copiarUID('\${u.uid}');">\${uidShort}</span>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+          \${_auAvatar(u)}
+          <div style="min-width:0">
+            <div style="font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px" title="\${nome}">\${nome || '<span style="color:rgba(255,255,255,0.3);font-style:italic">Sem nome</span>'}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;margin-top:1px" title="\${email}">\${email || '<span style="font-style:italic">Sem e-mail</span>'}</div>
+            <div style="font-size:9px;color:rgba(255,255,255,0.2);font-family:monospace;margin-top:2px;cursor:pointer" onclick="copiarUID('\${uidSafe}')" title="Clique para copiar UID">\${uidSafe.substring(0,14)}…</div>
+          </div>
+        </div>
       </td>
-      <td style="text-align:center"><span style="font-family:monospace;font-size:11px;color:rgba(255,255,255,0.4)">\${devShort}</span></td>
-      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.5)">\${fmtDate(u.loginEm)}</td>
+      <td style="text-align:center"><span style="font-size:11px;font-family:monospace;color:rgba(255,255,255,0.5)">\${cpfMask}</span></td>
+      <td style="text-align:center"><span style="font-size:11px;color:rgba(255,255,255,0.6)">\${localidade}</span></td>
+      <td style="text-align:center">\${_auProviderBadge(u.provider)}</td>
       <td style="text-align:center">\${planoBadge(u.plano)}</td>
-      <td style="text-align:center">\${fmtExp(u.assinatura?.expiraEm)}</td>
-      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.5)">\${veiculo(u.veiculo)}</td>
+      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.4)">\${dataCadastro}</td>
       <td style="text-align:center">
         <div style="display:inline-flex;gap:5px;flex-wrap:nowrap;justify-content:center">
-          <button class="btn-info" onclick="verDetalheUsuario('\${u.uid}')" title="Detalhes"><i class="fas fa-eye"></i></button>
-          <button class="btn-success" onclick="abrirModalAtivar('\${u.uid}')" title="Ativar Premium"><i class="fas fa-crown"></i></button>
-          <button class="btn-danger" onclick="banirUsuario('\${u.uid}')" title="Banir"><i class="fas fa-ban"></i></button>
+          <button class="btn-info" data-uid="\${uidSafe}" onclick="verDetalheUsuario(this.dataset.uid)" title="Detalhes"><i class="fas fa-eye"></i></button>
+          <button class="btn-success" data-uid="\${uidSafe}" onclick="abrirModalAtivar(this.dataset.uid)" title="Ativar Premium"><i class="fas fa-crown"></i></button>
+          <button class="btn-danger" data-uid="\${uidSafe}" onclick="banirUsuario(this.dataset.uid)" title="Banir"><i class="fas fa-ban"></i></button>
         </div>
       </td>
     </tr>\`;
@@ -9813,8 +9978,30 @@ function renderAppUsuarios(lista) {
 }
 
 function filtrarAppUsuarios() {
-  const q = document.getElementById('au-search').value.toLowerCase();
-  renderAppUsuarios(q ? _appUsuarios.filter(u => (u.uid||'').toLowerCase().includes(q) || (u.deviceId||'').toLowerCase().includes(q)) : _appUsuarios);
+  const q = (document.getElementById('au-search').value || '').toLowerCase().trim();
+  const plano = document.getElementById('au-filtro-plano').value;
+  const provider = document.getElementById('au-filtro-provider').value;
+  const estado = document.getElementById('au-filtro-estado').value.toUpperCase();
+
+  let lista = _appUsuarios;
+
+  if (q) {
+    lista = lista.filter(u =>
+      (u.nome || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.cpf || '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+      (u.cidade || '').toLowerCase().includes(q) ||
+      (u.uid || '').toLowerCase().includes(q)
+    );
+  }
+  if (plano) {
+    if (plano === 'premium') lista = lista.filter(u => u.plano && u.plano !== 'gratuito');
+    else lista = lista.filter(u => !u.plano || u.plano === 'gratuito');
+  }
+  if (provider) lista = lista.filter(u => (u.provider || '').includes(provider));
+  if (estado) lista = lista.filter(u => (u.estado || '').toUpperCase() === estado);
+
+  renderAppUsuarios(lista);
 }
 
 function copiarUID(uid) {
@@ -9824,7 +10011,9 @@ function copiarUID(uid) {
 let _uidAtual = '';
 function abrirModalAtivar(uid) {
   _uidAtual = uid;
-  document.getElementById('modal-ativar-desc').textContent = 'Ativar premium para: ' + uid.substring(0, 18) + '…';
+  const u = _appUsuarios.find(x => x.uid === uid) || _assinaturas.find(x => x.uid === uid);
+  const label = (u && u.nome) ? u.nome : uid.substring(0, 18) + '…';
+  document.getElementById('modal-ativar-desc').textContent = 'Ativar premium para: ' + label;
   document.getElementById('modal-ativar-dias').value = '30';
   document.getElementById('modal-ativar-plano').value = 'manual';
   document.getElementById('modal-ativar').style.display = 'flex';
@@ -9849,7 +10038,9 @@ async function confirmarAtivarPremium() {
 }
 
 async function banirUsuario(uid) {
-  if (!confirm('Banir usuário ' + uid.substring(0, 18) + '…? Isso removerá a sessão e deslogará o usuário.')) return;
+  const u = _appUsuarios.find(x => x.uid === uid);
+  const label = (u && u.nome) ? u.nome : uid.substring(0, 18) + '…';
+  if (!confirm('Banir usuário ' + label + '? Isso removerá a sessão e deslogará o usuário.')) return;
   try {
     const res = await fetch('/api/admin/app-usuarios/' + encodeURIComponent(uid) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -9864,13 +10055,32 @@ function verDetalheUsuario(uid) {
   const fmtDate = (v) => { if (!v || v === '—') return '—'; try { return new Date(v).toLocaleString('pt-BR'); } catch { return v; } };
   const assin = u.assinatura;
   const veiculo = u.veiculo;
+  const cpfFull = u.cpf ? u.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—';
+  const localidade = [u.cidade, u.estado].filter(Boolean).join(' / ') || '—';
   document.getElementById('modal-detalhe-body').innerHTML = \`
     <div style="display:grid;gap:10px;font-size:13px">
+      <div style="background:#0A1520;border-radius:10px;padding:14px;display:flex;align-items:center;gap:14px">
+        \${u.foto ? '<img src="' + u.foto + '" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'">' : '<div style="width:52px;height:52px;border-radius:50%;background:rgba(66,165,245,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#42A5F5;flex-shrink:0">' + (u.nome ? u.nome.charAt(0).toUpperCase() : '?') + '</div>'}
+        <div>
+          <div style="font-weight:800;font-size:15px;color:#fff">\${u.nome || '<em style="opacity:.4">Sem nome</em>'}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px">\${u.email || '—'}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px">\${u.telefone || '—'}</div>
+        </div>
+      </div>
+      <div style="background:#0A1520;border-radius:10px;padding:12px">
+        <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;margin-bottom:8px">DADOS PESSOAIS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">
+          <div><span style="color:rgba(255,255,255,0.3)">CPF:</span> <span style="color:rgba(255,255,255,0.7);font-family:monospace">\${cpfFull}</span></div>
+          <div><span style="color:rgba(255,255,255,0.3)">Localidade:</span> <span style="color:rgba(255,255,255,0.7)">\${localidade}</span></div>
+          <div><span style="color:rgba(255,255,255,0.3)">Provider:</span> <span style="color:rgba(255,255,255,0.7)">\${u.provider || '—'}</span></div>
+          <div><span style="color:rgba(255,255,255,0.3)">Cadastro:</span> <span style="color:rgba(255,255,255,0.7)">\${fmtDate(u.criadoEm)}</span></div>
+        </div>
+      </div>
       <div style="background:#0A1520;border-radius:10px;padding:12px">
         <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;margin-bottom:6px">IDENTIFICAÇÃO</div>
-        <div style="font-family:monospace;font-size:11px;color:#42A5F5;word-break:break-all">\${u.uid}</div>
-        <div style="margin-top:4px;color:rgba(255,255,255,0.5);font-size:11px">Device: \${u.deviceId}</div>
-        <div style="margin-top:4px;color:rgba(255,255,255,0.5);font-size:11px">Login: \${fmtDate(u.loginEm)}</div>
+        <div style="font-family:monospace;font-size:10px;color:#42A5F5;word-break:break-all;cursor:pointer" onclick="copiarUID('\${u.uid}')" title="Clique para copiar">\${u.uid} <i class="fas fa-copy" style="font-size:9px;opacity:.5"></i></div>
+        <div style="margin-top:4px;color:rgba(255,255,255,0.4);font-size:10px">Device: \${u.deviceId || '—'}</div>
+        <div style="margin-top:2px;color:rgba(255,255,255,0.4);font-size:10px">Último login: \${fmtDate(u.loginEm)}</div>
       </div>
       \${assin ? \`<div style="background:#0A1520;border-radius:10px;padding:12px">
         <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;margin-bottom:6px">ASSINATURA</div>
@@ -9879,7 +10089,7 @@ function verDetalheUsuario(uid) {
         <div style="color:rgba(255,255,255,0.5);font-size:11px">Ativada: \${fmtDate(assin.ativadaEm)}</div>
         <div style="color:rgba(255,255,255,0.5);font-size:11px">Expira: \${fmtDate(assin.expiraEm)}</div>
         <div style="color:rgba(255,255,255,0.5);font-size:11px">Pagamentos: \${assin.pagamentos || 0}</div>
-      </div>\` : '<div style="background:#0A1520;border-radius:10px;padding:12px;color:rgba(255,255,255,0.3);font-size:12px">Sem assinatura</div>'}
+      </div>\` : '<div style="background:#0A1520;border-radius:10px;padding:12px;color:rgba(255,255,255,0.3);font-size:12px">Sem assinatura ativa</div>'}
       \${veiculo ? \`<div style="background:#0A1520;border-radius:10px;padding:12px">
         <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:800;margin-bottom:6px">VEÍCULO</div>
         <div style="color:rgba(255,255,255,0.85);font-weight:700">\${veiculo.marca || ''} \${veiculo.modelo || ''} \${veiculo.ano || ''}</div>
@@ -10035,7 +10245,7 @@ async function salvarEdicaoUsuario() {
 // ── ASSINATURAS ──────────────────────────────────────────────────────────────
 async function carregarAssinaturas() {
   const tbody = document.getElementById('assinaturas-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando assinaturas...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando assinaturas...</td></tr>';
   try {
     const res = await fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY));
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -10047,17 +10257,18 @@ async function carregarAssinaturas() {
     document.getElementById('as-canceladas').textContent = data.canceladas || 0;
     document.getElementById('as-expiradas').textContent = data.expiradas || 0;
 
-    renderAssinaturas(_assinaturas, '');
+    renderAssinaturas(_assinaturas);
   } catch(e) {
-    tbody.innerHTML = \`<tr><td colspan="7" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro: \${e.message}</td></tr>\`;
+    tbody.innerHTML = \`<tr><td colspan="8" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro: \${e.message}</td></tr>\`;
   }
 }
 
-function renderAssinaturas(lista, filtro) {
+function renderAssinaturas(lista) {
   const tbody = document.getElementById('assinaturas-tbody');
-  const filtrada = filtro ? lista.filter(a => a.status === filtro) : lista;
-  if (!filtrada.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">Nenhuma assinatura encontrada</td></tr>';
+  const countEl = document.getElementById('as-result-count');
+  if (countEl) countEl.textContent = lista.length + ' resultado(s)';
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">Nenhuma assinatura encontrada</td></tr>';
     return;
   }
   const fmtDate = (v) => { if (!v) return '—'; try { return new Date(v).toLocaleDateString('pt-BR'); } catch { return v; } };
@@ -10065,12 +10276,29 @@ function renderAssinaturas(lista, filtro) {
   const planoBadge = (p) => p ? \`<span class="badge badge-premium">\${p}</span>\` : '<span class="badge badge-free">—</span>';
   const isExpired = (ms) => ms && ms < Date.now();
 
-  tbody.innerHTML = filtrada.map(a => {
-    const uidShort = a.uid ? a.uid.substring(0, 14) + '…' : '—';
+  tbody.innerHTML = lista.map(a => {
     const expirado = isExpired(a.expiraEm);
     const efetivo = a.status === 'ACTIVE' && expirado ? 'EXPIRED' : a.status;
+    const nome = a.nome || '';
+    const email = a.email || '';
+    const cpfMask = _auMaskCpf(a.cpf);
+    const uidSafe = (a.uid || '').replace(/'/g, '');
+    const avatarLetter = nome ? nome.charAt(0).toUpperCase() : '?';
+    const avatarHtml = a.foto
+      ? '<img src="' + a.foto + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0"><div style="display:none;width:30px;height:30px;border-radius:50%;background:rgba(255,214,0,0.15);align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#FFD600;flex-shrink:0">' + avatarLetter + '</div>'
+      : '<div style="width:30px;height:30px;border-radius:50%;background:rgba(255,214,0,0.15);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#FFD600;flex-shrink:0">' + avatarLetter + '</div>';
     return \`<tr class="tr-hover">
-      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="font-family:monospace;font-size:11px;color:#42A5F5;cursor:pointer" onclick="copiarUID('\${a.uid}')" title="\${a.uid}">\${uidShort}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:9px;min-width:0">
+          \${avatarHtml}
+          <div style="min-width:0">
+            <div style="font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px" title="\${nome}">\${nome || '<span style="color:rgba(255,255,255,0.3);font-style:italic">Sem nome</span>'}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;margin-top:1px" title="\${email}">\${email || '<span style="font-style:italic">Sem e-mail</span>'}</div>
+            <div style="font-size:9px;color:rgba(255,255,255,0.2);font-family:monospace;margin-top:2px;cursor:pointer" onclick="copiarUID('\${uidSafe}')" title="Clique para copiar UID">\${uidSafe.substring(0,14)}…</div>
+          </div>
+        </div>
+      </td>
+      <td style="text-align:center"><span style="font-size:10px;font-family:monospace;color:rgba(255,255,255,0.45)">\${cpfMask}</span></td>
       <td style="text-align:center">\${planoBadge(a.plano)}</td>
       <td style="text-align:center">\${statusBadge(efetivo)}</td>
       <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.5)">\${fmtDate(a.ativadaEm)}</td>
@@ -10078,8 +10306,8 @@ function renderAssinaturas(lista, filtro) {
       <td style="text-align:center;font-size:12px;color:rgba(255,255,255,0.6)">\${a.pagamentos || 0}</td>
       <td style="text-align:center">
         <div style="display:inline-flex;gap:5px;flex-wrap:nowrap;justify-content:center">
-          \${efetivo === 'ACTIVE' ? \`<button class="btn-danger" onclick="cancelarAssinatura('\${a.uid}')"><i class="fas fa-times"></i> Cancelar</button>\` : ''}
-          <button class="btn-success" onclick="abrirModalAtivar('\${a.uid}')"><i class="fas fa-redo"></i> Reativar</button>
+          \${efetivo === 'ACTIVE' ? '<button class="btn-danger" data-uid="' + uidSafe + '" onclick="cancelarAssinatura(this.dataset.uid)"><i class="fas fa-times"></i> Cancelar</button>' : ''}
+          <button class="btn-success" data-uid="\${uidSafe}" onclick="abrirModalAtivar(this.dataset.uid)"><i class="fas fa-redo"></i> Reativar</button>
         </div>
       </td>
     </tr>\`;
@@ -10087,12 +10315,36 @@ function renderAssinaturas(lista, filtro) {
 }
 
 function filtrarAssinaturas() {
-  const f = document.getElementById('as-filtro').value;
-  renderAssinaturas(_assinaturas, f);
+  const q = (document.getElementById('as-search').value || '').toLowerCase().trim();
+  const status = document.getElementById('as-filtro').value;
+  const plano = document.getElementById('as-filtro-plano').value;
+
+  let lista = _assinaturas;
+
+  if (q) {
+    lista = lista.filter(a =>
+      (a.nome || '').toLowerCase().includes(q) ||
+      (a.email || '').toLowerCase().includes(q) ||
+      (a.cpf || '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+      (a.uid || '').toLowerCase().includes(q)
+    );
+  }
+  if (status) {
+    const isExpired = (ms) => ms && ms < Date.now();
+    lista = lista.filter(a => {
+      const efetivo = a.status === 'ACTIVE' && isExpired(a.expiraEm) ? 'EXPIRED' : a.status;
+      return efetivo === status;
+    });
+  }
+  if (plano) lista = lista.filter(a => (a.plano || '') === plano);
+
+  renderAssinaturas(lista);
 }
 
 async function cancelarAssinatura(uid) {
-  if (!confirm('Cancelar assinatura do usuário ' + uid.substring(0, 18) + '…?')) return;
+  const a = _assinaturas.find(x => x.uid === uid);
+  const label = (a && a.nome) ? a.nome : uid.substring(0, 18) + '…';
+  if (!confirm('Cancelar assinatura de ' + label + '?')) return;
   try {
     const res = await fetch('/api/admin/assinatura/' + encodeURIComponent(uid) + '/cancelar?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
