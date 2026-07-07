@@ -2967,8 +2967,25 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     document.getElementById('plan-posto-card').style.display = 'flex';
     document.getElementById('btn-iniciar-nav').style.display = 'block';
 
-    // Calcular custo (sem preço de combustível pois é destino genérico)
-    atualizarCustoPlan(dist, 0);
+    // Calcular custo usando preço médio dos postos próximos carregados
+    var precoEstimado = 0;
+    if (postosData && postosData.length > 0) {
+      var precos = postosData.slice(0, 10)
+        .map(function(p: any) { return p.preco || (p.precos && p.precos[selectedFuel]) || 0; })
+        .filter(function(v: number) { return v > 0; });
+      if (precos.length > 0) {
+        precoEstimado = precos.reduce(function(a: number, b: number) { return a + b; }, 0) / precos.length;
+      }
+    }
+    // Fallback: preço médio nacional por combustível (ANP ~2025)
+    if (precoEstimado === 0) {
+      var fallbacks: Record<string, number> = { gasolina: 6.10, etanol: 4.20, diesel: 6.30, gnv: 4.80 };
+      precoEstimado = fallbacks[selectedFuel] || 6.10;
+    }
+    // Mostrar preço estimado no card
+    document.getElementById('plan-preco').innerHTML = 'R$ ' + precoEstimado.toFixed(2).replace('.', ',')
+      + '<span class="plan-preco-unit">/L est.</span>';
+    atualizarCustoPlan(dist, precoEstimado);
   }
   //  LISTA DE POSTOS (Tela 8)
   // ══════════════════════════════════════════════════════
@@ -4474,22 +4491,23 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var overlay = document.createElement('div');
     overlay.id = 'assin-cpf-modal';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:199999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
-    var maskFn = "var v=this.value.replace(/\\D/g,'').slice(0,11);"
-      + "this.value=v.length>9?v.replace(/(\\d{3})(\\d{3})(\\d{3})(\\d+)/,'$1.$2.$3-$4'):v.length>6?v.replace(/(\\d{3})(\\d{3})(\\d+)/,'$1.$2.$3'):v.length>3?v.replace(/(\\d{3})(\\d+)/,'$1.$2'):v;";
     overlay.innerHTML = '<div style="background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);">'
       + '<div style="width:40px;height:4px;background:#E0E0E0;border-radius:2px;margin:0 auto 20px;"></div>'
       + '<div style="font-size:18px;font-weight:800;color:#1A1A1A;margin-bottom:6px;">Informe seu CPF</div>'
-      + '<div style="font-size:13px;color:#757575;margin-bottom:20px;">Necess\u00e1rio para emitir o PIX. Seus dados s\u00e3o protegidos pela LGPD.</div>'
+      + '<div style="font-size:13px;color:#757575;margin-bottom:20px;">Necess\u00e1rio para o PIX. Protegido pela LGPD.</div>'
       + '<input id="assin-cpf-input" type="tel" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"'
       + ' style="width:100%;padding:14px 16px;border:2px solid #E0E0E0;border-radius:12px;font-size:16px;font-weight:600;text-align:center;letter-spacing:2px;box-sizing:border-box;outline:none;"'
-      + ' oninput="' + maskFn.replace(/"/g, '&quot;') + '"'
+      + ' oninput="_mascaraCPF(this)"'
       + '/>'
       + '<div id="assin-cpf-erro" style="color:#E53935;font-size:12px;margin:6px 0 0;display:none;text-align:center;"></div>'
       + '<button onclick="_confirmarCPFInline()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;">Confirmar e gerar PIX</button>'
-      + '<button onclick="document.getElementById(\'assin-cpf-modal\').remove()" style="width:100%;padding:12px;background:transparent;color:#9E9E9E;border:none;font-size:14px;cursor:pointer;margin-top:8px;">Cancelar</button>'
+      + '<button onclick="document.getElementById(String.fromCharCode(39)+String.fromCharCode(39)).remove?undefined:document.getElementById(\'assin-cpf-modal\').remove()" onclick2="" style="width:100%;padding:12px;background:transparent;color:#9E9E9E;border:none;font-size:14px;cursor:pointer;margin-top:8px;" id="assin-cpf-cancel">Cancelar</button>'
       + '</div>';
     document.body.appendChild(overlay);
-    setTimeout(() => { var inp = document.getElementById('assin-cpf-input'); if(inp) inp.focus(); }, 100);
+    // Botão cancelar via JS direto (evitar problema de aspas no onclick)
+    var cancelBtn = document.getElementById('assin-cpf-cancel');
+    if (cancelBtn) cancelBtn.onclick = function() { var m = document.getElementById('assin-cpf-modal'); if(m) m.remove(); };
+    setTimeout(function() { var inp = document.getElementById('assin-cpf-input'); if(inp) (inp as HTMLInputElement).focus(); }, 100);
   }
 
   async function _confirmarCPFInline() {
@@ -4509,6 +4527,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (modal) modal.remove();
     await iniciarPagamentoPIX();
   }
+
+  // Máscara CPF global (chamada via oninput="_mascaraCPF(this)")
+  (window as any)._mascaraCPF = function(el: HTMLInputElement) {
+    var v = el.value.replace(/\D/g, '').slice(0, 11);
+    var r = '';
+    if (v.length > 9)      r = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
+    else if (v.length > 6) r = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6);
+    else if (v.length > 3) r = v.slice(0,3) + '.' + v.slice(3);
+    else                   r = v;
+    el.value = r;
+  };
 
   // ── PWA install ─────────────────────────────────────────────────────────────
   function instalarOuMostrarPWA() {
