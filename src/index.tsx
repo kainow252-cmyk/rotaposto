@@ -7856,10 +7856,24 @@ app.get('/admin', (c) => {
         <input id="au-search" type="text" placeholder="🔍 Buscar por UID..." oninput="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:200px"/>
       </div>
       <div style="overflow-x:auto">
-        <table style="min-width:800px">
+        <table style="min-width:760px;table-layout:fixed;width:100%">
+          <colgroup>
+            <col style="width:18%"/>
+            <col style="width:14%"/>
+            <col style="width:15%"/>
+            <col style="width:11%"/>
+            <col style="width:13%"/>
+            <col style="width:14%"/>
+            <col style="width:15%"/>
+          </colgroup>
           <thead><tr>
-            <th>UID</th><th>Device ID</th><th>Último Login</th>
-            <th>Plano</th><th>Exp. Assinatura</th><th>Veículo</th><th>Ações</th>
+            <th>UID</th>
+            <th style="text-align:center">Device ID</th>
+            <th style="text-align:center">Último Login</th>
+            <th style="text-align:center">Plano</th>
+            <th style="text-align:center">Exp. Assinatura</th>
+            <th style="text-align:center">Veículo</th>
+            <th style="text-align:center">Ações</th>
           </tr></thead>
           <tbody id="app-usuarios-tbody">
             <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
@@ -7975,10 +7989,24 @@ app.get('/admin', (c) => {
         </div>
       </div>
       <div style="overflow-x:auto">
-        <table style="min-width:750px">
+        <table style="min-width:700px;table-layout:fixed;width:100%">
+          <colgroup>
+            <col style="width:18%"/>
+            <col style="width:12%"/>
+            <col style="width:14%"/>
+            <col style="width:13%"/>
+            <col style="width:13%"/>
+            <col style="width:10%"/>
+            <col style="width:20%"/>
+          </colgroup>
           <thead><tr>
-            <th>UID</th><th>Plano</th><th>Status</th><th>Ativada em</th>
-            <th>Expira em</th><th>Pagamentos</th><th>Ações</th>
+            <th>UID</th>
+            <th style="text-align:center">Plano</th>
+            <th style="text-align:center">Status</th>
+            <th style="text-align:center">Ativada em</th>
+            <th style="text-align:center">Expira em</th>
+            <th style="text-align:center">Pagamentos</th>
+            <th style="text-align:center">Ações</th>
           </tr></thead>
           <tbody id="assinaturas-tbody">
             <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
@@ -8003,10 +8031,24 @@ app.get('/admin', (c) => {
         <input id="pc-search" type="text" placeholder="🔍 Buscar posto..." oninput="filtrarParceiros()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:200px"/>
       </div>
       <div style="overflow-x:auto">
-        <table style="min-width:760px">
+        <table style="min-width:740px;table-layout:fixed;width:100%">
+          <colgroup>
+            <col style="width:22%"/>
+            <col style="width:20%"/>
+            <col style="width:11%"/>
+            <col style="width:14%"/>
+            <col style="width:13%"/>
+            <col style="width:10%"/>
+            <col style="width:10%"/>
+          </colgroup>
           <thead><tr>
-            <th>Posto / Empresa</th><th>E-mail</th><th>Plano</th>
-            <th>Cidade</th><th>Tel</th><th>Cadastrado</th><th>Ações</th>
+            <th>Posto / Empresa</th>
+            <th>E-mail</th>
+            <th style="text-align:center">Plano</th>
+            <th style="text-align:center">Cidade</th>
+            <th style="text-align:center">Tel</th>
+            <th style="text-align:center">Cadastrado</th>
+            <th style="text-align:center">Ações</th>
           </tr></thead>
           <tbody id="parceiros-tbody">
             <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
@@ -8430,19 +8472,19 @@ function renderAppUsuarios(lista) {
     const uidShort = u.uid ? u.uid.substring(0, 12) + '…' : '—';
     const devShort = u.deviceId ? u.deviceId.substring(0, 10) + '…' : '—';
     return \`<tr class="tr-hover">
-      <td>
-        <div style="font-family:monospace;font-size:11px;color:#42A5F5;cursor:pointer" title="\${u.uid}" onclick="copiarUID('\${u.uid}')">\${uidShort}</div>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        <span style="font-family:monospace;font-size:11px;color:#42A5F5;cursor:pointer" title="\${u.uid}" onclick="copiarUID('\${u.uid}');">\${uidShort}</span>
       </td>
-      <td><span style="font-family:monospace;font-size:11px;color:rgba(255,255,255,0.4)">\${devShort}</span></td>
-      <td style="font-size:11px;color:rgba(255,255,255,0.5)">\${fmtDate(u.loginEm)}</td>
-      <td>\${planoBadge(u.plano)}</td>
-      <td>\${fmtExp(u.assinatura?.expiraEm)}</td>
-      <td style="font-size:11px;color:rgba(255,255,255,0.5)">\${veiculo(u.veiculo)}</td>
-      <td>
-        <div style="display:flex;gap:6px;flex-wrap:nowrap">
+      <td style="text-align:center"><span style="font-family:monospace;font-size:11px;color:rgba(255,255,255,0.4)">\${devShort}</span></td>
+      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.5)">\${fmtDate(u.loginEm)}</td>
+      <td style="text-align:center">\${planoBadge(u.plano)}</td>
+      <td style="text-align:center">\${fmtExp(u.assinatura?.expiraEm)}</td>
+      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.5)">\${veiculo(u.veiculo)}</td>
+      <td style="text-align:center">
+        <div style="display:inline-flex;gap:5px;flex-wrap:nowrap;justify-content:center">
           <button class="btn-info" onclick="verDetalheUsuario('\${u.uid}')" title="Detalhes"><i class="fas fa-eye"></i></button>
           <button class="btn-success" onclick="abrirModalAtivar('\${u.uid}')" title="Ativar Premium"><i class="fas fa-crown"></i></button>
-          <button class="btn-danger" onclick="banirUsuario('\${u.uid}')" title="Banir (remover sessão)"><i class="fas fa-ban"></i></button>
+          <button class="btn-danger" onclick="banirUsuario('\${u.uid}')" title="Banir"><i class="fas fa-ban"></i></button>
         </div>
       </td>
     </tr>\`;
@@ -8707,14 +8749,14 @@ function renderAssinaturas(lista, filtro) {
     const expirado = isExpired(a.expiraEm);
     const efetivo = a.status === 'ACTIVE' && expirado ? 'EXPIRED' : a.status;
     return \`<tr class="tr-hover">
-      <td><span style="font-family:monospace;font-size:11px;color:#42A5F5;cursor:pointer" onclick="copiarUID('\${a.uid}')" title="\${a.uid}">\${uidShort}</span></td>
-      <td>\${planoBadge(a.plano)}</td>
-      <td>\${statusBadge(efetivo)}</td>
-      <td style="font-size:11px;color:rgba(255,255,255,0.5)">\${fmtDate(a.ativadaEm)}</td>
-      <td style="font-size:11px;\${expirado?'color:#FF5252':'color:#69F0AE'}">\${fmtDate(a.expiraEm)}</td>
-      <td style="font-size:12px;color:rgba(255,255,255,0.6)">\${a.pagamentos || 0}</td>
-      <td>
-        <div style="display:flex;gap:6px;flex-wrap:nowrap">
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="font-family:monospace;font-size:11px;color:#42A5F5;cursor:pointer" onclick="copiarUID('\${a.uid}')" title="\${a.uid}">\${uidShort}</span></td>
+      <td style="text-align:center">\${planoBadge(a.plano)}</td>
+      <td style="text-align:center">\${statusBadge(efetivo)}</td>
+      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.5)">\${fmtDate(a.ativadaEm)}</td>
+      <td style="text-align:center;font-size:11px;\${expirado?'color:#FF5252':'color:#69F0AE'}">\${fmtDate(a.expiraEm)}</td>
+      <td style="text-align:center;font-size:12px;color:rgba(255,255,255,0.6)">\${a.pagamentos || 0}</td>
+      <td style="text-align:center">
+        <div style="display:inline-flex;gap:5px;flex-wrap:nowrap;justify-content:center">
           \${efetivo === 'ACTIVE' ? \`<button class="btn-danger" onclick="cancelarAssinatura('\${a.uid}')"><i class="fas fa-times"></i> Cancelar</button>\` : ''}
           <button class="btn-success" onclick="abrirModalAtivar('\${a.uid}')"><i class="fas fa-redo"></i> Reativar</button>
         </div>
@@ -8769,17 +8811,17 @@ function renderParceiros(lista) {
   const fmtDate = (iso) => { if (!iso || iso === '—') return '—'; try { return new Date(iso).toLocaleDateString('pt-BR'); } catch { return iso; } };
 
   tbody.innerHTML = lista.map(u => \`<tr class="tr-hover">
-    <td>
-      <div style="font-weight:800;color:#fff;font-size:13px">\${u.nomePosto || '—'}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px;font-family:monospace">ID: \${u.id}</div>
+    <td style="overflow:hidden">
+      <div style="font-weight:800;color:#fff;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.nomePosto || '—'}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ID: \${u.id}</div>
     </td>
-    <td style="color:rgba(255,255,255,0.6);font-size:12px">\${u.email || '—'}</td>
-    <td>\${planoBadge(u.plano)}</td>
-    <td style="color:rgba(255,255,255,0.6);font-size:12px">\${u.cidade || '—'}</td>
-    <td style="color:rgba(255,255,255,0.6);font-size:12px">\${u.tel || '—'}</td>
-    <td style="color:rgba(255,255,255,0.4);font-size:11px">\${fmtDate(u.criadoEm)}</td>
-    <td>
-      <div style="display:flex;gap:6px">
+    <td style="color:rgba(255,255,255,0.6);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.email || '—'}</td>
+    <td style="text-align:center">\${planoBadge(u.plano)}</td>
+    <td style="text-align:center;color:rgba(255,255,255,0.6);font-size:12px">\${u.cidade || '—'}</td>
+    <td style="text-align:center;color:rgba(255,255,255,0.6);font-size:12px">\${u.tel || '—'}</td>
+    <td style="text-align:center;color:rgba(255,255,255,0.4);font-size:11px">\${fmtDate(u.criadoEm)}</td>
+    <td style="text-align:center">
+      <div style="display:inline-flex;gap:6px;justify-content:center">
         <button class="btn-danger" onclick="deletarParceiro('\${u.id}', '\${(u.nomePosto||'').replace(/'/g,'')}')" title="Remover posto"><i class="fas fa-trash"></i> Remover</button>
       </div>
     </td>
