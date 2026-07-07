@@ -1182,12 +1182,61 @@ export function getPainelEmpresaHTML(): string {
     .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:190; }
     .btn-menu-mobile { display:none; background:none; border:none; cursor:pointer; padding:8px; font-size:20px; }
     @media (max-width:900px) {
+      /* Layout base */
       .sidebar { transform:translateX(-100%); }
       .sidebar.aberta { transform:translateX(0); }
-      .main { margin-left:0; }
+      .main { margin-left:0; width:100%; }
+      .painel-root { display:block; }
       .btn-menu-mobile { display:block; }
       .sidebar-overlay.visivel { display:block; }
-      .page-content { padding:16px; }
+      .page-content { padding:12px; }
+
+      /* Topbar mobile — esconder botões que não cabem */
+      .topbar { padding:0 12px; height:56px; }
+      .topbar-titulo { font-size:15px; }
+      .btn-topbar { padding:7px 10px; font-size:12px; }
+      .topbar-right { gap:6px; }
+      /* Esconde texto dos botões da topbar, deixa só o ícone */
+      .btn-topbar-outline .fa-qrcode::after { content:''; }
+
+      /* KPI Grid — 2 colunas em tablet, evita overflow */
+      .kpi-grid { grid-template-columns: repeat(2,1fr); gap:10px; }
+      .kpi-card { padding:14px 12px; }
+      .kpi-val { font-size:24px; }
+      .kpi-label { font-size:11px; }
+
+      /* Tabelas — permitir scroll horizontal */
+      .table-card { overflow-x:auto; }
+      table { min-width:400px; }
+      th, td { padding:10px 12px; font-size:12px; }
+
+      /* Chart card */
+      .chart-card { padding:16px 12px; }
+      .chart-header { flex-direction:column; align-items:flex-start; gap:10px; }
+
+      /* Formulários do painel */
+      .config-row { flex-wrap:wrap; gap:10px; }
+      .config-row-right { width:100%; }
+    }
+
+    /* Rótulos dos botões da topbar: visíveis em desktop, ocultos em mobile */
+    .btn-label-desktop { }
+    @media (max-width:900px) {
+      .btn-label-desktop { display:none; }
+      .btn-topbar { padding:8px 10px; min-width:36px; }
+    }
+
+    /* Mobile pequeno (≤480px) — 2 colunas KPI sempre */
+    @media (max-width:480px) {
+      .kpi-grid { grid-template-columns: repeat(2,1fr); gap:8px; }
+      .kpi-card { padding:12px 10px; border-radius:10px; }
+      .kpi-val { font-size:22px; }
+      .kpi-label { font-size:10px; letter-spacing:0; }
+      .page-content { padding:10px; }
+      /* Tabela com scroll horizontal */
+      .table-card { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+      th { font-size:11px; padding:8px 10px; }
+      td { font-size:12px; padding:10px; }
     }
 
     /* ══════════════════════════════
@@ -1275,7 +1324,7 @@ export function getPainelEmpresaHTML(): string {
       <i class="fas fa-sign-in-alt"></i> Entrar no painel
     </button>
     <div class="login-link">
-      Novo no RotaPosto Empresas? <a href="/parcerias#cadastro">Cadastrar meu posto →</a>
+      Novo no RotaPosto Empresas? <a href="#" onclick="event.preventDefault();irParaCadastroExterno()">Cadastrar meu posto →</a>
     </div>
     <div class="login-link" style="margin-top:8px">
       <a href="#" onclick="abrirRecuperarSenha()">Esqueci minha senha</a>
@@ -1330,8 +1379,8 @@ export function getPainelEmpresaHTML(): string {
         <div class="topbar-titulo" id="topbar-titulo">Dashboard</div>
       </div>
       <div class="topbar-right">
-        <button class="btn-topbar btn-topbar-outline" onclick="irPara('validar')"><i class="fas fa-qrcode"></i> Validar QR</button>
-        <button class="btn-topbar btn-topbar-orange" onclick="irPara('precos')"><i class="fas fa-sync"></i> Atualizar Preços</button>
+        <button class="btn-topbar btn-topbar-outline" onclick="irPara('validar')"><i class="fas fa-qrcode"></i><span class="btn-label-desktop"> Validar QR</span></button>
+        <button class="btn-topbar btn-topbar-orange" onclick="irPara('precos')"><i class="fas fa-sync"></i><span class="btn-label-desktop"> Atualizar Preços</span></button>
       </div>
     </div>
 
@@ -1713,6 +1762,20 @@ function fazerLogout() {
 }
 
 function abrirRecuperarSenha() { alert('Em breve. Entre em contato pelo WhatsApp do RotaPosto.'); }
+
+// Abre cadastro sem sair da página (TWA-safe): abre em nova aba no browser,
+// no TWA (que não tem abas) exibe alerta com orientação.
+function irParaCadastroExterno() {
+  try {
+    const w = window.open('/parcerias#cadastro', '_blank');
+    // Se window.open retornou null ou undefined, provavelmente é TWA
+    if (!w) {
+      alert('Para cadastrar seu posto acesse rotaposto.com.br/parcerias no navegador.');
+    }
+  } catch(e) {
+    alert('Para cadastrar seu posto acesse rotaposto.com.br/parcerias no navegador.');
+  }
+}
 
 // ── Navegação ──────────────────────────────────────────
 const PAGES = ['dashboard','validar','precos','cupons','notificacoes','promocoes','perfil','configuracoes'];
