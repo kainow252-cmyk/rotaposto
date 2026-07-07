@@ -10127,11 +10127,12 @@ function fecharModalAtivar() { document.getElementById('modal-ativar').style.dis
 
 async function confirmarAtivarPremium() {
   if (!_uidAtual) return;
+  const uid = _uidAtual; // salva antes de fecharModalAtivar() zerar _uidAtual
   const dias = parseInt(document.getElementById('modal-ativar-dias').value) || 30;
   const plano = document.getElementById('modal-ativar-plano').value;
   fecharModalAtivar();
   try {
-    const res = await fetch('/api/admin/assinatura/' + encodeURIComponent(_uidAtual) + '/ativar?key=' + encodeURIComponent(ADMIN_KEY), {
+    const res = await fetch('/api/admin/assinatura/' + encodeURIComponent(uid) + '/ativar?key=' + encodeURIComponent(ADMIN_KEY), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dias, plano })
     });
