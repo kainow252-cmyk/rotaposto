@@ -1339,7 +1339,6 @@ export function getPainelEmpresaHTML(): string {
       <div class="nav-item" onclick="irPara('criar-cupom')"><i class="fas fa-ticket-alt"></i> Criar Cupom</div>
       <div class="nav-item" onclick="irPara('cupons')"><i class="fas fa-history"></i> Histórico de Cupons</div>
       <div class="nav-item" onclick="irPara('notificacoes')"><i class="fas fa-bell"></i> Notificações</div>
-      <div class="nav-item" onclick="irPara('promocoes')"><i class="fas fa-percentage"></i> Promoções</div>
       <div class="nav-group-label">Conta</div>
       <div class="nav-item" onclick="irPara('perfil')"><i class="fas fa-store"></i> Perfil do Posto</div>
       <div class="nav-item" onclick="irPara('configuracoes')"><i class="fas fa-cog"></i> Configurações</div>
@@ -1831,8 +1830,8 @@ function irParaCadastroExterno() {
 }
 
 // ── Navegação ──────────────────────────────────────────
-const PAGES = ['dashboard','validar','precos','criar-cupom','cupons','notificacoes','promocoes','perfil','configuracoes'];
-const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', 'criar-cupom':'Criar Cupom', cupons:'Histórico de Cupons', notificacoes:'Notificações', promocoes:'Promoções', perfil:'Perfil do Posto', configuracoes:'Configurações' };
+const PAGES = ['dashboard','validar','precos','criar-cupom','cupons','notificacoes','perfil','configuracoes'];
+const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', 'criar-cupom':'Criar Cupom', cupons:'Histórico de Cupons', notificacoes:'Notificações', perfil:'Perfil do Posto', configuracoes:'Configurações' };
 
 function irPara(pg) {
   PAGES.forEach(p => {
@@ -1851,7 +1850,6 @@ function irPara(pg) {
   if (pg === 'cupons')      carregarHistoricoCupons();
   if (pg === 'perfil')      carregarPerfil();
   if (pg === 'notificacoes') carregarNotifConfig();
-  if (pg === 'promocoes')   carregarPromocoes();
 }
 
 function abrirSidebar() {
