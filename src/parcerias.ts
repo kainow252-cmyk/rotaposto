@@ -1216,6 +1216,7 @@ export function getPainelEmpresaHTML(): string {
     /* ── CONFIGS ── */
     .config-section { background:#fff; border-radius:14px; padding:24px; border:1.5px solid var(--border); margin-bottom:16px; }
     .config-titulo { font-size:15px; font-weight:800; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+    .perf-label { font-size:12px; font-weight:700; color:#555; display:block; margin-bottom:6px; }
     .config-row { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--cinza); gap:16px; }
     .config-row:last-child { border-bottom:none; }
     .config-row-label { font-size:14px; font-weight:600; }
@@ -1718,36 +1719,110 @@ export function getPainelEmpresaHTML(): string {
 
       <!-- ── PERFIL DO POSTO ── -->
       <div id="page-perfil" style="display:none">
+
+        <!-- ── Dados básicos ── -->
         <div class="config-section">
           <div class="config-titulo">🏪 Dados do Posto</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
             <div>
-              <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px">Nome do posto</label>
-              <input id="perf-nome" class="login-input" type="text" style="margin-bottom:0"/>
+              <label class="perf-label">Nome do posto *</label>
+              <input id="perf-nome" class="login-input" type="text" style="margin-bottom:0" placeholder="Ex: Posto Modelo"/>
             </div>
             <div>
-              <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px">Bandeira</label>
-              <select id="perf-bandeira" class="form-select" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;background:#fff">
-                <option>Sem bandeira</option><option>Petrobras BR</option><option>Shell</option><option>Ipiranga</option><option>Ale</option><option>Outra</option>
+              <label class="perf-label">Bandeira</label>
+              <select id="perf-bandeira" class="login-input" style="margin-bottom:0;cursor:pointer">
+                <option>Sem bandeira</option><option>Petrobras BR</option><option>Shell</option><option>Ipiranga</option><option>Ale</option><option>Raízen</option><option>Outra</option>
               </select>
             </div>
             <div>
-              <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px">WhatsApp do posto</label>
+              <label class="perf-label">CNPJ</label>
+              <input id="perf-cnpj" class="login-input" type="text" style="margin-bottom:0" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" maxlength="18"/>
+            </div>
+            <div>
+              <label class="perf-label">WhatsApp / Telefone</label>
               <input id="perf-tel" class="login-input" type="tel" style="margin-bottom:0" placeholder="(27) 99999-9999"/>
             </div>
             <div>
-              <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px">Horário de funcionamento</label>
+              <label class="perf-label">Horário de funcionamento</label>
               <input id="perf-horario" class="login-input" type="text" style="margin-bottom:0" placeholder="24h / 06h às 22h"/>
             </div>
-          </div>
-          <div style="margin-top:16px">
-            <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px">Serviços disponíveis</label>
-            <div style="display:flex;flex-wrap:wrap;gap:8px" id="servicos-list">
-              <!-- preenchido por JS -->
+            <div>
+              <label class="perf-label">E-mail de contato</label>
+              <input id="perf-email" class="login-input" type="email" style="margin-bottom:0" placeholder="contato@meupostoexemplo.com.br"/>
             </div>
           </div>
-          <button onclick="salvarPerfil()" style="margin-top:20px;padding:13px 24px;background:var(--laranja);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer"><i class="fas fa-save"></i> Salvar perfil</button>
-          <span id="perfil-msg" style="margin-left:12px;font-size:13px;color:var(--verde);display:none">✓ Salvo!</span>
+        </div>
+
+        <!-- ── Endereço ── -->
+        <div class="config-section" style="margin-top:16px">
+          <div class="config-titulo">📍 Endereço e Localização</div>
+          <div style="display:grid;grid-template-columns:160px 1fr 80px;gap:12px;margin-bottom:12px">
+            <div>
+              <label class="perf-label">CEP *</label>
+              <div style="display:flex;gap:6px">
+                <input id="perf-cep" class="login-input" type="text" style="margin-bottom:0" placeholder="29000-000" maxlength="9" oninput="mCEP(this)" onblur="perfBuscarCep()"/>
+              </div>
+            </div>
+            <div>
+              <label class="perf-label">Rua / Logradouro *</label>
+              <input id="perf-rua" class="login-input" type="text" style="margin-bottom:0" placeholder="Av. Nossa Senhora da Penha"/>
+            </div>
+            <div>
+              <label class="perf-label">Número</label>
+              <input id="perf-num" class="login-input" type="text" style="margin-bottom:0" placeholder="123"/>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:12px;margin-bottom:14px">
+            <div>
+              <label class="perf-label">Bairro</label>
+              <input id="perf-bairro" class="login-input" type="text" style="margin-bottom:0" placeholder="Centro"/>
+            </div>
+            <div>
+              <label class="perf-label">Cidade *</label>
+              <input id="perf-cidade" class="login-input" type="text" style="margin-bottom:0" placeholder="Vitória"/>
+            </div>
+            <div>
+              <label class="perf-label">UF *</label>
+              <input id="perf-estado" class="login-input" type="text" style="margin-bottom:0" placeholder="ES" maxlength="2"/>
+            </div>
+          </div>
+
+          <!-- Botão geocodificar + status -->
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+            <button onclick="perfGeocodificar()" style="padding:9px 18px;background:#1565C0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+              <i class="fas fa-map-marker-alt"></i> Localizar no mapa
+            </button>
+            <span id="perf-geo-status" style="font-size:12px;color:var(--sub)">Preencha o endereço e clique em Localizar.</span>
+          </div>
+
+          <!-- Campos lat/lng ocultos -->
+          <input type="hidden" id="perf-lat" value=""/>
+          <input type="hidden" id="perf-lng" value=""/>
+
+          <!-- Mini-mapa de confirmação -->
+          <div id="perf-mapa-wrap" style="display:none;border-radius:14px;overflow:hidden;border:1.5px solid var(--border);margin-top:4px">
+            <iframe id="perf-mapa-frame" style="width:100%;height:240px;border:none" src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            <div style="padding:8px 14px;background:#f8f8f8;font-size:12px;color:#666;display:flex;align-items:center;gap:6px">
+              <i class="fas fa-check-circle" style="color:var(--verde)"></i>
+              <span id="perf-mapa-label">Localização confirmada</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Serviços ── -->
+        <div class="config-section" style="margin-top:16px">
+          <div class="config-titulo">🔧 Serviços Disponíveis</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px" id="servicos-list">
+            <!-- preenchido por JS -->
+          </div>
+        </div>
+
+        <!-- ── Ações ── -->
+        <div style="display:flex;align-items:center;gap:16px;margin-top:20px;flex-wrap:wrap">
+          <button onclick="salvarPerfil()" id="perf-btn-salvar" style="padding:13px 28px;background:var(--laranja);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px">
+            <i class="fas fa-save"></i> Salvar perfil
+          </button>
+          <span id="perfil-msg" style="font-size:13px;font-weight:700;display:none"></span>
         </div>
       </div>
 
@@ -2462,11 +2537,115 @@ async function enviarNotifManual() {
 const SERVICOS_DEFAULT = ['Loja de conveniência','Troca de óleo','Borracharia','Lavagem','GNV','Ar comprimido'];
 let _servicosSel = new Set(SERVICOS_DEFAULT.slice(0,2));
 
-function carregarPerfil() {
+async function carregarPerfil() {
+  // Preencher do _sessao primeiro (cache local)
   document.getElementById('perf-nome').value    = _sessao?.postoNome || '';
   document.getElementById('perf-tel').value     = _sessao?.tel || '';
-  document.getElementById('perf-horario').value = _sessao?.horario || '24 horas';
+  document.getElementById('perf-horario').value = _sessao?.horario || '';
+  document.getElementById('perf-email').value   = _sessao?.email || '';
+  document.getElementById('perf-cnpj').value    = _sessao?.cnpj || '';
+  // Endereço
+  const end = _sessao?.endereco || {};
+  document.getElementById('perf-cep').value    = end.cep    || '';
+  document.getElementById('perf-rua').value    = end.rua    || '';
+  document.getElementById('perf-num').value    = end.numero || '';
+  document.getElementById('perf-bairro').value = end.bairro || '';
+  document.getElementById('perf-cidade').value = end.cidade || '';
+  document.getElementById('perf-estado').value = end.estado || '';
+  // Bandeira
+  const sel = document.getElementById('perf-bandeira');
+  if (sel && _sessao?.bandeira) { for (let o of sel.options) { if (o.value === _sessao.bandeira || o.text === _sessao.bandeira) { o.selected = true; break; } } }
+  // Lat/lng
+  if (_sessao?.lat) document.getElementById('perf-lat').value = _sessao.lat;
+  if (_sessao?.lng) document.getElementById('perf-lng').value = _sessao.lng;
+  // Se tiver coordenadas, mostrar mapa
+  if (_sessao?.lat && _sessao?.lng) _perfAtualizarMapa(_sessao.lat, _sessao.lng, [end.rua, end.numero, end.cidade].filter(Boolean).join(', '));
   renderServicos();
+
+  // Buscar dados atualizados do servidor
+  try {
+    const r = await fetch('/api/parceiros/perfil?postoId=' + (_sessao?.postoId||''), {
+      headers: { 'Authorization': 'Bearer ' + (_sessao?.token||'') }
+    });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.posto) return;
+    const p = d.posto;
+    document.getElementById('perf-nome').value    = p.nome    || '';
+    document.getElementById('perf-tel').value     = p.tel     || '';
+    document.getElementById('perf-horario').value = p.horario || '';
+    document.getElementById('perf-email').value   = p.email   || '';
+    document.getElementById('perf-cnpj').value    = p.cnpj    || '';
+    const pe = p.endereco || {};
+    document.getElementById('perf-cep').value    = pe.cep    || '';
+    document.getElementById('perf-rua').value    = pe.rua    || '';
+    document.getElementById('perf-num').value    = pe.numero || '';
+    document.getElementById('perf-bairro').value = pe.bairro || '';
+    document.getElementById('perf-cidade').value = pe.cidade || '';
+    document.getElementById('perf-estado').value = pe.estado || '';
+    if (p.bandeira) { const se = document.getElementById('perf-bandeira'); for (let o of se.options) { if (o.value === p.bandeira || o.text === p.bandeira) { o.selected = true; break; } } }
+    if (p.lat) { document.getElementById('perf-lat').value = p.lat; document.getElementById('perf-lng').value = p.lng; _perfAtualizarMapa(p.lat, p.lng, [pe.rua, pe.numero, pe.cidade].filter(Boolean).join(', ')); }
+    if (p.servicos) { _servicosSel = new Set(p.servicos); renderServicos(); }
+  } catch {}
+}
+
+function mCEP(inp) {
+  let v = inp.value.replace(/\D/g,'');
+  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5,8);
+  inp.value = v;
+}
+
+async function perfBuscarCep() {
+  const cep = (document.getElementById('perf-cep').value||'').replace(/\D/g,'');
+  if (cep.length !== 8) return;
+  try {
+    const r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+    const d = await r.json();
+    if (d.erro) return;
+    document.getElementById('perf-rua').value    = d.logradouro || '';
+    document.getElementById('perf-bairro').value = d.bairro     || '';
+    document.getElementById('perf-cidade').value = d.localidade || '';
+    document.getElementById('perf-estado').value = d.uf         || '';
+    const stat = document.getElementById('perf-geo-status');
+    stat.textContent = '✓ CEP encontrado! Adicione o número e clique em Localizar no mapa.';
+    stat.style.color = 'var(--verde)';
+  } catch {}
+}
+
+async function perfGeocodificar() {
+  const rua    = document.getElementById('perf-rua').value.trim();
+  const num    = document.getElementById('perf-num').value.trim();
+  const cidade = document.getElementById('perf-cidade').value.trim();
+  const estado = document.getElementById('perf-estado').value.trim();
+  const stat   = document.getElementById('perf-geo-status');
+  if (!rua || !cidade) { stat.textContent = '⚠️ Preencha pelo menos a rua e a cidade.'; stat.style.color='#d32f2f'; return; }
+  const endStr = [rua, num, cidade, estado, 'Brasil'].filter(Boolean).join(', ');
+  stat.textContent = '🔍 Buscando...'; stat.style.color='var(--sub)';
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(endStr);
+    const r = await fetch(url, { headers: { 'Accept-Language':'pt-BR' } });
+    const d = await r.json();
+    if (!d.length) { stat.textContent = '❌ Endereço não encontrado. Tente com menos detalhes.'; stat.style.color='#d32f2f'; return; }
+    const lat = parseFloat(d[0].lat);
+    const lng = parseFloat(d[0].lon);
+    document.getElementById('perf-lat').value = lat.toString();
+    document.getElementById('perf-lng').value = lng.toString();
+    stat.textContent = '✅ Localização encontrada: ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
+    stat.style.color = 'var(--verde)';
+    _perfAtualizarMapa(lat, lng, endStr);
+  } catch(e) { stat.textContent = '❌ Erro na geocodificação: ' + e.message; stat.style.color='#d32f2f'; }
+}
+
+function _perfAtualizarMapa(lat, lng, label) {
+  const wrap = document.getElementById('perf-mapa-wrap');
+  const frame = document.getElementById('perf-mapa-frame');
+  const lbl = document.getElementById('perf-mapa-label');
+  if (!wrap || !frame) return;
+  frame.src = 'https://www.openstreetmap.org/export/embed.html?bbox=' +
+    (lng-0.003) + '%2C' + (lat-0.003) + '%2C' + (lng+0.003) + '%2C' + (lat+0.003) +
+    '&layer=mapnik&marker=' + lat + '%2C' + lng;
+  if (lbl) lbl.textContent = label || 'Localização confirmada';
+  wrap.style.display = 'block';
 }
 
 function renderServicos() {
@@ -2482,9 +2661,68 @@ function toggleServico(s, btn) {
   else { _servicosSel.add(s); btn.style.borderColor='var(--laranja)'; btn.style.background='var(--laranja-claro)'; btn.style.color='var(--laranja)'; }
 }
 
-function salvarPerfil() {
+async function salvarPerfil() {
+  const btn = document.getElementById('perf-btn-salvar');
   const msg = document.getElementById('perfil-msg');
-  msg.style.display='inline'; setTimeout(()=>msg.style.display='none',3000);
+  const nome    = document.getElementById('perf-nome').value.trim();
+  const tel     = document.getElementById('perf-tel').value.trim();
+  const horario = document.getElementById('perf-horario').value.trim();
+  const email   = document.getElementById('perf-email').value.trim();
+  const cnpj    = document.getElementById('perf-cnpj').value.trim();
+  const bandeira= (document.getElementById('perf-bandeira') as HTMLSelectElement).value;
+  const cep     = document.getElementById('perf-cep').value.trim();
+  const rua     = document.getElementById('perf-rua').value.trim();
+  const num     = document.getElementById('perf-num').value.trim();
+  const bairro  = document.getElementById('perf-bairro').value.trim();
+  const cidade  = document.getElementById('perf-cidade').value.trim();
+  const estado  = document.getElementById('perf-estado').value.trim().toUpperCase();
+  const lat     = document.getElementById('perf-lat').value;
+  const lng     = document.getElementById('perf-lng').value;
+
+  if (!nome) { msg.textContent='⚠️ Informe o nome do posto.'; msg.style.color='#d32f2f'; msg.style.display='inline'; return; }
+
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+  msg.style.display = 'none';
+
+  const payload: any = {
+    nome, tel, horario, email, cnpj, bandeira,
+    endereco: { cep, rua, numero: num, bairro, cidade, estado },
+    servicos: [..._servicosSel]
+  };
+  if (lat && lng) { payload.lat = parseFloat(lat); payload.lng = parseFloat(lng); }
+
+  try {
+    const r = await fetch('/api/parceiros/perfil', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + (_sessao?.token||'') },
+      body: JSON.stringify({ postoId: _sessao?.postoId, ...payload })
+    });
+    const d = await r.json();
+    if (r.ok && d.ok) {
+      // Atualizar _sessao local
+      if (_sessao) {
+        _sessao.postoNome = nome; _sessao.tel = tel; _sessao.horario = horario;
+        _sessao.email = email; _sessao.cnpj = cnpj; _sessao.bandeira = bandeira;
+        _sessao.endereco = { cep, rua, numero: num, bairro, cidade, estado };
+        if (lat && lng) { _sessao.lat = parseFloat(lat); _sessao.lng = parseFloat(lng); }
+      }
+      msg.textContent = '✅ Perfil salvo com sucesso!';
+      msg.style.color = 'var(--verde)';
+      // Atualizar sidebar nome
+      const sideNome = document.querySelector('.posto-nome');
+      if (sideNome) sideNome.textContent = nome;
+    } else {
+      msg.textContent = '❌ ' + (d.erro || 'Erro ao salvar.');
+      msg.style.color = '#d32f2f';
+    }
+  } catch(e) {
+    msg.textContent = '❌ Erro de conexão.';
+    msg.style.color = '#d32f2f';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar perfil';
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 4000);
+  }
 }
 
 // ── Promoções ──────────────────────────────────────────

@@ -9251,35 +9251,14 @@ app.get('/admin', (c) => {
             <input id="ep-telTelemarketing" type="text" placeholder="(27) 3000-0000"/>
           </div>
           <div class="form-group">
-            <label>Cidade</label>
-            <input id="ep-cidade" type="text" placeholder="Vitória"/>
-          </div>
-          <div class="form-group">
-            <label>Estado (UF)</label>
-            <select id="ep-estado" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
-              <option value="">Selecione...</option>
-              <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option>
-              <option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option>
-              <option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option>
-              <option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option>
-              <option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option>
-              <option value="PE">PE</option><option value="PI">PI</option><option value="PR">PR</option>
-              <option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option>
-              <option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option>
-              <option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Bairro</label>
-            <input id="ep-bairro" type="text" placeholder="Centro"/>
+            <label>CNPJ</label>
+            <input id="ep-cnpj" type="text" placeholder="00.000.000/0001-00" maxlength="18"/>
           </div>
           <div class="form-group">
             <label>Bandeira</label>
-            <input id="ep-bandeira" type="text" placeholder="Petrobras, Shell, Independente..."/>
-          </div>
-          <div class="form-group">
-            <label>CNPJ</label>
-            <input id="ep-cnpj" type="text" placeholder="00.000.000/0001-00"/>
+            <select id="ep-bandeira" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
+              <option value="">Sem bandeira</option><option>Petrobras BR</option><option>Shell</option><option>Ipiranga</option><option>Ale</option><option>Raízen</option><option>Independente</option><option>Outra</option>
+            </select>
           </div>
           <div class="form-group">
             <label>Status</label>
@@ -9289,6 +9268,70 @@ app.get('/admin', (c) => {
               <option value="suspenso">Suspenso</option>
               <option value="cancelado">Cancelado</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Endereço completo -->
+        <div style="font-size:10px;font-weight:900;color:#42A5F5;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📍 Endereço e Localização</div>
+        <div style="background:rgba(66,165,245,0.04);border:1px solid rgba(66,165,245,0.15);border-radius:12px;padding:16px;margin-bottom:16px">
+          <div style="display:grid;grid-template-columns:150px 1fr 80px;gap:10px;margin-bottom:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label style="color:rgba(255,255,255,0.45)">CEP</label>
+              <input id="ep-cep" type="text" placeholder="29000-000" maxlength="9" onblur="epBuscarCep()" oninput="epMaskCep(this)"/>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label style="color:rgba(255,255,255,0.45)">Rua / Logradouro *</label>
+              <input id="ep-rua" type="text" placeholder="Av. Nossa Senhora da Penha"/>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label style="color:rgba(255,255,255,0.45)">Número</label>
+              <input id="ep-num" type="text" placeholder="123"/>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:10px;margin-bottom:12px">
+            <div class="form-group" style="margin-bottom:0">
+              <label style="color:rgba(255,255,255,0.45)">Bairro</label>
+              <input id="ep-bairro" type="text" placeholder="Centro"/>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label style="color:rgba(255,255,255,0.45)">Cidade *</label>
+              <input id="ep-cidade" type="text" placeholder="Vitória"/>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label style="color:rgba(255,255,255,0.45)">UF *</label>
+              <select id="ep-estado" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 8px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
+                <option value="">—</option>
+                <option>AC</option><option>AL</option><option>AM</option><option>AP</option>
+                <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+                <option>GO</option><option>MA</option><option>MG</option><option>MS</option>
+                <option>MT</option><option>PA</option><option>PB</option><option>PE</option>
+                <option>PI</option><option>PR</option><option>RJ</option><option>RN</option>
+                <option>RO</option><option>RR</option><option>RS</option><option>SC</option>
+                <option>SE</option><option>SP</option><option>TO</option>
+              </select>
+            </div>
+          </div>
+          <!-- Lat/Lng + botão geocodificar -->
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
+            <div class="form-group" style="margin-bottom:0;flex:1;min-width:110px">
+              <label style="color:rgba(255,255,255,0.45)">Latitude</label>
+              <input id="ep-lat" type="text" placeholder="-20.12345" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;color:#69F0AE;font-size:12px;font-family:monospace;outline:none;width:100%"/>
+            </div>
+            <div class="form-group" style="margin-bottom:0;flex:1;min-width:110px">
+              <label style="color:rgba(255,255,255,0.45)">Longitude</label>
+              <input id="ep-lng" type="text" placeholder="-40.12345" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;color:#69F0AE;font-size:12px;font-family:monospace;outline:none;width:100%"/>
+            </div>
+            <button onclick="epGeocodificar()" style="background:rgba(66,165,245,0.15);color:#42A5F5;border:1px solid rgba(66,165,245,0.3);padding:10px 14px;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0">
+              <i class="fas fa-map-marker-alt"></i> Localizar
+            </button>
+          </div>
+          <div id="ep-geo-status" style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:8px"></div>
+          <!-- Mini mapa -->
+          <div id="ep-mapa-wrap" style="display:none;border-radius:10px;overflow:hidden;border:1px solid rgba(66,165,245,0.2)">
+            <iframe id="ep-mapa-frame" style="width:100%;height:200px;border:none" src="" loading="lazy"></iframe>
+            <div style="padding:6px 12px;background:rgba(0,0,0,0.4);font-size:11px;color:#69F0AE;display:flex;align-items:center;gap:6px">
+              <i class="fas fa-check-circle"></i> <span id="ep-mapa-label">Localização confirmada</span>
+            </div>
           </div>
         </div>
 
@@ -9914,8 +9957,10 @@ async function carregarAppUsuarios() {
 }
 
 function _auAvatar(u) {
-  if (u.foto) return '<img src="' + u.foto + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0"><div style="display:none;width:34px;height:34px;border-radius:50%;background:rgba(66,165,245,0.2);align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#42A5F5;flex-shrink:0">' + (u.nome ? u.nome.charAt(0).toUpperCase() : '?') + '</div>';
-  return '<div style="width:34px;height:34px;border-radius:50%;background:rgba(66,165,245,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#42A5F5;flex-shrink:0">' + (u.nome ? u.nome.charAt(0).toUpperCase() : '?') + '</div>';
+  const letter = u.nome ? u.nome.charAt(0).toUpperCase() : '?';
+  const fallback = '<div style="width:34px;height:34px;border-radius:50%;background:rgba(66,165,245,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#42A5F5;flex-shrink:0">' + letter + '</div>';
+  if (u.foto) return '<img src="' + u.foto + '" onerror="this.parentNode.innerHTML=this.parentNode.dataset.fb" data-fb="' + encodeURIComponent(fallback) + '" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0">';
+  return fallback;
 }
 
 function _auProviderBadge(p) {
@@ -10060,7 +10105,7 @@ function verDetalheUsuario(uid) {
   document.getElementById('modal-detalhe-body').innerHTML = \`
     <div style="display:grid;gap:10px;font-size:13px">
       <div style="background:#0A1520;border-radius:10px;padding:14px;display:flex;align-items:center;gap:14px">
-        \${u.foto ? '<img src="' + u.foto + '" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'">' : '<div style="width:52px;height:52px;border-radius:50%;background:rgba(66,165,245,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#42A5F5;flex-shrink:0">' + (u.nome ? u.nome.charAt(0).toUpperCase() : '?') + '</div>'}
+        \${u.foto ? '<img src="' + u.foto + '" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.remove()">' : '<div style="width:52px;height:52px;border-radius:50%;background:rgba(66,165,245,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#42A5F5;flex-shrink:0">' + (u.nome ? u.nome.charAt(0).toUpperCase() : '?') + '</div>'}
         <div>
           <div style="font-weight:800;font-size:15px;color:#fff">\${u.nome || '<em style="opacity:.4">Sem nome</em>'}</div>
           <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px">\${u.email || '—'}</div>
@@ -10284,9 +10329,10 @@ function renderAssinaturas(lista) {
     const cpfMask = _auMaskCpf(a.cpf);
     const uidSafe = (a.uid || '').replace(/'/g, '');
     const avatarLetter = nome ? nome.charAt(0).toUpperCase() : '?';
+    const fallbackAvatar = '<div style="width:30px;height:30px;border-radius:50%;background:rgba(255,214,0,0.15);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#FFD600;flex-shrink:0">' + avatarLetter + '</div>';
     const avatarHtml = a.foto
-      ? '<img src="' + a.foto + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0"><div style="display:none;width:30px;height:30px;border-radius:50%;background:rgba(255,214,0,0.15);align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#FFD600;flex-shrink:0">' + avatarLetter + '</div>'
-      : '<div style="width:30px;height:30px;border-radius:50%;background:rgba(255,214,0,0.15);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#FFD600;flex-shrink:0">' + avatarLetter + '</div>';
+      ? '<img src="' + a.foto + '" onerror="this.parentNode.innerHTML=this.parentNode.dataset.fb" data-fb="' + encodeURIComponent(fallbackAvatar) + '" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0">'
+      : fallbackAvatar;
     return \`<tr class="tr-hover">
       <td>
         <div style="display:flex;align-items:center;gap:9px;min-width:0">
@@ -10622,18 +10668,38 @@ function abrirModalEditarParceiro(id) {
   if (!p) return;
   _parceiroEditandoId = id;
   const pr = p.precos || {};
+  const end = p.endereco || {};
 
   document.getElementById('ep-id-display').textContent = 'ID: ' + id;
   document.getElementById('ep-nomePosto').value          = p.nomePosto        !== '—' ? (p.nomePosto        || '') : '';
   document.getElementById('ep-email').value              = p.email            !== '—' ? (p.email            || '') : '';
   document.getElementById('ep-tel').value                = p.tel              !== '—' ? (p.tel              || '') : '';
   document.getElementById('ep-telTelemarketing').value   = p.telTelemarketing !== '—' ? (p.telTelemarketing || '') : '';
-  document.getElementById('ep-cidade').value             = p.cidade           !== '—' ? (p.cidade           || '') : '';
-  document.getElementById('ep-estado').value             = p.estado           !== '—' ? (p.estado           || '') : '';
-  document.getElementById('ep-bairro').value             = p.bairro           !== '—' ? (p.bairro           || '') : '';
-  document.getElementById('ep-bandeira').value           = p.bandeira         !== '—' ? (p.bandeira         || '') : '';
   document.getElementById('ep-cnpj').value               = p.cnpj             !== '—' ? (p.cnpj             || '') : '';
   document.getElementById('ep-status').value             = p.status           || 'pendente';
+  // Bandeira — select
+  const epBand = document.getElementById('ep-bandeira');
+  const bandVal = p.bandeira !== '—' ? (p.bandeira || '') : '';
+  for (let o of epBand.options) { if (o.value === bandVal || o.text === bandVal) { o.selected = true; break; } }
+  // Endereço
+  document.getElementById('ep-cep').value    = end.cep    || (p.cep    !== '—' ? (p.cep    || '') : '');
+  document.getElementById('ep-rua').value    = end.rua    || (p.rua    !== '—' ? (p.rua    || '') : '');
+  document.getElementById('ep-num').value    = end.numero || '';
+  document.getElementById('ep-bairro').value = end.bairro || (p.bairro !== '—' ? (p.bairro || '') : '');
+  document.getElementById('ep-cidade').value = end.cidade || (p.cidade !== '—' ? (p.cidade || '') : '');
+  const epEst = document.getElementById('ep-estado');
+  const estVal = end.estado || (p.estado !== '—' ? (p.estado || '') : '');
+  for (let o of epEst.options) { if (o.value === estVal || o.text === estVal) { o.selected = true; break; } }
+  // Lat / Lng
+  document.getElementById('ep-lat').value = p.lat ? String(p.lat) : '';
+  document.getElementById('ep-lng').value = p.lng ? String(p.lng) : '';
+  // Mapa — se tem coords, mostrar
+  const epMapaWrap = document.getElementById('ep-mapa-wrap');
+  epMapaWrap.style.display = 'none';
+  document.getElementById('ep-geo-status').textContent = '';
+  if (p.lat && p.lng) {
+    _epAtualizarMapa(p.lat, p.lng, [end.rua || p.rua, end.numero, end.cidade || p.cidade].filter(Boolean).join(', '));
+  }
   document.getElementById('ep-seloVerificado').checked   = !!p.seloVerificado;
   document.getElementById('ep-pinDourado').checked       = !!p.pinDourado;
   document.getElementById('ep-topoLista').checked        = !!p.topoLista;
@@ -10650,6 +10716,67 @@ function abrirModalEditarParceiro(id) {
   document.getElementById('ep-deletar-btn').style.display = (id === 'p_teste') ? 'none' : 'inline-flex';
   document.getElementById('modal-parceiro-edit').style.display = 'block';
   document.getElementById('modal-parceiro-edit').scrollTop = 0;
+}
+
+function epMaskCep(inp) {
+  let v = inp.value.replace(/\D/g,'');
+  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5,8);
+  inp.value = v;
+}
+
+async function epBuscarCep() {
+  const cep = (document.getElementById('ep-cep').value||'').replace(/\D/g,'');
+  if (cep.length !== 8) return;
+  const stat = document.getElementById('ep-geo-status');
+  stat.textContent = '🔍 Buscando CEP...';
+  try {
+    const r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+    const d = await r.json();
+    if (d.erro) { stat.textContent = '❌ CEP não encontrado.'; return; }
+    document.getElementById('ep-rua').value    = d.logradouro || '';
+    document.getElementById('ep-bairro').value = d.bairro     || '';
+    document.getElementById('ep-cidade').value = d.localidade || '';
+    const epEst = document.getElementById('ep-estado');
+    for (let o of epEst.options) { if (o.value === d.uf || o.text === d.uf) { o.selected = true; break; } }
+    stat.textContent = '✅ CEP encontrado. Adicione o número e clique em Localizar.';
+    stat.style.color = '#69F0AE';
+  } catch { stat.textContent = '❌ Erro ao buscar CEP.'; }
+}
+
+async function epGeocodificar() {
+  const rua    = document.getElementById('ep-rua').value.trim();
+  const num    = document.getElementById('ep-num').value.trim();
+  const cidade = document.getElementById('ep-cidade').value.trim();
+  const estado = document.getElementById('ep-estado').value.trim();
+  const stat   = document.getElementById('ep-geo-status');
+  if (!rua || !cidade) { stat.textContent = '⚠️ Preencha a rua e cidade antes de localizar.'; stat.style.color='#FF5252'; return; }
+  const endStr = [rua, num, cidade, estado, 'Brasil'].filter(Boolean).join(', ');
+  stat.textContent = '🔍 Geocodificando...'; stat.style.color = 'rgba(255,255,255,0.4)';
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(endStr);
+    const r = await fetch(url, { headers: { 'Accept-Language':'pt-BR' } });
+    const d = await r.json();
+    if (!d.length) { stat.textContent = '❌ Endereço não localizado. Tente ajustar a rua ou cidade.'; stat.style.color='#FF5252'; return; }
+    const lat = parseFloat(d[0].lat);
+    const lng = parseFloat(d[0].lon);
+    document.getElementById('ep-lat').value = lat.toFixed(6);
+    document.getElementById('ep-lng').value = lng.toFixed(6);
+    stat.textContent = '✅ Localizado: ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
+    stat.style.color = '#69F0AE';
+    _epAtualizarMapa(lat, lng, endStr);
+  } catch(e) { stat.textContent = '❌ Erro: ' + e.message; stat.style.color = '#FF5252'; }
+}
+
+function _epAtualizarMapa(lat, lng, label) {
+  const wrap = document.getElementById('ep-mapa-wrap');
+  const frame = document.getElementById('ep-mapa-frame');
+  const lbl = document.getElementById('ep-mapa-label');
+  if (!wrap || !frame) return;
+  frame.src = 'https://www.openstreetmap.org/export/embed.html?bbox=' +
+    (lng-0.003) + '%2C' + (lat-0.003) + '%2C' + (lng+0.003) + '%2C' + (lat+0.003) +
+    '&layer=mapnik&marker=' + lat + '%2C' + lng;
+  if (lbl) lbl.textContent = label || 'Localização confirmada';
+  wrap.style.display = 'block';
 }
 
 function fecharModalParceiro() {
@@ -10673,18 +10800,30 @@ async function salvarParceiroModal() {
   const bPlano     = Array.isArray(planoObj?.beneficios) ? planoObj.beneficios : [];
   const temBeneficio = (id) => bPlano.includes(id);
 
-  const body = {
+  const latVal = fv('ep-lat');
+  const lngVal = fv('ep-lng');
+  const body: Record<string, unknown> = {
     nomePosto:        fv('ep-nomePosto'),
     email:            fv('ep-email'),
     tel:              fv('ep-tel'),
     telTelemarketing: fv('ep-telTelemarketing'),
-    cidade:           fv('ep-cidade'),
-    estado:           document.getElementById('ep-estado').value,
-    bairro:           fv('ep-bairro'),
-    bandeira:         fv('ep-bandeira'),
+    bandeira:         document.getElementById('ep-bandeira').value,
     cnpj:             fv('ep-cnpj'),
     plano:            planoSel,
     status:           document.getElementById('ep-status').value,
+    // Endereço estruturado
+    endereco: {
+      cep:    fv('ep-cep'),
+      rua:    fv('ep-rua'),
+      numero: fv('ep-num'),
+      bairro: fv('ep-bairro'),
+      cidade: fv('ep-cidade'),
+      estado: document.getElementById('ep-estado').value
+    },
+    // Manter campos legados para compatibilidade
+    cidade:   fv('ep-cidade'),
+    estado:   document.getElementById('ep-estado').value,
+    bairro:   fv('ep-bairro'),
     // Flags derivadas automaticamente dos benefícios do plano
     seloVerificado:   temBeneficio('selo_verificado'),
     pinDourado:       temBeneficio('pin_dourado'),
@@ -10700,6 +10839,7 @@ async function salvarParceiroModal() {
       gnv:               fn('ep-preco-gnv'),
     }
   };
+  if (latVal && lngVal) { body.lat = parseFloat(latVal); body.lng = parseFloat(lngVal); }
 
   try {
     const res = await fetch('/api/admin/parceiros/' + encodeURIComponent(_parceiroEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
@@ -12524,6 +12664,102 @@ app.get('/api/parceiros/dashboard', async (c) => {
     })
   } catch (e) {
     console.error('[parceiros/dashboard]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── GET /api/parceiros/perfil ─────────────────────────────────────────────────
+app.get('/api/parceiros/perfil', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const postoId = c.req.query('postoId') || ''
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    let parceiroId = postoId
+    if (token && !postoId) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
+      if (!sess || (sess.exp as number) < Date.now()) return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
+      parceiroId = String(sess.parceiroId)
+    }
+    if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+    const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
+    if (!parceiro) return c.json({ ok: false, erro: 'Posto não encontrado' }, 404)
+    return c.json({
+      ok: true,
+      posto: {
+        id: parceiroId,
+        nome: parceiro.nomePosto, bandeira: parceiro.bandeira, tel: parceiro.tel,
+        horario: parceiro.horario, email: parceiro.email, cnpj: parceiro.cnpj,
+        endereco: parceiro.endereco || {},
+        lat: parceiro.lat, lng: parceiro.lng,
+        servicos: parceiro.servicos || [],
+        plano: parceiro.plano, status: parceiro.status
+      }
+    })
+  } catch(e) {
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/perfil ────────────────────────────────────────────────
+app.post('/api/parceiros/perfil', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    const body = await c.req.json() as Record<string, unknown>
+    const postoId = String(body.postoId || '')
+
+    // Auth via token ou postoId direto
+    let parceiroId = postoId
+    if (token) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
+      if (!sess || (sess.exp as number) < Date.now()) return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
+      parceiroId = String(sess.parceiroId)
+    }
+    if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+
+    const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
+    if (!parceiro) return c.json({ ok: false, erro: 'Posto não encontrado' }, 404)
+
+    // Atualizar campos
+    const updated: Record<string, unknown> = {
+      ...parceiro,
+      nomePosto: body.nome || parceiro.nomePosto,
+      bandeira: body.bandeira || parceiro.bandeira,
+      tel: body.tel ?? parceiro.tel,
+      horario: body.horario ?? parceiro.horario,
+      email: body.email ?? parceiro.email,
+      cnpj: body.cnpj ?? parceiro.cnpj,
+      endereco: body.endereco ?? parceiro.endereco,
+      servicos: body.servicos ?? parceiro.servicos,
+      atualizadoEm: new Date().toISOString()
+    }
+    if (body.lat) updated.lat = body.lat
+    if (body.lng) updated.lng = body.lng
+
+    await kvSetParceiro(kv, parceiroId, updated, r2)
+
+    // Se tiver lat/lng, atualizar também no R2/KV de postos para o mapa do app
+    if (body.lat && body.lng) {
+      try {
+        const postoKey = `posto:${parceiroId}`
+        const postoData = await kv?.get(postoKey)
+        if (postoData) {
+          const posto = JSON.parse(postoData) as Record<string, unknown>
+          posto.lat = body.lat; posto.lng = body.lng
+          posto.nome = body.nome || posto.nome
+          posto.bandeira = body.bandeira || posto.bandeira
+          posto.tel = body.tel || posto.tel
+          posto.horario = body.horario || posto.horario
+          posto.endereco = body.endereco || posto.endereco
+          await kv?.put(postoKey, JSON.stringify(posto))
+        }
+      } catch {}
+    }
+
+    return c.json({ ok: true, mensagem: 'Perfil atualizado com sucesso!' })
+  } catch(e) {
     return c.json({ ok: false, erro: 'Erro interno' }, 500)
   }
 })
