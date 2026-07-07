@@ -4447,11 +4447,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
       if (data.sucesso && data.qrCode) {
         assinaturaSubscriptionId = data.subscriptionId;
-        // Aviso visível se em modo demo (sem integração Woovi real configurada)
-        if (data.demo) {
-          showToast('⚠️ Modo demonstração — pagamento não será processado');
-        }
+        if (data.demo) showToast('⚠️ Modo demonstração — pagamento não será processado');
         mostrarQRCode(data.qrCode, data.brcode, data.subscriptionId, planoSelecionado, data.demo);
+      } else if (data.precisaCPF) {
+        // CPF ausente ou inválido → mostrar formulário inline
+        _mostrarFormularioCPFInline();
       } else {
         const msg = data.mensagem || data.error || 'Erro ao gerar PIX. Tente novamente.';
         console.error('[PIX] Falha:', JSON.stringify(data));
@@ -4462,6 +4462,62 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       showToast('Erro de conexão. Verifique sua internet e tente novamente.');
     } finally {
       showLoading(false);
+    }
+  }
+
+  // ── Formulário de CPF inline (quando backend retorna precisaCPF:true) ──────
+  function _mostrarFormularioCPFInline() {
+    // Insere um modal flutuante sobre o step1 pedindo CPF
+    var existing = document.getElementById('assin-cpf-modal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'assin-cpf-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:199999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
+    var maskFn = "var v=this.value.replace(/\\D/g,'').slice(0,11);"
+      + "this.value=v.length>9?v.replace(/(\\d{3})(\\d{3})(\\d{3})(\\d+)/,'$1.$2.$3-$4'):v.length>6?v.replace(/(\\d{3})(\\d{3})(\\d+)/,'$1.$2.$3'):v.length>3?v.replace(/(\\d{3})(\\d+)/,'$1.$2'):v;";
+    overlay.innerHTML = '<div style="background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);">'
+      + '<div style="width:40px;height:4px;background:#E0E0E0;border-radius:2px;margin:0 auto 20px;"></div>'
+      + '<div style="font-size:18px;font-weight:800;color:#1A1A1A;margin-bottom:6px;">Informe seu CPF</div>'
+      + '<div style="font-size:13px;color:#757575;margin-bottom:20px;">Necess\u00e1rio para emitir o PIX. Seus dados s\u00e3o protegidos pela LGPD.</div>'
+      + '<input id="assin-cpf-input" type="tel" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"'
+      + ' style="width:100%;padding:14px 16px;border:2px solid #E0E0E0;border-radius:12px;font-size:16px;font-weight:600;text-align:center;letter-spacing:2px;box-sizing:border-box;outline:none;"'
+      + ' oninput="' + maskFn.replace(/"/g, '&quot;') + '"'
+      + '/>'
+      + '<div id="assin-cpf-erro" style="color:#E53935;font-size:12px;margin:6px 0 0;display:none;text-align:center;"></div>'
+      + '<button onclick="_confirmarCPFInline()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;">Confirmar e gerar PIX</button>'
+      + '<button onclick="document.getElementById(\'assin-cpf-modal\').remove()" style="width:100%;padding:12px;background:transparent;color:#9E9E9E;border:none;font-size:14px;cursor:pointer;margin-top:8px;">Cancelar</button>'
+      + '</div>';
+    document.body.appendChild(overlay);
+    setTimeout(() => { var inp = document.getElementById('assin-cpf-input'); if(inp) inp.focus(); }, 100);
+  }
+
+  async function _confirmarCPFInline() {
+    var inp = document.getElementById('assin-cpf-input') as HTMLInputElement;
+    var erroEl = document.getElementById('assin-cpf-erro');
+    if (!inp) return;
+    var cpfLimpo = inp.value.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) {
+      if (erroEl) { erroEl.textContent = 'CPF deve ter 11 dígitos.'; erroEl.style.display = 'block'; }
+      return;
+    }
+    // Salvar CPF no localStorage e no currentUser
+    localStorage.setItem('rp_cpf', cpfLimpo);
+    if (currentUser) currentUser.cpf = cpfLimpo;
+    // Fechar modal e tentar gerar PIX novamente
+    var modal = document.getElementById('assin-cpf-modal');
+    if (modal) modal.remove();
+    await iniciarPagamentoPIX();
+  }
+
+  // ── PWA install ─────────────────────────────────────────────────────────────
+  function instalarOuMostrarPWA() {
+    var prompt = (window as any)._deferredInstallPrompt;
+    if (prompt) {
+      prompt.prompt();
+      prompt.userChoice.then(function() { (window as any)._deferredInstallPrompt = null; });
+    } else {
+      showToast('Abra no navegador e use "Adicionar à tela inicial"');
     }
   }
 
@@ -4623,6 +4679,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   //  INIT
   // ══════════════════════════════════════════════════════
   // PWA removido — app funciona como site web normal
+
+  // Capturar prompt de instalação PWA globalmente
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    (window as any)._deferredInstallPrompt = e;
+    var item = document.getElementById('menu-item-instalar');
+    if (item) item.style.display = 'block';
+  });
 
   (function init() {
     // ── Registrar Service Worker (PWA / TWA) ─────────────────────────────
@@ -4789,7 +4853,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     })();
 
     // Verificar se item "Instalar app" deve aparecer no menu
-    verificarMenuInstalar();
+    // (PWA install prompt — só mostra se beforeinstallprompt disparou)
+    (function() {
+      var itemInstalar = document.getElementById('menu-item-instalar');
+      if (!itemInstalar) return;
+      if (window._deferredInstallPrompt) {
+        itemInstalar.style.display = 'block';
+      }
+      window.addEventListener('beforeinstallprompt', function() {
+        if (itemInstalar) itemInstalar.style.display = 'block';
+      });
+    })();
 
     // Verificar status de assinatura
     setTimeout(() => verificarStatusAssinatura(), 1000);
