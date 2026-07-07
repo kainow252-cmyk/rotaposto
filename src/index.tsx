@@ -7422,7 +7422,7 @@ app.delete('/api/admin/postos/:id', async (c) => {
   return c.json({ ok: true, id })
 })
 
-// ─── GET /api/admin/parceiros — lista TODOS os postos (R2 + KV fallback + hardcoded teste) ──
+// ─── GET /api/admin/parceiros — lista TODOS os postos (R2 + KV fallback + p_teste persistido) ──
 app.get('/api/admin/parceiros', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
@@ -7439,7 +7439,6 @@ app.get('/api/admin/parceiros', async (c) => {
       const listed = await r2.list({ prefix: 'parceiro--' })
       for (const obj of listed.objects) {
         const id = obj.key.replace('parceiro--', '')
-        // Ignorar chaves auxiliares (email_, cnpj_)
         if (id.startsWith('email_') || id.startsWith('cnpj_')) continue
         try {
           const data = await r2Get(r2, `parceiro:${id}`) as Record<string,unknown> | null
@@ -7458,7 +7457,6 @@ app.get('/api/admin/parceiros', async (c) => {
       const kvList = await kv.list({ prefix: 'parceiro:' })
       for (const k of kvList.keys) {
         const seg = k.name.replace('parceiro:', '')
-        // Apenas IDs reais (não sess_, email_, cnpj_)
         if (seg.startsWith('sess_') || seg.startsWith('email_') || seg.startsWith('cnpj_')) continue
         if (vistos.has(seg)) continue
         try {
@@ -7474,15 +7472,28 @@ app.get('/api/admin/parceiros', async (c) => {
     } catch {}
   }
 
-  // 3. Posto hardcoded de teste (sempre visível no admin)
+  // 3. p_teste: garante que está salvo no R2 (auto-persiste na primeira vez)
   if (!vistos.has('p_teste')) {
-    parceiros.push({
-      id: 'p_teste', nomePosto: 'Posto Teste RotaPosto', email: 'teste@rotaposto.com.br',
-      plano: 'premium', tel: '(27) 99999-9999', cidade: 'Vitória - ES',
-      cnpj: '00.000.000/0001-00', bandeira: 'Independente',
-      status: 'ativo', seloVerificado: true, criadoEm: '2025-01-01T00:00:00.000Z',
-      _hardcoded: true
-    })
+    const testeDefault: Record<string,unknown> = {
+      id: 'p_teste',
+      nomePosto: 'Posto Teste RotaPosto',
+      email: 'teste@rotaposto.com.br',
+      plano: 'premium',
+      tel: '(27) 99999-9999',
+      telTelemarketing: '(27) 3000-0000',
+      cidade: 'Vitória',
+      estado: 'ES',
+      bairro: 'Centro',
+      cnpj: '00.000.000/0001-00',
+      bandeira: 'Independente',
+      status: 'ativo',
+      seloVerificado: true,
+      criadoEm: '2025-01-01T00:00:00.000Z',
+      precos: { gasolina: 0, gasolinaAditivada: 0, etanol: 0, diesel: 0, dieselS10: 0, gnv: 0 }
+    }
+    // Salvar no R2/KV para persistir
+    try { await kvSetParceiro(kv, 'p_teste', testeDefault, undefined, r2) } catch {}
+    parceiros.push(normalizarParceiro(testeDefault, 'p_teste', null))
   }
 
   // Ordenar: mais recentes primeiro
@@ -7496,27 +7507,43 @@ app.get('/api/admin/parceiros', async (c) => {
 })
 
 function normalizarParceiro(data: Record<string,unknown>, id: string, uploaded: Date | null | undefined): Record<string,unknown> {
+  const precos = (data.precos as Record<string,unknown>) || {}
   return {
     id: String(data.id || id),
-    nomePosto:      data.nomePosto      || data.nome || '—',
-    email:          data.email          || '—',
-    plano:          data.plano          || 'visibilidade',
-    tel:            data.tel            || data.whatsapp || '—',
-    cidade:         data.cidade         || '—',
-    cnpj:           data.cnpj           || '—',
-    bandeira:       data.bandeira       || '—',
-    status:         data.status         || 'pendente',
-    seloVerificado: Boolean(data.seloVerificado),
-    pinDourado:     Boolean(data.pinDourado),
-    criadoEm:       data.criadoEm       || uploaded?.toISOString() || '—',
+    nomePosto:        data.nomePosto        || data.nome || '—',
+    email:            data.email            || '—',
+    plano:            data.plano            || 'visibilidade',
+    tel:              data.tel              || data.whatsapp || '—',
+    telTelemarketing: data.telTelemarketing || '—',
+    cidade:           data.cidade           || '—',
+    estado:           data.estado           || '—',
+    bairro:           data.bairro           || '—',
+    cnpj:             data.cnpj             || '—',
+    bandeira:         data.bandeira         || '—',
+    status:           data.status           || 'pendente',
+    seloVerificado:   Boolean(data.seloVerificado),
+    pinDourado:       Boolean(data.pinDourado),
+    topoLista:        Boolean(data.topoLista),
+    cuponsAtivos:     Boolean(data.cuponsAtivos),
+    criadoEm:         data.criadoEm         || uploaded?.toISOString() || '—',
+    atualizadoEm:     data.atualizadoEm     || '—',
+    // Preços combustível
+    precos: {
+      gasolina:         Number(precos.gasolina         || 0),
+      gasolinaAditivada:Number(precos.gasolinaAditivada|| 0),
+      etanol:           Number(precos.etanol           || 0),
+      diesel:           Number(precos.diesel           || 0),
+      dieselS10:        Number(precos.dieselS10        || 0),
+      gnv:              Number(precos.gnv              || 0),
+    },
     // Métricas
-    totalCliques:   data.totalCliques   || 0,
-    totalCupons:    data.totalCupons    || 0,
-    totalImpressoes:data.totalImpressoes|| 0,
+    totalCliques:     data.totalCliques     || 0,
+    totalCupons:      data.totalCupons      || 0,
+    totalImpressoes:  data.totalImpressoes  || 0,
   }
 }
 
-// ─── PUT /api/admin/parceiros/:id — editar dados do posto ─────────────────────
+// ─── PUT /api/admin/parceiros/:id — editar dados + preços do posto ─────────────
 app.put('/api/admin/parceiros/:id', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
@@ -7526,20 +7553,37 @@ app.put('/api/admin/parceiros/:id', async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json() as Record<string,unknown>
 
-  if (id === 'p_teste') {
-    return c.json({ ok: true, aviso: 'Posto de teste não persiste alterações (hardcoded)' })
-  }
-
-  // Carregar dados atuais
+  // Carregar dados atuais (p_teste também é persistido agora)
   const atual = await kvGetParceiro(kv, id, r2) as Record<string,unknown> | null
   if (!atual) return c.json({ erro: 'Posto não encontrado' }, 404)
 
-  // Campos editáveis pelo admin (não permite mudar senhaHash, id)
-  const campos = ['nomePosto','email','tel','cidade','cnpj','bandeira','plano','status','seloVerificado','pinDourado','notificacoesAtivas','cuponsAtivos','topoLista']
+  // Campos editáveis pelo admin
+  const campos = [
+    'nomePosto','email','tel','telTelemarketing',
+    'cidade','estado','bairro','cnpj','bandeira',
+    'plano','status','seloVerificado','pinDourado',
+    'notificacoesAtivas','cuponsAtivos','topoLista'
+  ]
   const atualizado: Record<string,unknown> = { ...atual }
   for (const campo of campos) {
     if (campo in body) atualizado[campo] = body[campo]
   }
+
+  // Preços combustível (objeto aninhado)
+  if (body.precos && typeof body.precos === 'object') {
+    const precosAntigos = (atual.precos as Record<string,unknown>) || {}
+    const precosNovos   = body.precos as Record<string,unknown>
+    atualizado.precos = {
+      gasolina:          Number(precosNovos.gasolina          ?? precosAntigos.gasolina          ?? 0),
+      gasolinaAditivada: Number(precosNovos.gasolinaAditivada ?? precosAntigos.gasolinaAditivada ?? 0),
+      etanol:            Number(precosNovos.etanol            ?? precosAntigos.etanol            ?? 0),
+      diesel:            Number(precosNovos.diesel            ?? precosAntigos.diesel            ?? 0),
+      dieselS10:         Number(precosNovos.dieselS10         ?? precosAntigos.dieselS10         ?? 0),
+      gnv:               Number(precosNovos.gnv               ?? precosAntigos.gnv               ?? 0),
+    }
+    atualizado.precosAtualizadoEm = new Date().toISOString()
+  }
+
   atualizado.atualizadoEm = new Date().toISOString()
 
   await kvSetParceiro(kv, id, atualizado, undefined, r2)
@@ -8170,29 +8214,69 @@ app.get('/admin', (c) => {
         <button class="btn-refresh" onclick="carregarParceirosCadastrados()"><i class="fas fa-sync-alt"></i> Atualizar</button>
       </div>
     </div>
+
+    <!-- Filtros -->
+    <div class="section-card" style="padding:16px 20px;margin-bottom:14px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <div style="display:flex;align-items:center;gap:6px;background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;flex:1;min-width:160px">
+          <i class="fas fa-search" style="color:rgba(255,255,255,0.3);font-size:11px"></i>
+          <input id="pc-search" type="text" placeholder="Buscar posto, e-mail, CNPJ..." oninput="filtrarParceiros()" style="background:transparent;border:none;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%"/>
+        </div>
+        <select id="pc-filtro-estado" onchange="filtrarParceiros()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:rgba(255,255,255,0.7);font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer">
+          <option value="">Todos os estados</option>
+          <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option>
+          <option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option>
+          <option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option>
+          <option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option>
+          <option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option>
+          <option value="PE">PE</option><option value="PI">PI</option><option value="PR">PR</option>
+          <option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option>
+          <option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option>
+          <option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
+        </select>
+        <input id="pc-filtro-cidade" type="text" placeholder="Cidade..." oninput="filtrarParceiros()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:rgba(255,255,255,0.7);font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:130px"/>
+        <input id="pc-filtro-bairro" type="text" placeholder="Bairro..." oninput="filtrarParceiros()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:rgba(255,255,255,0.7);font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:120px"/>
+        <select id="pc-filtro-plano" onchange="filtrarParceiros()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:rgba(255,255,255,0.7);font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer">
+          <option value="">Todos os planos</option>
+          <option value="visibilidade">Visibilidade</option>
+          <option value="basico">Básico</option>
+          <option value="premium">Premium</option>
+          <option value="pro">Pro</option>
+        </select>
+        <select id="pc-filtro-status" onchange="filtrarParceiros()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:rgba(255,255,255,0.7);font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer">
+          <option value="">Todos os status</option>
+          <option value="ativo">Ativo</option>
+          <option value="pendente">Pendente</option>
+          <option value="suspenso">Suspenso</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+        <button onclick="limparFiltrosParceiros()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700"><i class="fas fa-times"></i> Limpar</button>
+      </div>
+      <div id="pc-filtro-resultado" style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:8px;display:none"></div>
+    </div>
+
     <div class="section-card">
       <div class="section-header">
         <h3><i class="fas fa-star" style="color:#FFD600;margin-right:8px"></i>Postos cadastrados no app</h3>
-        <input id="pc-search" type="text" placeholder="🔍 Buscar posto..." oninput="filtrarParceiros()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:200px"/>
       </div>
       <div style="overflow-x:auto">
-        <table style="min-width:760px;table-layout:fixed;width:100%">
+        <table style="min-width:800px;table-layout:fixed;width:100%">
           <colgroup>
-            <col style="width:20%"/>
-            <col style="width:19%"/>
-            <col style="width:10%"/>
+            <col style="width:22%"/>
+            <col style="width:16%"/>
+            <col style="width:9%"/>
+            <col style="width:14%"/>
+            <col style="width:9%"/>
             <col style="width:12%"/>
-            <col style="width:11%"/>
-            <col style="width:10%"/>
             <col style="width:18%"/>
           </colgroup>
           <thead><tr>
             <th>Posto / Empresa</th>
-            <th>E-mail</th>
+            <th>E-mail / Tel</th>
             <th style="text-align:center">Plano</th>
-            <th style="text-align:center">Cidade</th>
+            <th style="text-align:center">Cidade / Estado</th>
             <th style="text-align:center">Status</th>
-            <th style="text-align:center">Cadastrado</th>
+            <th style="text-align:center">Atualizado</th>
             <th style="text-align:center">Ações</th>
           </tr></thead>
           <tbody id="parceiros-tbody">
@@ -8204,12 +8288,14 @@ app.get('/admin', (c) => {
 
     <!-- Modal Editar Parceiro -->
     <div id="modal-parceiro-edit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;overflow-y:auto;padding:20px">
-      <div style="background:#1A1D23;border:1px solid rgba(255,255,255,0.1);border-radius:18px;max-width:580px;margin:0 auto;padding:28px;position:relative">
+      <div style="background:#1A1D23;border:1px solid rgba(255,255,255,0.1);border-radius:18px;max-width:660px;margin:0 auto;padding:28px;position:relative">
         <button onclick="fecharModalParceiro()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px">✕</button>
-        <h3 style="font-size:17px;font-weight:900;color:#fff;margin:0 0 6px"><i class="fas fa-gas-pump" style="color:#FF6D00;margin-right:8px"></i>Editar Posto Parceiro</h3>
-        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:22px;font-family:monospace" id="ep-id-display">ID: —</div>
+        <h3 style="font-size:17px;font-weight:900;color:#fff;margin:0 0 4px"><i class="fas fa-gas-pump" style="color:#FF6D00;margin-right:8px"></i>Editar Posto Parceiro</h3>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:20px;font-family:monospace" id="ep-id-display">ID: —</div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <!-- Dados cadastrais -->
+        <div style="font-size:10px;font-weight:900;color:#FF6D00;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Dados Cadastrais</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
           <div class="form-group" style="grid-column:1/-1">
             <label>Nome do Posto *</label>
             <input id="ep-nomePosto" type="text" placeholder="Ex: Posto Central"/>
@@ -8219,12 +8305,35 @@ app.get('/admin', (c) => {
             <input id="ep-email" type="email" placeholder="contato@posto.com.br"/>
           </div>
           <div class="form-group">
-            <label>WhatsApp / Tel</label>
+            <label>WhatsApp / Tel Principal</label>
             <input id="ep-tel" type="text" placeholder="(27) 99999-9999"/>
           </div>
           <div class="form-group">
+            <label>Tel Telemarketing / Comercial</label>
+            <input id="ep-telTelemarketing" type="text" placeholder="(27) 3000-0000"/>
+          </div>
+          <div class="form-group">
             <label>Cidade</label>
-            <input id="ep-cidade" type="text" placeholder="Vitória - ES"/>
+            <input id="ep-cidade" type="text" placeholder="Vitória"/>
+          </div>
+          <div class="form-group">
+            <label>Estado (UF)</label>
+            <select id="ep-estado" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
+              <option value="">Selecione...</option>
+              <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option>
+              <option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option>
+              <option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option>
+              <option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option>
+              <option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option>
+              <option value="PE">PE</option><option value="PI">PI</option><option value="PR">PR</option>
+              <option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option>
+              <option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option>
+              <option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Bairro</label>
+            <input id="ep-bairro" type="text" placeholder="Centro"/>
           </div>
           <div class="form-group">
             <label>Bandeira</label>
@@ -8254,7 +8363,37 @@ app.get('/admin', (c) => {
           </div>
         </div>
 
+        <!-- Preços combustível -->
+        <div style="font-size:10px;font-weight:900;color:#FF6D00;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Preços Combustível <span style="color:rgba(255,255,255,0.25);font-size:9px;text-transform:none;letter-spacing:0">(R$/litro — 0 = não informado)</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;padding:14px;background:rgba(255,109,0,0.05);border-radius:12px;border:1px solid rgba(255,109,0,0.15)">
+          <div class="form-group">
+            <label style="color:rgba(255,255,255,0.5)">Gasolina Comum</label>
+            <input id="ep-preco-gasolina" type="number" step="0.01" min="0" placeholder="0.00" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:9px 12px;color:#fff;font-size:14px;font-weight:800;outline:none;width:100%;font-family:'Raleway',sans-serif"/>
+          </div>
+          <div class="form-group">
+            <label style="color:rgba(255,255,255,0.5)">Gasolina Aditivada</label>
+            <input id="ep-preco-gasolinaAditivada" type="number" step="0.01" min="0" placeholder="0.00" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:9px 12px;color:#fff;font-size:14px;font-weight:800;outline:none;width:100%;font-family:'Raleway',sans-serif"/>
+          </div>
+          <div class="form-group">
+            <label style="color:rgba(255,255,255,0.5)">Etanol</label>
+            <input id="ep-preco-etanol" type="number" step="0.01" min="0" placeholder="0.00" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:9px 12px;color:#fff;font-size:14px;font-weight:800;outline:none;width:100%;font-family:'Raleway',sans-serif"/>
+          </div>
+          <div class="form-group">
+            <label style="color:rgba(255,255,255,0.5)">Diesel Comum</label>
+            <input id="ep-preco-diesel" type="number" step="0.01" min="0" placeholder="0.00" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:9px 12px;color:#fff;font-size:14px;font-weight:800;outline:none;width:100%;font-family:'Raleway',sans-serif"/>
+          </div>
+          <div class="form-group">
+            <label style="color:rgba(255,255,255,0.5)">Diesel S10</label>
+            <input id="ep-preco-dieselS10" type="number" step="0.01" min="0" placeholder="0.00" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:9px 12px;color:#fff;font-size:14px;font-weight:800;outline:none;width:100%;font-family:'Raleway',sans-serif"/>
+          </div>
+          <div class="form-group">
+            <label style="color:rgba(255,255,255,0.5)">GNV</label>
+            <input id="ep-preco-gnv" type="number" step="0.01" min="0" placeholder="0.00" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:9px 12px;color:#fff;font-size:14px;font-weight:800;outline:none;width:100%;font-family:'Raleway',sans-serif"/>
+          </div>
+        </div>
+
         <!-- Flags -->
+        <div style="font-size:10px;font-weight:900;color:#FF6D00;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Configurações</div>
         <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:22px;padding:14px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.07)">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7)">
             <input id="ep-seloVerificado" type="checkbox" style="accent-color:#FF6D00;width:16px;height:16px"/> Selo Verificado ✅
@@ -9007,13 +9146,12 @@ async function carregarParceirosCadastrados() {
   const tbody = document.getElementById('parceiros-tbody');
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando parceiros...</td></tr>';
   try {
-    // Usar nova rota dedicada que inclui KV fallback + posto teste
     const res = await fetch('/api/admin/parceiros?key=' + encodeURIComponent(ADMIN_KEY));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     _parceiros = data.parceiros || [];
     document.getElementById('parceiros-count').textContent = _parceiros.length + ' parceiro(s)';
-    renderParceiros(_parceiros);
+    filtrarParceiros();
   } catch(e) {
     tbody.innerHTML = \`<tr><td colspan="7" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro: \${e.message}</td></tr>\`;
   }
@@ -9022,7 +9160,7 @@ async function carregarParceirosCadastrados() {
 function renderParceiros(lista) {
   const tbody = document.getElementById('parceiros-tbody');
   if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:rgba(255,255,255,0.3)"><i class="fas fa-store-slash" style="font-size:28px;display:block;margin-bottom:10px;opacity:0.3"></i>Nenhum posto parceiro cadastrado</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:48px;color:rgba(255,255,255,0.3)"><i class="fas fa-store-slash" style="font-size:28px;display:block;margin-bottom:10px;opacity:0.3"></i>Nenhum posto encontrado com esses filtros</td></tr>';
     return;
   }
   const planoBadge = (p) => {
@@ -9035,21 +9173,34 @@ function renderParceiros(lista) {
     const cor = map[(s||'').toLowerCase()] || 'rgba(255,255,255,0.3)';
     return \`<span style="background:\${cor}22;color:\${cor};padding:3px 8px;border-radius:100px;font-size:10px;font-weight:800">\${s||'—'}</span>\`;
   };
-  const fmtDate = (v) => { if (!v || v === '—') return '—'; try { return new Date(v).toLocaleDateString('pt-BR'); } catch { return v; } };
+  const fmtDate = (v) => { if (!v || v === '—') return '—'; try { return new Date(v).toLocaleDateString('pt-BR'); } catch { return String(v); } };
+  const fmtPreco = (v) => v > 0 ? 'R$ ' + Number(v).toFixed(2) : '—';
 
   tbody.innerHTML = lista.map(u => {
     const nomeEsc = (u.nomePosto||'').replace(/'/g, '&#39;');
-    const hardcoded = u._hardcoded ? '<span title="Conta de teste (hardcoded)" style="color:#FFD600;font-size:10px;margin-left:4px">🧪</span>' : '';
+    const pr = u.precos || {};
+    const temPrecos = pr.gasolina > 0 || pr.etanol > 0 || pr.diesel > 0;
+    const precosTag = temPrecos
+      ? \`<div style="font-size:9px;color:rgba(255,165,0,0.8);margin-top:2px">⛽ G:\${fmtPreco(pr.gasolina)} E:\${fmtPreco(pr.etanol)}</div>\`
+      : '';
+    const dataExib = u.atualizadoEm && u.atualizadoEm !== '—' ? u.atualizadoEm : u.criadoEm;
     return \`<tr class="tr-hover">
       <td style="overflow:hidden">
-        <div style="font-weight:800;color:#fff;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.nomePosto||'—'}\${hardcoded}</div>
+        <div style="font-weight:800;color:#fff;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.nomePosto||'—'}</div>
         <div style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:1px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ID: \${u.id}</div>
+        \${precosTag}
       </td>
-      <td style="font-size:11px;color:rgba(255,255,255,0.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.email||'—'}</td>
+      <td style="overflow:hidden">
+        <div style="font-size:11px;color:rgba(255,255,255,0.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.email||'—'}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.tel !== '—' ? u.tel : (u.telTelemarketing !== '—' ? u.telTelemarketing : '—')}</div>
+      </td>
       <td style="text-align:center">\${planoBadge(u.plano)}</td>
-      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.cidade||'—'}</td>
+      <td style="text-align:center;overflow:hidden">
+        <div style="font-size:11px;color:rgba(255,255,255,0.55);white-space:nowrap">\${u.cidade||'—'}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">\${u.estado !== '—' ? u.estado : ''}\${u.bairro !== '—' ? ' · ' + u.bairro : ''}</div>
+      </td>
       <td style="text-align:center">\${statusBadge(u.status)}</td>
-      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.4)">\${fmtDate(u.criadoEm)}</td>
+      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.4)">\${fmtDate(dataExib)}</td>
       <td style="text-align:center">
         <div style="display:inline-flex;gap:5px;justify-content:center">
           <button class="btn-info" data-pid="\${u.id}" onclick="abrirModalEditarParceiro(this.dataset.pid)" title="Editar posto"><i class="fas fa-pen"></i></button>
@@ -9061,13 +9212,49 @@ function renderParceiros(lista) {
 }
 
 function filtrarParceiros() {
-  const q = document.getElementById('pc-search').value.toLowerCase();
-  renderParceiros(q ? _parceiros.filter(p =>
-    (p.nomePosto||'').toLowerCase().includes(q) ||
-    (p.email||'').toLowerCase().includes(q) ||
-    (p.cidade||'').toLowerCase().includes(q) ||
-    (p.id||'').toLowerCase().includes(q)
-  ) : _parceiros);
+  const q       = (document.getElementById('pc-search').value || '').toLowerCase();
+  const estado  = (document.getElementById('pc-filtro-estado').value || '').toLowerCase();
+  const cidade  = (document.getElementById('pc-filtro-cidade').value || '').toLowerCase();
+  const bairro  = (document.getElementById('pc-filtro-bairro').value || '').toLowerCase();
+  const plano   = (document.getElementById('pc-filtro-plano').value || '').toLowerCase();
+  const status  = (document.getElementById('pc-filtro-status').value || '').toLowerCase();
+
+  const filtrado = _parceiros.filter(p => {
+    if (q && !(
+      (p.nomePosto||'').toLowerCase().includes(q) ||
+      (p.email||'').toLowerCase().includes(q) ||
+      (p.cnpj||'').toLowerCase().includes(q) ||
+      (p.id||'').toLowerCase().includes(q)
+    )) return false;
+    if (estado && (p.estado||'').toLowerCase() !== estado) return false;
+    if (cidade && !(p.cidade||'').toLowerCase().includes(cidade)) return false;
+    if (bairro && !(p.bairro||'').toLowerCase().includes(bairro)) return false;
+    if (plano  && (p.plano||'').toLowerCase() !== plano)  return false;
+    if (status && (p.status||'').toLowerCase() !== status) return false;
+    return true;
+  });
+
+  const temFiltro = q || estado || cidade || bairro || plano || status;
+  const resultEl = document.getElementById('pc-filtro-resultado');
+  if (temFiltro) {
+    resultEl.style.display = 'block';
+    resultEl.textContent = filtrado.length + ' de ' + _parceiros.length + ' posto(s) encontrado(s)';
+  } else {
+    resultEl.style.display = 'none';
+  }
+
+  renderParceiros(filtrado);
+}
+
+function limparFiltrosParceiros() {
+  document.getElementById('pc-search').value = '';
+  document.getElementById('pc-filtro-estado').value = '';
+  document.getElementById('pc-filtro-cidade').value = '';
+  document.getElementById('pc-filtro-bairro').value = '';
+  document.getElementById('pc-filtro-plano').value = '';
+  document.getElementById('pc-filtro-status').value = '';
+  document.getElementById('pc-filtro-resultado').style.display = 'none';
+  renderParceiros(_parceiros);
 }
 
 // ─── Modal Editar Parceiro ────────────────────────────────────────────────────
@@ -9077,22 +9264,35 @@ function abrirModalEditarParceiro(id) {
   const p = _parceiros.find(x => x.id === id);
   if (!p) return;
   _parceiroEditandoId = id;
-  document.getElementById('ep-id-display').textContent = 'ID: ' + id + (p._hardcoded ? '  🧪 conta de teste' : '');
-  document.getElementById('ep-nomePosto').value  = p.nomePosto  || '';
-  document.getElementById('ep-email').value      = p.email      !== '—' ? (p.email || '') : '';
-  document.getElementById('ep-tel').value        = p.tel        !== '—' ? (p.tel   || '') : '';
-  document.getElementById('ep-cidade').value     = p.cidade     !== '—' ? (p.cidade|| '') : '';
-  document.getElementById('ep-bandeira').value   = p.bandeira   !== '—' ? (p.bandeira||'') : '';
-  document.getElementById('ep-cnpj').value       = p.cnpj       !== '—' ? (p.cnpj  || '') : '';
-  document.getElementById('ep-plano').value      = p.plano      || 'visibilidade';
-  document.getElementById('ep-status').value     = p.status     || 'pendente';
-  document.getElementById('ep-seloVerificado').checked = !!p.seloVerificado;
-  document.getElementById('ep-pinDourado').checked      = !!p.pinDourado;
-  document.getElementById('ep-topoLista').checked       = !!p.topoLista;
-  document.getElementById('ep-cuponsAtivos').checked    = !!p.cuponsAtivos;
-  // Botão remover: esconder para conta hardcoded
-  document.getElementById('ep-deletar-btn').style.display = p._hardcoded ? 'none' : 'inline-flex';
+  const pr = p.precos || {};
+
+  document.getElementById('ep-id-display').textContent = 'ID: ' + id;
+  document.getElementById('ep-nomePosto').value          = p.nomePosto        !== '—' ? (p.nomePosto        || '') : '';
+  document.getElementById('ep-email').value              = p.email            !== '—' ? (p.email            || '') : '';
+  document.getElementById('ep-tel').value                = p.tel              !== '—' ? (p.tel              || '') : '';
+  document.getElementById('ep-telTelemarketing').value   = p.telTelemarketing !== '—' ? (p.telTelemarketing || '') : '';
+  document.getElementById('ep-cidade').value             = p.cidade           !== '—' ? (p.cidade           || '') : '';
+  document.getElementById('ep-estado').value             = p.estado           !== '—' ? (p.estado           || '') : '';
+  document.getElementById('ep-bairro').value             = p.bairro           !== '—' ? (p.bairro           || '') : '';
+  document.getElementById('ep-bandeira').value           = p.bandeira         !== '—' ? (p.bandeira         || '') : '';
+  document.getElementById('ep-cnpj').value               = p.cnpj             !== '—' ? (p.cnpj             || '') : '';
+  document.getElementById('ep-plano').value              = p.plano            || 'visibilidade';
+  document.getElementById('ep-status').value             = p.status           || 'pendente';
+  document.getElementById('ep-seloVerificado').checked   = !!p.seloVerificado;
+  document.getElementById('ep-pinDourado').checked       = !!p.pinDourado;
+  document.getElementById('ep-topoLista').checked        = !!p.topoLista;
+  document.getElementById('ep-cuponsAtivos').checked     = !!p.cuponsAtivos;
+  // Preços
+  document.getElementById('ep-preco-gasolina').value          = pr.gasolina          > 0 ? pr.gasolina          : '';
+  document.getElementById('ep-preco-gasolinaAditivada').value = pr.gasolinaAditivada > 0 ? pr.gasolinaAditivada : '';
+  document.getElementById('ep-preco-etanol').value            = pr.etanol            > 0 ? pr.etanol            : '';
+  document.getElementById('ep-preco-diesel').value            = pr.diesel            > 0 ? pr.diesel            : '';
+  document.getElementById('ep-preco-dieselS10').value         = pr.dieselS10         > 0 ? pr.dieselS10         : '';
+  document.getElementById('ep-preco-gnv').value               = pr.gnv               > 0 ? pr.gnv               : '';
+
+  document.getElementById('ep-deletar-btn').style.display = (id === 'p_teste') ? 'none' : 'inline-flex';
   document.getElementById('modal-parceiro-edit').style.display = 'block';
+  document.getElementById('modal-parceiro-edit').scrollTop = 0;
 }
 
 function fecharModalParceiro() {
@@ -9104,27 +9304,43 @@ async function salvarParceiroModal() {
   if (!_parceiroEditandoId) return;
   const btn = document.querySelector('#modal-parceiro-edit button[onclick="salvarParceiroModal()"]');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
+
+  const fv = (id) => document.getElementById(id).value.trim();
+  const fn = (id) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? 0 : v; };
+
   const body = {
-    nomePosto:      document.getElementById('ep-nomePosto').value.trim(),
-    email:          document.getElementById('ep-email').value.trim(),
-    tel:            document.getElementById('ep-tel').value.trim(),
-    cidade:         document.getElementById('ep-cidade').value.trim(),
-    bandeira:       document.getElementById('ep-bandeira').value.trim(),
-    cnpj:           document.getElementById('ep-cnpj').value.trim(),
-    plano:          document.getElementById('ep-plano').value,
-    status:         document.getElementById('ep-status').value,
-    seloVerificado: document.getElementById('ep-seloVerificado').checked,
-    pinDourado:     document.getElementById('ep-pinDourado').checked,
-    topoLista:      document.getElementById('ep-topoLista').checked,
-    cuponsAtivos:   document.getElementById('ep-cuponsAtivos').checked,
+    nomePosto:        fv('ep-nomePosto'),
+    email:            fv('ep-email'),
+    tel:              fv('ep-tel'),
+    telTelemarketing: fv('ep-telTelemarketing'),
+    cidade:           fv('ep-cidade'),
+    estado:           document.getElementById('ep-estado').value,
+    bairro:           fv('ep-bairro'),
+    bandeira:         fv('ep-bandeira'),
+    cnpj:             fv('ep-cnpj'),
+    plano:            document.getElementById('ep-plano').value,
+    status:           document.getElementById('ep-status').value,
+    seloVerificado:   document.getElementById('ep-seloVerificado').checked,
+    pinDourado:       document.getElementById('ep-pinDourado').checked,
+    topoLista:        document.getElementById('ep-topoLista').checked,
+    cuponsAtivos:     document.getElementById('ep-cuponsAtivos').checked,
+    precos: {
+      gasolina:          fn('ep-preco-gasolina'),
+      gasolinaAditivada: fn('ep-preco-gasolinaAditivada'),
+      etanol:            fn('ep-preco-etanol'),
+      diesel:            fn('ep-preco-diesel'),
+      dieselS10:         fn('ep-preco-dieselS10'),
+      gnv:               fn('ep-preco-gnv'),
+    }
   };
+
   try {
     const res = await fetch('/api/admin/parceiros/' + encodeURIComponent(_parceiroEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     });
     const data = await res.json();
     if (!res.ok || data.erro) throw new Error(data.erro || 'Erro ao salvar');
-    showToast(data.aviso ? '⚠️ ' + data.aviso : '✅ Posto atualizado!', data.aviso ? '' : 'ok');
+    showToast('✅ Posto atualizado com sucesso!', 'ok');
     fecharModalParceiro();
     await carregarParceirosCadastrados();
   } catch(e) {
@@ -9142,7 +9358,7 @@ async function deletarParceiroModal() {
 }
 
 async function deletarParceiro(id, nome) {
-  if (id === 'p_teste') { showToast('⚠️ Posto de teste não pode ser removido', ''); return; }
+  if (id === 'p_teste') { showToast('⚠️ Posto de teste nao pode ser removido', ''); return; }
   if (!confirm('Remover o posto "' + nome + '"? Esta acao e irreversivel.')) return;
   try {
     const res = await fetch('/api/admin/postos/' + encodeURIComponent(id) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
