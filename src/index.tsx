@@ -9937,11 +9937,7 @@ function epAtualizarPreviewPlano() {
         + '</div>'
       : '<div style="color:rgba(255,255,255,0.25);font-size:11px;font-style:italic;text-align:center;padding:8px">Nenhum benefício configurado neste plano</div>'
     )
-    // Botão editar plano
-    + '<div style="margin-top:10px;text-align:right">'
-    + '<button onclick="irParaEditarPlano(' + JSON.stringify(plano.id) + ')" style="background:rgba(255,214,0,0.1);color:#FFD600;border:1px solid rgba(255,214,0,0.25);border-radius:8px;padding:5px 12px;font-size:10px;font-weight:800;cursor:pointer">'
-    + '<i class="fas fa-pen"></i> Editar este plano</button>'
-    + '</div>';
+    ;
 }
 
 // Navega para a aba de Produtos & Planos e fecha o modal do posto
