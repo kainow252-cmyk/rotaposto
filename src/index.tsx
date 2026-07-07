@@ -7410,6 +7410,137 @@ app.delete('/api/admin/planos/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// PLANOS B2B PARA POSTOS PARCEIROS — sistema separado dos planos do app usuário
+// ═══════════════════════════════════════════════════════════════════════════════
+const PLANOS_POSTO_KV_KEY = 'admin:planos_posto_config'
+
+const PLANOS_POSTO_DEFAULT = [
+  {
+    id: 'posto_gratis',
+    nome: 'Gratuito',
+    emoji: '🆓',
+    cor: '#42A5F5',
+    valor: 0,
+    ciclo: 'forever',
+    descricao: 'Perfil básico no app, sem custos',
+    ativo: true,
+    destaque: false,
+    diasTeste: 0,
+    beneficios: ['perfil_basico', 'exibir_precos'],
+    features: []
+  },
+  {
+    id: 'posto_basico',
+    nome: 'Básico',
+    emoji: '⭐',
+    cor: '#FF6D00',
+    valor: 9900,
+    ciclo: 'monthly',
+    descricao: 'Visibilidade ampliada e selo verificado',
+    ativo: true,
+    destaque: false,
+    diasTeste: 0,
+    beneficios: ['perfil_basico', 'exibir_precos', 'selo_verificado', 'relatorio_cliques', 'suporte_prioritario'],
+    features: []
+  },
+  {
+    id: 'posto_plus',
+    nome: 'Plus',
+    emoji: '👑',
+    cor: '#FFD600',
+    valor: 19900,
+    ciclo: 'monthly',
+    descricao: 'Destaque máximo, cupons e notificações',
+    ativo: true,
+    destaque: true,
+    diasTeste: 0,
+    beneficios: ['perfil_basico', 'exibir_precos', 'selo_verificado', 'pin_dourado', 'topo_lista', 'cupons_ativos', 'notificacoes', 'relatorio_cliques', 'destaque_busca', 'suporte_prioritario'],
+    features: []
+  }
+]
+
+async function getPlanosPostoConfig(kv: KVNamespace): Promise<any[]> {
+  try {
+    const raw = await kv.get(PLANOS_POSTO_KV_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return PLANOS_POSTO_DEFAULT
+}
+
+// GET /api/admin/planos-posto
+app.get('/api/admin/planos-posto', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const planos = await getPlanosPostoConfig(kv)
+  return c.json({ planos })
+})
+
+// POST /api/admin/planos-posto — criar novo plano
+app.post('/api/admin/planos-posto', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const body = await c.req.json() as any
+  const planos = await getPlanosPostoConfig(kv)
+  const novoId = body.id || ('posto_' + Date.now())
+  if (planos.find((p: any) => p.id === novoId)) return c.json({ erro: 'ID já existe' }, 400)
+  const novo = {
+    id: novoId,
+    nome: body.nome || 'Novo Plano',
+    emoji: body.emoji || '📦',
+    cor: body.cor || '#FF6D00',
+    valor: body.valor ?? 0,
+    ciclo: body.ciclo || 'monthly',
+    descricao: body.descricao || '',
+    ativo: body.ativo ?? true,
+    destaque: body.destaque ?? false,
+    diasTeste: body.diasTeste ?? 0,
+    beneficios: body.beneficios || [],
+    features: body.features || []
+  }
+  planos.push(novo)
+  await kv.put(PLANOS_POSTO_KV_KEY, JSON.stringify(planos))
+  return c.json({ ok: true, plano: novo })
+})
+
+// PUT /api/admin/planos-posto/:id — atualizar plano existente
+app.put('/api/admin/planos-posto/:id', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const id = c.req.param('id')
+  const body = await c.req.json() as any
+  const planos = await getPlanosPostoConfig(kv)
+  const idx = planos.findIndex((p: any) => p.id === id)
+  if (idx === -1) return c.json({ erro: 'Plano não encontrado' }, 404)
+  planos[idx] = { ...planos[idx], ...body, id }
+  await kv.put(PLANOS_POSTO_KV_KEY, JSON.stringify(planos))
+  return c.json({ ok: true, plano: planos[idx] })
+})
+
+// DELETE /api/admin/planos-posto/:id — remover plano
+app.delete('/api/admin/planos-posto/:id', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const id = c.req.param('id')
+  if (['posto_gratis', 'posto_basico', 'posto_plus'].includes(id)) return c.json({ erro: 'Planos padrão não podem ser removidos' }, 400)
+  const planos = await getPlanosPostoConfig(kv)
+  const novos = planos.filter((p: any) => p.id !== id)
+  await kv.put(PLANOS_POSTO_KV_KEY, JSON.stringify(novos))
+  return c.json({ ok: true })
+})
+
 // ─── DELETE /api/admin/postos/:id — remover posto parceiro do R2 ──────────────
 app.delete('/api/admin/postos/:id', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -8803,11 +8934,89 @@ app.get('/admin', (c) => {
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <h2>📦 Produtos & Planos</h2>
       <button onclick="abrirModalNovoPLano()" style="background:var(--laranja);color:white;border:none;padding:10px 20px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px">
-        <i class="fas fa-plus"></i> Novo Plano
+        <i class="fas fa-plus"></i> Novo Plano para Posto
       </button>
     </div>
 
-    <!-- KPIs de assinantes por plano -->
+    <!-- Abas: Planos Postos / Planos App -->
+    <div style="display:flex;gap:4px;margin-bottom:22px;background:#0A1520;border-radius:12px;padding:4px;width:fit-content">
+      <button id="tab-planos-postos" onclick="trocarTabPlanos('postos')" style="background:#FF6D00;color:#fff;border:none;padding:9px 22px;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer;transition:.2s">
+        <i class="fas fa-gas-pump"></i> Planos dos Postos
+      </button>
+      <button id="tab-planos-app" onclick="trocarTabPlanos('app')" style="background:transparent;color:rgba(255,255,255,0.45);border:none;padding:9px 22px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s">
+        <i class="fas fa-mobile-alt"></i> Planos do App
+      </button>
+    </div>
+
+    <!-- ─── ABA: Planos dos Postos ─── -->
+    <div id="tab-content-postos">
+      <!-- KPIs de postos por plano -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px" id="planos-postos-kpis">
+        <div class="kpi-card" style="padding:18px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">🆓</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Gratuito</div>
+          <div style="font-size:26px;font-weight:900;color:#42A5F5" id="kpi-postos-gratis">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
+        </div>
+        <div class="kpi-card" style="padding:18px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">⭐</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Básico</div>
+          <div style="font-size:26px;font-weight:900;color:#FF6D00" id="kpi-postos-basico">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
+        </div>
+        <div class="kpi-card" style="padding:18px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">👑</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Plus</div>
+          <div style="font-size:26px;font-weight:900;color:#FFD600" id="kpi-postos-plus">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
+        </div>
+        <div class="kpi-card" style="padding:18px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">📦</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Outros planos</div>
+          <div style="font-size:26px;font-weight:900;color:rgba(255,255,255,0.5)" id="kpi-postos-outros">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
+        </div>
+      </div>
+
+      <!-- Grid de cards dos planos de postos -->
+      <div id="planos-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:20px;margin-bottom:28px">
+        <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);font-size:13px">
+          <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block"></i>
+          Carregando planos...
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ABA: Planos do App (usuário final) ─── -->
+    <div id="tab-content-app" style="display:none">
+      <!-- KPIs de assinantes do app -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px" id="planos-kpis">
+        <div class="kpi-card" style="padding:18px;text-align:center">
+          <div style="font-size:22px;margin-bottom:4px">🆓</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Gratuito</div>
+          <div style="font-size:26px;font-weight:900;color:#42A5F5" id="plano-free-count">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3)">usuários</div>
+        </div>
+        <div class="kpi-card" style="padding:18px;text-align:center">
+          <div style="font-size:22px;margin-bottom:4px">⭐</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Premium Mensal</div>
+          <div style="font-size:26px;font-weight:900;color:#FF6D00" id="plano-premium-count">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes</div>
+        </div>
+        <div class="kpi-card" style="padding:18px;text-align:center">
+          <div style="font-size:22px;margin-bottom:4px">👑</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Premium Anual</div>
+          <div style="font-size:26px;font-weight:900;color:#FFD600" id="plano-anual-count">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes</div>
+        </div>
+      </div>
+      <div style="background:rgba(66,165,245,0.06);border:1px solid rgba(66,165,245,0.2);border-radius:14px;padding:20px 24px">
+        <div style="font-size:12px;font-weight:800;color:#42A5F5;margin-bottom:6px"><i class="fas fa-info-circle"></i> Planos do App (usuário final)</div>
+        <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:0">Estes são os planos de assinatura para usuários do app: <strong style="color:#fff">Gratuito, Premium Mensal (R$9,90) e Premium Anual (R$89)</strong>. Gerenciados pelo sistema Woovi/KV e não editáveis aqui.</p>
+      </div>
+    </div>
+
+    <!-- Modal Editar/Criar Plano de Posto -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px" id="planos-kpis">
       <div class="kpi-card" style="padding:18px;text-align:center">
         <div style="font-size:22px;margin-bottom:4px">🆓</div>
@@ -9614,15 +9823,15 @@ function limparFiltrosParceiros() {
 // ─── Modal Editar Parceiro ────────────────────────────────────────────────────
 let _parceiroEditandoId = null;
 
-// Popula o select de planos do modal de posto com os planos do KV
+// Popula o select de planos do modal de posto com os planos B2B de postos
 async function popularSelectPlanosModal(planoAtual) {
   const sel = document.getElementById('ep-plano');
   if (!sel) return;
-  // Garante que _planosData está carregado
+  // Usa _planosData (planos de postos) — carrega da rota planos-posto se vazio
   let planos = _planosData || [];
   if (!planos.length) {
     try {
-      const r = await fetch('/api/admin/planos?key=' + encodeURIComponent(ADMIN_KEY));
+      const r = await fetch('/api/admin/planos-posto?key=' + encodeURIComponent(ADMIN_KEY));
       const d = await r.json();
       planos = d.planos || [];
       _planosData = planos;
@@ -10385,8 +10594,23 @@ let _planoEditandoId = null;  // id do plano em edição (null = novo)
 
 const CICLO_LABEL = { forever: 'Grátis', monthly: '/mês', yearly: '/ano', weekly: '/semana' };
 
-async function carregarEstatisticasPlanos() {
-  // 1. KPIs de assinantes
+// ─── Trocar aba de planos (postos / app) ────────────────────────────────────
+function trocarTabPlanos(aba) {
+  const isPostos = aba === 'postos';
+  document.getElementById('tab-content-postos').style.display = isPostos ? 'block' : 'none';
+  document.getElementById('tab-content-app').style.display    = isPostos ? 'none'  : 'block';
+  const btnPostos = document.getElementById('tab-planos-postos');
+  const btnApp    = document.getElementById('tab-planos-app');
+  btnPostos.style.background = isPostos ? '#FF6D00'            : 'transparent';
+  btnPostos.style.color      = isPostos ? '#fff'               : 'rgba(255,255,255,0.45)';
+  btnApp.style.background    = isPostos ? 'transparent'        : '#42A5F5';
+  btnApp.style.color         = isPostos ? 'rgba(255,255,255,0.45)' : '#fff';
+  // Carregar KPIs da aba app quando necessário
+  if (!isPostos) carregarKpisApp();
+}
+
+// ─── KPIs de assinantes do app ───────────────────────────────────────────────
+async function carregarKpisApp() {
   try {
     const [asRes, usRes] = await Promise.all([
       fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY)),
@@ -10405,9 +10629,31 @@ async function carregarEstatisticasPlanos() {
     if (pfc) pfc.textContent = free;
     if (ppc) ppc.textContent = premium;
     if (pac) pac.textContent = anual;
-  } catch(e) { console.warn('kpis-planos:', e); }
+  } catch(e) { console.warn('kpis-app:', e); }
+}
 
-  // 2. Carregar e renderizar cards dos planos
+async function carregarEstatisticasPlanos() {
+  // 1. KPIs de postos por plano
+  try {
+    const parcsRes = await fetch('/api/admin/parceiros?key=' + encodeURIComponent(ADMIN_KEY));
+    const parcsData = await parcsRes.json();
+    const parceiros = parcsData.parceiros || [];
+    const contarPlano = (id) => parceiros.filter(p => (p.plano || 'posto_gratis') === id).length;
+    const nGratis  = contarPlano('posto_gratis')  || contarPlano('visibilidade') || contarPlano('free');
+    const nBasico  = contarPlano('posto_basico')  || contarPlano('basico');
+    const nPlus    = contarPlano('posto_plus')    || contarPlano('plus');
+    const nOutros  = parceiros.length - nGratis - nBasico - nPlus;
+    const sg = document.getElementById('kpi-postos-gratis');
+    const sb = document.getElementById('kpi-postos-basico');
+    const sp = document.getElementById('kpi-postos-plus');
+    const so = document.getElementById('kpi-postos-outros');
+    if (sg) sg.textContent = nGratis;
+    if (sb) sb.textContent = nBasico;
+    if (sp) sp.textContent = nPlus;
+    if (so) so.textContent = Math.max(0, nOutros);
+  } catch(e) { console.warn('kpis-postos:', e); }
+
+  // 2. Carregar e renderizar cards dos planos de postos
   await carregarPlanosGrid();
 }
 
@@ -10415,7 +10661,8 @@ async function carregarPlanosGrid() {
   const grid = document.getElementById('planos-grid');
   if (!grid) return;
   try {
-    const res = await fetch('/api/admin/planos?key=' + encodeURIComponent(ADMIN_KEY));
+    // Carrega planos B2B de postos (separado dos planos do app)
+    const res = await fetch('/api/admin/planos-posto?key=' + encodeURIComponent(ADMIN_KEY));
     const data = await res.json();
     _planosData = data.planos || [];
     renderizarPlanosGrid();
@@ -10573,7 +10820,7 @@ function abrirModalEditarPlano(id) {
   document.getElementById('mp-destaque').checked = !!p.destaque;
   if (document.getElementById('mp-dias-teste')) document.getElementById('mp-dias-teste').value = p.diasTeste || 30;
   const btnDel = document.getElementById('mp-deletar-btn');
-  btnDel.style.display = ['free','premium','anual'].includes(id) ? 'none' : 'inline-flex';
+  btnDel.style.display = ['posto_gratis','posto_basico','posto_plus','free','premium','anual'].includes(id) ? 'none' : 'inline-flex';
   renderizarBeneficiosModal(p.beneficios || []);
   renderizarFeaturesModal(p.features || []);
   mpAtualizarPeriodo();
@@ -10671,13 +10918,13 @@ async function salvarPlanoModal() {
   try {
     let res;
     if (_planoEditandoId) {
-      res = await fetch('/api/admin/planos/' + encodeURIComponent(_planoEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+      res = await fetch('/api/admin/planos-posto/' + encodeURIComponent(_planoEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       });
     } else {
       // Gerar id a partir do nome
-      body.id = nome.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now();
-      res = await fetch('/api/admin/planos?key=' + encodeURIComponent(ADMIN_KEY), {
+      body.id = 'posto_' + nome.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now();
+      res = await fetch('/api/admin/planos-posto?key=' + encodeURIComponent(ADMIN_KEY), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       });
     }
@@ -10699,7 +10946,7 @@ async function deletarPlanoModal() {
   const p = _planosData.find(x => x.id === _planoEditandoId);
   if (!confirm('Excluir o plano "' + (p ? p.nome : _planoEditandoId) + '"? Esta ação não pode ser desfeita.')) return;
   try {
-    const res = await fetch('/api/admin/planos/' + encodeURIComponent(_planoEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+    const res = await fetch('/api/admin/planos-posto/' + encodeURIComponent(_planoEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
       method: 'DELETE'
     });
     const data = await res.json();
