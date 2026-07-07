@@ -5223,44 +5223,33 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     );
   }
 
-  // ── Google Maps Geolocation API — fallback quando GPS nativo demora/falha ──
+  // ── Fallback de localização via IP — usa /api/geoip (servidor próprio) ──
+  // Rota server-side tem fallback completo: Google Geolocation → ipapi.co → ip-api.com
+  // Evita expor chave Google no frontend e contorna restrições de API
   function _buscarLocalizacaoGoogle(callback) {
-    if (!_GKEY) {
-      console.warn('[GPS] _GKEY vazio — sem chave Google');
-      // Sem chave: manter mapa parado, não jogar em SP
-      return;
-    }
-
-    fetch('https://www.googleapis.com/geolocation/v1/geolocate?key=' + _GKEY, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ considerIpAddress: true })
-    })
+    fetch('/api/geoip')
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      if (d && d.location && d.location.lat && d.location.lng) {
-        var lat = d.location.lat;
-        var lng = d.location.lng;
-        var acc = Math.round(d.accuracy || 9999);
-        // Se Google retornar região de SP → ignorar, não é a localização real do usuário
+      if (d && d.lat && d.lng) {
+        var lat = d.lat;
+        var lng = d.lng;
+        // Se retornar SP (padrão de fallback genérico) → ignorar, não é localização real
         if (_ehCoordSP(lat, lng)) {
-          console.warn('[GPS] Google API retornou SP (acc=' + acc + 'm) — ignorando, aguardando GPS nativo...');
+          console.warn('[GPS] geoip retornou SP — ignorando, aguardando GPS nativo...');
           showToast('📡 Aguardando GPS do celular…', 3000);
-          // Não chamar _aplicarLocalizacao — deixar GPS nativo resolver
-          if (callback) callback(null, null); // sinaliza: não usar
+          if (callback) callback(null, null);
           return;
         }
+        console.log('[GPS] geoip fonte=' + (d.fonte||'?') + ' lat=' + lat + ' lng=' + lng);
         if (callback) { callback(lat, lng); }
         else { _aplicarLocalizacao(lat, lng, true, true); }
       } else {
-        var errMsg = d && d.error ? d.error.message : JSON.stringify(d);
-        console.warn('[GPS] Google API sem resultado:', errMsg);
+        console.warn('[GPS] geoip sem resultado:', JSON.stringify(d));
         if (callback) callback(null, null);
-        // Não jogar em SP — aguardar GPS nativo
       }
     })
     .catch(function(e) {
-      console.warn('[GPS] Google API erro de rede:', e);
+      console.warn('[GPS] geoip erro de rede:', e);
       if (callback) callback(null, null);
     });
   }
