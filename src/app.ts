@@ -4479,30 +4479,61 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // ── Formulário de CPF inline (quando backend retorna precisaCPF:true) ──────
   function _mostrarFormularioCPFInline() {
-    // Insere um modal flutuante sobre o step1 pedindo CPF
     var existing = document.getElementById('assin-cpf-modal');
     if (existing) existing.remove();
 
+    // Construir DOM via createElement — zero risco de conflito de aspas
     var overlay = document.createElement('div');
     overlay.id = 'assin-cpf-modal';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:199999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
-    overlay.innerHTML = '<div style="background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);">'
-      + '<div style="width:40px;height:4px;background:#E0E0E0;border-radius:2px;margin:0 auto 20px;"></div>'
-      + '<div style="font-size:18px;font-weight:800;color:#1A1A1A;margin-bottom:6px;">Informe seu CPF</div>'
-      + '<div style="font-size:13px;color:#757575;margin-bottom:20px;">Necess\u00e1rio para o PIX. Protegido pela LGPD.</div>'
-      + '<input id="assin-cpf-input" type="tel" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"'
-      + ' style="width:100%;padding:14px 16px;border:2px solid #E0E0E0;border-radius:12px;font-size:16px;font-weight:600;text-align:center;letter-spacing:2px;box-sizing:border-box;outline:none;"'
-      + ' oninput="_mascaraCPF(this)"'
-      + '/>'
-      + '<div id="assin-cpf-erro" style="color:#E53935;font-size:12px;margin:6px 0 0;display:none;text-align:center;"></div>'
-      + '<button onclick="_confirmarCPFInline()" style="width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;">Confirmar e gerar PIX</button>'
-      + '<button onclick="document.getElementById(String.fromCharCode(39)+String.fromCharCode(39)).remove?undefined:document.getElementById(\'assin-cpf-modal\').remove()" onclick2="" style="width:100%;padding:12px;background:transparent;color:#9E9E9E;border:none;font-size:14px;cursor:pointer;margin-top:8px;" id="assin-cpf-cancel">Cancelar</button>'
-      + '</div>';
+
+    var sheet = document.createElement('div');
+    sheet.style.cssText = 'background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);';
+
+    var handle = document.createElement('div');
+    handle.style.cssText = 'width:40px;height:4px;background:#E0E0E0;border-radius:2px;margin:0 auto 20px;';
+
+    var titulo = document.createElement('div');
+    titulo.style.cssText = 'font-size:18px;font-weight:800;color:#1A1A1A;margin-bottom:6px;';
+    titulo.textContent = 'Informe seu CPF';
+
+    var subtit = document.createElement('div');
+    subtit.style.cssText = 'font-size:13px;color:#757575;margin-bottom:20px;';
+    subtit.textContent = 'Necessário para o PIX. Protegido pela LGPD.';
+
+    var inp = document.createElement('input');
+    inp.id = 'assin-cpf-input';
+    inp.type = 'tel';
+    inp.setAttribute('inputmode', 'numeric');
+    inp.maxLength = 14;
+    inp.placeholder = '000.000.000-00';
+    inp.style.cssText = 'width:100%;padding:14px 16px;border:2px solid #E0E0E0;border-radius:12px;font-size:16px;font-weight:600;text-align:center;letter-spacing:2px;box-sizing:border-box;outline:none;';
+    inp.addEventListener('input', function() { window._mascaraCPF(this); });
+
+    var erro = document.createElement('div');
+    erro.id = 'assin-cpf-erro';
+    erro.style.cssText = 'color:#E53935;font-size:12px;margin:6px 0 0;display:none;text-align:center;';
+
+    var btnOk = document.createElement('button');
+    btnOk.style.cssText = 'width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;';
+    btnOk.textContent = 'Confirmar e gerar PIX';
+    btnOk.addEventListener('click', function() { _confirmarCPFInline(); });
+
+    var btnCancel = document.createElement('button');
+    btnCancel.style.cssText = 'width:100%;padding:12px;background:transparent;color:#9E9E9E;border:none;font-size:14px;cursor:pointer;margin-top:8px;';
+    btnCancel.textContent = 'Cancelar';
+    btnCancel.addEventListener('click', function() { overlay.remove(); });
+
+    sheet.appendChild(handle);
+    sheet.appendChild(titulo);
+    sheet.appendChild(subtit);
+    sheet.appendChild(inp);
+    sheet.appendChild(erro);
+    sheet.appendChild(btnOk);
+    sheet.appendChild(btnCancel);
+    overlay.appendChild(sheet);
     document.body.appendChild(overlay);
-    // Botão cancelar via JS direto (evitar problema de aspas no onclick)
-    var cancelBtn = document.getElementById('assin-cpf-cancel');
-    if (cancelBtn) cancelBtn.onclick = function() { var m = document.getElementById('assin-cpf-modal'); if(m) m.remove(); };
-    setTimeout(function() { var inp = document.getElementById('assin-cpf-input'); if(inp) inp.focus(); }, 100);
+    setTimeout(function() { inp.focus(); }, 100);
   }
 
   async function _confirmarCPFInline() {
