@@ -7513,19 +7513,22 @@ app.get('/admin', (c) => {
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Raleway',sans-serif;background:#0D1B2A;color:#E0E7EF;min-height:100vh}
-    .sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:#0A1520;border-right:1px solid rgba(255,255,255,0.08);padding:24px 0;display:flex;flex-direction:column;z-index:100}
-    .sidebar-logo{padding:0 20px 20px;border-bottom:1px solid rgba(255,255,255,0.08)}
-    .sidebar-logo h1{font-size:22px;font-weight:900;color:#fff}.sidebar-logo h1 span{color:#FF6D00}
-    .sidebar-logo p{font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:2px}
-    .nav-section{padding:10px 20px 4px;font-size:9px;font-weight:800;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:1px}
-    .nav-item{display:flex;align-items:center;gap:10px;padding:11px 20px;color:rgba(255,255,255,0.5);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:#0A1520;border-right:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;z-index:100;overflow:hidden}
+    .sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0}
+    .sidebar-logo h1{font-size:20px;font-weight:900;color:#fff}.sidebar-logo h1 span{color:#FF6D00}
+    .sidebar-logo p{font-size:10px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:2px}
+    .sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 0}
+    .sidebar-nav::-webkit-scrollbar{width:3px}.sidebar-nav::-webkit-scrollbar-track{background:transparent}.sidebar-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+    .nav-section{padding:10px 16px 3px;font-size:9px;font-weight:800;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:1px;white-space:nowrap}
+    .nav-item{display:flex;align-items:center;gap:9px;padding:9px 16px;color:rgba(255,255,255,0.5);font-size:12.5px;font-weight:700;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent;white-space:nowrap;overflow:hidden}
     .nav-item:hover{color:#fff;background:rgba(255,255,255,0.06)}
     .nav-item.active{color:#FF6D00;background:rgba(255,109,0,0.10);border-left-color:#FF6D00}
-    .nav-item i{width:18px;text-align:center;font-size:14px}
-    .nav-item-sair{display:flex;align-items:center;gap:10px;padding:11px 20px;color:rgba(255,82,82,0.7);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent}
+    .nav-item i{width:16px;text-align:center;font-size:13px;flex-shrink:0}
+    .nav-item-sair{display:flex;align-items:center;gap:9px;padding:9px 16px;color:rgba(255,82,82,0.7);font-size:12.5px;font-weight:700;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent;white-space:nowrap}
     .nav-item-sair:hover{color:#FF5252;background:rgba(255,82,82,0.08);border-left-color:#FF5252}
-    .nav-item-sair i{width:18px;text-align:center;font-size:14px}
-    .main{margin-left:240px;padding:28px 32px;min-height:100vh}
+    .nav-item-sair i{width:16px;text-align:center;font-size:13px;flex-shrink:0}
+    .sidebar-footer{border-top:1px solid rgba(255,255,255,0.08);flex-shrink:0;padding-top:4px}
+    .main{margin-left:220px;padding:28px 32px;min-height:100vh}
     .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
     .page-header h2{font-size:22px;font-weight:900;color:#fff}
     .page-header .badge-live{background:rgba(0,200,83,0.15);color:#00C853;padding:5px 12px;border-radius:100px;font-size:11px;font-weight:800;display:flex;align-items:center;gap:5px}
@@ -7619,7 +7622,7 @@ app.get('/admin', (c) => {
     <h1>Rota<span>Posto</span></h1>
     <p>Painel Administrativo</p>
   </div>
-  <nav style="margin-top:8px;flex:1;overflow-y:auto">
+  <nav class="sidebar-nav">
     <div class="nav-section">Visão Geral</div>
     <div class="nav-item active" id="nav-dashboard" onclick="showSection('dashboard',this)"><i class="fas fa-tachometer-alt"></i>Dashboard</div>
     <div class="nav-section">App & Usuários</div>
@@ -7635,11 +7638,11 @@ app.get('/admin', (c) => {
     <div class="nav-item" id="nav-precos" onclick="showSection('precos',this)"><i class="fas fa-tag"></i>Preços Reportados</div>
     <div class="nav-item" id="nav-mapa" onclick="showSection('mapa',this)"><i class="fas fa-map"></i>Mapa ao Vivo</div>
   </nav>
-  <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:8px">
+  <div class="sidebar-footer">
     <div class="nav-item-sair" onclick="sairAdmin()"><i class="fas fa-sign-out-alt"></i>Sair</div>
-    <div style="padding:10px 20px">
-      <div style="font-size:11px;color:rgba(255,255,255,0.2);font-weight:600">RotaPosto v2.0</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.12);margin-top:2px" id="last-update">Atualizando...</div>
+    <div style="padding:8px 16px 12px">
+      <div style="font-size:10px;color:rgba(255,255,255,0.2);font-weight:600">RotaPosto v2.0</div>
+      <div style="font-size:9px;color:rgba(255,255,255,0.12);margin-top:2px" id="last-update">Atualizando...</div>
     </div>
   </div>
 </div>
