@@ -7590,6 +7590,172 @@ app.put('/api/admin/parceiros/:id', async (c) => {
   return c.json({ ok: true, parceiro: normalizarParceiro(atualizado, id, null) })
 })
 
+// ─── POST /api/admin/parceiros/:id/convite — gera token de convite para o posto ─
+app.post('/api/admin/parceiros/:id/convite', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+
+  const kv = getKV(c.env as any)
+  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  const id  = c.req.param('id')
+
+  const parceiro = await kvGetParceiro(kv, id, r2) as Record<string,unknown> | null
+  if (!parceiro) return c.json({ erro: 'Posto não encontrado' }, 404)
+
+  // Gerar token único: 32 chars hex
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map(b => b.toString(16).padStart(2,'0')).join('')
+
+  const convite = {
+    token,
+    parceiroId: id,
+    nomePosto:  parceiro.nomePosto || 'Posto Parceiro',
+    cidade:     parceiro.cidade || '',
+    estado:     parceiro.estado || '',
+    criadoEm:  new Date().toISOString(),
+    expiraEm:  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 dias
+    usado:     false,
+  }
+
+  // Salvar convite no KV com TTL de 30 dias
+  if (kv) await kv.put(`convite:${token}`, JSON.stringify(convite), { expirationTtl: 30 * 24 * 3600 })
+
+  // Atualizar parceiro com token de convite
+  const atualizado = { ...parceiro, conviteToken: token, conviteCriadoEm: convite.criadoEm }
+  await kvSetParceiro(kv, id, atualizado, undefined, r2)
+
+  const baseUrl = new URL(c.req.url).origin
+  return c.json({ ok: true, token, link: `${baseUrl}/convite/${token}` })
+})
+
+// ─── GET /convite/:token — página de boas-vindas do posto parceiro ─────────────
+app.get('/convite/:token', async (c) => {
+  const kv = getKV(c.env as any)
+  const token = c.req.param('token')
+
+  let convite: Record<string,unknown> | null = null
+  try {
+    const raw = kv ? await kv.get(`convite:${token}`) : null
+    if (raw) convite = JSON.parse(raw)
+  } catch {}
+
+  const nomePosto = convite ? String(convite.nomePosto || 'Posto Parceiro') : 'Posto Parceiro'
+  const cidade    = convite ? String(convite.cidade || '') : ''
+  const estado    = convite ? String(convite.estado || '') : ''
+  const valido    = !!convite
+  const localizacao = [cidade, estado].filter(Boolean).join(', ')
+
+  const playUrl  = 'https://play.google.com/store/apps/details?id=br.com.rotaposto'
+  const appleUrl = 'https://apps.apple.com/br/app/rotaposto/id0000000000'
+  const baseUrl  = new URL(c.req.url).origin
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(c.req.url)}&bgcolor=0D1B2A&color=FF6D00&qzone=2`
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RotaPosto — Convite para ${nomePosto}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Raleway',sans-serif;background:#0D1B2A;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:40px 36px;max-width:480px;width:100%;text-align:center;box-shadow:0 8px 48px rgba(0,0,0,0.5)}
+    .logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:32px}
+    .logo-icon{width:44px;height:44px;background:#FF6D00;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
+    .logo-text{font-size:22px;font-weight:900;color:#FF6D00}
+    .badge-convite{display:inline-flex;align-items:center;gap:6px;background:rgba(0,200,83,0.12);border:1px solid rgba(0,200,83,0.3);color:#00C853;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:20px}
+    h1{font-size:24px;font-weight:900;margin-bottom:6px;line-height:1.2}
+    .subtitle{font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:28px}
+    .posto-box{background:rgba(255,109,0,0.08);border:1.5px solid rgba(255,109,0,0.25);border-radius:14px;padding:18px 20px;margin-bottom:28px;text-align:left}
+    .posto-nome{font-size:18px;font-weight:900;color:#FF6D00;margin-bottom:4px}
+    .posto-loc{font-size:12px;color:rgba(255,255,255,0.45);display:flex;align-items:center;gap:6px}
+    .steps{text-align:left;margin-bottom:28px}
+    .step{display:flex;align-items:flex-start;gap:14px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+    .step:last-child{border-bottom:none}
+    .step-num{width:28px;height:28px;min-width:28px;background:#FF6D00;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;margin-top:1px}
+    .step-text{font-size:13px;color:rgba(255,255,255,0.75);line-height:1.5}
+    .step-text strong{color:#fff}
+    .btns{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+    .btn-play{background:#00C853;color:#000;border:none;padding:14px 24px;border-radius:14px;font-family:'Raleway',sans-serif;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;transition:.2s}
+    .btn-play:hover{background:#00E676;transform:translateY(-1px)}
+    .btn-apple{background:#fff;color:#000;border:none;padding:14px 24px;border-radius:14px;font-family:'Raleway',sans-serif;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;transition:.2s}
+    .btn-apple:hover{background:#f0f0f0;transform:translateY(-1px)}
+    .qr-section{border-top:1px solid rgba(255,255,255,0.06);padding-top:22px}
+    .qr-label{font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+    .qr-img{border-radius:12px;border:3px solid rgba(255,109,0,0.3);background:#0D1B2A}
+    .invalid-box{background:rgba(255,82,82,0.1);border:1.5px solid rgba(255,82,82,0.3);border-radius:14px;padding:24px;color:#FF5252;font-size:14px;margin-top:16px}
+    @media(max-width:400px){.card{padding:28px 20px}.btns{gap:10px}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">⛽</div>
+      <div class="logo-text">RotaPosto</div>
+    </div>
+
+    ${valido ? `
+    <div class="badge-convite"><i class="fas fa-star"></i> Convite Parceiro</div>
+    <h1>Olá, ${nomePosto}!</h1>
+    <p class="subtitle">Seu posto foi cadastrado no RotaPosto.<br/>Baixe o app e comece a receber clientes agora!</p>
+
+    <div class="posto-box">
+      <div class="posto-nome"><i class="fas fa-gas-pump" style="margin-right:8px;font-size:14px"></i>${nomePosto}</div>
+      ${localizacao ? `<div class="posto-loc"><i class="fas fa-map-marker-alt" style="color:#FF6D00"></i>${localizacao}</div>` : ''}
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text"><strong>Baixe o app RotaPosto</strong><br/>Disponível para Android e iPhone gratuitamente.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text"><strong>Faça login com o e-mail cadastrado</strong><br/>Use o e-mail que você informou ao se cadastrar.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text"><strong>Acesse o Painel do Posto</strong><br/>Veja seus cliques, atualize preços e gerencie cupons.</div>
+      </div>
+    </div>
+
+    <div class="btns">
+      <a href="${playUrl}" class="btn-play" target="_blank">
+        <i class="fab fa-google-play" style="font-size:20px"></i>
+        <div style="text-align:left"><div style="font-size:10px;font-weight:600;opacity:.8">Disponível no</div><div>Google Play</div></div>
+      </a>
+      <a href="${appleUrl}" class="btn-apple" target="_blank">
+        <i class="fab fa-apple" style="font-size:22px"></i>
+        <div style="text-align:left"><div style="font-size:10px;font-weight:600;opacity:.6">Baixar na</div><div>App Store</div></div>
+      </a>
+    </div>
+
+    <div class="qr-section">
+      <div class="qr-label"><i class="fas fa-qrcode"></i> Ou aponte a câmera para o QR Code</div>
+      <img class="qr-img" src="${qrApiUrl}" alt="QR Code" width="160" height="160"/>
+      <div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:10px">Este link expira em 30 dias</div>
+    </div>
+    ` : `
+    <div class="invalid-box">
+      <i class="fas fa-exclamation-circle" style="font-size:32px;display:block;margin-bottom:12px"></i>
+      <strong>Link inválido ou expirado</strong><br/>
+      <span style="font-size:12px;opacity:.7;margin-top:6px;display:block">Solicite um novo convite ao administrador do RotaPosto.</span>
+    </div>
+    `}
+
+    <div style="margin-top:20px;font-size:10px;color:rgba(255,255,255,0.2)">
+      RotaPosto &copy; ${new Date().getFullYear()} — Sua plataforma de postos parceiros
+    </div>
+  </div>
+</body>
+</html>`
+
+  return c.html(html)
+})
+
 // ─── GET /api/admin/anp-busca — busca postos na API ANP + preços por CNPJ ────
 // Usa a mesma função buscarPostosANP() do app (paginação automática + lookup CNPJ)
 app.get('/api/admin/anp-busca', async (c) => {
@@ -8476,9 +8642,21 @@ app.get('/admin', (c) => {
           </label>
         </div>
 
+        <!-- ── Área do convite gerado ── -->
+        <div id="ep-convite-area" style="display:none;background:rgba(0,200,83,0.07);border:1.5px solid rgba(0,200,83,0.25);border-radius:12px;padding:16px;margin-bottom:4px">
+          <div style="font-size:11px;font-weight:700;color:#00C853;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px"><i class="fas fa-link"></i> Link de Convite Gerado</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="ep-convite-link" readonly style="flex:1;background:#0A1520;border:1px solid rgba(0,200,83,0.3);border-radius:8px;padding:8px 12px;color:#69F0AE;font-size:11px;font-family:monospace;outline:none" value=""/>
+            <button onclick="copiarConvite()" style="background:rgba(0,200,83,0.15);color:#00C853;border:1px solid rgba(0,200,83,0.3);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap"><i class="fas fa-copy"></i> Copiar</button>
+            <button onclick="compartilharWhatsApp()" style="background:rgba(37,211,102,0.15);color:#25D366;border:1px solid rgba(37,211,102,0.3);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+          </div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:8px"><i class="fas fa-info-circle"></i> Envie este link para o dono do posto — ele abre a página de boas-vindas e baixa o app já vinculado.</div>
+        </div>
+
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button onclick="fecharModalParceiro()" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:13px">Cancelar</button>
           <button id="ep-deletar-btn" onclick="deletarParceiroModal()" style="background:rgba(255,82,82,0.15);color:#FF5252;border:1px solid rgba(255,82,82,0.3);padding:10px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700"><i class="fas fa-trash"></i> Remover</button>
+          <button id="ep-convite-btn" onclick="gerarConviteParceiro()" style="background:rgba(66,165,245,0.15);color:#42A5F5;border:1px solid rgba(66,165,245,0.3);padding:10px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700"><i class="fas fa-paper-plane"></i> Gerar Convite</button>
           <button onclick="salvarParceiroModal()" style="background:#FF6D00;color:white;border:none;padding:10px 24px;border-radius:10px;font-weight:900;font-size:13px;cursor:pointer"><i class="fas fa-save"></i> Salvar</button>
         </div>
       </div>
@@ -9427,6 +9605,8 @@ function abrirModalEditarParceiro(id) {
 
 function fecharModalParceiro() {
   document.getElementById('modal-parceiro-edit').style.display = 'none';
+  document.getElementById('ep-convite-area').style.display = 'none';
+  document.getElementById('ep-convite-link').value = '';
   _parceiroEditandoId = null;
 }
 
@@ -9478,6 +9658,45 @@ async function salvarParceiroModal() {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar'; }
   }
+}
+
+async function gerarConviteParceiro() {
+  if (!_parceiroEditandoId) { showToast('⚠️ Salve o posto antes de gerar o convite', ''); return; }
+  const btn = document.getElementById('ep-convite-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...'; }
+  try {
+    const res = await fetch('/api/admin/parceiros/' + encodeURIComponent(_parceiroEditandoId) + '/convite?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok || data.erro) throw new Error(data.erro || 'Erro ao gerar convite');
+    const area = document.getElementById('ep-convite-area');
+    document.getElementById('ep-convite-link').value = data.link;
+    area.style.display = 'block';
+    area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    showToast('✅ Convite gerado! Copie o link e envie ao posto.', 'ok');
+  } catch(e) {
+    showToast('❌ Erro: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Gerar Convite'; }
+  }
+}
+
+function copiarConvite() {
+  const link = document.getElementById('ep-convite-link').value;
+  if (!link) return;
+  navigator.clipboard.writeText(link).then(() => showToast('✅ Link copiado!', 'ok')).catch(() => {
+    document.getElementById('ep-convite-link').select();
+    document.execCommand('copy');
+    showToast('✅ Link copiado!', 'ok');
+  });
+}
+
+function compartilharWhatsApp() {
+  const link = document.getElementById('ep-convite-link').value;
+  if (!link) return;
+  const p = _parceiros.find(x => x.id === _parceiroEditandoId);
+  const nome = p ? p.nomePosto : 'seu posto';
+  const texto = 'Ola! ' + nome + ' foi cadastrado no RotaPosto. Acesse o link abaixo para confirmar seu cadastro e baixar o app: ' + link;
+  window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
 }
 
 async function deletarParceiroModal() {
