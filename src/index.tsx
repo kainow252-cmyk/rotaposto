@@ -7837,17 +7837,26 @@ app.get('/admin', (c) => {
     </div>
     <!-- Stats -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
-      <div class="kpi-card" style="padding:16px">
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:700;margin-bottom:6px">TOTAL DE USUÁRIOS</div>
-        <div style="font-size:26px;font-weight:900;color:#fff" id="au-total">–</div>
+      <div class="kpi-card" style="padding:20px;display:flex;align-items:center;gap:16px">
+        <div style="width:46px;height:46px;border-radius:13px;background:rgba(66,165,245,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">👥</div>
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Total de Usuários</div>
+          <div style="font-size:28px;font-weight:900;color:#fff;line-height:1" id="au-total">–</div>
+        </div>
       </div>
-      <div class="kpi-card" style="padding:16px">
-        <div style="font-size:11px;color:#FFD600;font-weight:700;margin-bottom:6px">👑 PREMIUM</div>
-        <div style="font-size:26px;font-weight:900;color:#FFD600" id="au-premium">–</div>
+      <div class="kpi-card" style="padding:20px;display:flex;align-items:center;gap:16px;border:1px solid rgba(255,214,0,0.2)">
+        <div style="width:46px;height:46px;border-radius:13px;background:rgba(255,214,0,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">👑</div>
+        <div>
+          <div style="font-size:10px;color:#FFD600;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Premium</div>
+          <div style="font-size:28px;font-weight:900;color:#FFD600;line-height:1" id="au-premium">–</div>
+        </div>
       </div>
-      <div class="kpi-card" style="padding:16px">
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:700;margin-bottom:6px">GRATUITO</div>
-        <div style="font-size:26px;font-weight:900;color:rgba(255,255,255,0.5)" id="au-gratuito">–</div>
+      <div class="kpi-card" style="padding:20px;display:flex;align-items:center;gap:16px">
+        <div style="width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🆓</div>
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Gratuito</div>
+          <div style="font-size:28px;font-weight:900;color:rgba(255,255,255,0.55);line-height:1" id="au-gratuito">–</div>
+        </div>
       </div>
     </div>
     <div class="section-card">
@@ -7959,21 +7968,33 @@ app.get('/admin', (c) => {
     </div>
     <!-- Stats de assinaturas -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
-      <div class="kpi-card" style="padding:16px">
-        <div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;margin-bottom:6px">TOTAL</div>
-        <div style="font-size:26px;font-weight:900;color:#fff" id="as-total">–</div>
+      <div class="kpi-card" style="padding:20px;display:flex;align-items:center;gap:14px">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">📋</div>
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Total</div>
+          <div style="font-size:28px;font-weight:900;color:#fff;line-height:1" id="as-total">–</div>
+        </div>
       </div>
-      <div class="kpi-card" style="padding:16px">
-        <div style="font-size:10px;color:#00C853;font-weight:700;margin-bottom:6px">✅ ATIVAS</div>
-        <div style="font-size:26px;font-weight:900;color:#00C853" id="as-ativas">–</div>
+      <div class="kpi-card" style="padding:20px;display:flex;align-items:center;gap:14px;border:1px solid rgba(0,200,83,0.2)">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(0,200,83,0.15);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">✅</div>
+        <div>
+          <div style="font-size:10px;color:#00C853;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Ativas</div>
+          <div style="font-size:28px;font-weight:900;color:#00C853;line-height:1" id="as-ativas">–</div>
+        </div>
       </div>
-      <div class="kpi-card" style="padding:16px">
-        <div style="font-size:10px;color:#FF5252;font-weight:700;margin-bottom:6px">❌ CANCELADAS</div>
-        <div style="font-size:26px;font-weight:900;color:#FF5252" id="as-canceladas">–</div>
+      <div class="kpi-card" style="padding:20px;display:flex;align-items:center;gap:14px;border:1px solid rgba(255,82,82,0.2)">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,82,82,0.15);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">❌</div>
+        <div>
+          <div style="font-size:10px;color:#FF5252;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Canceladas</div>
+          <div style="font-size:28px;font-weight:900;color:#FF5252;line-height:1" id="as-canceladas">–</div>
+        </div>
       </div>
-      <div class="kpi-card" style="padding:16px">
-        <div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;margin-bottom:6px">⏰ EXPIRADAS</div>
-        <div style="font-size:26px;font-weight:900;color:rgba(255,255,255,0.4)" id="as-expiradas">–</div>
+      <div class="kpi-card" style="padding:20px;display:flex;align-items:center;gap:14px">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">⏰</div>
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Expiradas</div>
+          <div style="font-size:28px;font-weight:900;color:rgba(255,255,255,0.4);line-height:1" id="as-expiradas">–</div>
+        </div>
       </div>
     </div>
     <div class="section-card">
