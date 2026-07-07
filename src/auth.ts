@@ -1,17 +1,19 @@
 // ═══════════════════════════════════════════════════════════════════════
 //  RotaPosto – Módulo de Autenticação Firebase
 //  Projeto: rotaposto-32e33 (projeto oficial RotaPosto)
-//  Login: Google Sign-In · Facebook Login (signInWithPopup)
-//  authDomain: rotaposto.com.br (customizado com proxy /__/auth/* → firebaseapp.com)
-//  NOTA: authDomain customizado exige /__/auth/handler no servidor.
-//  Implementado via proxy em index.tsx: /__/auth/* → rotaposto-32e33.firebaseapp.com
-//  Isso permite signInWithPopup funcionar em WebViews sem "missing initial state".
+//  Login: Google Sign-In · Facebook Login (signInWithPopup / signInWithRedirect)
+//  authDomain: rotaposto-32e33.firebaseapp.com (domínio padrão do Firebase)
+//  NOTA: authDomain customizado (rotaposto.com.br) foi revertido para o padrão do Firebase
+//  para corrigir "redirect_uri_mismatch" (Error 400) no login Google via TWA/Android.
+//  O domínio padrão rotaposto-32e33.firebaseapp.com tem redirect_uri pré-cadastrado
+//  no Google Cloud Console automaticamente pelo Firebase.
+//  O proxy /__/auth/* em index.tsx é mantido para compatibilidade (não prejudica).
 // ═══════════════════════════════════════════════════════════════════════
 
 // Config Firebase do projeto rotaposto-32e33
 export const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDrecb_jj0S1NG3cLNfb6F7fcP8vAwBCx8",
-  authDomain: "rotaposto.com.br",
+  authDomain: "rotaposto-32e33.firebaseapp.com",
   projectId: "rotaposto-32e33",
   storageBucket: "rotaposto-32e33.firebasestorage.app",
   messagingSenderId: "1078426960222",
@@ -26,9 +28,10 @@ export const GOOGLE_CLIENT_ID = "1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.
 export const GOOGLE_API_KEY = "AIzaSyBuPqI-hxHV33dqYbVC2G3LrM5uTCVol-8"
 
 // ─── HTML do Firebase Auth ────────────────────────────────────────────────────
-// authDomain = rotaposto.com.br com proxy /__/auth/* ativo no Cloudflare Worker
-// Domínio rotaposto.com.br deve estar em:
+// authDomain = rotaposto-32e33.firebaseapp.com (padrão Firebase)
+// rotaposto.com.br deve continuar em:
 // Firebase Console → rotaposto-32e33 → Authentication → Settings → Authorized domains
+// (necessário para signInWithRedirect funcionar via cross-origin postMessage)
 export function getFirebaseAuthScripts(): string {
   const configJson = JSON.stringify(FIREBASE_CONFIG)
   return `

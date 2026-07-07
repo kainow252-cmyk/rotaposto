@@ -127,9 +127,11 @@ app.get('/logo-rotaposto.png', async (c) => {
 })
 
 // ─── Proxy Firebase Auth Handler (/__/auth/*) ────────────────────────────────
-// Firebase signInWithPopup/signInWithRedirect requer que authDomain sirva /__/auth/handler
-// rotaposto.com.br não é Firebase Hosting, então fazemos proxy para rotaposto-32e33.firebaseapp.com
-// Isso permite usar authDomain: "rotaposto.com.br" e o Google aceita o popup/redirect
+// NOTA: authDomain agora é "rotaposto-32e33.firebaseapp.com" (padrão Firebase).
+// O proxy abaixo é mantido por compatibilidade — garante que qualquer requisição
+// a rotaposto.com.br/__/auth/* ainda funcione (ex: links antigos, bookmarks, etc).
+// Com authDomain padrão, o Firebase usa rotaposto-32e33.firebaseapp.com diretamente
+// para o handler OAuth, então este proxy não é mais crítico para o fluxo principal.
 app.use('/__/auth/*', async (c) => {
   const firebaseDomain = 'https://rotaposto-32e33.firebaseapp.com'
   const targetUrl = firebaseDomain + c.req.path + (c.req.url.includes('?') ? '?' + c.req.url.split('?')[1] : '')
@@ -5949,10 +5951,19 @@ function _configurarAuth() {
           }
         })
         .catch(function(err) {
-          // redirect_uri_mismatch ou outro erro OAuth → mostrar mensagem amigável
-          if (err && err.code === 'auth/redirect-cancelled-by-user') return;
-          if (err && err.message) {
-            console.warn('[Auth] getRedirectResult erro:', err.code, err.message);
+          if (!err) return;
+          // Cancelado pelo usuário → ignorar silenciosamente
+          if (err.code === 'auth/redirect-cancelled-by-user') return;
+          // Sem resultado de redirect (acesso direto, não pós-redirect) → normal
+          if (err.code === 'auth/no-auth-event') return;
+          console.warn('[Auth] getRedirectResult erro:', err.code, err.message);
+          // Mostrar erro OAuth ao usuário
+          if (err.code === 'auth/unauthorized-domain') {
+            mostrarToast('❌ Domínio não autorizado no Firebase. Contate o suporte.');
+          } else if (err.message && err.message.includes('redirect_uri_mismatch')) {
+            mostrarToast('❌ Configuração OAuth inválida. Por favor, tente o login por e-mail.');
+          } else if (err.code && err.code !== 'auth/null-user') {
+            mostrarToast('❌ Erro no login Google: ' + (err.code || err.message));
           }
         });
     }
@@ -6497,16 +6508,23 @@ async function submitAuth() {
 
 // Detecta ambiente TWA/WebView Android onde popup é bloqueado
 function _isTWAouWebView() {
-  // TWA: referrer contém android-app://
+  // TWA: referrer contém android-app:// (sinal mais confiável)
   if (document.referrer && document.referrer.includes('android-app://')) return true;
-  // Modo standalone (PWA instalada)
+  // Modo standalone: PWA instalada ou TWA (display: standalone no manifest)
   if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
-  // iOS standalone
+  // iOS standalone (Safari)
   if (window.navigator.standalone === true) return true;
-  // User agent indica WebView Android
+  // WebView Android com flag wv no UA
   var ua = navigator.userAgent || '';
   if (/wv/.test(ua) && /Android/.test(ua)) return true;
   return false;
+}
+
+// Detecta qualquer ambiente Android (TWA, Chrome, WebView, etc.)
+// Chrome TWA NÃO tem "wv" no UA — usa Chrome completo sem WebView flag
+function _isAndroid() {
+  var ua = navigator.userAgent || '';
+  return /Android/.test(ua);
 }
 
 async function loginGoogle() {
@@ -6521,11 +6539,17 @@ async function loginGoogle() {
     btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;margin:0 auto"></div>';
   }
 
-  // TWA/WebView: popup é bloqueado → usar signInWithRedirect
-  if (_isTWAouWebView()) {
+  // Android (TWA, Chrome, WebView) OU qualquer ambiente standalone:
+  // → SEMPRE usar signInWithRedirect para evitar redirect_uri_mismatch.
+  // No Chrome TWA, o UA não tem "wv" mas ainda é Android — detectamos por /Android/.
+  // Com authDomain = rotaposto-32e33.firebaseapp.com (padrão Firebase),
+  // o redirect_uri usado é https://rotaposto-32e33.firebaseapp.com/__/auth/handler
+  // que o Firebase cadastra automaticamente no Google OAuth Console.
+  if (_isAndroid() || _isTWAouWebView()) {
     try {
       await window._fbSignInWithRedirect(_firebaseAuth, window._fbGoogleProvider);
-      // página vai recarregar — getRedirectResult captura o resultado em _configurarAuth()
+      // A página vai recarregar após o Google OAuth.
+      // getRedirectResult() em _configurarAuth() captura o resultado.
     } catch (err) {
       _mostrarErroAuth(err);
       if (btn) {
@@ -6536,11 +6560,21 @@ async function loginGoogle() {
     return;
   }
 
-  // Browser normal: usar popup
+  // Desktop/iOS browser: usar popup (melhor UX sem sair da página)
   try {
     const result = await window._fbSignInWithPopup(_firebaseAuth, window._fbGoogleProvider);
   } catch (err) {
-    _mostrarErroAuth(err);
+    // Se popup foi bloqueado, tentar redirect como fallback
+    if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user')) {
+      try {
+        await window._fbSignInWithRedirect(_firebaseAuth, window._fbGoogleProvider);
+        return;
+      } catch (err2) {
+        _mostrarErroAuth(err2);
+      }
+    } else {
+      _mostrarErroAuth(err);
+    }
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = \`<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continuar com Google\`;
