@@ -3753,8 +3753,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // Carregar dados extras de perfil
     var perfilExtra = {};
     try { perfilExtra = JSON.parse(localStorage.getItem('rp_perfil_extra_' + u.uid) || '{}'); } catch {}
-    var tel    = perfilExtra['telefone'] || '';
-    var cep    = perfilExtra['cep']      || '';
+    var tel    = (perfilExtra['telefone'] || '').replace(/\D/g,'').slice(0,11);
+    var cep    = (perfilExtra['cep']      || '').replace(/\D/g,'').slice(0,8);
     var rua    = perfilExtra['rua']      || '';
     var cidade = perfilExtra['cidade']   || '';
     var estado = perfilExtra['estado']   || '';
@@ -3795,10 +3795,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<input id="mc-cpf" type="text" inputmode="numeric" value="" data-cpf-salvo="' + cpfRaw + '" placeholder="' + (cpfRaw.length===11 ? '●●●.●●●.●●●-●● (já salvo)' : 'Digite os 11 números') + '" maxlength="11" oninput="_mascaraCPF(this)" autocomplete="off" style="width:100%;padding:11px;' + cpfBorder + 'font-size:14px;box-sizing:border-box;margin-bottom:4px;font-family:inherit;letter-spacing:2px;">'
       + (destacarCPF ? '<div style="font-size:11px;color:#E65100;margin-bottom:10px;">👆 Preencha e clique em Salvar dados</div>' : '<div style="margin-bottom:8px;"></div>')
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📱 Celular / WhatsApp</label>'
-      + '<input id="mc-telefone" type="tel" value="' + tel + '" placeholder="(11) 99999-9999" maxlength="15" oninput="formatarTelefoneConta(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;">'
+      + '<input id="mc-telefone" type="text" inputmode="numeric" value="" data-tel-salvo="' + tel + '" placeholder="' + (tel.length>=10 ? '(' + tel.slice(0,2) + ') ' + tel.slice(2,7) + '-' + tel.slice(7) : 'Digite o celular com DDD') + '" maxlength="11" autocomplete="off" oninput="formatarTelefoneConta(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;">'
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📮 CEP</label>'
       + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
-      + '<input id="mc-cep" type="text" value="' + cep + '" placeholder="00000-000" maxlength="9" oninput="formatarCEPConta(this)" style="flex:1;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;font-family:inherit;">'
+      + '<input id="mc-cep" type="text" inputmode="numeric" value="" data-cep-salvo="' + cep + '" placeholder="' + (cep.length===8 ? cep.slice(0,5) + '-' + cep.slice(5) : '00000-000') + '" maxlength="8" autocomplete="off" oninput="formatarCEPConta(this)" style="flex:1;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;font-family:inherit;">'
       + '<button onclick="buscarCEPConta()" style="padding:11px 14px;background:#FF6D00;color:#fff;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">Buscar</button>'
       + '</div>'
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🏠 Rua / Endereço</label>'
@@ -3830,8 +3830,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var cpfEl  = document.getElementById('mc-cpf') || {};
     var cpfDigitado = (cpfEl.value || '').replace(/\D/g,'');
     var cpf    = cpfDigitado || (cpfEl.getAttribute ? (cpfEl.getAttribute('data-cpf-salvo') || '') : '');
-    var tel    = (document.getElementById('mc-telefone') || {}).value || '';
-    var cep    = (document.getElementById('mc-cep')      || {}).value || '';
+    var telEl  = document.getElementById('mc-telefone') || {};
+    var tel    = (telEl.value || '').replace(/\D/g,'') || (telEl.getAttribute ? (telEl.getAttribute('data-tel-salvo') || '') : '');
+    var cepEl2 = document.getElementById('mc-cep') || {};
+    var cep    = (cepEl2.value || '').replace(/\D/g,'') || (cepEl2.getAttribute ? (cepEl2.getAttribute('data-cep-salvo') || '') : '');
     var rua    = (document.getElementById('mc-rua')      || {}).value || '';
     var cidade = (document.getElementById('mc-cidade')   || {}).value || '';
     var estado = (document.getElementById('mc-estado')   || {}).value || '';
@@ -3864,18 +3866,15 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   function formatarTelefoneConta(input) {
-    var v = input.value.replace(/\D/g,'');
-    if (v.length > 11) v = v.slice(0,11);
-    if (v.length > 7)       input.value = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
-    else if (v.length > 2)  input.value = '(' + v.slice(0,2) + ') ' + v.slice(2);
-    else if (v.length > 0)  input.value = '(' + v;
+    var v = input.value.replace(/\D/g,'').slice(0,11);
+    input.value = v;
+    try { input.setSelectionRange(v.length, v.length); } catch(e) {}
   }
 
   function formatarCEPConta(input) {
-    var v = input.value.replace(/\D/g,'');
-    if (v.length > 8) v = v.slice(0,8);
-    if (v.length > 5) input.value = v.slice(0,5) + '-' + v.slice(5);
-    else input.value = v;
+    var v = input.value.replace(/\D/g,'').slice(0,8);
+    input.value = v;
+    try { input.setSelectionRange(v.length, v.length); } catch(e) {}
   }
 
   function buscarCEPConta() {
