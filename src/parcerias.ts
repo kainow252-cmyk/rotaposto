@@ -1734,9 +1734,9 @@ export function getPainelEmpresaHTML(): string {
           <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
             <div style="flex:1;min-width:200px">
               <label class="perf-label">CNPJ *</label>
-              <input id="perf-cnpj" class="login-input" type="text" style="margin-bottom:0;font-size:16px;font-weight:700;letter-spacing:1px" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" onblur="blurCNPJ(this);perfBuscarCnpj()" maxlength="14"/>
+              <input id="perf-cnpj" class="login-input" type="text" style="margin-bottom:0;font-size:16px;font-weight:700;letter-spacing:1px" placeholder="00.000.000/0001-00" oninput="mCNPJ(this);this.dataset.edited='1'" onblur="blurCNPJ(this);if(this.dataset.edited)perfBuscarCnpj()" maxlength="18"/>
             </div>
-            <button onclick="perfBuscarCnpj()" id="perf-btn-cnpj" style="padding:11px 20px;background:var(--laranja);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;margin-bottom:0">
+            <button onclick="blurCNPJ(document.getElementById('perf-cnpj'));perfBuscarCnpj()" id="perf-btn-cnpj" style="padding:11px 20px;background:var(--laranja);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;margin-bottom:0">
               <i class="fas fa-search"></i> Buscar CNPJ
             </button>
           </div>
@@ -2565,7 +2565,9 @@ async function carregarPerfil() {
   document.getElementById('perf-tel').value     = _sessao?.tel || '';
   document.getElementById('perf-horario').value = _sessao?.horario || '';
   document.getElementById('perf-email').value   = _sessao?.email || '';
-  document.getElementById('perf-cnpj').value    = _sessao?.cnpj || '';
+  const cnpjInp = document.getElementById('perf-cnpj');
+  cnpjInp.value = _fmtCnpj(_sessao?.cnpj || '');
+  if (cnpjInp.dataset) cnpjInp.dataset.edited = ''; // não auto-buscar no blur
   // Endereço
   const end = _sessao?.endereco || {};
   document.getElementById('perf-cep').value    = end.cep    || '';
@@ -2597,7 +2599,9 @@ async function carregarPerfil() {
     document.getElementById('perf-tel').value     = p.tel     || '';
     document.getElementById('perf-horario').value = p.horario || '';
     document.getElementById('perf-email').value   = p.email   || '';
-    document.getElementById('perf-cnpj').value    = p.cnpj    || '';
+    const ci = document.getElementById('perf-cnpj');
+    ci.value = _fmtCnpj(p.cnpj || '');
+    if (ci.dataset) ci.dataset.edited = ''; // não auto-buscar no blur
     const pe = p.endereco || {};
     document.getElementById('perf-cep').value    = pe.cep    || '';
     document.getElementById('perf-rua').value    = pe.rua    || '';
@@ -2609,11 +2613,12 @@ async function carregarPerfil() {
     if (p.lat) { document.getElementById('perf-lat').value = p.lat; document.getElementById('perf-lng').value = p.lng; _perfAtualizarMapa(p.lat, p.lng, [pe.rua, pe.numero, pe.cidade].filter(Boolean).join(', ')); }
     if (p.servicos) { _servicosSel = new Set(p.servicos); renderServicos(); }
     // Mostrar badge se já tem endereço preenchido
+    // Limpar qualquer status de erro do CNPJ
+    const cnpjSt = document.getElementById('perf-cnpj-status');
+    if (cnpjSt) { cnpjSt.textContent = p.cnpj ? '✓ CNPJ carregado do perfil salvo.' : ''; cnpjSt.style.color='#777'; }
     if (pe.cidade || pe.rua) {
       const badge = document.getElementById('perf-end-badge');
       if (badge) badge.style.display = 'inline-flex';
-      const cnpjSt = document.getElementById('perf-cnpj-status');
-      if (cnpjSt && !cnpjSt.textContent) { cnpjSt.textContent = '✓ Dados carregados do perfil salvo. Edite e salve se necessário.'; cnpjSt.style.color='#555'; }
     }
   } catch {}
 }
@@ -2641,11 +2646,15 @@ function mCEP(inp)  { inp.value = inp.value.replace(/\D/g,'').slice(0,8); }
 
 // ── Busca CNPJ via BrasilAPI ────────────────────────────
 async function perfBuscarCnpj() {
-  const raw = (document.getElementById('perf-cnpj').value||'').replace(/\D/g,'');
+  const inp = document.getElementById('perf-cnpj');
+  const raw = (inp.value||'').replace(/\D/g,'');
   const status = document.getElementById('perf-cnpj-status');
   const btn    = document.getElementById('perf-btn-cnpj');
+  // Limpa flag de edição
+  if (inp.dataset) inp.dataset.edited = '';
   if (raw.length !== 14) {
-    if (raw.length > 0) { status.textContent = '⚠️ CNPJ deve ter 14 dígitos.'; status.style.color='#d32f2f'; }
+    // Só mostra erro se o usuário digitou algo incompleto (não ao carregar)
+    if (raw.length > 0 && raw.length < 14) { status.textContent = '⚠️ CNPJ incompleto (' + raw.length + '/14 dígitos).'; status.style.color='#d32f2f'; }
     return;
   }
   status.textContent = '🔍 Consultando Receita Federal...'; status.style.color='var(--sub)';
