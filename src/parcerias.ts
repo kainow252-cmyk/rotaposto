@@ -1720,12 +1720,28 @@ export function getPainelEmpresaHTML(): string {
       <!-- ── PERFIL DO POSTO ── -->
       <div id="page-perfil" style="display:none">
 
-        <!-- ── Dados básicos ── -->
+        <!-- ── PASSO 1: CNPJ com busca automática ── -->
         <div class="config-section">
+          <div class="config-titulo">🔍 Identificação do Posto</div>
+          <p style="font-size:13px;color:var(--sub);margin:0 0 14px">Digite o CNPJ para buscar automaticamente os dados do posto na Receita Federal.</p>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+              <label class="perf-label">CNPJ *</label>
+              <input id="perf-cnpj" class="login-input" type="text" style="margin-bottom:0;font-size:16px;font-weight:700;letter-spacing:1px" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" onblur="perfBuscarCnpj()" maxlength="18"/>
+            </div>
+            <button onclick="perfBuscarCnpj()" id="perf-btn-cnpj" style="padding:11px 20px;background:var(--laranja);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;margin-bottom:0">
+              <i class="fas fa-search"></i> Buscar CNPJ
+            </button>
+          </div>
+          <div id="perf-cnpj-status" style="margin-top:8px;font-size:12px;color:var(--sub);min-height:18px"></div>
+        </div>
+
+        <!-- ── PASSO 2: Dados do Posto (preenchidos automaticamente) ── -->
+        <div class="config-section" style="margin-top:14px">
           <div class="config-titulo">🏪 Dados do Posto</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
             <div>
-              <label class="perf-label">Nome do posto *</label>
+              <label class="perf-label">Nome / Razão Social *</label>
               <input id="perf-nome" class="login-input" type="text" style="margin-bottom:0" placeholder="Ex: Posto Modelo"/>
             </div>
             <div>
@@ -1735,33 +1751,32 @@ export function getPainelEmpresaHTML(): string {
               </select>
             </div>
             <div>
-              <label class="perf-label">CNPJ</label>
-              <input id="perf-cnpj" class="login-input" type="text" style="margin-bottom:0" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" maxlength="18"/>
-            </div>
-            <div>
               <label class="perf-label">WhatsApp / Telefone</label>
               <input id="perf-tel" class="login-input" type="tel" style="margin-bottom:0" placeholder="(27) 99999-9999"/>
-            </div>
-            <div>
-              <label class="perf-label">Horário de funcionamento</label>
-              <input id="perf-horario" class="login-input" type="text" style="margin-bottom:0" placeholder="24h / 06h às 22h"/>
             </div>
             <div>
               <label class="perf-label">E-mail de contato</label>
               <input id="perf-email" class="login-input" type="email" style="margin-bottom:0" placeholder="contato@meupostoexemplo.com.br"/>
             </div>
+            <div style="grid-column:1/-1">
+              <label class="perf-label">Horário de funcionamento</label>
+              <input id="perf-horario" class="login-input" type="text" style="margin-bottom:0" placeholder="Ex: 24h  /  06h às 22h"/>
+            </div>
           </div>
         </div>
 
-        <!-- ── Endereço ── -->
-        <div class="config-section" style="margin-top:16px">
-          <div class="config-titulo">📍 Endereço e Localização</div>
-          <div style="display:grid;grid-template-columns:160px 1fr 80px;gap:12px;margin-bottom:12px">
+        <!-- ── PASSO 3: Endereço (preenchido pelo CNPJ) ── -->
+        <div class="config-section" style="margin-top:14px">
+          <div class="config-titulo" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <span>📍 Endereço e Localização</span>
+            <span id="perf-end-badge" style="display:none;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:#e8f5e9;color:#2e7d32">
+              <i class="fas fa-check-circle"></i> Preenchido via CNPJ
+            </span>
+          </div>
+          <div style="display:grid;grid-template-columns:160px 1fr 90px;gap:12px;margin-bottom:12px">
             <div>
               <label class="perf-label">CEP *</label>
-              <div style="display:flex;gap:6px">
-                <input id="perf-cep" class="login-input" type="text" style="margin-bottom:0" placeholder="29000-000" maxlength="9" oninput="mCEP(this)" onblur="perfBuscarCep()"/>
-              </div>
+              <input id="perf-cep" class="login-input" type="text" style="margin-bottom:0" placeholder="29000-000" maxlength="9" oninput="mCEP(this)" onblur="perfBuscarCep()"/>
             </div>
             <div>
               <label class="perf-label">Rua / Logradouro *</label>
@@ -1790,9 +1805,9 @@ export function getPainelEmpresaHTML(): string {
           <!-- Botão geocodificar + status -->
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
             <button onclick="perfGeocodificar()" style="padding:9px 18px;background:#1565C0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
-              <i class="fas fa-map-marker-alt"></i> Localizar no mapa
+              <i class="fas fa-map-marker-alt"></i> Confirmar no mapa
             </button>
-            <span id="perf-geo-status" style="font-size:12px;color:var(--sub)">Preencha o endereço e clique em Localizar.</span>
+            <span id="perf-geo-status" style="font-size:12px;color:var(--sub)">Preencha o endereço e clique em Confirmar no mapa.</span>
           </div>
 
           <!-- Campos lat/lng ocultos -->
@@ -1810,7 +1825,7 @@ export function getPainelEmpresaHTML(): string {
         </div>
 
         <!-- ── Serviços ── -->
-        <div class="config-section" style="margin-top:16px">
+        <div class="config-section" style="margin-top:14px">
           <div class="config-titulo">🔧 Serviços Disponíveis</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px" id="servicos-list">
             <!-- preenchido por JS -->
@@ -2586,13 +2601,96 @@ async function carregarPerfil() {
     if (p.bandeira) { const se = document.getElementById('perf-bandeira'); for (let o of se.options) { if (o.value === p.bandeira || o.text === p.bandeira) { o.selected = true; break; } } }
     if (p.lat) { document.getElementById('perf-lat').value = p.lat; document.getElementById('perf-lng').value = p.lng; _perfAtualizarMapa(p.lat, p.lng, [pe.rua, pe.numero, pe.cidade].filter(Boolean).join(', ')); }
     if (p.servicos) { _servicosSel = new Set(p.servicos); renderServicos(); }
+    // Mostrar badge se já tem endereço preenchido
+    if (pe.cidade || pe.rua) {
+      const badge = document.getElementById('perf-end-badge');
+      if (badge) badge.style.display = 'inline-flex';
+      const cnpjSt = document.getElementById('perf-cnpj-status');
+      if (cnpjSt && !cnpjSt.textContent) { cnpjSt.textContent = '✓ Dados carregados do perfil salvo. Edite e salve se necessário.'; cnpjSt.style.color='#555'; }
+    }
   } catch {}
+}
+
+function mCNPJ(inp) {
+  let v = inp.value.replace(/\D/g,'').slice(0,14);
+  if (v.length > 12) v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
+  else if (v.length > 8) v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
+  else if (v.length > 5) v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
+  else if (v.length > 2) v = v.slice(0,2)+'.'+v.slice(2);
+  inp.value = v;
 }
 
 function mCEP(inp) {
   let v = inp.value.replace(/\D/g,'');
   if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5,8);
   inp.value = v;
+}
+
+// ── Busca CNPJ via BrasilAPI ────────────────────────────
+async function perfBuscarCnpj() {
+  const raw = (document.getElementById('perf-cnpj').value||'').replace(/\D/g,'');
+  const status = document.getElementById('perf-cnpj-status');
+  const btn    = document.getElementById('perf-btn-cnpj');
+  if (raw.length !== 14) {
+    if (raw.length > 0) { status.textContent = '⚠️ CNPJ deve ter 14 dígitos.'; status.style.color='#d32f2f'; }
+    return;
+  }
+  status.textContent = '🔍 Consultando Receita Federal...'; status.style.color='var(--sub)';
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
+  try {
+    // BrasilAPI — sem CORS para requisição do browser
+    const r = await fetch('https://brasilapi.com.br/api/cnpj/v1/' + raw);
+    if (!r.ok) throw new Error('CNPJ não encontrado');
+    const d = await r.json();
+
+    // ── Preencher nome / razão social ──
+    const nomeFantasia = (d.nome_fantasia||'').trim();
+    const razaoSocial  = (d.razao_social||'').trim();
+    const nomeUsado    = nomeFantasia || razaoSocial;
+    if (nomeUsado) document.getElementById('perf-nome').value = nomeUsado;
+
+    // ── Preencher endereço ──
+    const logradouro = [(d.descricao_tipo_logradouro||''), (d.logradouro||'')].filter(Boolean).join(' ').trim();
+    if (logradouro) document.getElementById('perf-rua').value    = logradouro;
+    if (d.numero)   document.getElementById('perf-num').value    = d.numero;
+    if (d.bairro)   document.getElementById('perf-bairro').value = d.bairro;
+    if (d.municipio) document.getElementById('perf-cidade').value = d.municipio;
+    if (d.uf)       document.getElementById('perf-estado').value = d.uf;
+    if (d.cep) {
+      let cepFmt = d.cep.replace(/\D/g,'');
+      if (cepFmt.length === 8) cepFmt = cepFmt.slice(0,5) + '-' + cepFmt.slice(5);
+      document.getElementById('perf-cep').value = cepFmt;
+    }
+    // ── Preencher telefone se vazio ──
+    const telAtual = (document.getElementById('perf-tel').value||'').trim();
+    if (!telAtual && d.ddd_telefone_1) {
+      document.getElementById('perf-tel').value = d.ddd_telefone_1.trim();
+    }
+    // ── Preencher email se vazio ──
+    const emailAtual = (document.getElementById('perf-email').value||'').trim();
+    if (!emailAtual && d.email) {
+      document.getElementById('perf-email').value = d.email.toLowerCase();
+    }
+
+    // ── Mostrar badge ──
+    const badge = document.getElementById('perf-end-badge');
+    if (badge) badge.style.display = 'inline-flex';
+
+    // ── Geocodificar automaticamente ──
+    const cidade = document.getElementById('perf-cidade').value.trim();
+    const uf     = document.getElementById('perf-estado').value.trim();
+    if (logradouro && cidade) {
+      perfGeocodificar();
+    }
+
+    status.textContent = '✅ ' + razaoSocial + (nomeFantasia ? ' (' + nomeFantasia + ')' : '') + ' — dados preenchidos automaticamente!';
+    status.style.color = 'var(--verde)';
+  } catch(e) {
+    status.textContent = '❌ ' + (e.message || 'CNPJ não encontrado. Preencha os dados manualmente.');
+    status.style.color = '#d32f2f';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> Buscar CNPJ';
+  }
 }
 
 async function perfBuscarCep() {
