@@ -10255,6 +10255,22 @@ async function carregarPlanosGrid() {
   }
 }
 
+// ─── Benefícios fixos disponíveis para planos de postos parceiros ────────────
+const BENEFICIOS_POSTO = [
+  { id: 'perfil_basico',       label: 'Perfil básico no app',                   icon: 'fas fa-store' },
+  { id: 'exibir_precos',       label: 'Exibir preços no mapa',                  icon: 'fas fa-tag' },
+  { id: 'selo_verificado',     label: 'Selo Verificado ✅',                      icon: 'fas fa-badge-check' },
+  { id: 'pin_dourado',         label: 'Pin Dourado no mapa 📍',                 icon: 'fas fa-map-pin' },
+  { id: 'topo_lista',          label: 'Topo da lista de resultados',             icon: 'fas fa-arrow-up' },
+  { id: 'cupons_ativos',       label: 'Gerar cupons de desconto 🎟️',           icon: 'fas fa-ticket-alt' },
+  { id: 'notificacoes',        label: 'Notificações aos usuários próximos',      icon: 'fas fa-bell' },
+  { id: 'relatorio_cliques',   label: 'Relatório de cliques e visitas',          icon: 'fas fa-chart-bar' },
+  { id: 'destaque_busca',      label: 'Destaque na busca por cidade',            icon: 'fas fa-search-plus' },
+  { id: 'suporte_prioritario', label: 'Suporte prioritário',                    icon: 'fas fa-headset' },
+  { id: 'api_precos',          label: 'Atualização automática de preços via API', icon: 'fas fa-sync' },
+  { id: 'multiplos_usuarios',  label: 'Múltiplos usuários por posto',           icon: 'fas fa-users' },
+];
+
 function renderizarPlanosGrid() {
   const grid = document.getElementById('planos-grid');
   if (!grid) return;
@@ -10263,10 +10279,10 @@ function renderizarPlanosGrid() {
     return;
   }
   grid.innerHTML = _planosData.map(p => {
-    const valorFmt = p.valor === 0 ? 'Grátis' : 'R$ ' + (p.valor / 100).toFixed(2).replace('.', ',');
-    const cicloFmt = CICLO_LABEL[p.ciclo] || p.ciclo;
-    const corRgb   = p.cor || '#FF6D00';
-    const statusBg = p.ativo ? 'rgba(0,200,83,0.15)' : 'rgba(255,82,82,0.12)';
+    const valorFmt  = p.valor === 0 ? 'Grátis' : 'R$ ' + (p.valor / 100).toFixed(2).replace('.', ',');
+    const cicloFmt  = CICLO_LABEL[p.ciclo] || p.ciclo;
+    const corRgb    = p.cor || '#FF6D00';
+    const statusBg  = p.ativo ? 'rgba(0,200,83,0.15)' : 'rgba(255,82,82,0.12)';
     const statusCor = p.ativo ? '#00C853' : '#FF5252';
     const statusTxt = p.ativo ? 'ATIVO' : 'INATIVO';
 
@@ -10275,46 +10291,49 @@ function renderizarPlanosGrid() {
       ? '<div style="position:absolute;top:12px;right:12px;background:' + corRgb + ';color:white;border-radius:100px;padding:3px 10px;font-size:10px;font-weight:900">MAIS POPULAR</div>'
       : '';
 
-    // Período / dias de teste
+    // Badge de período/ciclo
     let periodoTag = '';
-    if (p.ciclo === 'trial' && p.diasTeste > 0) {
-      periodoTag = '<div style="display:inline-block;background:rgba(255,214,0,0.15);color:#FFD600;border:1px solid rgba(255,214,0,0.3);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800;margin-bottom:8px">⏱️ ' + p.diasTeste + ' dias de teste grátis</div>';
+    if (p.ciclo === 'trial') {
+      const dias = p.diasTeste > 0 ? p.diasTeste + ' dias' : 'Período';
+      periodoTag = '<div style="display:inline-block;background:rgba(255,214,0,0.15);color:#FFD600;border:1px solid rgba(255,214,0,0.3);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800;margin-bottom:8px">⏱️ Teste grátis: ' + dias + '</div>';
     } else if (p.ciclo === 'forever') {
       periodoTag = '<div style="display:inline-block;background:rgba(0,200,83,0.12);color:#00C853;border:1px solid rgba(0,200,83,0.25);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800;margin-bottom:8px">♾️ Para sempre</div>';
     } else if (p.ciclo === 'monthly' || p.ciclo === 'yearly') {
       periodoTag = '<div style="display:inline-block;background:rgba(66,165,245,0.1);color:#42A5F5;border:1px solid rgba(66,165,245,0.2);border-radius:100px;padding:2px 10px;font-size:10px;font-weight:800;margin-bottom:8px">💳 ' + cicloFmt + '</div>';
     }
 
-    // Benefícios fixos (max 6, com ícone)
-    const beneficiosPlano = p.beneficios || [];
-    const BMAP = typeof BENEFICIOS_POSTO !== 'undefined' ? BENEFICIOS_POSTO : [];
-    const beneficiosList = BMAP.filter(b => beneficiosPlano.includes(b.id)).slice(0, 6).map(b =>
-      '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.65)">'
-      + '<i class="' + b.icon + '" style="color:' + corRgb + ';font-size:10px;width:12px;flex-shrink:0"></i>'
+    // Benefícios fixos — mostra até 5 com ícone colorido
+    const beneficiosPlano = Array.isArray(p.beneficios) ? p.beneficios : [];
+    const beneficiosAtivos = BENEFICIOS_POSTO.filter(b => beneficiosPlano.includes(b.id));
+    const beneficiosList = beneficiosAtivos.slice(0, 5).map(b =>
+      '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.7)">'
+      + '<i class="' + b.icon + '" style="color:' + corRgb + ';font-size:10px;width:13px;text-align:center;flex-shrink:0"></i>'
       + '<span>' + b.label + '</span>'
       + '</div>'
     ).join('');
-    const maisTagB = beneficiosPlano.length > 6
-      ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px">+' + (beneficiosPlano.length - 6) + ' benefício(s)...</div>'
+    const maisTagB = beneficiosAtivos.length > 5
+      ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;padding-left:19px">+' + (beneficiosAtivos.length - 5) + ' benefício(s) incluído(s)</div>'
       : '';
 
-    // Features customizadas (legado) — só mostra se não tiver benefícios
+    // Features legado — só exibe se não houver benefícios novos
     const features = p.features || [];
-    const featuresOk  = features.filter(f => f.incluido).length;
-    const featuresList = beneficiosPlano.length === 0
+    const featuresOk = features.filter(f => f.incluido).length;
+    const featuresList = beneficiosAtivos.length === 0
       ? features.slice(0, 4).map(f =>
           '<div style="font-size:11px;color:' + (f.incluido ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)') + '">'
-          + (f.incluido ? '✅' : '❌') + ' ' + f.texto + '</div>'
+          + (f.incluido ? '✅' : '❌') + ' ' + f.texto
+          + '</div>'
         ).join('')
       : '';
-    const maisTagF = beneficiosPlano.length === 0 && features.length > 4
-      ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px">+' + (features.length - 4) + ' mais...</div>'
+    const maisTagF = beneficiosAtivos.length === 0 && features.length > 4
+      ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px">+' + (features.length - 4) + ' mais...</div>'
       : '';
 
-    const totalBeneficios = beneficiosPlano.length;
-    const resumoBeneficios = totalBeneficios > 0
-      ? totalBeneficios + ' benefício' + (totalBeneficios !== 1 ? 's' : '') + ' incluído' + (totalBeneficios !== 1 ? 's' : '')
-      : featuresOk + '/' + features.length + ' recursos incluídos';
+    // Rodapé — resumo de benefícios
+    const totalB = beneficiosAtivos.length;
+    const resumo = totalB > 0
+      ? totalB + ' benefício' + (totalB !== 1 ? 's' : '') + ' incluído' + (totalB !== 1 ? 's' : '')
+      : featuresOk + '/' + features.length + ' recursos';
 
     return '<div class="kpi-card" style="padding:22px;border:1.5px solid ' + corRgb + '33;position:relative;overflow:hidden">'
       + destaqueTag
@@ -10328,32 +10347,17 @@ function renderizarPlanosGrid() {
       + '</div>'
       + periodoTag
       + '<div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:10px">' + (p.descricao || '') + '</div>'
-      + '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px;min-height:66px">'
-      +   beneficiosList + maisTagB + featuresList + maisTagF
+      + '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px;min-height:60px">'
+      +   (beneficiosList || featuresList || '<div style="font-size:11px;color:rgba(255,255,255,0.2);font-style:italic">Nenhum benefício definido</div>')
+      +   maisTagB + maisTagF
       + '</div>'
       + '<div style="display:flex;gap:6px;align-items:center;padding-top:12px;border-top:1px solid rgba(255,255,255,0.07)">'
-      +   '<span style="flex:1;font-size:10px;color:rgba(255,255,255,0.3)">' + resumoBeneficios + '</span>'
+      +   '<span style="flex:1;font-size:10px;color:rgba(255,255,255,0.3)">' + resumo + '</span>'
       +   '<button data-planoid="' + p.id + '" onclick="abrirModalEditarPlano(this.dataset.planoid)" style="background:rgba(255,109,0,0.12);color:var(--laranja);border:1px solid rgba(255,109,0,0.25);border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer"><i class="fas fa-pen"></i> Editar</button>'
       + '</div>'
       + '</div>';
   }).join('');
 }
-
-// ─── Benefícios fixos disponíveis para planos de postos parceiros ────────────
-const BENEFICIOS_POSTO = [
-  { id: 'perfil_basico',       label: 'Perfil básico no app',          icon: 'fas fa-store' },
-  { id: 'exibir_precos',       label: 'Exibir preços no mapa',         icon: 'fas fa-tag' },
-  { id: 'selo_verificado',     label: 'Selo Verificado ✅',             icon: 'fas fa-badge-check' },
-  { id: 'pin_dourado',         label: 'Pin Dourado no mapa 📍',        icon: 'fas fa-map-pin' },
-  { id: 'topo_lista',          label: 'Topo da lista de resultados',    icon: 'fas fa-arrow-up' },
-  { id: 'cupons_ativos',       label: 'Gerar cupons de desconto 🎟️',  icon: 'fas fa-ticket-alt' },
-  { id: 'notificacoes',        label: 'Notificações aos usuários próximos', icon: 'fas fa-bell' },
-  { id: 'relatorio_cliques',   label: 'Relatório de cliques e visitas', icon: 'fas fa-chart-bar' },
-  { id: 'destaque_busca',      label: 'Destaque na busca por cidade',   icon: 'fas fa-search-plus' },
-  { id: 'suporte_prioritario', label: 'Suporte prioritário',           icon: 'fas fa-headset' },
-  { id: 'api_precos',          label: 'Atualização automática de preços via API', icon: 'fas fa-sync' },
-  { id: 'multiplos_usuarios',  label: 'Múltiplos usuários por posto',  icon: 'fas fa-users' },
-];
 
 function renderizarBeneficiosModal(selecionados = []) {
   const grid = document.getElementById('mp-beneficios-grid');
