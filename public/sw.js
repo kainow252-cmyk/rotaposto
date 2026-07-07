@@ -1,26 +1,37 @@
-// RotaPosto — Service Worker PWA v2.0
-// IMPORTANTE: Nunca cachear páginas HTML dinâmicas (/, /app, /onboarding)
-// Apenas cachear assets estáticos (icons, static files, manifest)
-const CACHE_NAME = 'rotaposto-v2';
+// RotaPosto — Service Worker PWA v3.0
+// REGRA: O SW NUNCA intercepta páginas HTML — apenas assets estáticos (/icons/, /static/)
+// Motivo: páginas são geradas server-side no Cloudflare Worker; cacheá-las quebra navegação
+const CACHE_NAME = 'rotaposto-v3';
 const STATIC_ASSETS = [
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/icon-512x512-maskable.png'
 ];
 
+// Extensões que indicam asset estático (não HTML)
+const STATIC_EXTS = ['.png','.jpg','.jpeg','.gif','.svg','.ico',
+                     '.woff','.woff2','.ttf','.otf',
+                     '.css','.js','.webp','.avif'];
+
+function isStaticAsset(pathname) {
+  return STATIC_EXTS.some(ext => pathname.endsWith(ext)) ||
+         pathname.startsWith('/icons/') ||
+         pathname.startsWith('/static/');
+}
+
 // Install: pré-cachear apenas ícones estáticos
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return Promise.allSettled(
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(
         STATIC_ASSETS.map(url => cache.add(url).catch(() => {}))
-      );
-    })
+      )
+    )
   );
-  self.skipWaiting(); // Ativar imediatamente
+  self.skipWaiting();
 });
 
-// Activate: limpar TODOS os caches antigos (rotaposto-v1, etc.)
+// Activate: limpar caches antigos
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -34,46 +45,42 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch: network-first para TUDO
-// Páginas HTML (/, /app, /onboarding) NUNCA são cacheadas
+// Fetch: interceptar APENAS assets estáticos conhecidos
+// TUDO que é página HTML passa direto sem interceptação
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Ignorar requisições de API e recursos externos
-  if (
-    url.pathname.startsWith('/api/') ||
-    url.hostname !== self.location.hostname
-  ) {
-    return; // deixar passar direto (sem interceptar)
+  // 1. Recursos de outros domínios: nunca interceptar
+  if (url.hostname !== self.location.hostname) {
+    return;
   }
 
-  // Páginas HTML dinâmicas: NUNCA cachear, sempre network
-  const isDynamicPage = (
-    url.pathname === '/' ||
-    url.pathname === '/app' ||
-    url.pathname === '/onboarding' ||
-    url.pathname === '/landing' ||
-    url.pathname === '/manifest.json'
-  );
-  if (isDynamicPage) {
-    return; // deixar o browser buscar direto da rede
+  // 2. API: nunca interceptar
+  if (url.pathname.startsWith('/api/')) {
+    return;
   }
 
-  // Outros assets estáticos: network-first com fallback para cache
+  // 3. Só cachear se for asset estático real (ícones, imagens, fontes, css, js)
+  //    Qualquer coisa que pareça página HTML (sem extensão conhecida): NÃO interceptar
+  if (!isStaticAsset(url.pathname)) {
+    // Página HTML — deixa o browser ir direto à rede, sem SW
+    return;
+  }
+
+  // 4. Asset estático: cache-first (ícones, imagens) — falha silenciosa
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        if (
-          event.request.method === 'GET' &&
-          response.ok &&
-          (url.pathname.startsWith('/icons/') ||
-           url.pathname.startsWith('/static/'))
-        ) {
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(response => {
+        if (response && response.ok && event.request.method === 'GET') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      })
-      .catch(() => caches.match(event.request))
+      }).catch(() => {
+        // Asset não disponível e não está em cache — retornar resposta vazia mas válida
+        return new Response('', { status: 408, statusText: 'Offline' });
+      });
+    })
   );
 });

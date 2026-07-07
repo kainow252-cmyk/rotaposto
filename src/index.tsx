@@ -54,7 +54,7 @@ import {
   getMunicipiosDisponiveis,
   ANP_SEMANA,
 } from './brasil'
-import { getParceriasLandingHTML, getPainelEmpresaHTML, getValidadorHTML } from './parcerias'
+import { getParceriasLandingHTML, getPainelEmpresaHTML, getPainelLoginHTML, getValidadorHTML } from './parcerias'
 
 // Alias de compatibilidade — mantido para endpoints legados
 const getEstatisticasNacionais = getEstatisticasNacionaisANP
@@ -2560,21 +2560,34 @@ app.get('/manifest.json', (c) => {
 //  Service Worker — servido pelo Worker (evita cache Pages)
 // ══════════════════════════════════════════════════════
 app.get('/sw.js', (c) => {
-  const swCode = `// RotaPosto — Service Worker PWA v2.0
-// IMPORTANTE: Nunca cachear páginas HTML dinâmicas (/, /app, /onboarding)
-const CACHE_NAME = 'rotaposto-v2';
+  const swCode = `// RotaPosto — Service Worker PWA v3.0
+// REGRA: O SW NUNCA intercepta páginas HTML — apenas assets estáticos (/icons/, /static/)
+// Motivo: páginas são server-side no Cloudflare Worker; interceptá-las causa crash no TWA
+const CACHE_NAME = 'rotaposto-v3';
 const STATIC_ASSETS = [
   '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/icons/icon-512x512.png',
+  '/icons/icon-512x512-maskable.png'
 ];
+
+// Só assets com extensão estática conhecida
+const STATIC_EXTS = ['.png','.jpg','.jpeg','.gif','.svg','.ico',
+                     '.woff','.woff2','.ttf','.otf',
+                     '.css','.js','.webp','.avif'];
+
+function isStaticAsset(pathname) {
+  return STATIC_EXTS.some(ext => pathname.endsWith(ext)) ||
+         pathname.startsWith('/icons/') ||
+         pathname.startsWith('/static/');
+}
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return Promise.allSettled(
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(
         STATIC_ASSETS.map(url => cache.add(url).catch(() => {}))
-      );
-    })
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -2589,26 +2602,31 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Fetch: interceptar APENAS assets estáticos — NUNCA páginas HTML
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api/') || url.hostname !== self.location.hostname) {
-    return;
-  }
-  const isDynamicPage = ['/', '/app', '/onboarding', '/landing', '/manifest.json'].includes(url.pathname);
-  if (isDynamicPage) {
-    return;
-  }
+
+  // Outro domínio → ignorar
+  if (url.hostname !== self.location.hostname) return;
+
+  // API → ignorar
+  if (url.pathname.startsWith('/api/')) return;
+
+  // Qualquer URL sem extensão estática = página HTML → NUNCA interceptar
+  if (!isStaticAsset(url.pathname)) return;
+
+  // Asset estático: cache-first
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        if (event.request.method === 'GET' && response.ok &&
-            (url.pathname.startsWith('/icons/') || url.pathname.startsWith('/static/'))) {
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(response => {
+        if (response && response.ok && event.request.method === 'GET') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      })
-      .catch(() => caches.match(event.request))
+      }).catch(() => new Response('', { status: 408, statusText: 'Offline' }));
+    })
   );
 });`
 
@@ -2628,6 +2646,7 @@ self.addEventListener('fetch', event => {
 //  B2B Parcerias com Postos
 // ══════════════════════════════════════════════════════
 app.get('/parcerias', (c) => c.html(getParceriasLandingHTML()))
+app.get('/parcerias/login', (c) => c.html(getPainelLoginHTML()))
 app.get('/parcerias/empresa', (c) => c.html(getPainelEmpresaHTML()))
 app.get('/parcerias/validar', (c) => c.html(getValidadorHTML()))
 

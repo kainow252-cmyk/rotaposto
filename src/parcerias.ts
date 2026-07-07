@@ -1078,20 +1078,9 @@ export function getPainelEmpresaHTML(): string {
 
     .page-content { padding:28px; flex:1; }
 
-    /* ── LOGIN ── */
-    .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:linear-gradient(135deg,#FF6D00,#BF360C); position:relative; }
-    .login-card { background:#fff; border-radius:20px; padding:40px 36px; width:100%; max-width:400px; }
-    .login-logo { text-align:center; margin-bottom:28px; }
-    .login-logo-icon { width:52px; height:52px; background:var(--laranja); border-radius:14px; display:inline-flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:8px; }
-    .login-logo h2 { font-size:20px; font-weight:900; }
-    .login-logo p { font-size:13px; color:var(--sub); margin-top:4px; }
+    /* ── INPUT REUTILIZÁVEL (perfil, promoções, etc.) ── */
     .login-input { width:100%; padding:13px 14px; border:1.5px solid var(--border); border-radius:12px; font-size:15px; margin-bottom:14px; font-family:'Inter',sans-serif; transition:border-color .2s; }
     .login-input:focus { outline:none; border-color:var(--laranja); }
-    .btn-login { width:100%; padding:15px; background:var(--laranja); color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; transition:background .2s; }
-    .btn-login:hover { background:var(--laranja-esc); }
-    .login-link { text-align:center; margin-top:16px; font-size:13px; color:var(--sub); }
-    .login-link a { color:var(--laranja); font-weight:700; }
-    .login-erro { background:#FFEBEE; color:#C62828; border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:12px; display:none; }
 
     /* ── CARDS KPI ── */
     .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
@@ -1307,28 +1296,11 @@ export function getPainelEmpresaHTML(): string {
 </head>
 <body>
 
-<!-- ═══ TELA DE LOGIN ═══ -->
-<div id="tela-login" class="login-wrap">
-  <button onclick="location.href='/parcerias'" style="position:absolute;top:20px;left:20px;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.4);color:#fff;padding:8px 16px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Inter',sans-serif;backdrop-filter:blur(8px);transition:all .18s" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'"><i class="fas fa-arrow-left"></i> Voltar</button>
-  <div class="login-card">
-    <div class="login-logo">
-      <div class="login-logo-icon">⛽</div>
-      <h2>RotaPosto Empresas</h2>
-      <p>Painel do Gerente de Posto</p>
-    </div>
-    <div class="login-erro" id="login-erro"></div>
-    <input id="login-email" class="login-input" type="email" placeholder="E-mail do cadastro" autocomplete="email"/>
-    <input id="login-senha" class="login-input" type="password" placeholder="Senha" autocomplete="current-password"
-      onkeydown="if(event.key==='Enter')fazerLogin()"/>
-    <button class="btn-login" onclick="fazerLogin()">
-      <i class="fas fa-sign-in-alt"></i> Entrar no painel
-    </button>
-    <div class="login-link">
-      Novo no RotaPosto Empresas? <a href="#" onclick="event.preventDefault();irParaCadastroExterno()">Cadastrar meu posto →</a>
-    </div>
-    <div class="login-link" style="margin-top:8px">
-      <a href="#" onclick="abrirRecuperarSenha()">Esqueci minha senha</a>
-    </div>
+<!-- Tela de carregamento: some após verificar sessão (redireciona p/ /parcerias/login se não autenticado) -->
+<div id="tela-carregando" style="position:fixed;inset:0;background:#F5F5F5;display:flex;align-items:center;justify-content:center;z-index:9999">
+  <div style="text-align:center">
+    <div style="font-size:40px;margin-bottom:12px">⛽</div>
+    <div style="font-size:14px;color:#616161;font-weight:600">Carregando painel...</div>
   </div>
 </div>
 
@@ -1712,53 +1684,34 @@ window.addEventListener('load', () => {
     try {
       _sessao = JSON.parse(sessaoSalva);
       mostrarPainel();
-    } catch { mostrarLogin(); }
-  } else { mostrarLogin(); }
+    } catch {
+      localStorage.removeItem('rp_empresa_sessao');
+      // Sessão corrompida → redirecionar para login
+      window.location.replace('/parcerias/login');
+    }
+  } else {
+    // Não autenticado → redirecionar para a página de login dedicada
+    window.location.replace('/parcerias/login');
+  }
 });
 
 function mostrarLogin() {
-  document.getElementById('tela-login').style.display = 'flex';
-  document.getElementById('tela-painel').style.display = 'none';
+  // Redirecionar para a rota de login dedicada (não mais uma tela embutida)
+  window.location.replace('/parcerias/login');
 }
 function mostrarPainel() {
-  document.getElementById('tela-login').style.display = 'none';
+  document.getElementById('tela-carregando').style.display = 'none';
   document.getElementById('tela-painel').style.display = 'block';
   document.getElementById('sb-posto-nome').textContent = _sessao?.postoNome || 'Meu Posto';
   document.getElementById('sb-posto-plano').textContent = '⭐ Plano ' + (_sessao?.plano || 'Premium');
   irPara('dashboard');
 }
 
-// ── Login / Logout ─────────────────────────────────────
-async function fazerLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const senha = document.getElementById('login-senha').value;
-  const erro  = document.getElementById('login-erro');
-  erro.style.display = 'none';
-  if (!email || !senha) { erro.textContent='Preencha e-mail e senha.'; erro.style.display='block'; return; }
-  const btn = document.querySelector('.btn-login');
-  btn.disabled = true; btn.textContent = 'Entrando...';
-  try {
-    const r = await fetch('/api/parceiros/login', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ email, senha })
-    });
-    const d = await r.json();
-    if (d.sucesso) {
-      _sessao = d.sessao;
-      localStorage.setItem('rp_empresa_sessao', JSON.stringify(_sessao));
-      mostrarPainel();
-    } else {
-      erro.textContent = d.mensagem || 'E-mail ou senha incorretos.';
-      erro.style.display = 'block';
-    }
-  } catch { erro.textContent='Erro de conexão. Tente novamente.'; erro.style.display='block'; }
-  btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar no painel';
-}
-
+// ── Logout ─────────────────────────────────────────────
 function fazerLogout() {
   localStorage.removeItem('rp_empresa_sessao');
   _sessao = null;
-  mostrarLogin();
+  window.location.replace('/parcerias/login');
 }
 
 function abrirRecuperarSenha() { alert('Em breve. Entre em contato pelo WhatsApp do RotaPosto.'); }
@@ -2388,4 +2341,214 @@ export function getValidadorHTML(): string {
 </script>
 </body>
 </html>`
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// /parcerias/login  — Página EXCLUSIVA de login (rota separada, sem painel)
+// O usuário chega aqui, faz login, e é redirecionado para /parcerias/empresa
+// ══════════════════════════════════════════════════════════════════════════════
+export function getPainelLoginHTML(): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Login — RotaPosto Empresas</title>
+  <link rel="icon" href="/favicon.ico"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;overflow:hidden}
+    body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#FF6D00 0%,#BF360C 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+
+    /* ── LOGO TOPO ── */
+    .login-logo-area{text-align:center;margin-bottom:28px}
+    .login-logo-icon{
+      width:60px;height:60px;background:#fff;border-radius:16px;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-size:28px;margin-bottom:10px;
+      box-shadow:0 8px 24px rgba(0,0,0,.2)
+    }
+    .login-logo-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.5px}
+    .login-logo-sub{font-size:13px;color:rgba(255,255,255,.75);margin-top:3px}
+
+    /* ── CARD ── */
+    .login-card{
+      background:#fff;border-radius:20px;
+      padding:32px 28px;width:100%;max-width:380px;
+      box-shadow:0 20px 60px rgba(0,0,0,.25)
+    }
+    .card-title{font-size:18px;font-weight:800;color:#1A1A1A;margin-bottom:4px}
+    .card-sub{font-size:13px;color:#616161;margin-bottom:24px}
+
+    /* ── INPUTS ── */
+    .fg{margin-bottom:16px}
+    .fl{display:block;font-size:11px;font-weight:700;color:#616161;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+    .fi{
+      width:100%;padding:13px 14px;
+      border:1.5px solid #E0E0E0;border-radius:12px;
+      font-size:15px;font-family:'Inter',sans-serif;
+      color:#1A1A1A;outline:none;
+      transition:border-color .2s;background:#fff
+    }
+    .fi:focus{border-color:#FF6D00}
+    .fi::placeholder{color:#BDBDBD}
+
+    /* ── BOTÃO ── */
+    .btn-login{
+      width:100%;padding:15px;
+      background:#FF6D00;color:#fff;
+      border:none;border-radius:12px;
+      font-size:16px;font-weight:700;
+      cursor:pointer;font-family:'Inter',sans-serif;
+      transition:background .2s;display:flex;
+      align-items:center;justify-content:center;gap:8px
+    }
+    .btn-login:hover{background:#E65100}
+    .btn-login:disabled{opacity:.7;cursor:not-allowed}
+
+    /* ── ERRO ── */
+    .login-erro{
+      background:#FFEBEE;color:#C62828;
+      border-radius:10px;padding:10px 14px;
+      font-size:13px;margin-bottom:16px;
+      display:none;font-weight:600
+    }
+
+    /* ── LINKS ── */
+    .login-links{margin-top:20px;display:flex;flex-direction:column;gap:10px;text-align:center}
+    .login-links a{font-size:13px;color:#FF6D00;font-weight:600;text-decoration:none}
+    .login-links a:hover{text-decoration:underline}
+    .sep{font-size:12px;color:#BDBDBD}
+
+    /* ── VOLTAR ── */
+    .btn-voltar{
+      position:fixed;top:16px;left:16px;
+      display:flex;align-items:center;gap:7px;
+      background:rgba(255,255,255,.18);
+      border:1.5px solid rgba(255,255,255,.4);
+      color:#fff;padding:8px 16px;border-radius:9px;
+      cursor:pointer;font-size:13px;font-weight:700;
+      font-family:'Inter',sans-serif;
+      backdrop-filter:blur(8px);transition:all .18s;
+      text-decoration:none
+    }
+    .btn-voltar:hover{background:rgba(255,255,255,.28)}
+
+    @media(max-width:420px){
+      .login-card{padding:24px 20px;border-radius:16px}
+      .login-logo-icon{width:52px;height:52px;font-size:24px}
+      .login-logo-title{font-size:20px}
+      body{padding:12px;align-items:flex-start;padding-top:70px;overflow-y:auto;overflow-x:hidden}
+    }
+  </style>
+</head>
+<body>
+
+<a class="btn-voltar" href="/parcerias"><i class="fas fa-arrow-left"></i> Voltar</a>
+
+<div class="login-logo-area">
+  <div class="login-logo-icon">⛽</div>
+  <div class="login-logo-title">RotaPosto <span style="color:rgba(255,255,255,.8)">Empresas</span></div>
+  <div class="login-logo-sub">Painel do Gerente de Posto</div>
+</div>
+
+<div class="login-card">
+  <div class="card-title">Entrar no painel</div>
+  <div class="card-sub">Acesse com seu e-mail e senha cadastrados.</div>
+
+  <div class="login-erro" id="login-erro"></div>
+
+  <div class="fg">
+    <label class="fl" for="login-email">E-mail</label>
+    <input id="login-email" class="fi" type="email"
+      placeholder="seu@email.com" autocomplete="email"/>
+  </div>
+  <div class="fg">
+    <label class="fl" for="login-senha">Senha</label>
+    <input id="login-senha" class="fi" type="password"
+      placeholder="••••••••" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')fazerLogin()"/>
+  </div>
+
+  <button class="btn-login" id="btn-login" onclick="fazerLogin()">
+    <i class="fas fa-sign-in-alt"></i> Entrar no painel
+  </button>
+
+  <div class="login-links">
+    <a href="#" onclick="event.preventDefault();esqueceuSenha()">Esqueci minha senha</a>
+    <span class="sep">─────────────────</span>
+    <a href="/parcerias#cadastro">Ainda não tem conta? Cadastrar meu posto →</a>
+  </div>
+</div>
+
+<script>
+// Redirecionar direto ao painel se já está logado
+window.addEventListener('load', () => {
+  try {
+    const s = localStorage.getItem('rp_empresa_sessao');
+    if (s) {
+      const sessao = JSON.parse(s);
+      if (sessao && sessao.token) {
+        window.location.replace('/parcerias/empresa');
+        return;
+      }
+    }
+  } catch(e) {}
+  // Focar no campo de e-mail
+  setTimeout(() => {
+    const el = document.getElementById('login-email');
+    if (el) el.focus();
+  }, 100);
+});
+
+async function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const erro  = document.getElementById('login-erro');
+  const btn   = document.getElementById('btn-login');
+  erro.style.display = 'none';
+
+  if (!email || !senha) {
+    erro.textContent = 'Preencha e-mail e senha.';
+    erro.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
+
+  try {
+    const r = await fetch('/api/parceiros/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, senha })
+    });
+    const d = await r.json();
+    if (d.sucesso) {
+      localStorage.setItem('rp_empresa_sessao', JSON.stringify(d.sessao));
+      // Redirecionar para o painel após login bem-sucedido
+      window.location.replace('/parcerias/empresa');
+    } else {
+      erro.textContent = d.mensagem || 'E-mail ou senha incorretos.';
+      erro.style.display = 'block';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar no painel';
+    }
+  } catch(e) {
+    erro.textContent = 'Erro de conexão. Verifique sua internet.';
+    erro.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar no painel';
+  }
+}
+
+function esqueceuSenha() {
+  alert('Em breve. Entre em contato pelo WhatsApp do RotaPosto.');
+}
+</script>
+</body>
+</html>`;
 }
