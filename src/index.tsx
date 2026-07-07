@@ -8494,7 +8494,7 @@ app.get('/admin', (c) => {
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px">
           <div style="flex:1;min-width:130px">
             <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Estado (UF) *</div>
-            <select id="anp-uf" style="background:#0A1520;border:1.5px solid rgba(66,165,245,0.3);border-radius:10px;padding:9px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:700;outline:none;width:100%;cursor:pointer">
+            <select id="anp-uf" onchange="anpPopularMunicipios(this.value)" style="background:#0A1520;border:1.5px solid rgba(66,165,245,0.3);border-radius:10px;padding:9px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:700;outline:none;width:100%;cursor:pointer">
               <option value="">Selecione a UF...</option>
               <option value="AC">AC - Acre</option><option value="AL">AL - Alagoas</option>
               <option value="AM">AM - Amazonas</option><option value="AP">AP - Amapá</option>
@@ -8514,7 +8514,9 @@ app.get('/admin', (c) => {
           </div>
           <div style="flex:2;min-width:180px">
             <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Município *</div>
-            <input id="anp-municipio" type="text" placeholder="Ex: Vitória, São Paulo, Brasília..." style="background:#0A1520;border:1.5px solid rgba(66,165,245,0.3);border-radius:10px;padding:9px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:700;outline:none;width:100%;box-sizing:border-box"/>
+            <select id="anp-municipio" style="background:#0A1520;border:1.5px solid rgba(66,165,245,0.3);border-radius:10px;padding:9px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:700;outline:none;width:100%;cursor:pointer">
+              <option value="">Selecione o estado primeiro...</option>
+            </select>
           </div>
           <div style="flex:2;min-width:160px">
             <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Buscar por Nome / CNPJ</div>
@@ -9499,10 +9501,54 @@ async function deletarParceiro(id, nome) {
 // ─── Busca ANP ───────────────────────────────────────────────────────────────
 let _anpResultados = [];
 
+// Mapa completo UF → municípios (382 cidades da base ANP com preços)
+const ANP_MUNICIPIOS_POR_UF = {
+  AC: ['CRUZEIRO DO SUL','RIO BRANCO'],
+  AL: ['ARAPIRACA','DELMIRO GOUVEIA','MACEIO','PALMEIRA DOS INDIOS','RIO LARGO'],
+  AM: ['MANACAPURU','MANAUS','PARINTINS'],
+  AP: ['MACAPA','SANTANA'],
+  BA: ['ALAGOINHAS','BARREIRAS','BRUMADO','EUNAPOLIS','FEIRA DE SANTANA','GUANAMBI','ILHEUS','IPIRA','IRECE','ITABUNA','ITAMARAJU','JACOBINA','JAGUAQUARA','JEQUIE','JUAZEIRO','LIVRAMENTO DE NOSSA SENHORA','PAULO AFONSO','POCOES','PORTO SEGURO','SANTO ANTONIO DE JESUS','SENHOR DO BONFIM','SERRINHA','TEIXEIRA DE FREITAS','VALENCA','VITORIA DA CONQUISTA'],
+  CE: ['CANINDE','CAUCAIA','CRATEUS','FORTALEZA','ICO','IGUATU','ITAPIPOCA','JUAZEIRO DO NORTE','LIMOEIRO DO NORTE','QUIXADA','SOBRAL'],
+  DF: ['BRASILIA'],
+  ES: ['ARACRUZ','CACHOEIRO DE ITAPEMIRIM','CARIACICA','COLATINA','GUARAPARI','SAO MATEUS','SERRA','VILA VELHA','VITORIA'],
+  GO: ['AGUAS LINDAS DE GOIAS','ANAPOLIS','APARECIDA DE GOIANIA','CALDAS NOVAS','CATALAO','CIDADE OCIDENTAL','COCALZINHO DE GOIAS','FORMOSA','GOIANIA','GOIANESIA','GOIATUBA','ITUMBIARA','JATAI','LUZIANIA','URUACU'],
+  MA: ['ACAILANDIA','BACABAL','BALSAS','CAXIAS','CODÓ','IMPERATRIZ','SAO LUIS','TIMON','VIANA','ZANTANA'],
+  MG: ['ALFENAS','ARAGUARI','ARAXA','BARBACENA','BETIM','BOCAIUVA','BOM DESPACHO','CAMPO BELO','CARATINGA','CONSELHEIRO LAFAIETE','CONTAGEM','CORONEL FABRICIANO','CURVELO','DIAMANTINA','DIVINOPOLIS','FORMIGA','FRUTAL','GOVERNADOR VALADARES','IBIRACI','IPATINGA','ITABIRA','ITAJUBA','ITUIUTABA','ITURAMA','JOAO MONLEVADE','JUIZ DE FORA','LAVRAS','MANHUACU','MONTES CLAROS','MURIAE','NOVA SERRANA','NOVA LIMA','OURO PRETO','PARÁ DE MINAS','PASSOS','PATOS DE MINAS','PATROCINIO','PIRAPORA','POCOS DE CALDAS','POUSO ALEGRE','SALINAS','SANTA BARBARA','SAO JOAO DEL REI','SAO SEBASTIAO DO PARAISO','SETE LAGOAS','TEOFILO OTONI','TRES CORACOES','UBERLANDIA','UNAÍ','VARGINHA'],
+  MS: ['CAMPO GRANDE','CORUMBA','DOURADOS','TRES LAGOAS'],
+  MT: ['ALTA FLORESTA','CACERES','CUIABA','LUCAS DO RIO VERDE','RONDONOPOLIS','SINOP','VARZEA GRANDE'],
+  PA: ['ABAETETUBA','ALENQUER','ALTAMIRA','BELEM','BRAGANCA','CASTANHAL','ITAITUBA','MARABA','PARAGOMINAS','SANTAREM','TUCURUI'],
+  PB: ['BAYEUX','CABEDELO','CAMPINA GRANDE','JOAO PESSOA','PATOS','SOUSA'],
+  PE: ['ARARIPINA','ARCOVERDE','BELO JARDIM','CABO DE SANTO AGOSTINHO','CARUARU','FLORESTA','GARANHUNS','IGARASSU','JABOATAO DOS GUARARAPES','OLINDA','OURICURI','PETROLINA','RECIFE','SAO LOURENCO DA MATA','SERRA TALHADA','SURUBIM'],
+  PI: ['PARNAIBA','PICOS','PIRIPIRI','TERESINA'],
+  PR: ['APUCARANA','ARAPONGAS','ARAUCARIA','CAMPO LARGO','CAMPO MOURAO','CASCAVEL','CLEVELANDIA','CORNELIO PROCOPIO','CURITIBA','FAXINAL','FOZ DO IGUACU','FRANCISCO BELTRAO','GUARAPUAVA','LONDRINA','MARINGA','MEDIANEIRA','PALMAS','PARANAVAI','PATO BRANCO','PINHAIS','PONTA GROSSA','SAO JOSE DOS PINHAIS','SARANDI','TELEMACO BORBA','UMUARAMA','UNIAO DA VITORIA'],
+  RJ: ['ANGRA DOS REIS','ARARUAMA','BARRA DO PIRAI','BARRA MANSA','BELFORD ROXO','CABO FRIO','CAMPOS DOS GOYTACAZES','DUQUE DE CAXIAS','ITABORAI','ITAGUAI','MACAE','MAGE','NILOPOLIS','NITEROI','NOVA FRIBURGO','NOVA IGUACU','PEROPOLIS','PETROPOLIS','QUEIMADOS','RIO DE JANEIRO','SAO GONCALO','SAO JOAO DE MERITI','TERESOPOLIS','VOLTA REDONDA'],
+  RN: ['CAICO','MOSSORO','NATAL','PARNAMIRIM'],
+  RO: ['CACOAL','JI-PARANA','PIMENTA BUENO','PORTO VELHO','VILHENA'],
+  RR: ['BOA VISTA'],
+  RS: ['ALEGRETE','ALVORADA','BAGE','BENTO GONCALVES','CACHOEIRINHA','CAMAQUA','CANOAS','CAXIAS DO SUL','CRUZ ALTA','ERECHIM','EREXIM','FARROUPILHA','GUAIBA','GRAVATAI','HORIZONTINA','IJUI','LAJEADO','NOVO HAMBURGO','OSORIO','PASSO FUNDO','PELOTAS','PORTO ALEGRE','RIO GRANDE','SANTA CRUZ DO SUL','SANTA MARIA','SANTA ROSA','SAO BORJA','SAO LEOPOLDO','SAO LUIZ GONZAGA','TRAMANDAI','URUGUAIANA','VACARIA','VENANCIO AIRES','VIAMAO'],
+  SC: ['ARARANGUA','BLUMENAU','BRUSQUE','CACADOR','CAMBORIU','CHAPECO','CRICIUMA','FLORIANOPOLIS','ITAJAI','JARAGUA DO SUL','JOINVILLE','LAGES','PALHOCA','RIO DO SUL','SAO JOSE','TUBARAO'],
+  SE: ['ARACAJU','ITABAIANA','LAGARTO','TOBIAS BARRETO'],
+  SP: ['ADAMANTINA','AMERICANA','ARACATUBA','ARACOIABA DA SERRA','ARARAQUARA','ARARAS','ASSIS','AVARE','BARRETOS','BARUERI','BAURU','BIRIGUI','BOTUCATU','CAMPINAS','CATANDUVA','DRACENA','FRANCA','GUARUJA','GUARULHOS','INDAIATUBA','ITAPETININGA','ITAPEVA','JANDIRA','JAU','JUNDIAI','LIMEIRA','LINS','MARILIA','MAUA','MOGI DAS CRUZES','MOGI GUACU','OSASCO','OURINHOS','PIRACICABA','PRESIDENTE PRUDENTE','RIBEIRAO PRETO','SANTO ANDRE','SANTOS','SAO BERNARDO DO CAMPO','SAO CARLOS','SAO JOSE DO RIO PRETO','SAO JOSE DOS CAMPOS','SAO PAULO','SERTAOZINHO','SOROCABA','SUMARE','SUZANO','TATUI','TAUBATÉ','VOTUPORANGA','VOTORANTIM','VINHEDO','AMERICANA'],
+  TO: ['ARAGUAINA','GURUPI','PALMAS','PORTO NACIONAL']
+};
+
+function anpPopularMunicipios(uf) {
+  const sel = document.getElementById('anp-municipio');
+  const muns = ANP_MUNICIPIOS_POR_UF[uf] || [];
+  if (!uf || !muns.length) {
+    sel.innerHTML = '<option value="">Selecione o estado primeiro...</option>';
+    return;
+  }
+  // Capitalizar para exibição: "VITORIA" → "Vitoria"
+  const cap = s => s.split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+  sel.innerHTML = '<option value="">Selecione o município...</option>'
+    + muns.sort().map(m => \`<option value="\${m}">\${cap(m)}</option>\`).join('');
+}
+
 async function buscarPostosANPAdmin() {
   const uf        = document.getElementById('anp-uf').value.trim();
   const municipio = document.getElementById('anp-municipio').value.trim();
-  if (!uf || !municipio) { showToast('⚠️ Selecione o estado e informe o municipio', ''); return; }
+  if (!uf || !municipio) { showToast('⚠️ Selecione o estado e o municipio', ''); return; }
 
   const loading = document.getElementById('anp-loading');
   const wrap    = document.getElementById('anp-tabela-wrap');
