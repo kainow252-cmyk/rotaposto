@@ -7590,6 +7590,71 @@ app.put('/api/admin/parceiros/:id', async (c) => {
   return c.json({ ok: true, parceiro: normalizarParceiro(atualizado, id, null) })
 })
 
+// ─── GET /api/admin/anp-busca — busca postos na API ANP + preços por CNPJ ────
+app.get('/api/admin/anp-busca', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+
+  const uf        = (c.req.query('uf')        || '').toUpperCase().trim()
+  const municipio = (c.req.query('municipio') || '').trim()
+  if (!uf || !municipio) return c.json({ erro: 'UF e municipio obrigatorios' }, 400)
+
+  const kv = getKV(c.env as any)
+
+  try {
+    // Buscar postos na API ANP
+    const url = `https://revendedoresapi.anp.gov.br/v1/combustivel?uf=${encodeURIComponent(uf)}&municipio=${encodeURIComponent(municipio)}&numeropagina=1`
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'RotaPosto-Admin/1.0' },
+      signal: AbortSignal.timeout(15000)
+    })
+    if (!res.ok) return c.json({ erro: `ANP retornou HTTP ${res.status}` }, 502)
+
+    const json = await res.json() as any
+    if (!json.succeeded || !Array.isArray(json.data)) {
+      return c.json({ erro: 'Resposta inesperada da ANP', postos: [] })
+    }
+
+    const { getPrecosPorCNPJ: _getPrecos, expandirPrecos: _expandir, ANP_SEMANA_POSTOS: _semana } =
+      await import('./precos_anp_posto')
+
+    const postos = json.data.map((p: any) => {
+      const cnpj       = String(p.cnpj || '').replace(/\D/g, '').padStart(14, '0')
+      const bundled    = _getPrecos(cnpj)
+      const precosBundle = bundled ? (_expandir(bundled) as Record<string, number>) : null
+
+      return {
+        codigoSIMP: String(p.codigoSIMP || ''),
+        cnpj,
+        cnpjFmt: p.cnpj || '',
+        nome: p.razaoSocial || 'Posto sem nome',
+        bandeira: p.distribuidora || 'BANDEIRA BRANCA',
+        endereco: [p.endereco, p.numero].filter(Boolean).join(', '),
+        bairro: p.bairro || '',
+        municipio: p.municipio || municipio,
+        uf,
+        lat: parseFloat(p.latitude) || 0,
+        lng: parseFloat(p.longitude) || 0,
+        produtos: (p.produtos || []).map((pr: any) => pr.produto).filter(Boolean),
+        precos: precosBundle || {},
+        semanaPrecos: precosBundle ? _semana : null,
+      }
+    })
+
+    const filter = json.searchPageFilter || {}
+    return c.json({
+      postos,
+      total: filter.totalRegistro || postos.length,
+      semana: _semana,
+      municipio,
+      uf
+    })
+  } catch(e: any) {
+    return c.json({ erro: 'Erro ao consultar ANP: ' + e.message, postos: [] }, 500)
+  }
+})
+
 app.get('/admin', (c) => {
   const key = c.req.query('key') || ''
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
@@ -8413,6 +8478,67 @@ app.get('/admin', (c) => {
           <button onclick="fecharModalParceiro()" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:13px">Cancelar</button>
           <button id="ep-deletar-btn" onclick="deletarParceiroModal()" style="background:rgba(255,82,82,0.15);color:#FF5252;border:1px solid rgba(255,82,82,0.3);padding:10px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700"><i class="fas fa-trash"></i> Remover</button>
           <button onclick="salvarParceiroModal()" style="background:#FF6D00;color:white;border:none;padding:10px 24px;border-radius:10px;font-weight:900;font-size:13px;cursor:pointer"><i class="fas fa-save"></i> Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Buscar Posto na ANP ═══ -->
+    <div class="section-card" style="margin-top:18px">
+      <div class="section-header">
+        <h3><i class="fas fa-database" style="color:#42A5F5;margin-right:8px"></i>Buscar Posto na Base ANP</h3>
+        <span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600">46.000+ postos cadastrados pela ANP — preenche dados automaticamente</span>
+      </div>
+      <div style="padding:16px 0 8px">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px">
+          <div style="flex:1;min-width:130px">
+            <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Estado (UF) *</div>
+            <select id="anp-uf" style="background:#0A1520;border:1.5px solid rgba(66,165,245,0.3);border-radius:10px;padding:9px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:700;outline:none;width:100%;cursor:pointer">
+              <option value="">Selecione a UF...</option>
+              <option value="AC">AC - Acre</option><option value="AL">AL - Alagoas</option>
+              <option value="AM">AM - Amazonas</option><option value="AP">AP - Amapá</option>
+              <option value="BA">BA - Bahia</option><option value="CE">CE - Ceará</option>
+              <option value="DF">DF - Distrito Federal</option><option value="ES">ES - Espírito Santo</option>
+              <option value="GO">GO - Goiás</option><option value="MA">MA - Maranhão</option>
+              <option value="MG">MG - Minas Gerais</option><option value="MS">MS - Mato Grosso do Sul</option>
+              <option value="MT">MT - Mato Grosso</option><option value="PA">PA - Pará</option>
+              <option value="PB">PB - Paraíba</option><option value="PE">PE - Pernambuco</option>
+              <option value="PI">PI - Piauí</option><option value="PR">PR - Paraná</option>
+              <option value="RJ">RJ - Rio de Janeiro</option><option value="RN">RN - Rio Grande do Norte</option>
+              <option value="RO">RO - Rondônia</option><option value="RR">RR - Roraima</option>
+              <option value="RS">RS - Rio Grande do Sul</option><option value="SC">SC - Santa Catarina</option>
+              <option value="SE">SE - Sergipe</option><option value="SP">SP - São Paulo</option>
+              <option value="TO">TO - Tocantins</option>
+            </select>
+          </div>
+          <div style="flex:2;min-width:180px">
+            <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Município *</div>
+            <input id="anp-municipio" type="text" placeholder="Ex: Vitória, São Paulo, Brasília..." style="background:#0A1520;border:1.5px solid rgba(66,165,245,0.3);border-radius:10px;padding:9px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:700;outline:none;width:100%;box-sizing:border-box"/>
+          </div>
+          <div style="flex:2;min-width:160px">
+            <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Buscar por Nome / CNPJ</div>
+            <input id="anp-busca" type="text" placeholder="Nome do posto ou CNPJ..." style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:9px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:700;outline:none;width:100%;box-sizing:border-box" oninput="filtrarResultadosANP()"/>
+          </div>
+          <button onclick="buscarPostosANPAdmin()" style="background:#42A5F5;color:#000;border:none;padding:10px 22px;border-radius:10px;font-weight:900;font-size:13px;cursor:pointer;white-space:nowrap;height:38px"><i class="fas fa-search"></i> Buscar na ANP</button>
+        </div>
+        <div id="anp-resultado-info" style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:10px;display:none"></div>
+        <div id="anp-loading" style="display:none;text-align:center;padding:24px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Consultando base ANP...</div>
+        <div id="anp-tabela-wrap" style="display:none;overflow-x:auto;max-height:380px;overflow-y:auto;border-radius:10px;border:1px solid rgba(255,255,255,0.06)">
+          <table style="min-width:700px;table-layout:fixed;width:100%">
+            <colgroup>
+              <col style="width:28%"/><col style="width:10%"/><col style="width:14%"/>
+              <col style="width:12%"/><col style="width:12%"/><col style="width:12%"/><col style="width:12%"/>
+            </colgroup>
+            <thead><tr style="position:sticky;top:0;background:#0F1923;z-index:1">
+              <th>Posto / Endereço</th>
+              <th style="text-align:center">Bandeira</th>
+              <th style="text-align:center">CNPJ</th>
+              <th style="text-align:center">Gasolina</th>
+              <th style="text-align:center">Etanol</th>
+              <th style="text-align:center">Diesel</th>
+              <th style="text-align:center">Ação</th>
+            </tr></thead>
+            <tbody id="anp-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -9366,6 +9492,142 @@ async function deletarParceiro(id, nome) {
     showToast('✅ Posto removido!', 'ok');
     carregarParceirosCadastrados();
   } catch(e) { showToast('❌ Erro: ' + e.message, 'err'); }
+}
+
+// ─── Busca ANP ───────────────────────────────────────────────────────────────
+let _anpResultados = [];
+
+async function buscarPostosANPAdmin() {
+  const uf        = document.getElementById('anp-uf').value.trim();
+  const municipio = document.getElementById('anp-municipio').value.trim();
+  if (!uf || !municipio) { showToast('⚠️ Selecione o estado e informe o municipio', ''); return; }
+
+  const loading = document.getElementById('anp-loading');
+  const wrap    = document.getElementById('anp-tabela-wrap');
+  const info    = document.getElementById('anp-resultado-info');
+
+  loading.style.display = 'block';
+  wrap.style.display    = 'none';
+  info.style.display    = 'none';
+
+  try {
+    const res = await fetch('/api/admin/anp-busca?key=' + encodeURIComponent(ADMIN_KEY)
+      + '&uf=' + encodeURIComponent(uf)
+      + '&municipio=' + encodeURIComponent(municipio));
+    const data = await res.json();
+    if (!res.ok || data.erro) throw new Error(data.erro || 'Erro ANP');
+
+    _anpResultados = data.postos || [];
+    info.style.display = 'block';
+    info.innerHTML = \`<i class="fas fa-check-circle" style="color:#00C853"></i> <strong style="color:#fff">\${_anpResultados.length}</strong> postos encontrados em <strong style="color:#42A5F5">\${municipio} - \${uf}</strong>\`
+      + (data.semana ? \` &nbsp;·&nbsp; Preços ANP: <span style="color:#FFD600">\${data.semana}</span>\` : '');
+    filtrarResultadosANP();
+    wrap.style.display = 'block';
+  } catch(e) {
+    info.style.display = 'block';
+    info.innerHTML = \`<i class="fas fa-exclamation-circle" style="color:#FF5252"></i> Erro: \${e.message}\`;
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+function filtrarResultadosANP() {
+  const q = (document.getElementById('anp-busca').value || '').toLowerCase();
+  const lista = q ? _anpResultados.filter(p =>
+    (p.nome||'').toLowerCase().includes(q) ||
+    (p.cnpj||'').includes(q) ||
+    (p.cnpjFmt||'').includes(q) ||
+    (p.bandeira||'').toLowerCase().includes(q) ||
+    (p.bairro||'').toLowerCase().includes(q)
+  ) : _anpResultados;
+  renderTabelaANP(lista);
+}
+
+function renderTabelaANP(lista) {
+  const tbody = document.getElementById('anp-tbody');
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Nenhum posto encontrado</td></tr>';
+    return;
+  }
+  const fmtR = (v) => v > 0 ? \`<span style="color:#69F0AE;font-weight:800">R$ \${Number(v).toFixed(2)}</span>\` : \`<span style="color:rgba(255,255,255,0.2)">—</span>\`;
+  const normBandeira = (b) => {
+    const s = (b||'').toUpperCase();
+    if (s.includes('PETROBRAS') || s.includes('BR ')) return 'Petrobras';
+    if (s.includes('SHELL')) return 'Shell';
+    if (s.includes('IPIRANGA')) return 'Ipiranga';
+    if (s.includes('RAIZEN')) return 'Raízen';
+    if (s.includes('VIBRA')) return 'Vibra';
+    if (s.includes('BRANCA') || s.includes('INDEPEND')) return 'Independente';
+    return b || '—';
+  };
+
+  tbody.innerHTML = lista.map(p => {
+    const jaCadastrado = _parceiros.some(x => x.cnpj && x.cnpj.replace(/\\D/g,'') === p.cnpj);
+    const btnLabel = jaCadastrado
+      ? \`<button onclick="abrirModalEditarPorCNPJ('\${p.cnpj}')" style="background:rgba(255,214,0,0.15);color:#FFD600;border:1px solid rgba(255,214,0,0.3);padding:5px 10px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700"><i class="fas fa-pen"></i> Editar</button>\`
+      : \`<button data-anp-idx="\${lista.indexOf(p)}" onclick="preencherModalComANP(this.dataset.anpIdx)" style="background:rgba(0,200,83,0.15);color:#00C853;border:1px solid rgba(0,200,83,0.3);padding:5px 10px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700"><i class="fas fa-plus"></i> Usar dados</button>\`;
+    return \`<tr class="tr-hover">
+      <td style="overflow:hidden">
+        <div style="font-weight:800;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${p.nome}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${p.endereco || '—'}\${p.bairro ? ' · ' + p.bairro : ''}</div>
+      </td>
+      <td style="text-align:center;font-size:11px;color:rgba(255,165,0,0.8);font-weight:700">\${normBandeira(p.bandeira)}</td>
+      <td style="text-align:center;font-size:10px;color:rgba(255,255,255,0.4);font-family:monospace">\${p.cnpjFmt || p.cnpj}</td>
+      <td style="text-align:center">\${fmtR(p.precos.gasolina)}</td>
+      <td style="text-align:center">\${fmtR(p.precos.etanol)}</td>
+      <td style="text-align:center">\${fmtR(p.precos.diesel || p.precos.dieselS10)}</td>
+      <td style="text-align:center">\${btnLabel}</td>
+    </tr>\`;
+  }).join('');
+}
+
+function preencherModalComANP(idxStr) {
+  const lista = _anpResultados.filter(p => {
+    const q = (document.getElementById('anp-busca').value || '').toLowerCase();
+    return !q || (p.nome||'').toLowerCase().includes(q) || (p.cnpj||'').includes(q);
+  });
+  const p = lista[parseInt(idxStr)];
+  if (!p) return;
+
+  // Preencher campos do modal com dados ANP
+  document.getElementById('ep-nomePosto').value        = p.nome || '';
+  document.getElementById('ep-cnpj').value             = p.cnpjFmt || p.cnpj || '';
+  document.getElementById('ep-cidade').value           = p.municipio || '';
+  document.getElementById('ep-estado').value           = p.uf || '';
+  document.getElementById('ep-bairro').value           = p.bairro || '';
+  document.getElementById('ep-bandeira').value         = p.bandeira || '';
+
+  // Preços ANP (só preenche se existir)
+  if (p.precos) {
+    if (p.precos.gasolina > 0)          document.getElementById('ep-preco-gasolina').value          = p.precos.gasolina;
+    if (p.precos.gasolinaAditivada > 0) document.getElementById('ep-preco-gasolinaAditivada').value = p.precos.gasolinaAditivada;
+    if (p.precos.etanol > 0)            document.getElementById('ep-preco-etanol').value            = p.precos.etanol;
+    if (p.precos.diesel > 0)            document.getElementById('ep-preco-diesel').value            = p.precos.diesel;
+    if (p.precos.dieselS10 > 0)         document.getElementById('ep-preco-dieselS10').value         = p.precos.dieselS10;
+    if (p.precos.gnv > 0)               document.getElementById('ep-preco-gnv').value               = p.precos.gnv;
+  }
+
+  // Gerar ID único baseado no CNPJ
+  _parceiroEditandoId = 'posto_' + p.cnpj;
+  document.getElementById('ep-id-display').textContent = 'ID: ' + _parceiroEditandoId + '  (novo — dados da ANP)';
+  document.getElementById('ep-email').value = '';
+  document.getElementById('ep-tel').value   = '';
+  document.getElementById('ep-telTelemarketing').value = '';
+  document.getElementById('ep-plano').value  = 'visibilidade';
+  document.getElementById('ep-status').value = 'ativo';
+  document.getElementById('ep-seloVerificado').checked = false;
+  document.getElementById('ep-pinDourado').checked     = false;
+  document.getElementById('ep-topoLista').checked      = false;
+  document.getElementById('ep-cuponsAtivos').checked   = false;
+  document.getElementById('ep-deletar-btn').style.display = 'none';
+  document.getElementById('modal-parceiro-edit').style.display = 'block';
+  document.getElementById('modal-parceiro-edit').scrollTop = 0;
+  showToast('Dados da ANP preenchidos! Confira e salve.', 'ok');
+}
+
+function abrirModalEditarPorCNPJ(cnpj) {
+  const p = _parceiros.find(x => x.cnpj && x.cnpj.replace(/\\D/g,'') === cnpj);
+  if (p) abrirModalEditarParceiro(p.id);
 }
 
 // ── POSTOS (MAPA/API) ────────────────────────────────────────────────────────
