@@ -4469,17 +4469,23 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     showLoading(true);
     try {
-      // SEGURANÇA: buscar CPF sempre do servidor (KV profile:{uid})
-      // Nunca usar currentUser.cpf ou localStorage que podem conter CPF de outro usuário
+      // Buscar CPF do servidor (KV) — fonte segura e autoritativa
+      // Fallback: localStorage do próprio usuário (mesmo uid) se servidor retornar 404
       var cpfDoServidor = '';
       try {
         var perfilRes = await fetch('/api/usuario/perfil/' + userId);
         if (perfilRes.ok) {
           var perfilData = await perfilRes.json();
-          cpfDoServidor = (perfilData && perfilData.cpf) ? perfilData.cpf : '';
+          cpfDoServidor = (perfilData && perfilData.cpf) ? String(perfilData.cpf).replace(/\D/g,'') : '';
         }
       } catch (e) {
         console.warn('[PIX] Nao foi possivel buscar CPF do servidor:', e);
+      }
+      // Fallback: localStorage vinculado ao uid atual (seguro pois usa o uid da sessão)
+      if (!cpfDoServidor) {
+        var perfilLocal = {};
+        try { perfilLocal = JSON.parse(localStorage.getItem('rp_perfil_extra_' + userId) || '{}'); } catch {}
+        cpfDoServidor = (perfilLocal['cpf'] || '').replace(/\D/g,'');
       }
 
       const body = {
