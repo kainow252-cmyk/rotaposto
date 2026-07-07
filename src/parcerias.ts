@@ -1730,42 +1730,51 @@ export function getPainelEmpresaHTML(): string {
             </div>
           </div>
 
-          <!-- Tabela de cargos -->
-          <div class="table-card" style="margin-bottom:0;box-shadow:none;border:1.5px solid var(--border);border-radius:14px;overflow:hidden">
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead>
-                <tr style="background:#F5F5F5">
-                  <th style="padding:10px 14px;text-align:left;font-weight:700;color:#555">Cargo</th>
-                  <th style="padding:10px 14px;text-align:center;color:#555">Validar</th>
-                  <th style="padding:10px 14px;text-align:center;color:#555">Criar Cupom</th>
-                  <th style="padding:10px 14px;text-align:center;color:#555">Preços</th>
-                  <th style="padding:10px 14px;text-align:center;color:#555">Equipe / Config</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style="border-top:1px solid #F0F0F0">
-                  <td style="padding:10px 14px"><span class="badge badge-amarelo">⭐ Gerente</span></td>
-                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
-                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
-                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
-                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
-                </tr>
-                <tr style="border-top:1px solid #F0F0F0">
-                  <td style="padding:10px 14px"><span class="badge badge-azul">💳 Caixa</span></td>
-                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
-                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
-                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
-                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
-                </tr>
-                <tr style="border-top:1px solid #F0F0F0">
-                  <td style="padding:10px 14px"><span class="badge badge-cinza">⛽ Frentista</span></td>
-                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
-                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
-                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
-                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Cards de cargos — responsivos, sem tabela horizontal -->
+          <div style="display:flex;flex-direction:column;gap:10px">
+
+            <!-- Gerente -->
+            <div style="border:1.5px solid #FFE0B2;border-radius:13px;padding:12px 14px;background:#FFFDE7">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <span class="badge badge-amarelo" style="font-size:13px">⭐ Gerente</span>
+                <span style="font-size:11px;color:var(--sub)">Acesso total</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <span style="font-size:12px;background:#E8F5E9;color:#2E7D32;border-radius:7px;padding:3px 9px"><i class="fas fa-check" style="margin-right:4px"></i>Validar</span>
+                <span style="font-size:12px;background:#E8F5E9;color:#2E7D32;border-radius:7px;padding:3px 9px"><i class="fas fa-check" style="margin-right:4px"></i>Criar Cupom</span>
+                <span style="font-size:12px;background:#E8F5E9;color:#2E7D32;border-radius:7px;padding:3px 9px"><i class="fas fa-check" style="margin-right:4px"></i>Preços</span>
+                <span style="font-size:12px;background:#E8F5E9;color:#2E7D32;border-radius:7px;padding:3px 9px"><i class="fas fa-check" style="margin-right:4px"></i>Equipe / Config</span>
+              </div>
+            </div>
+
+            <!-- Caixa -->
+            <div style="border:1.5px solid #BBDEFB;border-radius:13px;padding:12px 14px;background:#F3F8FF">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <span class="badge badge-azul" style="font-size:13px">💳 Caixa</span>
+                <span style="font-size:11px;color:var(--sub)">Operacional</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <span style="font-size:12px;background:#E8F5E9;color:#2E7D32;border-radius:7px;padding:3px 9px"><i class="fas fa-check" style="margin-right:4px"></i>Validar</span>
+                <span style="font-size:12px;background:#E8F5E9;color:#2E7D32;border-radius:7px;padding:3px 9px"><i class="fas fa-check" style="margin-right:4px"></i>Criar Cupom</span>
+                <span style="font-size:12px;background:#FFEBEE;color:#C62828;border-radius:7px;padding:3px 9px"><i class="fas fa-times" style="margin-right:4px"></i>Preços</span>
+                <span style="font-size:12px;background:#FFEBEE;color:#C62828;border-radius:7px;padding:3px 9px"><i class="fas fa-times" style="margin-right:4px"></i>Equipe / Config</span>
+              </div>
+            </div>
+
+            <!-- Frentista -->
+            <div style="border:1.5px solid var(--border);border-radius:13px;padding:12px 14px;background:#FAFAFA">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <span class="badge badge-cinza" style="font-size:13px">⛽ Frentista</span>
+                <span style="font-size:11px;color:var(--sub)">Só valida cupons</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <span style="font-size:12px;background:#E8F5E9;color:#2E7D32;border-radius:7px;padding:3px 9px"><i class="fas fa-check" style="margin-right:4px"></i>Validar</span>
+                <span style="font-size:12px;background:#FFEBEE;color:#C62828;border-radius:7px;padding:3px 9px"><i class="fas fa-times" style="margin-right:4px"></i>Criar Cupom</span>
+                <span style="font-size:12px;background:#FFEBEE;color:#C62828;border-radius:7px;padding:3px 9px"><i class="fas fa-times" style="margin-right:4px"></i>Preços</span>
+                <span style="font-size:12px;background:#FFEBEE;color:#C62828;border-radius:7px;padding:3px 9px"><i class="fas fa-times" style="margin-right:4px"></i>Equipe / Config</span>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -1774,8 +1783,8 @@ export function getPainelEmpresaHTML(): string {
           <div class="chart-titulo" style="margin-bottom:16px">➕ Adicionar Funcionário</div>
           <div id="equipe-form-erro" style="background:#FFEBEE;color:#C62828;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;font-weight:600"></div>
           <div id="equipe-form-ok"   style="background:#E8F5E9;color:#2E7D32;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;font-weight:600"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            <div style="grid-column:1/-1">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
               <label style="font-size:11px;font-weight:700;color:#616161;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Nome do funcionário</label>
               <input id="eq-nome" class="login-input" type="text" style="margin-bottom:0" placeholder="Ex: João Silva"/>
             </div>
