@@ -1015,7 +1015,17 @@ export function getPainelEmpresaHTML(): string {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>RotaPosto Empresas — Painel do Gerente</title>
-  <link rel="icon" href="/favicon.ico"/>
+  <link rel="manifest" href="/parcerias/manifest.json"/>
+  <meta name="theme-color" content="#FF6D00"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="RP Empresas"/>
+  <link rel="icon" href="/icons/empresas-192x192.png" type="image/png"/>
+  <link rel="apple-touch-icon" href="/icons/empresas-192x192.png"/>
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/empresas-152x152.png"/>
+  <link rel="apple-touch-icon" sizes="192x192" href="/icons/empresas-192x192.png"/>
+  <link rel="apple-touch-icon" sizes="512x512" href="/icons/empresas-512x512.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
@@ -2809,7 +2819,14 @@ export function getPainelLoginHTML(): string {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Login — RotaPosto Empresas</title>
-  <link rel="icon" href="/favicon.ico"/>
+  <link rel="manifest" href="/parcerias/manifest.json"/>
+  <meta name="theme-color" content="#FF6D00"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="RP Empresas"/>
+  <link rel="icon" href="/icons/empresas-192x192.png" type="image/png"/>
+  <link rel="apple-touch-icon" href="/icons/empresas-192x192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>

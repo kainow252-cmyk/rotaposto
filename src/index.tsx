@@ -2520,6 +2520,43 @@ app.get('/reset', (c) => {
 //  PWA Manifest — servido via Worker para forçar cache fresco
 //  (sobrepõe o arquivo estático do Cloudflare Pages)
 // ══════════════════════════════════════════════════════
+// ── Manifest do app Empresas (TWA RotaPosto Empresas) ────────────────────────
+app.get('/parcerias/manifest.json', (c) => {
+  const manifest = {
+    name: "RotaPosto Empresas",
+    short_name: "RP Empresas",
+    description: "Painel de gestão para postos parceiros RotaPosto. Valide cupons, gerencie preços e sua equipe.",
+    start_url: "/parcerias/empresa",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#0D1117",
+    theme_color: "#FF6D00",
+    lang: "pt-BR",
+    scope: "/parcerias/",
+    id: "com.br.rotaposto.parcerias",
+    icons: [
+      { src: "/icons/empresas-72x72.png",   sizes: "72x72",   type: "image/png", purpose: "any" },
+      { src: "/icons/empresas-96x96.png",   sizes: "96x96",   type: "image/png", purpose: "any" },
+      { src: "/icons/empresas-128x128.png", sizes: "128x128", type: "image/png", purpose: "any" },
+      { src: "/icons/empresas-144x144.png", sizes: "144x144", type: "image/png", purpose: "any" },
+      { src: "/icons/empresas-152x152.png", sizes: "152x152", type: "image/png", purpose: "any" },
+      { src: "/icons/empresas-192x192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: "/icons/empresas-384x384.png", sizes: "384x384", type: "image/png", purpose: "any" },
+      { src: "/icons/empresas-512x512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+    ],
+    screenshots: [],
+    categories: ["business", "productivity"],
+    prefer_related_applications: false
+  }
+  return new Response(JSON.stringify(manifest, null, 2), {
+    headers: {
+      'Content-Type': 'application/manifest+json; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
+})
+
 app.get('/manifest.json', (c) => {
   const manifest = {
     name: "RotaPosto - Combustível Barato",
