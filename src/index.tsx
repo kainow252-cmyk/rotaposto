@@ -5280,7 +5280,7 @@ function ordenarPor(tipo) {
 }
 
 // Atualizar consumo e reprocessar resultados
-function atualizarConsumo(val?) {
+function atualizarConsumo(val) {
   // Re-buscar postos com novo consumo/tanque
   const consumo = parseFloat((document.getElementById('select-consumo'))?.value || '12');
   const tanque  = parseFloat((document.getElementById('select-tanque') )?.value || '50');

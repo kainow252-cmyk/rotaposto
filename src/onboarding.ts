@@ -880,9 +880,9 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   }
 
   // ── Registrar sessão única no backend ──
-  function registrarSessao(uid, callback, userData?) {
+  function registrarSessao(uid, callback, userData) {
     var deviceId = getDeviceId();
-    var payload: any = { uid: uid, deviceId: deviceId };
+    var payload = { uid: uid, deviceId: deviceId };
     // Incluir dados do usuário para salvar perfil no KV (visível no admin)
     if (userData) {
       payload.name    = userData.name    || '';
