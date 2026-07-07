@@ -1298,6 +1298,10 @@ app.post('/api/pix/assinar', async (c) => {
 
     const planoValido = plano in PLANOS ? plano : 'premium'
     const cpfLimpo = (cpf || '').replace(/\D/g, '')
+    // CPF é obrigatório na Woovi — retornar erro amigável se não fornecido
+    if (cpfLimpo.length !== 11) {
+      return c.json({ sucesso: false, mensagem: 'Informe seu CPF para gerar o PIX.', precisaCPF: true }, 400)
+    }
     // Email obrigatório pela Woovi: usar fallback se vazio
     const emailFinal = (email || '').trim() || `user-${userId.slice(-8)}@rotaposto.app`
     const kv = getKV(c.env)
@@ -6218,7 +6222,78 @@ async function abrirModalPIX(plano = 'premium') {
   const nome = usuario?.displayName || usuario?.email?.split('@')[0] || 'Usuário RotaPosto';
   const email = usuario?.email || '';
   const userId = usuario?.uid || '';
-  const cpf = '';
+  // Buscar CPF salvo
+  const cpfSalvo = localStorage.getItem('rp_cpf') || usuario?.cpf || '';
+
+  // Se não tem CPF, mostrar formulário antes de gerar QR
+  if (!cpfSalvo || cpfSalvo.replace(/\\D/g,'').length < 11) {
+    _pixMostrarFormularioCPF(plano, nome, email, userId);
+    return;
+  }
+
+  _pixGerarQRCode(plano, nome, email, userId, cpfSalvo);
+}
+
+function _pixMostrarFormularioCPF(plano, nome, email, userId) {
+  const content = document.getElementById('pix-modal-content');
+  const nomesPlan = { premium: 'Premium Mensal R$ 9,90/mês', anual: 'Anual R$ 89,00/ano' };
+  content.innerHTML = \`
+    <div style="padding:20px 16px">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:40px;margin-bottom:8px">🔐</div>
+        <h3 style="font-size:16px;font-weight:800;color:white;margin:0 0 4px">Dados para o PIX</h3>
+        <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:0">Plano: \${nomesPlan[plano] || plano}</p>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;color:rgba(255,255,255,0.6);font-weight:600;display:block;margin-bottom:6px">SEU CPF (obrigatório para PIX)</label>
+        <input id="pix-cpf-input" type="tel" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"
+          style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 14px;color:white;font-size:15px;font-weight:700;box-sizing:border-box;outline:none;letter-spacing:1px"
+          oninput="var v=this.value.replace(/\\D/g,'');if(v.length>3&&v.length<=6)this.value=v.slice(0,3)+'.'+v.slice(3);else if(v.length>6&&v.length<=9)this.value=v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6);else if(v.length>9)this.value=v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9,11);else this.value=v"
+          onkeydown="if(event.key==='Enter')_pixConfirmarCPF('\${plano}','\${nome}','\${email}','\${userId}')"
+        />
+        <p id="pix-cpf-erro" style="font-size:11px;color:#FF6D00;margin:6px 0 0;display:none">CPF inválido. Verifique os 11 dígitos.</p>
+      </div>
+      <div style="background:rgba(0,200,83,0.08);border:1px solid rgba(0,200,83,0.2);border-radius:10px;padding:10px 12px;margin-bottom:16px">
+        <p style="font-size:11px;color:rgba(255,255,255,0.5);margin:0">🔒 Seu CPF é usado apenas para identificação do pagamento PIX. Não compartilhamos seus dados.</p>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button onclick="fecharPixModal(null,true)" style="flex:1;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);font-weight:600;padding:12px;border-radius:12px;cursor:pointer">
+          Cancelar
+        </button>
+        <button onclick="_pixConfirmarCPF('\${plano}','\${nome}','\${email}','\${userId}')" style="flex:2;background:var(--laranja);border:none;color:white;font-weight:800;padding:12px;border-radius:12px;cursor:pointer;font-size:14px">
+          <i class="fas fa-qrcode"></i> Gerar QR Code PIX
+        </button>
+      </div>
+    </div>
+  \`;
+  setTimeout(function(){ var el=document.getElementById('pix-cpf-input'); if(el) el.focus(); }, 100);
+}
+
+function _pixConfirmarCPF(plano, nome, email, userId) {
+  var input = document.getElementById('pix-cpf-input');
+  var erro = document.getElementById('pix-cpf-erro');
+  if (!input) return;
+  var cpf = input.value.replace(/\\D/g, '');
+  if (cpf.length !== 11) {
+    erro.style.display = 'block';
+    input.style.borderColor = '#FF6D00';
+    return;
+  }
+  // Salvar CPF no localStorage para próximas vezes
+  localStorage.setItem('rp_cpf', input.value);
+  _pixGerarQRCode(plano, nome, email, userId, cpf);
+}
+
+async function _pixGerarQRCode(plano, nome, email, userId, cpf) {
+  const content = document.getElementById('pix-modal-content');
+  // Mostrar loading
+  content.innerHTML = \`
+    <div style="text-align:center;padding:32px 16px">
+      <div class="spinner" style="margin:0 auto 16px;border-top-color:var(--laranja)"></div>
+      <p style="font-size:13px;font-weight:700;color:var(--cinza-texto)">Gerando QR Code PIX...</p>
+      <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Conectando à API Woovi</p>
+    </div>
+  \`;
 
   try {
     const res = await fetch('/api/pix/assinar', {
@@ -6229,12 +6304,20 @@ async function abrirModalPIX(plano = 'premium') {
     const data = await res.json();
 
     if (!data.sucesso) {
+      // Se precisa de CPF, mostrar formulário
+      if (data.precisaCPF) {
+        _pixMostrarFormularioCPF(plano, nome, email, userId);
+        return;
+      }
       content.innerHTML = \`
         <div style="text-align:center;padding:24px 16px">
           <div style="font-size:48px;margin-bottom:12px">❌</div>
           <p style="font-size:14px;font-weight:700;color:#FF6D00">Erro ao gerar cobrança</p>
           <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:8px 0">\${data.mensagem || data.error || 'Tente novamente.'}</p>
-          <button onclick="fecharPixModal(null,true)" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;margin-top:12px">Fechar</button>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button onclick="fecharPixModal(null,true)" style="flex:1;background:rgba(255,255,255,0.1);border:none;color:white;padding:10px;border-radius:10px;cursor:pointer">Fechar</button>
+            <button onclick="_pixGerarQRCode('\${plano}','\${nome}','\${email}','\${userId}','\${cpf}')" style="flex:1;background:var(--laranja);border:none;color:white;font-weight:700;padding:10px;border-radius:10px;cursor:pointer">Tentar novamente</button>
+          </div>
         </div>
       \`;
       return;
