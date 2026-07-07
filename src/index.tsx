@@ -10802,7 +10802,7 @@ async function salvarParceiroModal() {
 
   const latVal = fv('ep-lat');
   const lngVal = fv('ep-lng');
-  const body: Record<string, unknown> = {
+  const body = {
     nomePosto:        fv('ep-nomePosto'),
     email:            fv('ep-email'),
     tel:              fv('ep-tel'),
