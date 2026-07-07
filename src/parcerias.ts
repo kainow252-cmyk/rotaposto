@@ -2423,19 +2423,7 @@ export function getPainelLoginHTML(): string {
     .login-links a:hover{text-decoration:underline}
     .sep{font-size:12px;color:#BDBDBD}
 
-    /* ── VOLTAR ── */
-    .btn-voltar{
-      position:fixed;top:16px;left:16px;
-      display:flex;align-items:center;gap:7px;
-      background:rgba(255,255,255,.18);
-      border:1.5px solid rgba(255,255,255,.4);
-      color:#fff;padding:8px 16px;border-radius:9px;
-      cursor:pointer;font-size:13px;font-weight:700;
-      font-family:'Inter',sans-serif;
-      backdrop-filter:blur(8px);transition:all .18s;
-      text-decoration:none
-    }
-    .btn-voltar:hover{background:rgba(255,255,255,.28)}
+
 
     @media(max-width:420px){
       .login-card{padding:24px 20px;border-radius:16px}
@@ -2447,7 +2435,7 @@ export function getPainelLoginHTML(): string {
 </head>
 <body>
 
-<a class="btn-voltar" href="/parcerias"><i class="fas fa-arrow-left"></i> Voltar</a>
+
 
 <div class="login-logo-area">
   <div class="login-logo-icon">⛽</div>
