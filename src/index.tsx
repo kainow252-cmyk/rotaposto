@@ -319,7 +319,6 @@ app.get('/api/postos', async (c) => {
       const google = googleRes.status === 'fulfilled' ? googleRes.value : []
       const osm = osmRes.status === 'fulfilled' ? osmRes.value : []
 
-      console.log(`[Postos] ANP=${anp.length} Google=${google.length} OSM=${osm.length} → ${uf}/${municipio}`)
 
       // 4. Merge deduplicado: ANP(preços reais) + Google(dados ricos) + OSM(cobertura)
       postosBase = mergePostos(anp, osm, 0.08, google)
@@ -5379,11 +5378,9 @@ function registrarSW() {
             if (navigator.serviceWorker.controller) {
               // Ha um SW antigo ativo — novo SW esperando
               // Auto-aplicar: enviar SKIP_WAITING e recarregar
-              console.log('[SW] Novo SW instalado — aplicando auto-update...');
               novoSW.postMessage({ type: 'SKIP_WAITING' });
             } else {
               // Primeira instalacao
-              console.log('[SW] SW instalado pela primeira vez');
             }
           }
         });
@@ -5394,7 +5391,6 @@ function registrarSW() {
   // Escutar mensagem SW_UPDATED (enviada pelo SW apos ativar)
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data?.type === 'SW_UPDATED') {
-      console.log('[SW] Update recebido:', event.data.version);
       // Recarregar silenciosamente para aplicar novo SW
       window.location.reload();
     }
@@ -5402,7 +5398,6 @@ function registrarSW() {
 
   // Detectar quando o controlador muda (SW novo tomou conta)
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    console.log('[SW] Controller mudou — recarregando');
     window.location.reload();
   });
 }
@@ -5431,11 +5426,9 @@ function iniciarPWAPrompt() {
   // Se ja instalado: nunca mostrar banner + checar updates
   if (jaInstalado) {
     banner.style.display = 'none';
-    console.log('[PWA] App instalado — modo standalone ativo');
     // Forcar verificacao de update ao abrir o PWA
     if (_swRegistration) {
       _swRegistration.update().then(() => {
-        console.log('[PWA] Verificacao de update concluida');
       }).catch(() => {});
     } else {
       // SW ainda nao registrado — aguardar
@@ -5462,7 +5455,6 @@ function iniciarPWAPrompt() {
       banner.classList.remove('visible');
       _pwaPrompt.prompt();
       const { outcome } = await _pwaPrompt.userChoice;
-      console.log('[PWA] Resultado:', outcome);
       if (outcome === 'accepted') {
         mostrarToast('✅ RotaPosto instalado com sucesso!');
         // Guardar que ja instalou
@@ -5618,7 +5610,6 @@ function _configurarAuth() {
     // Inicializar a área de auth no header
     _atualizarHeaderAuth(_firebaseAuth.currentUser);
     atualizarSidebarUser(_firebaseAuth.currentUser);
-    console.log('[Auth] Firebase Auth configurado ok');
   } catch (err) {
     console.error('[Auth] Erro ao configurar:', err);
   }
@@ -6107,7 +6098,6 @@ async function loginGoogle() {
 
   try {
     const result = await window._fbSignInWithPopup(_firebaseAuth, window._fbGoogleProvider);
-    console.log('[Auth] Login Google OK:', result.user.email);
   } catch (err) {
     _mostrarErroAuth(err);
     btn.disabled = false;
@@ -6128,7 +6118,6 @@ async function loginFacebook() {
 
   try {
     const result = await window._fbSignInWithPopup(_firebaseAuth, window._fbFacebookProvider);
-    console.log('[Auth] Login Facebook OK:', result.user.email);
   } catch (err) {
     _mostrarErroAuth(err);
     btn.disabled = false;
@@ -6155,7 +6144,6 @@ async function loginEmail() {
 
   try {
     await window._fbSignInWithEmailAndPassword(_firebaseAuth, email, senha);
-    console.log('[Auth] Login email OK');
   } catch (err) {
     _mostrarErroAuth(err);
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar'; }
@@ -6190,7 +6178,6 @@ async function registrarEmail() {
     if (nome && window._fbUpdateProfile) {
       try { await window._fbUpdateProfile(result.user, { displayName: nome }); } catch {}
     }
-    console.log('[Auth] Conta criada:', result.user.uid);
     mostrarToast('🎉 Conta criada! Bem-vindo(a) ao RotaPosto!');
   } catch (err) {
     _mostrarErroAuth(err);
@@ -9108,7 +9095,6 @@ app.post('/api/admin/sync-anp', async (c) => {
 
   for (const { url, semana } of candidates) {
     try {
-      console.log(`[ANP Sync] Tentando: ${url}`)
       const res = await fetch(url, {
         headers: { 'User-Agent': 'RotaPosto/1.0' },
         signal: AbortSignal.timeout(45000)
@@ -9125,7 +9111,6 @@ app.post('/api/admin/sync-anp', async (c) => {
       const result = await processarXlsxAnp(buf, semana)
       result.url = url
       await salvarPrecoKV(kv, result)
-      console.log(`[ANP Sync] ✅ ${semana} → ${result.totalPostos} postos salvos`)
       return c.json({
         ok: true,
         semana,
@@ -9187,7 +9172,6 @@ async function syncAnpScheduled(kv: KVNamespace | undefined): Promise<void> {
   const candidates = getAnpXlsxUrlCandidates(2)
   for (const { url, semana } of candidates) {
     try {
-      console.log(`[ANP Cron] Baixando: ${url}`)
       const res = await fetch(url, {
         headers: { 'User-Agent': 'RotaPosto/1.0' },
         signal: AbortSignal.timeout(60000)
@@ -9201,7 +9185,6 @@ async function syncAnpScheduled(kv: KVNamespace | undefined): Promise<void> {
       const result = await processarXlsxAnp(buf, semana)
       result.url = url
       await salvarPrecoKV(kv, result)
-      console.log(`[ANP Cron] ✅ Sync OK: ${semana} — ${result.totalPostos} postos`)
       return
     } catch (e) {
       console.error(`[ANP Cron] Erro tentando ${url}:`, e)
@@ -9679,7 +9662,6 @@ app.post('/api/parceiros/precos', async (c) => {
     if (kv) await kv.put(`precos:${parceiroId}`, JSON.stringify(precosCalculados), { expirationTtl: 172800 }) // 2 dias
 
     // Notificar usuários que monitoram este posto (simulado — em produção usaria FCM)
-    console.log(`[parceiros/precos] Posto ${parceiroId} atualizou preços:`, Object.keys(precosCalculados))
 
     return c.json({
       ok: true,
@@ -9991,7 +9973,6 @@ app.get('/download/apk', async (c) => {
 export default {
   fetch: app.fetch,
   async scheduled(event: { cron: string; scheduledTime: number }, env: Record<string, unknown>, ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<void> {
-    console.log(`[ANP Cron] Disparado: ${event.cron} às ${new Date(event.scheduledTime).toISOString()}`)
     const kv = (env?.ROTAPOSTO_KV as KVNamespace | undefined)
     const r2 = (env?.ROTAPOSTO_R2 as R2Bucket | undefined)
     ctx.waitUntil(syncAnpScheduled(kv))

@@ -31,3 +31,14 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+*.bak
+*.backup
+*.tmp
+
+# Android build intermediates (regenerated on build)
+android/app/build/
+android/.gradle/
+android/build/
+
+# Wrangler temp builds
+.wrangler/tmp/

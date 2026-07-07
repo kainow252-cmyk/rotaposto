@@ -5031,7 +5031,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var geoipLng = parseFloat(localStorage.getItem('rp_geoip_lng') || '');
     var geoipIdade = Date.now() - geoipTs;
     if (!isNaN(geoipLat) && !isNaN(geoipLng) && geoipIdade < 10 * 60 * 1000) {
-      console.log('[GPS] Usando cache GeoIP (' + Math.round(geoipIdade/60000) + 'min atrás)');
       _aplicarLocalizacao(geoipLat, geoipLng, true, false);
       return;
     }
@@ -5042,7 +5041,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d && d.lat && d.lng && !d.fallback) {
-          console.log('[GPS] GeoIP ✅:', d.cidade, d.estado, d.lat, d.lng, '(', d.fonte, ')');
           // Salvar cache GeoIP por 10 min (menos preciso que GPS, mas melhor que SP fixo)
           localStorage.setItem('rp_geoip_lat', String(d.lat));
           localStorage.setItem('rp_geoip_lng', String(d.lng));
@@ -5183,7 +5181,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       function(pos1) {
         var acc1 = Math.round(pos1.coords.accuracy);
         var lat1 = pos1.coords.latitude, lng1 = pos1.coords.longitude;
-        console.log('[GPS] Rápido: lat=' + lat1 + ' lng=' + lng1 + ' acc=' + acc1 + 'm');
         _aplicarLocalizacao(lat1, lng1, !silencioso, true);
 
         // ── PASSO 2: alta precisão (satélite) — refina quando pronto ──
@@ -5191,7 +5188,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
           function(pos2) {
             var acc2 = Math.round(pos2.coords.accuracy);
             var lat2 = pos2.coords.latitude, lng2 = pos2.coords.longitude;
-            console.log('[GPS] Preciso ✅: lat=' + lat2 + ' lng=' + lng2 + ' acc=' + acc2 + 'm');
             _aplicarLocalizacao(lat2, lng2, false, true);
             showToast('📍 GPS: ' + acc2 + 'm', 2000);
           },
@@ -5215,7 +5211,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
           navigator.geolocation.getCurrentPosition(
             function(pos) {
               _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, !silencioso, true);
-              console.log('[GPS] Direto ✅: acc=' + Math.round(pos.coords.accuracy) + 'm');
             },
             function(e) {
               console.warn('[GPS] Direto erro: ' + e.code);
@@ -5241,7 +5236,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       return;
     }
 
-    console.log('[GPS] Chamando Google Geolocation API...');
     fetch('https://www.googleapis.com/geolocation/v1/geolocate?key=' + _GKEY, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -5261,7 +5255,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
           if (callback) callback(null, null); // sinaliza: não usar
           return;
         }
-        console.log('[GPS] Google API ✅ lat=' + lat + ' lng=' + lng + ' acc=' + acc + 'm');
         if (callback) { callback(lat, lng); }
         else { _aplicarLocalizacao(lat, lng, true, true); }
       } else {
@@ -5287,7 +5280,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // Salvar cache só se GPS real E fora da região de SP
     var ehRegSP = _ehCoordSP(lat, lng);
     if (gpsReal && !ehRegSP) {
-      console.log('[GPS] Salvando cache real: lat=' + lat + ' lng=' + lng);
       localStorage.setItem('rp_lat', String(lat));
       localStorage.setItem('rp_lng', String(lng));
       localStorage.setItem('rp_loc_ts', String(Date.now()));
