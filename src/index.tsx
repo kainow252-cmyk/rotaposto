@@ -9730,7 +9730,7 @@ function epAtualizarPreviewPlano() {
     )
     // Botão editar plano
     + '<div style="margin-top:10px;text-align:right">'
-    + '<button onclick="irParaEditarPlano(\'' + plano.id + '\')" style="background:rgba(255,214,0,0.1);color:#FFD600;border:1px solid rgba(255,214,0,0.25);border-radius:8px;padding:5px 12px;font-size:10px;font-weight:800;cursor:pointer">'
+    + '<button onclick="irParaEditarPlano(' + JSON.stringify(plano.id) + ')" style="background:rgba(255,214,0,0.1);color:#FFD600;border:1px solid rgba(255,214,0,0.25);border-radius:8px;padding:5px 12px;font-size:10px;font-weight:800;cursor:pointer">'
     + '<i class="fas fa-pen"></i> Editar este plano</button>'
     + '</div>';
 }
