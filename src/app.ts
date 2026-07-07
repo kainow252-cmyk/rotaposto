@@ -3792,7 +3792,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<div class="st-card">'
       + '<div style="font-size:13px;font-weight:800;color:#1A1A1A;margin-bottom:12px;">📋 Contato &amp; Endereço</div>'
       + '<label style="font-size:13px;font-weight:700;color:' + (destacarCPF ? '#E65100' : '#555') + ';display:block;margin-bottom:5px;">🪪 CPF' + (destacarCPF ? ' <span style="color:#E65100;font-size:11px;font-weight:600;">(obrigatório para o PIX)</span>' : '') + '</label>'
-      + '<input id="mc-cpf" type="tel" inputmode="numeric" value="' + cpfRaw + '" placeholder="000.000.000-00" maxlength="14" oninput="_mascaraCPF(this)" style="width:100%;padding:11px;' + cpfBorder + 'font-size:14px;box-sizing:border-box;margin-bottom:4px;font-family:inherit;letter-spacing:1px;">'
+      + '<input id="mc-cpf" type="text" inputmode="numeric" value="' + cpfRaw + '" placeholder="000.000.000-00" maxlength="14" oninput="_mascaraCPF(this)" style="width:100%;padding:11px;' + cpfBorder + 'font-size:14px;box-sizing:border-box;margin-bottom:4px;font-family:inherit;letter-spacing:1px;">'
       + (destacarCPF ? '<div style="font-size:11px;color:#E65100;margin-bottom:10px;">👆 Preencha e clique em Salvar dados</div>' : '<div style="margin-bottom:8px;"></div>')
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📱 Celular / WhatsApp</label>'
       + '<input id="mc-telefone" type="tel" value="' + tel + '" placeholder="(11) 99999-9999" maxlength="15" oninput="formatarTelefoneConta(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;">'
@@ -4539,26 +4539,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
   }
 
-  // Máscara CPF global — sempre parte dos dígitos puros
+  // Máscara CPF global — sempre parte dos dígitos puros, cursor sempre no final
   window._mascaraCPF = function(el) {
-    var pos = el.selectionStart;
-    var prev = el.value;
-    var v = prev.replace(/\D/g, '').slice(0, 11);
+    var v = el.value.replace(/\D/g, '').slice(0, 11);
     var r = v;
     if (v.length > 9)      r = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
     else if (v.length > 6) r = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6);
     else if (v.length > 3) r = v.slice(0,3) + '.' + v.slice(3);
     el.value = r;
-    // Ajustar cursor: contar quantos dígitos havia antes do cursor e reposicionar
-    try {
-      var digAntes = prev.slice(0, pos).replace(/\D/g,'').length;
-      var newPos = 0; var cnt = 0;
-      for (var i = 0; i < r.length; i++) {
-        if (/\d/.test(r[i])) cnt++;
-        if (cnt === digAntes) { newPos = i + 1; break; }
-      }
-      el.setSelectionRange(newPos, newPos);
-    } catch(e) {}
+    // Cursor sempre ao final — evita bug de reposicionamento em type="tel" mobile
+    try { el.setSelectionRange(r.length, r.length); } catch(e) {}
   };
 
   // Preço médio dos postos carregados (ou fallback ANP nacional)
