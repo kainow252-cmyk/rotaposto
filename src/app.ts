@@ -3733,7 +3733,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function abrirModal(titulo, conteudoHTML) { abrirTela(titulo, conteudoHTML); }
 
   // ── Minha Conta ───────────────────────────────────────────────────────────
-  function abrirMinhaConta() {
+  function abrirMinhaConta(destacarCPF?: boolean) {
     var u = currentUser || {};
     var nome = u.name || 'Usuário';
     var email = u.email || '—';
@@ -3753,7 +3753,24 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var cpfFmt = cpf.replace(/\D/g,'');
     if (cpfFmt.length === 11) cpfFmt = cpfFmt.slice(0,3)+'.'+cpfFmt.slice(3,6)+'.'+cpfFmt.slice(6,9)+'-'+cpfFmt.slice(9);
 
-    var html = '<div style="text-align:center;margin-bottom:20px;padding:20px 0;">'
+    // Banner de alerta CPF (mostrado quando chamado a partir do fluxo PIX)
+    var bannerCPF = destacarCPF
+      ? '<div id="mc-alerta-cpf" style="background:linear-gradient(135deg,#E65100,#FF6D00);border-radius:16px;padding:16px 18px;margin-bottom:16px;display:flex;align-items:flex-start;gap:12px;">'
+        + '<span style="font-size:26px;line-height:1;">⚠️</span>'
+        + '<div>'
+        + '<div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:3px;">CPF obrigatório para o PIX</div>'
+        + '<div style="font-size:13px;color:rgba(255,255,255,0.9);">Preencha seu CPF abaixo e salve para continuar com o pagamento.</div>'
+        + '</div>'
+        + '</div>'
+      : '';
+
+    // Borda destacada no campo CPF quando vindo do fluxo PIX
+    var cpfBorder = destacarCPF
+      ? 'border:2.5px solid #FF6D00;border-radius:10px;box-shadow:0 0 0 3px rgba(255,109,0,0.18);'
+      : 'border:1.5px solid #E0E0E0;border-radius:10px;';
+
+    var html = bannerCPF
+      + '<div style="text-align:center;margin-bottom:20px;padding:20px 0;">'
       + (foto ? '<img src="' + foto + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:12px;border:3px solid #FF6D00;">'
                : '<div style="width:80px;height:80px;border-radius:50%;background:#FF6D00;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:32px;color:#fff;font-weight:800;">' + nome.charAt(0).toUpperCase() + '</div>')
       + '<div style="font-size:20px;font-weight:800;color:#1A1A1A;">' + nome + '</div>'
@@ -3766,8 +3783,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       // Contato e endereço
       + '<div class="st-card">'
       + '<div style="font-size:13px;font-weight:800;color:#1A1A1A;margin-bottom:12px;">📋 Contato &amp; Endereço</div>'
-      + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">🪪 CPF</label>'
-      + '<input id="mc-cpf" type="tel" inputmode="numeric" value="' + cpfFmt + '" placeholder="000.000.000-00" maxlength="14" oninput="_mascaraCPF(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;letter-spacing:1px;">'
+      + '<label style="font-size:13px;font-weight:700;color:' + (destacarCPF ? '#E65100' : '#555') + ';display:block;margin-bottom:5px;">🪪 CPF' + (destacarCPF ? ' <span style="color:#E65100;font-size:11px;font-weight:600;">(obrigatório para o PIX)</span>' : '') + '</label>'
+      + '<input id="mc-cpf" type="tel" inputmode="numeric" value="' + cpfFmt + '" placeholder="000.000.000-00" maxlength="14" oninput="_mascaraCPF(this)" style="width:100%;padding:11px;' + cpfBorder + 'font-size:14px;box-sizing:border-box;margin-bottom:4px;font-family:inherit;letter-spacing:1px;">'
+      + (destacarCPF ? '<div style="font-size:11px;color:#E65100;margin-bottom:10px;">👆 Preencha e clique em Salvar dados</div>' : '<div style="margin-bottom:8px;"></div>')
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📱 Celular / WhatsApp</label>'
       + '<input id="mc-telefone" type="tel" value="' + tel + '" placeholder="(11) 99999-9999" maxlength="15" oninput="formatarTelefoneConta(this)" style="width:100%;padding:11px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;">'
       + '<label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:5px;">📮 CEP</label>'
@@ -4487,8 +4505,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         if (data.demo) showToast('⚠️ Modo demonstração — pagamento não será processado');
         mostrarQRCode(data.qrCode, data.brcode, data.subscriptionId, planoSelecionado, data.demo);
       } else if (data.precisaCPF) {
-        // CPF ausente ou inválido → orientar usuário a cadastrar em Minha Conta
-        showToast('⚠️ Cadastre seu CPF em "Minha Conta" para gerar o PIX.');
+        // CPF ausente ou inválido → fechar assinatura e abrir Minha Conta com alerta
+        fecharAssinatura();
+        setTimeout(function() { abrirMinhaConta(true); }, 300);
       } else {
         const msg = data.mensagem || data.error || 'Erro ao gerar PIX. Tente novamente.';
         console.error('[PIX] Falha:', JSON.stringify(data));
