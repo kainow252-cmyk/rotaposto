@@ -1008,7 +1008,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
        TELA PERFIL — position:fixed (igual rp-subtela)
     ══════════════════════════════════════════════ */
     #rp-perfil {
-      position: fixed; inset: 0; z-index: 9000;
+      position: fixed !important;
+      top: 0 !important; left: 0 !important;
+      right: 0 !important; bottom: 0 !important;
+      width: 100% !important; height: 100% !important;
+      max-width: 100% !important; margin: 0 !important;
+      z-index: 9000;
       background: var(--gray-bg);
       display: flex; flex-direction: column;
       transform: translateX(100%);
@@ -1032,7 +1037,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
        SUB-TELA CHEIA (substitui modais do menu)
     ══════════════════════════════════════════════ */
     #rp-subtela {
-      position: fixed; inset: 0; z-index: 99999;
+      position: fixed !important;
+      top: 0 !important; left: 0 !important;
+      right: 0 !important; bottom: 0 !important;
+      width: 100% !important; height: 100% !important;
+      max-width: 100% !important; margin: 0 !important;
+      z-index: 99999;
       background: var(--gray-bg);
       display: flex; flex-direction: column;
       transform: translateX(100%);
@@ -2070,19 +2080,19 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   </div>
   <!-- Lista de itens do menu -->
   <div id="perfil-menu-list">
-    ${buildMenuItem('person', 'Minha conta', "abrirMinhaConta()")}
-    ${buildMenuItem('car', 'Meus veículos', "abrirMeusVeiculos()")}
-    ${buildMenuItem('card', 'Assinatura', "goToAssinatura()")}
-    ${buildMenuItem('creditcard', 'Formas de pagamento', "abrirFormasPagamento()")}
-    ${buildMenuItem('bell', 'Notificações', "abrirNotificacoes()")}
-    <div class="menu-item" onclick="abrirPainelGamificacao()">
+    <div id="menu-item-minhaconta">${buildMenuItem('person', 'Minha conta', "abrirMinhaConta()")}</div>
+    <div id="menu-item-veiculos">${buildMenuItem('car', 'Meus veículos', "abrirMeusVeiculos()")}</div>
+    <div id="menu-item-assinatura">${buildMenuItem('card', 'Assinatura', "goToAssinatura()")}</div>
+    <div id="menu-item-pagamento">${buildMenuItem('creditcard', 'Formas de pagamento', "abrirFormasPagamento()")}</div>
+    <div id="menu-item-notificacoes">${buildMenuItem('bell', 'Notificações', "abrirNotificacoes()")}</div>
+    <div id="menu-item-pontos"><div class="menu-item" onclick="abrirPainelGamificacao()">
       <div class="menu-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
       <div style="flex:1;"><span class="menu-item-label">Pontos &amp; Níveis</span><div id="gamif-pontos-preview" style="font-size:11px;color:#FF6D00;margin-top:1px;"></div></div>
       <div class="menu-item-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
-    </div>
-    ${buildMenuItem('gift', 'Indique e ganhe', "abrirIndiqueGanhe()")}
-    ${buildMenuItem('help', 'Ajuda e suporte', "abrirAjuda()")}
-    ${buildMenuItem('settings', 'Configurações', "abrirConfiguracoes()")}
+    </div></div>
+    <div id="menu-item-indique">${buildMenuItem('gift', 'Indique e ganhe', "abrirIndiqueGanhe()")}</div>
+    <div id="menu-item-ajuda">${buildMenuItem('help', 'Ajuda e suporte', "abrirAjuda()")}</div>
+    <div id="menu-item-config">${buildMenuItem('settings', 'Configurações', "abrirConfiguracoes()")}</div>
     <div id="menu-item-instalar" style="display:none;">${buildMenuItem('download', 'Instalar app', "instalarOuMostrarPWA()")}</div>
     <div class="menu-item menu-item-sair" onclick="doLogout()">
       <div class="menu-item-icon">
@@ -4529,15 +4539,26 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
   }
 
-  // Máscara CPF global (chamada via oninput="_mascaraCPF(this)")
+  // Máscara CPF global — sempre parte dos dígitos puros
   window._mascaraCPF = function(el) {
-    var v = el.value.replace(/\D/g, '').slice(0, 11);
-    var r = '';
+    var pos = el.selectionStart;
+    var prev = el.value;
+    var v = prev.replace(/\D/g, '').slice(0, 11);
+    var r = v;
     if (v.length > 9)      r = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
     else if (v.length > 6) r = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6);
     else if (v.length > 3) r = v.slice(0,3) + '.' + v.slice(3);
-    else                   r = v;
     el.value = r;
+    // Ajustar cursor: contar quantos dígitos havia antes do cursor e reposicionar
+    try {
+      var digAntes = prev.slice(0, pos).replace(/\D/g,'').length;
+      var newPos = 0; var cnt = 0;
+      for (var i = 0; i < r.length; i++) {
+        if (/\d/.test(r[i])) cnt++;
+        if (cnt === digAntes) { newPos = i + 1; break; }
+      }
+      el.setSelectionRange(newPos, newPos);
+    } catch(e) {}
   };
 
   // Preço médio dos postos carregados (ou fallback ANP nacional)
@@ -4912,7 +4933,88 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     // Verificar status de assinatura
     setTimeout(() => verificarStatusAssinatura(), 1000);
+
+    // Aplicar configuração do menu definida pelo admin
+    (function() {
+      fetch('/api/app/menu-config')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data || !data.itens) return;
+          var mapaIds = {
+            minhaConta:      'menu-item-minhaconta',
+            meusVeiculos:    'menu-item-veiculos',
+            assinatura:      'menu-item-assinatura',
+            formasPagamento: 'menu-item-pagamento',
+            notificacoes:    'menu-item-notificacoes',
+            pontosNiveis:    'menu-item-pontos',
+            indiqueGanhe:    'menu-item-indique',
+            ajudaSuporte:    'menu-item-ajuda',
+            configuracoes:   'menu-item-config',
+          };
+          data.itens.forEach(function(item) {
+            var elId = mapaIds[item.id];
+            if (!elId) return;
+            var el = document.getElementById(elId);
+            if (el) el.style.display = item.ativo ? '' : 'none';
+          });
+        })
+        .catch(function() {});
+    })();
+
+    // Popup de boas-vindas: pedir dados cadastrais se perfil incompleto
+    (function() {
+      if (!currentUser || !currentUser.uid) return;
+      var uid = currentUser.uid;
+      var jaViu = localStorage.getItem('rp_dados_popup_' + uid);
+      if (jaViu) return;
+      var perfilExtra = {};
+      try { perfilExtra = JSON.parse(localStorage.getItem('rp_perfil_extra_' + uid) || '{}'); } catch {}
+      var cpfOk = (perfilExtra['cpf'] || '').replace(/\D/g,'').length === 11;
+      if (cpfOk) return; // já tem dados, não mostrar
+      // Marcar como visto para não mostrar toda vez
+      localStorage.setItem('rp_dados_popup_' + uid, '1');
+      setTimeout(function() { _mostrarPopupDadosCadastro(); }, 1800);
+    })();
   })();
+
+  // ── Popup de boas-vindas: completar cadastro ─────────────────────────────
+  function _mostrarPopupDadosCadastro() {
+    var overlay = document.createElement('div');
+    overlay.id = 'popup-dados-cadastro';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:299999;background:rgba(0,0,0,0.65);display:flex;align-items:flex-end;justify-content:center;';
+    var sheet = document.createElement('div');
+    sheet.style.cssText = 'background:#fff;border-radius:24px 24px 0 0;padding:28px 20px 36px;width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,0.22);';
+    var handle = document.createElement('div');
+    handle.style.cssText = 'width:40px;height:4px;background:#E0E0E0;border-radius:2px;margin:0 auto 20px;';
+    var icone = document.createElement('div');
+    icone.style.cssText = 'font-size:44px;text-align:center;margin-bottom:12px;';
+    icone.textContent = '👋';
+    var titulo = document.createElement('div');
+    titulo.style.cssText = 'font-size:20px;font-weight:800;color:#1A1A1A;text-align:center;margin-bottom:8px;';
+    titulo.textContent = 'Complete seu cadastro!';
+    var subtit = document.createElement('div');
+    subtit.style.cssText = 'font-size:14px;color:#757575;text-align:center;margin-bottom:22px;line-height:1.5;';
+    subtit.textContent = 'Precisamos do seu CPF para gerar o PIX e outros dados para personalizar sua experiência.';
+    var btnOk = document.createElement('button');
+    btnOk.style.cssText = 'width:100%;padding:16px;background:#FF6D00;color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;';
+    btnOk.textContent = '✏️ Preencher dados agora';
+    btnOk.addEventListener('click', function() {
+      overlay.remove();
+      abrirMinhaConta(true);
+    });
+    var btnDepois = document.createElement('button');
+    btnDepois.style.cssText = 'width:100%;padding:13px;background:transparent;color:#9E9E9E;border:none;font-size:14px;cursor:pointer;';
+    btnDepois.textContent = 'Agora não';
+    btnDepois.addEventListener('click', function() { overlay.remove(); });
+    sheet.appendChild(handle);
+    sheet.appendChild(icone);
+    sheet.appendChild(titulo);
+    sheet.appendChild(subtit);
+    sheet.appendChild(btnOk);
+    sheet.appendChild(btnDepois);
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+  }
 
   // ── Geolocalização — chamada no init E quando mapa abre ──────────────────
 

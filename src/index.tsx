@@ -7138,6 +7138,44 @@ app.post('/api/admin/assinatura/:uid/ativar', async (c) => {
   return c.json({ ok: true, uid, expiraEm })
 })
 
+// ─── GET /api/admin/menu-app — retorna config do menu do app ──────────────────
+app.get('/api/admin/menu-app', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false, error: 'KV indisponível' }, 503)
+  try {
+    const raw = await kv.get('app:menu-config')
+    const itens = raw ? JSON.parse(raw) : null
+    return c.json({ ok: true, itens })
+  } catch(e) { return c.json({ ok: false, error: String(e) }, 500) }
+})
+
+// ─── POST /api/admin/menu-app — salva config do menu do app ───────────────────
+app.post('/api/admin/menu-app', async (c) => {
+  const body = await c.req.json() as any
+  const key = body.key || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false, error: 'KV indisponível' }, 503)
+  try {
+    await kv.put('app:menu-config', JSON.stringify(body.itens), { expirationTtl: 60 * 60 * 24 * 365 })
+    return c.json({ ok: true })
+  } catch(e) { return c.json({ ok: false, error: String(e) }, 500) }
+})
+
+// ─── GET /api/app/menu-config — retorna config do menu para o app (público) ───
+app.get('/api/app/menu-config', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ itens: null })
+  try {
+    const raw = await kv.get('app:menu-config')
+    return c.json({ itens: raw ? JSON.parse(raw) : null })
+  } catch { return c.json({ itens: null }) }
+})
+
 // ─── GET /api/admin/assinaturas — lista todas as assinaturas ──────────────────
 app.get('/api/admin/assinaturas', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -7385,6 +7423,7 @@ app.get('/admin', (c) => {
     <div class="nav-section">Planos & Produtos</div>
     <div class="nav-item" id="nav-planos" onclick="showSection('planos',this)"><i class="fas fa-box-open"></i>Produtos & Planos</div>
     <div class="nav-item" id="nav-niveis" onclick="showSection('niveis',this)"><i class="fas fa-layer-group"></i>Níveis de Acesso</div>
+    <div class="nav-item" id="nav-menu-app" onclick="showSection('menu-app',this)"><i class="fas fa-sliders-h"></i>Menu do App</div>
     <div class="nav-section">Postos & Dados</div>
     <div class="nav-item" id="nav-postos-parceiros" onclick="showSection('postos-parceiros',this)"><i class="fas fa-star"></i>Postos Parceiros</div>
     <div class="nav-item" id="nav-postos" onclick="showSection('postos',this)"><i class="fas fa-gas-pump"></i>Postos (Mapa)</div>
@@ -8080,6 +8119,23 @@ app.get('/admin', (c) => {
     </div>
   </section>
 
+  <!-- ══ MENU DO APP ══ -->
+  <section id="section-menu-app" style="display:none">
+    <div class="page-header">
+      <h2>📱 Menu do App</h2>
+      <button class="btn-refresh" onclick="salvarMenuApp()"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+    <div class="section-card">
+      <div class="section-header"><h3><i class="fas fa-sliders-h" style="color:#FF6D00;margin-right:8px"></i>Itens visíveis no menu do usuário</h3></div>
+      <div class="section-body">
+        <p style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px">Marque quais itens aparecem no menu lateral do app. Alterações salvam imediatamente no KV e refletem para todos os usuários.</p>
+        <div id="menu-app-itens" style="display:flex;flex-direction:column;gap:12px">
+          <div style="text-align:center;padding:30px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ══ MAPA AO VIVO ══ -->
   <section id="section-mapa" style="display:none">
     <div class="page-header"><h2>🗺️ Mapa ao Vivo</h2></div>
@@ -8189,6 +8245,7 @@ function showSection(name, el) {
   if (name === 'permissoes') carregarPermissoes();
   if (name === 'planos') carregarEstatisticasPlanos();
   if (name === 'niveis') carregarEstatisticasNiveis();
+  if (name === 'menu-app') carregarMenuApp();
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -8962,6 +9019,75 @@ async function carregarEstatisticasNiveis() {
     nc('nivel-free-count', Math.max(0, free));
     nc('nivel-bloqueado-count', bloqueados);
   } catch(e) { console.warn('carregarEstatisticasNiveis:', e); }
+}
+
+// ── MENU DO APP ──────────────────────────────────────────────────────────────
+const MENU_APP_ITENS_PADRAO = [
+  { id: 'minhaConta',      label: 'Minha conta',         icone: '👤', ativo: true },
+  { id: 'meusVeiculos',    label: 'Meus veículos',        icone: '🚗', ativo: true },
+  { id: 'assinatura',      label: 'Assinatura',           icone: '💳', ativo: true },
+  { id: 'formasPagamento', label: 'Formas de pagamento',  icone: '💰', ativo: true },
+  { id: 'notificacoes',    label: 'Notificações',         icone: '🔔', ativo: true },
+  { id: 'pontosNiveis',    label: 'Pontos & Níveis',      icone: '⭐', ativo: true },
+  { id: 'indiqueGanhe',    label: 'Indique e ganhe',      icone: '🎁', ativo: true },
+  { id: 'ajudaSuporte',    label: 'Ajuda e suporte',      icone: '❓', ativo: true },
+  { id: 'configuracoes',   label: 'Configurações',        icone: '⚙️', ativo: true },
+];
+
+async function carregarMenuApp() {
+  const el = document.getElementById('menu-app-itens');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/admin/menu-app?key=' + encodeURIComponent(ADMIN_KEY));
+    const data = await res.json();
+    const itens = data.itens || MENU_APP_ITENS_PADRAO;
+    renderMenuAppItens(itens);
+  } catch(e) {
+    renderMenuAppItens(MENU_APP_ITENS_PADRAO);
+  }
+}
+
+function renderMenuAppItens(itens) {
+  const el = document.getElementById('menu-app-itens');
+  if (!el) return;
+  el.innerHTML = itens.map(item => \`
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#0A1520;border-radius:12px;padding:14px 18px;border:1px solid rgba(255,255,255,0.07)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:22px">\${item.icone}</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#fff">\${item.label}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px">ID: \${item.id}</div>
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <span style="font-size:12px;color:rgba(255,255,255,0.4)">\${item.ativo ? 'Visível' : 'Oculto'}</span>
+        <div style="position:relative;width:44px;height:24px">
+          <input type="checkbox" id="menu-toggle-\${item.id}" \${item.ativo ? 'checked' : ''}
+            onchange="this.nextElementSibling.style.background=this.checked?'#FF6D00':'rgba(255,255,255,0.1)';this.parentElement.previousElementSibling.textContent=this.checked?'Visível':'Oculto'"
+            style="opacity:0;width:0;height:0;position:absolute">
+          <div style="position:absolute;inset:0;border-radius:12px;background:\${item.ativo ? '#FF6D00' : 'rgba(255,255,255,0.1)'};transition:0.2s;cursor:pointer" onclick="var cb=this.previousElementSibling;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"></div>
+          <div style="position:absolute;top:2px;left:\${item.ativo ? '22px' : '2px'};width:20px;height:20px;border-radius:50%;background:#fff;transition:0.2s;pointer-events:none" id="knob-\${item.id}"></div>
+        </div>
+      </label>
+    </div>
+  \`).join('');
+}
+
+async function salvarMenuApp() {
+  const itens = MENU_APP_ITENS_PADRAO.map(item => ({
+    ...item,
+    ativo: (document.getElementById('menu-toggle-' + item.id) as HTMLInputElement)?.checked ?? item.ativo
+  }));
+  try {
+    const res = await fetch('/api/admin/menu-app', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: ADMIN_KEY, itens })
+    });
+    const data = await res.json();
+    if (data.ok) showToast('✅ Menu salvo com sucesso!');
+    else showToast('❌ Erro ao salvar: ' + (data.error || ''));
+  } catch(e) { showToast('❌ Erro de conexão'); }
 }
 </script>
 </body>
