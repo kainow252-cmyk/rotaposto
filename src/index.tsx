@@ -7011,6 +7011,63 @@ app.post('/api/admin/usuarios/:uid/editar', async (c) => {
   }
 })
 
+// ─── POST /api/admin/usuarios/:uid/permissao — alterar nível de acesso ──────────
+app.post('/api/admin/usuarios/:uid/permissao', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const uid = c.req.param('uid')
+  const { acao } = await c.req.json() as any
+
+  try {
+    // Carregar sessão do usuário
+    let sessao: any = {}
+    try { const r = await kv.get(`sess:${uid}`); if (r) sessao = JSON.parse(r) } catch {}
+
+    if (acao === 'premium') {
+      // Ativar premium manualmente por 30 dias
+      let assin: any = {}
+      try { const r = await kv.get(`assin:${uid}`); if (r) assin = JSON.parse(r) } catch {}
+      assin.userId = uid; assin.plano = 'premium'; assin.status = 'ACTIVE'
+      assin.ativadaEm = Date.now(); assin.expiraEm = Date.now() + 30 * 24 * 60 * 60 * 1000
+      assin.pagamentos = (assin.pagamentos || 0); assin.ativadoPeloAdmin = true
+      await kv.put(`assin:${uid}`, JSON.stringify(assin), { expirationTtl: 60*60*24*400 })
+      sessao.bloqueado = false
+      await kv.put(`sess:${uid}`, JSON.stringify(sessao), { expirationTtl: 60*60*24*400 })
+      return c.json({ sucesso: true, acao, uid })
+    }
+
+    if (acao === 'free') {
+      // Cancelar assinatura e voltar para free
+      let assin: any = {}
+      try { const r = await kv.get(`assin:${uid}`); if (r) assin = JSON.parse(r) } catch {}
+      assin.status = 'CANCELLED'; assin.canceladaEm = Date.now()
+      await kv.put(`assin:${uid}`, JSON.stringify(assin), { expirationTtl: 60*60*24*400 })
+      sessao.bloqueado = false
+      await kv.put(`sess:${uid}`, JSON.stringify(sessao), { expirationTtl: 60*60*24*400 })
+      return c.json({ sucesso: true, acao, uid })
+    }
+
+    if (acao === 'bloqueado') {
+      sessao.bloqueado = true; sessao.bloqueadoEm = Date.now()
+      await kv.put(`sess:${uid}`, JSON.stringify(sessao), { expirationTtl: 60*60*24*400 })
+      return c.json({ sucesso: true, acao, uid })
+    }
+
+    if (acao === 'desbloquear') {
+      sessao.bloqueado = false; delete sessao.bloqueadoEm
+      await kv.put(`sess:${uid}`, JSON.stringify(sessao), { expirationTtl: 60*60*24*400 })
+      return c.json({ sucesso: true, acao, uid })
+    }
+
+    return c.json({ erro: 'Ação inválida: ' + acao }, 400)
+  } catch(e) {
+    return c.json({ erro: String(e) }, 500)
+  }
+})
+
 // ─── POST /api/admin/assinatura/:uid/cancelar — cancelar assinatura de usuário ─
 app.post('/api/admin/assinatura/:uid/cancelar', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -7291,7 +7348,11 @@ app.get('/admin', (c) => {
     <div class="nav-section">App & Usuários</div>
     <div class="nav-item" id="nav-app-usuarios" onclick="showSection('app-usuarios',this)"><i class="fas fa-mobile-alt"></i>Usuários do App</div>
     <div class="nav-item" id="nav-dados-usuarios" onclick="showSection('dados-usuarios',this)"><i class="fas fa-id-card"></i>Dados & Contatos</div>
+    <div class="nav-item" id="nav-permissoes" onclick="showSection('permissoes',this)"><i class="fas fa-shield-alt"></i>Permissões</div>
     <div class="nav-item" id="nav-assinaturas" onclick="showSection('assinaturas',this)"><i class="fas fa-crown"></i>Assinaturas</div>
+    <div class="nav-section">Planos & Produtos</div>
+    <div class="nav-item" id="nav-planos" onclick="showSection('planos',this)"><i class="fas fa-box-open"></i>Produtos & Planos</div>
+    <div class="nav-item" id="nav-niveis" onclick="showSection('niveis',this)"><i class="fas fa-layer-group"></i>Níveis de Acesso</div>
     <div class="nav-section">Postos & Dados</div>
     <div class="nav-item" id="nav-postos-parceiros" onclick="showSection('postos-parceiros',this)"><i class="fas fa-star"></i>Postos Parceiros</div>
     <div class="nav-item" id="nav-postos" onclick="showSection('postos',this)"><i class="fas fa-gas-pump"></i>Postos (Mapa)</div>
@@ -7729,6 +7790,264 @@ app.get('/admin', (c) => {
     </div>
   </section>
 
+  <!-- ══ PERMISSÕES DE USUÁRIOS ══ -->
+  <section id="section-permissoes" style="display:none">
+    <div class="page-header">
+      <h2>🛡️ Permissões de Usuários</h2>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span id="perm-count" style="background:rgba(255,109,0,0.12);color:#FF6D00;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">– usuários</span>
+        <button class="btn-refresh" onclick="carregarPermissoes()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+      </div>
+    </div>
+    <!-- Filtros rápidos por nível -->
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+      <button onclick="filtrarPermissoesPor('todos')" id="pf-todos" style="background:rgba(255,109,0,0.2);border:1px solid rgba(255,109,0,0.4);color:#FF6D00;border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">Todos</button>
+      <button onclick="filtrarPermissoesPor('admin')" id="pf-admin" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">👑 Admin</button>
+      <button onclick="filtrarPermissoesPor('premium')" id="pf-premium" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">⭐ Premium</button>
+      <button onclick="filtrarPermissoesPor('free')" id="pf-free" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">🆓 Free</button>
+      <button onclick="filtrarPermissoesPor('bloqueado')" id="pf-bloqueado" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">🚫 Bloqueados</button>
+    </div>
+    <div class="section-card">
+      <div class="section-header">
+        <h3><i class="fas fa-users-cog" style="color:#FF6D00;margin-right:8px"></i>Controle de Acesso por Usuário</h3>
+        <input id="perm-search" type="text" placeholder="🔍 Buscar por UID ou e-mail..." oninput="filtrarPermissoes()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:240px"/>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="min-width:820px">
+          <thead><tr>
+            <th>Usuário</th>
+            <th>E-mail</th>
+            <th>Login Via</th>
+            <th>Nível Atual</th>
+            <th>Plano</th>
+            <th>Status</th>
+            <th>Alterar Permissão</th>
+          </tr></thead>
+          <tbody id="permissoes-tbody">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Legenda de níveis -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px">
+      <div class="kpi-card" style="padding:16px;border-left:3px solid #FFD600">
+        <div style="font-size:20px;margin-bottom:6px">👑</div>
+        <div style="font-size:13px;font-weight:800;color:#FFD600">Admin</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Acesso total ao painel, pode gerenciar tudo</div>
+      </div>
+      <div class="kpi-card" style="padding:16px;border-left:3px solid #FF6D00">
+        <div style="font-size:20px;margin-bottom:6px">⭐</div>
+        <div style="font-size:13px;font-weight:800;color:#FF6D00">Premium</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Todos os postos, mapa ao vivo, sem anúncios</div>
+      </div>
+      <div class="kpi-card" style="padding:16px;border-left:3px solid #42A5F5">
+        <div style="font-size:20px;margin-bottom:6px">🆓</div>
+        <div style="font-size:13px;font-weight:800;color:#42A5F5">Free</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Acesso básico, postos próximos limitados</div>
+      </div>
+      <div class="kpi-card" style="padding:16px;border-left:3px solid #FF5252">
+        <div style="font-size:20px;margin-bottom:6px">🚫</div>
+        <div style="font-size:13px;font-weight:800;color:#FF5252">Bloqueado</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Sem acesso ao app, login negado</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ PRODUTOS & PLANOS ══ -->
+  <section id="section-planos" style="display:none">
+    <div class="page-header">
+      <h2>📦 Produtos & Planos</h2>
+    </div>
+    <!-- Cards dos planos ativos -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:28px">
+      <!-- Plano Free -->
+      <div class="kpi-card" style="padding:24px;border:1px solid rgba(66,165,245,0.3)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-size:28px">🆓</div>
+          <span style="background:rgba(66,165,245,0.15);color:#42A5F5;border-radius:100px;padding:4px 14px;font-size:11px;font-weight:800">ATIVO</span>
+        </div>
+        <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:4px">Gratuito</div>
+        <div style="font-size:28px;font-weight:900;color:#42A5F5;margin-bottom:12px">R$ 0<span style="font-size:13px;color:rgba(255,255,255,0.4)">/sempre</span></div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
+          ✅ Postos próximos (raio 5km)<br/>
+          ✅ Preços colaborativos<br/>
+          ✅ Mapa básico<br/>
+          ❌ Rota de menor custo<br/>
+          ❌ Histórico de preços<br/>
+          ❌ Sem anúncios
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:rgba(255,255,255,0.4)">Usuários ativos</span>
+          <span style="font-size:20px;font-weight:900;color:#42A5F5" id="plano-free-count">–</span>
+        </div>
+      </div>
+      <!-- Plano Premium Mensal -->
+      <div class="kpi-card" style="padding:24px;border:1px solid rgba(255,109,0,0.4);position:relative;overflow:hidden">
+        <div style="position:absolute;top:12px;right:12px;background:var(--laranja);color:white;border-radius:100px;padding:3px 10px;font-size:10px;font-weight:900">MAIS POPULAR</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-size:28px">⭐</div>
+          <span style="background:rgba(0,200,83,0.15);color:#00C853;border-radius:100px;padding:4px 14px;font-size:11px;font-weight:800">ATIVO</span>
+        </div>
+        <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:4px">Premium Mensal</div>
+        <div style="font-size:28px;font-weight:900;color:#FF6D00;margin-bottom:12px">R$ 9,90<span style="font-size:13px;color:rgba(255,255,255,0.4)">/mês</span></div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
+          ✅ Todos os postos do Brasil<br/>
+          ✅ Mapa com preços em tempo real<br/>
+          ✅ Rota de menor custo<br/>
+          ✅ Histórico completo<br/>
+          ✅ Sem anúncios<br/>
+          ✅ Suporte prioritário
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:rgba(255,255,255,0.4)">Assinantes ativos</span>
+          <span style="font-size:20px;font-weight:900;color:#FF6D00" id="plano-premium-count">–</span>
+        </div>
+      </div>
+      <!-- Plano Anual -->
+      <div class="kpi-card" style="padding:24px;border:1px solid rgba(255,214,0,0.3)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-size:28px">👑</div>
+          <span style="background:rgba(0,200,83,0.15);color:#00C853;border-radius:100px;padding:4px 14px;font-size:11px;font-weight:800">ATIVO</span>
+        </div>
+        <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:4px">Premium Anual</div>
+        <div style="font-size:28px;font-weight:900;color:#FFD600;margin-bottom:12px">R$ 89,00<span style="font-size:13px;color:rgba(255,255,255,0.4)">/ano</span></div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.8">
+          ✅ Tudo do Premium Mensal<br/>
+          ✅ 2 meses grátis<br/>
+          ✅ Relatórios avançados<br/>
+          ✅ Export de dados<br/>
+          ✅ Badge exclusivo<br/>
+          ✅ Prioridade máxima no suporte
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:rgba(255,255,255,0.4)">Assinantes ativos</span>
+          <span style="font-size:20px;font-weight:900;color:#FFD600" id="plano-anual-count">–</span>
+        </div>
+      </div>
+    </div>
+    <!-- Comparação de features -->
+    <div class="section-card">
+      <div class="section-header">
+        <h3><i class="fas fa-table" style="color:#FF6D00;margin-right:8px"></i>Comparação de Recursos</h3>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="min-width:600px">
+          <thead><tr>
+            <th>Recurso</th>
+            <th style="text-align:center;color:#42A5F5">🆓 Free</th>
+            <th style="text-align:center;color:#FF6D00">⭐ Premium</th>
+            <th style="text-align:center;color:#FFD600">👑 Anual</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>Postos próximos</td><td style="text-align:center">5 km</td><td style="text-align:center;color:#00C853">✅ Brasil todo</td><td style="text-align:center;color:#00C853">✅ Brasil todo</td></tr>
+            <tr><td>Mapa ao vivo</td><td style="text-align:center">Básico</td><td style="text-align:center;color:#00C853">✅ Tempo real</td><td style="text-align:center;color:#00C853">✅ Tempo real</td></tr>
+            <tr><td>Rota de menor custo</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td><td style="text-align:center;color:#00C853">✅</td></tr>
+            <tr><td>Histórico de preços</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td><td style="text-align:center;color:#00C853">✅</td></tr>
+            <tr><td>Sem anúncios</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td><td style="text-align:center;color:#00C853">✅</td></tr>
+            <tr><td>Relatórios avançados</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td></tr>
+            <tr><td>Export de dados</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#FF5252">❌</td><td style="text-align:center;color:#00C853">✅</td></tr>
+            <tr><td>Suporte</td><td style="text-align:center">Normal</td><td style="text-align:center;color:#FF6D00">Prioritário</td><td style="text-align:center;color:#FFD600">Máximo</td></tr>
+            <tr><td>Preço</td><td style="text-align:center;color:#42A5F5">Grátis</td><td style="text-align:center;color:#FF6D00">R$ 9,90/mês</td><td style="text-align:center;color:#FFD600">R$ 89/ano</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ NÍVEIS DE ACESSO ══ -->
+  <section id="section-niveis" style="display:none">
+    <div class="page-header">
+      <h2>🎯 Níveis de Acesso</h2>
+    </div>
+    <!-- Cards de estatísticas por nível -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px">
+      <div class="kpi-card" style="padding:20px;border-left:4px solid #FFD600">
+        <div style="font-size:32px;margin-bottom:8px">👑</div>
+        <div style="font-size:13px;font-weight:800;color:#FFD600">Admin</div>
+        <div style="font-size:32px;font-weight:900;color:#fff;margin:6px 0" id="nivel-admin-count">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">usuários com acesso total</div>
+      </div>
+      <div class="kpi-card" style="padding:20px;border-left:4px solid #FF6D00">
+        <div style="font-size:32px;margin-bottom:8px">⭐</div>
+        <div style="font-size:13px;font-weight:800;color:#FF6D00">Premium</div>
+        <div style="font-size:32px;font-weight:900;color:#fff;margin:6px 0" id="nivel-premium-count">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes ativos</div>
+      </div>
+      <div class="kpi-card" style="padding:20px;border-left:4px solid #42A5F5">
+        <div style="font-size:32px;margin-bottom:8px">🆓</div>
+        <div style="font-size:13px;font-weight:800;color:#42A5F5">Free</div>
+        <div style="font-size:32px;font-weight:900;color:#fff;margin:6px 0" id="nivel-free-count">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">usuários gratuitos</div>
+      </div>
+      <div class="kpi-card" style="padding:20px;border-left:4px solid #FF5252">
+        <div style="font-size:32px;margin-bottom:8px">🚫</div>
+        <div style="font-size:13px;font-weight:800;color:#FF5252">Bloqueados</div>
+        <div style="font-size:32px;font-weight:900;color:#fff;margin:6px 0" id="nivel-bloqueado-count">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">sem acesso ao app</div>
+      </div>
+    </div>
+    <!-- Definição dos níveis -->
+    <div class="section-card">
+      <div class="section-header">
+        <h3><i class="fas fa-layer-group" style="color:#FF6D00;margin-right:8px"></i>Definição dos Níveis</h3>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;padding:8px 0">
+        <div style="display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:20px;padding:16px;background:rgba(255,214,0,0.05);border-radius:12px;border:1px solid rgba(255,214,0,0.15)">
+          <div style="text-align:center"><div style="font-size:32px">👑</div><div style="font-size:12px;font-weight:800;color:#FFD600;margin-top:4px">ADMIN</div></div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px">Acesso Administrativo Total</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.7">Pode acessar o painel admin, gerenciar usuários, postos parceiros, ver relatórios completos, ativar/cancelar assinaturas, bloquear usuários e configurar o app.</div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <span style="background:rgba(255,214,0,0.1);color:#FFD600;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Painel Admin</span>
+              <span style="background:rgba(255,214,0,0.1);color:#FFD600;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Todos os recursos</span>
+              <span style="background:rgba(255,214,0,0.1);color:#FFD600;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Gerenciar usuários</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);text-align:center">Atribuição<br/>manual</div>
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:20px;padding:16px;background:rgba(255,109,0,0.05);border-radius:12px;border:1px solid rgba(255,109,0,0.15)">
+          <div style="text-align:center"><div style="font-size:32px">⭐</div><div style="font-size:12px;font-weight:800;color:#FF6D00;margin-top:4px">PREMIUM</div></div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px">Assinante Pago — Acesso Completo ao App</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.7">Acesso a todos os postos do Brasil, mapa em tempo real, rota de menor custo, histórico completo de preços, sem anúncios e suporte prioritário.</div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <span style="background:rgba(255,109,0,0.1);color:#FF6D00;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">PIX R$ 9,90/mês</span>
+              <span style="background:rgba(255,109,0,0.1);color:#FF6D00;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">ou R$ 89/ano</span>
+              <span style="background:rgba(255,109,0,0.1);color:#FF6D00;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Ativação automática PIX</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);text-align:center">Via assinatura<br/>PIX / Cartão</div>
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:20px;padding:16px;background:rgba(66,165,245,0.05);border-radius:12px;border:1px solid rgba(66,165,245,0.15)">
+          <div style="text-align:center"><div style="font-size:32px">🆓</div><div style="font-size:12px;font-weight:800;color:#42A5F5;margin-top:4px">FREE</div></div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px">Usuário Gratuito — Acesso Básico</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.7">Acesso limitado ao app: postos próximos em raio de 5km, preços colaborativos básicos e mapa simples. Vê anúncios no app.</div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <span style="background:rgba(66,165,245,0.1);color:#42A5F5;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Padrão ao criar conta</span>
+              <span style="background:rgba(66,165,245,0.1);color:#42A5F5;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Raio 5km</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);text-align:center">Padrão<br/>automático</div>
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:20px;padding:16px;background:rgba(255,82,82,0.05);border-radius:12px;border:1px solid rgba(255,82,82,0.15)">
+          <div style="text-align:center"><div style="font-size:32px">🚫</div><div style="font-size:12px;font-weight:800;color:#FF5252;margin-top:4px">BLOQUEADO</div></div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px">Acesso Negado ao App</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.7">Usuário banido ou suspenso. O login é negado e o app exibe mensagem de conta bloqueada. Pode ser revertido pelo admin a qualquer momento.</div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <span style="background:rgba(255,82,82,0.1);color:#FF5252;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Login negado</span>
+              <span style="background:rgba(255,82,82,0.1);color:#FF5252;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Atribuição manual</span>
+              <span style="background:rgba(255,82,82,0.1);color:#FF5252;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Reversível</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);text-align:center">Manual pelo<br/>admin</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ══ MAPA AO VIVO ══ -->
   <section id="section-mapa" style="display:none">
     <div class="page-header"><h2>🗺️ Mapa ao Vivo</h2></div>
@@ -7834,6 +8153,10 @@ function showSection(name, el) {
   if (name === 'app-usuarios') carregarAppUsuarios();
   if (name === 'assinaturas') carregarAssinaturas();
   if (name === 'postos-parceiros') carregarParceirosCadastrados();
+  if (name === 'dados-usuarios') carregarDadosUsuarios();
+  if (name === 'permissoes') carregarPermissoes();
+  if (name === 'planos') carregarEstatisticasPlanos();
+  if (name === 'niveis') carregarEstatisticasNiveis();
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -8444,6 +8767,170 @@ function _initComGeo() {
 }
 _initComGeo();
 setInterval(() => { if (currentSection === 'dashboard') carregarDashboard(); }, 5 * 60000);
+
+// ── PERMISSÕES ───────────────────────────────────────────────────────────────
+let _permissoes = [];
+let _permissoesFiltro = 'todos';
+
+async function carregarPermissoes() {
+  const tbody = document.getElementById('permissoes-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando permissões...</td></tr>';
+  try {
+    // Carregar usuários + assinaturas juntos
+    const [usRes, asRes] = await Promise.all([
+      fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY)),
+      fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY))
+    ]);
+    const usData = await usRes.json();
+    const asData = await asRes.json();
+    const assinMap = {};
+    (asData.assinaturas || []).forEach(a => { assinMap[a.userId] = a; });
+    // Tentar também dados de perfil
+    let perfisMap = {};
+    try {
+      const dpRes = await fetch('/api/admin/usuarios-dados?key=' + encodeURIComponent(ADMIN_KEY));
+      const dpData = await dpRes.json();
+      (dpData.usuarios || []).forEach(u => { perfisMap[u.uid] = u; });
+    } catch(e) {}
+
+    _permissoes = (usData.usuarios || []).map(u => {
+      const assin = assinMap[u.uid];
+      const perfil = perfisMap[u.uid];
+      return {
+        uid: u.uid,
+        nome: perfil?.nome || perfil?.name || u.uid.slice(0,10),
+        email: perfil?.email || '–',
+        provider: perfil?.provider || 'email',
+        plano: assin?.plano || 'free',
+        status: assin?.status || 'FREE',
+        bloqueado: u.bloqueado || false,
+        nivel: u.bloqueado ? 'bloqueado' : (assin?.status === 'ACTIVE' ? 'premium' : 'free')
+      };
+    });
+
+    document.getElementById('perm-count').textContent = _permissoes.length + ' usuários';
+    renderPermissoes(_permissoes);
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#FF5252">Erro ao carregar: ' + e.message + '</td></tr>';
+  }
+}
+
+function renderPermissoes(lista) {
+  const tbody = document.getElementById('permissoes-tbody');
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">Nenhum usuário encontrado</td></tr>';
+    return;
+  }
+  const providerIcon = p => p === 'google.com' ? '<i class="fab fa-google" style="color:#4285F4"></i>' : p === 'facebook.com' ? '<i class="fab fa-facebook" style="color:#1877F2"></i>' : '<i class="fas fa-envelope" style="color:#aaa"></i>';
+  const nivelBadge = n => {
+    if (n === 'admin')    return '<span style="background:rgba(255,214,0,0.15);color:#FFD600;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800">👑 Admin</span>';
+    if (n === 'premium')  return '<span style="background:rgba(255,109,0,0.15);color:#FF6D00;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800">⭐ Premium</span>';
+    if (n === 'bloqueado')return '<span style="background:rgba(255,82,82,0.15);color:#FF5252;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800">🚫 Bloqueado</span>';
+    return '<span style="background:rgba(66,165,245,0.12);color:#42A5F5;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800">🆓 Free</span>';
+  };
+  tbody.innerHTML = lista.map(u => \`
+    <tr>
+      <td style="font-size:11px;color:rgba(255,255,255,0.5);max-width:130px;overflow:hidden;text-overflow:ellipsis">\${u.nome}</td>
+      <td style="font-size:11px;color:rgba(255,255,255,0.4)">\${u.email}</td>
+      <td style="text-align:center">\${providerIcon(u.provider)}</td>
+      <td>\${nivelBadge(u.nivel)}</td>
+      <td style="font-size:11px;color:rgba(255,255,255,0.5)">\${u.plano || 'free'}</td>
+      <td><span style="font-size:10px;font-weight:700;color:\${u.bloqueado?'#FF5252':'#00C853'}">\${u.bloqueado?'🚫 Bloqueado':'✅ Ativo'}</span></td>
+      <td>
+        <select onchange="alterarPermissao('\${u.uid}',this.value)" style="background:#0A1520;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:5px 10px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;outline:none">
+          <option value="" disabled selected>Alterar...</option>
+          <option value="premium">⭐ Dar Premium</option>
+          <option value="free">🆓 Rebaixar Free</option>
+          <option value="bloqueado">🚫 Bloquear</option>
+          <option value="desbloquear">✅ Desbloquear</option>
+        </select>
+      </td>
+    </tr>
+  \`).join('');
+}
+
+function filtrarPermissoesPor(tipo) {
+  _permissoesFiltro = tipo;
+  document.querySelectorAll('[id^="pf-"]').forEach(b => {
+    b.style.background = 'rgba(255,255,255,0.05)';
+    b.style.borderColor = 'rgba(255,255,255,0.1)';
+    b.style.color = 'rgba(255,255,255,0.5)';
+  });
+  const btn = document.getElementById('pf-' + tipo);
+  if (btn) { btn.style.background = 'rgba(255,109,0,0.2)'; btn.style.borderColor = 'rgba(255,109,0,0.4)'; btn.style.color = '#FF6D00'; }
+  const filtrado = tipo === 'todos' ? _permissoes : _permissoes.filter(u => u.nivel === tipo);
+  renderPermissoes(filtrado);
+}
+
+function filtrarPermissoes() {
+  const q = document.getElementById('perm-search').value.toLowerCase();
+  const lista = _permissoesFiltro === 'todos' ? _permissoes : _permissoes.filter(u => u.nivel === _permissoesFiltro);
+  renderPermissoes(lista.filter(u => u.uid.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.nome.toLowerCase().includes(q)));
+}
+
+async function alterarPermissao(uid, acao) {
+  if (!acao) return;
+  if (!confirm('Confirmar ação "' + acao + '" para o usuário ' + uid.slice(0,12) + '...?')) return;
+  try {
+    const res = await fetch('/api/admin/usuarios/' + uid + '/permissao?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao })
+    });
+    const data = await res.json();
+    if (data.sucesso) {
+      showToast('✅ Permissão atualizada!', 'ok');
+      carregarPermissoes();
+    } else {
+      showToast('Erro: ' + (data.erro || 'falha'), 'err');
+    }
+  } catch(e) {
+    showToast('Erro de conexão', 'err');
+  }
+}
+
+// ── PLANOS E NÍVEIS ──────────────────────────────────────────────────────────
+async function carregarEstatisticasPlanos() {
+  try {
+    const res = await fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY));
+    const data = await res.json();
+    const assinaturas = data.assinaturas || [];
+    const premium = assinaturas.filter(a => a.status === 'ACTIVE' && a.plano === 'premium').length;
+    const anual = assinaturas.filter(a => a.status === 'ACTIVE' && a.plano === 'anual').length;
+    // Usuários free = total - premium - anual
+    const usRes = await fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY));
+    const usData = await usRes.json();
+    const total = (usData.usuarios || []).length;
+    const free = total - premium - anual;
+    const pfc = document.getElementById('plano-free-count');
+    const ppc = document.getElementById('plano-premium-count');
+    const pac = document.getElementById('plano-anual-count');
+    if (pfc) pfc.textContent = Math.max(0, free);
+    if (ppc) ppc.textContent = premium;
+    if (pac) pac.textContent = anual;
+  } catch(e) { console.warn('carregarEstatisticasPlanos:', e); }
+}
+
+async function carregarEstatisticasNiveis() {
+  try {
+    const [usRes, asRes] = await Promise.all([
+      fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY)),
+      fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY))
+    ]);
+    const usData = await usRes.json();
+    const asData = await asRes.json();
+    const usuarios = usData.usuarios || [];
+    const assinaturas = asData.assinaturas || [];
+    const assinAtivas = assinaturas.filter(a => a.status === 'ACTIVE').length;
+    const bloqueados = usuarios.filter(u => u.bloqueado).length;
+    const free = usuarios.length - assinAtivas - bloqueados;
+    const nc = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+    nc('nivel-admin-count', '1'); // você é o admin
+    nc('nivel-premium-count', assinAtivas);
+    nc('nivel-free-count', Math.max(0, free));
+    nc('nivel-bloqueado-count', bloqueados);
+  } catch(e) { console.warn('carregarEstatisticasNiveis:', e); }
+}
 </script>
 </body>
 </html>`
