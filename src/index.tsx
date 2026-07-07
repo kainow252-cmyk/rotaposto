@@ -9063,7 +9063,7 @@ function renderMenuAppItens(itens) {
 async function salvarMenuApp() {
   const itens = MENU_APP_ITENS_PADRAO.map(item => ({
     ...item,
-    ativo: (document.getElementById('menu-toggle-' + item.id) as HTMLInputElement)?.checked ?? item.ativo
+    ativo: (document.getElementById('menu-toggle-' + item.id) || {}).checked ?? item.ativo
   }));
   try {
     const res = await fetch('/api/admin/menu-app', {
