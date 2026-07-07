@@ -9373,72 +9373,218 @@ app.post('/api/parceiros/cadastro', async (c) => {
 app.post('/api/parceiros/login', async (c) => {
   try {
     const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
-  const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, string>
     const { email, senha } = body
 
     if (!email || !senha) {
-      return c.json({ ok: false, erro: 'E-mail e senha obrigatórios' }, 400)
+      return c.json({ ok: false, sucesso: false, mensagem: 'E-mail e senha obrigatórios' }, 400)
     }
 
     // ── Conta de teste hardcoded (funciona sem KV) ────────────────────────────
     if (email === 'teste@rotaposto.com.br' && senha === 'teste123') {
       const token = `sess_teste_${Date.now().toString(36)}`
-      // Salvar sessão no KV se disponível
       if (kv) await kv.put(`parceiro:sess_${token}`, JSON.stringify({ parceiroId: 'p_teste', email, exp: Date.now() + 86400000 }), { expirationTtl: 86400 })
       return c.json({
-        ok: true, sucesso: true,
-        token,
+        ok: true, sucesso: true, token,
         sessao: {
           token, postoId: 'p_teste', postoNome: 'Posto Teste RotaPosto',
-          plano: 'premium', email, tel: '(27) 99999-9999',
-          bandeira: 'Independente', cidade: 'Vitória - ES',
-          horario: '24 horas', seloVerificado: true
-        },
-        parceiro: {
-          id: 'p_teste', nomePosto: 'Posto Teste RotaPosto', bandeira: 'Independente',
-          plano: 'premium', cidade: 'Vitória - ES', status: 'ativo',
-          pinDourado: true, seloVerificado: true, cuponsAtivos: true, topoLista: true
+          plano: 'premium', email, cargo: 'gerente',
+          tel: '(27) 99999-9999', bandeira: 'Independente',
+          cidade: 'Vitória - ES', horario: '24 horas', seloVerificado: true
         }
       })
     }
 
-    const ref = await kvGetParceiro(kv, `email_${email}`, r2)
-    if (!ref) {
-      return c.json({ ok: false, erro: 'E-mail não encontrado. Cadastre seu posto primeiro.' }, 404)
+    // ── Verificar se é funcionário de algum posto ─────────────────────────────
+    if (kv) {
+      const funcRef = await kv.get(`func_email:${email}`)
+      if (funcRef) {
+        const funcData = JSON.parse(funcRef) as Record<string, unknown>
+        const senhaHash = hashSimples(senha)
+        if (funcData.senhaHash === senhaHash) {
+          const postoId = String(funcData.postoId)
+          // Buscar dados do posto para preencher a sessão
+          const posto = await kvGetParceiro(kv, postoId, r2) as Record<string, unknown> | null
+          const token = `sess_func_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
+          await kv.put(`parceiro:sess_${token}`, JSON.stringify({
+            parceiroId: postoId, funcionarioId: funcData.id, cargo: funcData.cargo, email, exp: Date.now() + 86400000
+          }), { expirationTtl: 86400 })
+          return c.json({
+            ok: true, sucesso: true, token,
+            sessao: {
+              token,
+              postoId,
+              postoNome: posto ? String((posto as Record<string,unknown>).nomePosto || 'Posto') : 'Posto',
+              plano: posto ? String((posto as Record<string,unknown>).plano || 'visibilidade') : 'visibilidade',
+              email,
+              nome: String(funcData.nome || ''),
+              cargo: String(funcData.cargo || 'frentista'),
+              bandeira: posto ? String((posto as Record<string,unknown>).bandeira || '') : '',
+              cidade: posto ? String((posto as Record<string,unknown>).cidade || '') : ''
+            }
+          })
+        } else {
+          return c.json({ ok: false, sucesso: false, mensagem: 'Senha incorreta.' }, 401)
+        }
+      }
     }
 
-    const parceiro = await kvGetParceiro(kv, (ref as Record<string, string>, r2).id)
+    // ── Login gerente (dono do posto) ─────────────────────────────────────────
+    const ref = await kvGetParceiro(kv, `email_${email}`, r2)
+    if (!ref) {
+      return c.json({ ok: false, sucesso: false, mensagem: 'E-mail não encontrado. Cadastre seu posto primeiro.' }, 404)
+    }
+
+    const parceiro = await kvGetParceiro(kv, (ref as Record<string, string>).id, r2)
     if (!parceiro) {
-      return c.json({ ok: false, erro: 'Conta não encontrada' }, 404)
+      return c.json({ ok: false, sucesso: false, mensagem: 'Conta não encontrada' }, 404)
     }
 
     const p = parceiro as Record<string, unknown>
     const senhaHash = hashSimples(senha)
     if (p.senhaHash !== senhaHash) {
-      // Fallback: aceita últimos 6 dígitos do CNPJ como senha inicial
       const cnpjSenha = hashSimples(String(p.cnpj).slice(-6))
       if (senhaHash !== cnpjSenha) {
-        return c.json({ ok: false, erro: 'Senha incorreta' }, 401)
+        return c.json({ ok: false, sucesso: false, mensagem: 'E-mail ou senha incorretos.' }, 401)
       }
     }
 
-    // Gerar token de sessão simples
     const token = `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
-    await kvSetParceiro(kv, `sess_${token}`, { parceiroId: p.id, email, exp: Date.now() + 86400000 }, 86400)
+    if (kv) await kv.put(`parceiro:sess_${token}`, JSON.stringify({ parceiroId: p.id, email, cargo: 'gerente', exp: Date.now() + 86400000 }), { expirationTtl: 86400 })
 
     return c.json({
-      ok: true,
-      token,
-      parceiro: {
-        id: p.id, nomePosto: p.nomePosto, bandeira: p.bandeira,
-        plano: p.plano, cidade: p.cidade, status: p.status,
-        pinDourado: p.pinDourado, seloVerificado: p.seloVerificado,
-        cuponsAtivos: p.cuponsAtivos, topoLista: p.topoLista
+      ok: true, sucesso: true, token,
+      sessao: {
+        token,
+        postoId: p.id, postoNome: p.nomePosto,
+        plano: p.plano, email,
+        cargo: 'gerente',
+        bandeira: p.bandeira, cidade: p.cidade,
+        seloVerificado: p.seloVerificado
       }
     })
   } catch (e) {
     console.error('[parceiros/login]', e)
+    return c.json({ ok: false, sucesso: false, mensagem: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/equipe/convidar ───────────────────────────────────────
+app.post('/api/parceiros/equipe/convidar', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 503)
+
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    if (!token) return c.json({ ok: false, erro: 'Não autorizado' }, 401)
+
+    // Verificar sessão e que é gerente
+    const sessRaw = await kv.get(`parceiro:sess_${token}`)
+    if (!sessRaw) return c.json({ ok: false, erro: 'Sessão inválida ou expirada' }, 401)
+    const sess = JSON.parse(sessRaw) as Record<string, unknown>
+    if (sess.cargo && sess.cargo !== 'gerente') return c.json({ ok: false, erro: 'Apenas gerentes podem cadastrar funcionários' }, 403)
+
+    const body = await c.req.json() as Record<string, string>
+    const { nome, email, senha, cargo, postoId } = body
+
+    if (!nome || !email || !senha || !cargo || !postoId) {
+      return c.json({ ok: false, erro: 'Campos obrigatórios: nome, email, senha, cargo, postoId' }, 400)
+    }
+    const cargosValidos = ['caixa', 'frentista']
+    if (!cargosValidos.includes(cargo)) {
+      return c.json({ ok: false, erro: 'Cargo inválido. Use: caixa ou frentista' }, 400)
+    }
+
+    // Verificar se e-mail já existe como gerente ou funcionário
+    const jaGerente = await kv.get(`parceiro:email_${email}`)
+    const jaFuncionario = await kv.get(`func_email:${email}`)
+    if (jaGerente || jaFuncionario) {
+      return c.json({ ok: false, erro: 'Este e-mail já está cadastrado no sistema.' }, 409)
+    }
+
+    const funcId = `func_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+    const senhaHash = hashSimples(senha)
+    const funcData = { id: funcId, nome, email, cargo, postoId, senhaHash, criadoEm: new Date().toISOString() }
+
+    // Salvar dados do funcionário indexados por e-mail
+    await kv.put(`func_email:${email}`, JSON.stringify(funcData))
+
+    // Adicionar ao array de equipe do posto
+    const equipeRaw = await kv.get(`equipe:${postoId}`)
+    const equipe = equipeRaw ? JSON.parse(equipeRaw) as Record<string, unknown>[] : []
+    equipe.push({ id: funcId, nome, email, cargo, criadoEm: funcData.criadoEm })
+    await kv.put(`equipe:${postoId}`, JSON.stringify(equipe))
+
+    return c.json({ ok: true, id: funcId, mensagem: 'Funcionário cadastrado com sucesso.' })
+  } catch (e) {
+    console.error('[equipe/convidar]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── GET /api/parceiros/equipe ─────────────────────────────────────────────────
+app.get('/api/parceiros/equipe', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 503)
+
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    const postoId = c.req.query('postoId') || ''
+    if (!token || !postoId) return c.json({ ok: false, erro: 'token e postoId obrigatórios' }, 400)
+
+    const sessRaw = await kv.get(`parceiro:sess_${token}`)
+    if (!sessRaw) return c.json({ ok: false, erro: 'Sessão inválida' }, 401)
+    const sess = JSON.parse(sessRaw) as Record<string, unknown>
+    if (String(sess.parceiroId) !== postoId && sess.cargo !== 'gerente') {
+      return c.json({ ok: false, erro: 'Sem permissão' }, 403)
+    }
+
+    const equipeRaw = await kv.get(`equipe:${postoId}`)
+    const funcionarios = equipeRaw ? JSON.parse(equipeRaw) as Record<string, unknown>[] : []
+    return c.json({ ok: true, funcionarios })
+  } catch (e) {
+    console.error('[equipe/listar]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── DELETE /api/parceiros/equipe/:id ─────────────────────────────────────────
+app.delete('/api/parceiros/equipe/:id', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 503)
+
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    if (!token) return c.json({ ok: false, erro: 'Não autorizado' }, 401)
+
+    const sessRaw = await kv.get(`parceiro:sess_${token}`)
+    if (!sessRaw) return c.json({ ok: false, erro: 'Sessão inválida' }, 401)
+    const sess = JSON.parse(sessRaw) as Record<string, unknown>
+    if (sess.cargo && sess.cargo !== 'gerente') return c.json({ ok: false, erro: 'Apenas gerentes podem remover funcionários' }, 403)
+
+    const funcId = c.req.param('id')
+    const body = await c.req.json() as Record<string, string>
+    const postoId = body.postoId || String(sess.parceiroId)
+
+    // Buscar equipe do posto para achar o e-mail do funcionário
+    const equipeRaw = await kv.get(`equipe:${postoId}`)
+    if (!equipeRaw) return c.json({ ok: false, erro: 'Funcionário não encontrado' }, 404)
+
+    const equipe = JSON.parse(equipeRaw) as Record<string, unknown>[]
+    const func = equipe.find(f => f.id === funcId)
+    if (!func) return c.json({ ok: false, erro: 'Funcionário não encontrado' }, 404)
+
+    // Remover índice por e-mail
+    if (func.email) await kv.delete(`func_email:${func.email}`)
+
+    // Remover do array de equipe
+    const novaEquipe = equipe.filter(f => f.id !== funcId)
+    await kv.put(`equipe:${postoId}`, JSON.stringify(novaEquipe))
+
+    return c.json({ ok: true, mensagem: 'Funcionário removido com sucesso.' })
+  } catch (e) {
+    console.error('[equipe/remover]', e)
     return c.json({ ok: false, erro: 'Erro interno' }, 500)
   }
 })
@@ -10112,6 +10258,164 @@ app.post('/api/parceiros/config', async (c) => {
 
     return c.json({ ok: true, mensagem: 'Configurações salvas!' })
   } catch (e) {
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EQUIPE — Gerenciamento de funcionários por posto
+// Estrutura KV:
+//   equipe:{postoId}          → JSON array [{ id, nome, email, cargo, criadoEm }]
+//   func_email:{email}        → JSON { funcId, postoId, cargo, senhaHash, nome }
+//   parceiro:sess_{token}     → JSON { parceiroId, postoId, email, cargo, exp }
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── GET /api/parceiros/equipe ─────────────────────────────────────────────────
+app.get('/api/parceiros/equipe', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const postoId = c.req.query('postoId') || ''
+    const token   = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+
+    if (!token) return c.json({ ok: false, erro: 'Token obrigatório' }, 401)
+
+    // Validar sessão
+    const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
+    if (!sess || (sess.exp as number) < Date.now()) {
+      return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
+    }
+
+    // Apenas Gerente pode listar equipe
+    const cargo = String(sess.cargo || 'gerente')
+    if (cargo !== 'gerente') {
+      return c.json({ ok: false, erro: 'Sem permissão' }, 403)
+    }
+
+    const pid = postoId || String(sess.parceiroId || '')
+    const equipeRaw = kv ? await kv.get(`equipe:${pid}`) : null
+    const equipe = equipeRaw ? JSON.parse(equipeRaw) as Record<string,unknown>[] : []
+
+    return c.json({ ok: true, funcionarios: equipe })
+  } catch (e) {
+    console.error('[equipe/get]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/equipe/convidar ───────────────────────────────────────
+app.post('/api/parceiros/equipe/convidar', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+
+    if (!token) return c.json({ ok: false, erro: 'Token obrigatório' }, 401)
+
+    const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
+    if (!sess || (sess.exp as number) < Date.now()) {
+      return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
+    }
+
+    // Apenas Gerente pode adicionar funcionários
+    const sessoCargo = String(sess.cargo || 'gerente')
+    if (sessoCargo !== 'gerente') {
+      return c.json({ ok: false, erro: 'Sem permissão para adicionar funcionários' }, 403)
+    }
+
+    const body = await c.req.json() as Record<string, string>
+    const { nome, email, senha, cargo, postoId } = body
+
+    if (!nome || !email || !senha || !cargo) {
+      return c.json({ ok: false, erro: 'Nome, e-mail, senha e cargo são obrigatórios' }, 400)
+    }
+    if (senha.length < 6) {
+      return c.json({ ok: false, erro: 'Senha deve ter pelo menos 6 caracteres' }, 400)
+    }
+    if (!['caixa', 'frentista'].includes(cargo)) {
+      return c.json({ ok: false, erro: 'Cargo inválido. Use: caixa ou frentista' }, 400)
+    }
+
+    const pid = postoId || String(sess.parceiroId || '')
+    const emailKey = `func_email:${email.toLowerCase()}`
+
+    // Verificar se e-mail já existe (como funcionário ou gerente)
+    const existente = kv ? await kv.get(emailKey) : null
+    if (existente) {
+      return c.json({ ok: false, erro: 'Este e-mail já está cadastrado como funcionário' }, 409)
+    }
+    // Checar se é gerente do posto
+    const refGerente = await kvGetParceiro(kv, `email_${email.toLowerCase()}`, r2)
+    if (refGerente) {
+      return c.json({ ok: false, erro: 'Este e-mail pertence a uma conta de gerente' }, 409)
+    }
+
+    const funcId = `func_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+    const senhaHash = hashSimples(senha)
+    const agora = Date.now()
+
+    const funcData = { funcId, postoId: pid, email: email.toLowerCase(), nome, cargo, senhaHash, criadoEm: agora }
+
+    // Salvar mapeamento email → funcData
+    if (kv) await kv.put(emailKey, JSON.stringify(funcData))
+
+    // Atualizar lista da equipe do posto
+    const equipeKey = `equipe:${pid}`
+    const equipeRaw = kv ? await kv.get(equipeKey) : null
+    const equipe = equipeRaw ? JSON.parse(equipeRaw) as Record<string,unknown>[] : []
+    equipe.push({ id: funcId, nome, email: email.toLowerCase(), cargo, criadoEm: agora })
+    if (kv) await kv.put(equipeKey, JSON.stringify(equipe))
+
+    return c.json({ ok: true, mensagem: 'Funcionário cadastrado com sucesso!', funcId })
+  } catch (e) {
+    console.error('[equipe/convidar]', e)
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── DELETE /api/parceiros/equipe/:id ─────────────────────────────────────────
+app.delete('/api/parceiros/equipe/:id', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const token  = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    const funcId = c.req.param('id')
+
+    if (!token) return c.json({ ok: false, erro: 'Token obrigatório' }, 401)
+
+    const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
+    if (!sess || (sess.exp as number) < Date.now()) {
+      return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
+    }
+
+    const sessoCargo = String(sess.cargo || 'gerente')
+    if (sessoCargo !== 'gerente') {
+      return c.json({ ok: false, erro: 'Sem permissão' }, 403)
+    }
+
+    // Ler body (postoId)
+    let pid = String(sess.parceiroId || '')
+    try {
+      const body = await c.req.json() as Record<string,string>
+      if (body.postoId) pid = body.postoId
+    } catch {}
+
+    // Buscar e remover da lista da equipe
+    const equipeKey = `equipe:${pid}`
+    const equipeRaw = kv ? await kv.get(equipeKey) : null
+    const equipe = equipeRaw ? JSON.parse(equipeRaw) as Record<string,unknown>[] : []
+    const funcionario = equipe.find(f => f.id === funcId) as Record<string,string> | undefined
+    const novaEquipe  = equipe.filter(f => f.id !== funcId)
+    if (kv) await kv.put(equipeKey, JSON.stringify(novaEquipe))
+
+    // Remover mapeamento email → funcData
+    if (funcionario?.email && kv) {
+      await kv.delete(`func_email:${funcionario.email}`)
+    }
+
+    return c.json({ ok: true, mensagem: 'Funcionário removido.' })
+  } catch (e) {
+    console.error('[equipe/delete]', e)
     return c.json({ ok: false, erro: 'Erro interno' }, 500)
   }
 })

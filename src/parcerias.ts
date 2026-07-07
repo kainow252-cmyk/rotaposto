@@ -1332,16 +1332,17 @@ export function getPainelEmpresaHTML(): string {
     </div>
     <nav class="sidebar-nav">
       <div class="nav-group-label">Principal</div>
-      <div class="nav-item ativo" onclick="irPara('dashboard')"><i class="fas fa-chart-line"></i> Dashboard</div>
-      <div class="nav-item" onclick="irPara('validar')"><i class="fas fa-qrcode"></i> Validar Cupom <span class="nav-badge" id="badge-cupons">0</span></div>
-      <div class="nav-group-label">Gestão</div>
-      <div class="nav-item" onclick="irPara('precos')"><i class="fas fa-gas-pump"></i> Preços e Desconto</div>
-      <div class="nav-item" onclick="irPara('criar-cupom')"><i class="fas fa-ticket-alt"></i> Criar Cupom</div>
-      <div class="nav-item" onclick="irPara('cupons')"><i class="fas fa-history"></i> Histórico de Cupons</div>
-      <div class="nav-item" onclick="irPara('notificacoes')"><i class="fas fa-bell"></i> Notificações</div>
+      <div class="nav-item ativo" data-page="dashboard" onclick="irPara('dashboard')"><i class="fas fa-chart-line"></i> Dashboard</div>
+      <div class="nav-item" data-page="validar" onclick="irPara('validar')"><i class="fas fa-qrcode"></i> Validar Cupom <span class="nav-badge" id="badge-cupons">0</span></div>
+      <div class="nav-group-label nav-grupo-gestao">Gestão</div>
+      <div class="nav-item nav-item-gestao" data-page="precos" onclick="irPara('precos')"><i class="fas fa-gas-pump"></i> Preços e Desconto</div>
+      <div class="nav-item nav-item-gestao" data-page="criar-cupom" onclick="irPara('criar-cupom')"><i class="fas fa-ticket-alt"></i> Criar Cupom</div>
+      <div class="nav-item" data-page="cupons" onclick="irPara('cupons')"><i class="fas fa-history"></i> Histórico de Cupons</div>
+      <div class="nav-item" data-page="notificacoes" onclick="irPara('notificacoes')"><i class="fas fa-bell"></i> Notificações</div>
       <div class="nav-group-label">Conta</div>
-      <div class="nav-item" onclick="irPara('perfil')"><i class="fas fa-store"></i> Perfil do Posto</div>
-      <div class="nav-item" onclick="irPara('configuracoes')"><i class="fas fa-cog"></i> Configurações</div>
+      <div class="nav-item nav-item-gerente" data-page="equipe" onclick="irPara('equipe')"><i class="fas fa-users-cog"></i> Equipe</div>
+      <div class="nav-item nav-item-gerente" data-page="perfil" onclick="irPara('perfil')"><i class="fas fa-store"></i> Perfil do Posto</div>
+      <div class="nav-item nav-item-gerente" data-page="configuracoes" onclick="irPara('configuracoes')"><i class="fas fa-cog"></i> Configurações</div>
     </nav>
     <div class="sidebar-footer">
       <button class="btn-sair" onclick="fazerLogout()"><i class="fas fa-sign-out-alt"></i> Sair do painel</button>
@@ -1717,6 +1718,104 @@ export function getPainelEmpresaHTML(): string {
         </div>
       </div>
 
+      <!-- ── EQUIPE ── -->
+      <div id="page-equipe" style="display:none">
+
+        <!-- Cabeçalho info cargo -->
+        <div class="chart-card" style="margin-bottom:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+            <div>
+              <div class="chart-titulo" style="margin:0 0 4px">👥 Equipe do Posto</div>
+              <p style="font-size:13px;color:var(--sub);margin:0">Cadastre funcionários e defina o que cada um pode fazer no painel.</p>
+            </div>
+          </div>
+
+          <!-- Tabela de cargos -->
+          <div class="table-card" style="margin-bottom:0;box-shadow:none;border:1.5px solid var(--border);border-radius:14px;overflow:hidden">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:#F5F5F5">
+                  <th style="padding:10px 14px;text-align:left;font-weight:700;color:#555">Cargo</th>
+                  <th style="padding:10px 14px;text-align:center;color:#555">Validar</th>
+                  <th style="padding:10px 14px;text-align:center;color:#555">Criar Cupom</th>
+                  <th style="padding:10px 14px;text-align:center;color:#555">Preços</th>
+                  <th style="padding:10px 14px;text-align:center;color:#555">Equipe / Config</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-top:1px solid #F0F0F0">
+                  <td style="padding:10px 14px"><span class="badge badge-amarelo">⭐ Gerente</span></td>
+                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
+                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
+                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
+                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
+                </tr>
+                <tr style="border-top:1px solid #F0F0F0">
+                  <td style="padding:10px 14px"><span class="badge badge-azul">💳 Caixa</span></td>
+                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
+                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
+                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
+                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
+                </tr>
+                <tr style="border-top:1px solid #F0F0F0">
+                  <td style="padding:10px 14px"><span class="badge badge-cinza">⛽ Frentista</span></td>
+                  <td style="text-align:center;color:#4CAF50"><i class="fas fa-check"></i></td>
+                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
+                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
+                  <td style="text-align:center;color:#d32f2f"><i class="fas fa-times"></i></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Formulário adicionar funcionário -->
+        <div class="chart-card" style="margin-bottom:20px">
+          <div class="chart-titulo" style="margin-bottom:16px">➕ Adicionar Funcionário</div>
+          <div id="equipe-form-erro" style="background:#FFEBEE;color:#C62828;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;font-weight:600"></div>
+          <div id="equipe-form-ok"   style="background:#E8F5E9;color:#2E7D32;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;font-weight:600"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div style="grid-column:1/-1">
+              <label style="font-size:11px;font-weight:700;color:#616161;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Nome do funcionário</label>
+              <input id="eq-nome" class="login-input" type="text" style="margin-bottom:0" placeholder="Ex: João Silva"/>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#616161;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">E-mail de acesso</label>
+              <input id="eq-email" class="login-input" type="email" style="margin-bottom:0" placeholder="joao@seuposto.com"/>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#616161;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Senha inicial</label>
+              <input id="eq-senha" class="login-input" type="password" style="margin-bottom:0" placeholder="Mínimo 6 caracteres"/>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#616161;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Cargo</label>
+              <select id="eq-cargo" class="login-input" style="margin-bottom:0;cursor:pointer">
+                <option value="caixa">💳 Caixa — Valida e cria cupons</option>
+                <option value="frentista">⛽ Frentista — Apenas valida cupons</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="convidarFuncionario()" id="btn-convidar"
+            style="margin-top:16px;padding:13px 24px;background:var(--laranja);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px">
+            <i class="fas fa-user-plus"></i> Cadastrar funcionário
+          </button>
+        </div>
+
+        <!-- Lista de funcionários -->
+        <div class="table-card">
+          <div class="table-header">
+            <div class="table-titulo">Funcionários cadastrados</div>
+            <button onclick="carregarEquipe()" style="background:none;border:1.5px solid var(--border);padding:7px 14px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;color:var(--sub)">
+              <i class="fas fa-sync"></i> Atualizar
+            </button>
+          </div>
+          <div id="lista-equipe" style="padding:4px 0">
+            <div style="text-align:center;padding:32px;color:#aaa"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+          </div>
+        </div>
+
+      </div>
+
       <!-- ── PROMOÇÕES ── -->
       <div id="page-promocoes" style="display:none">
         <div class="chart-card">
@@ -1801,9 +1900,13 @@ function mostrarLogin() {
 function mostrarPainel() {
   document.getElementById('tela-carregando').style.display = 'none';
   document.getElementById('tela-painel').style.display = 'block';
-  document.getElementById('sb-posto-nome').textContent = _sessao?.postoNome || 'Meu Posto';
+  document.getElementById('sb-posto-nome').textContent = _sessao?.postoNome || _sessao?.nome || 'Meu Posto';
   document.getElementById('sb-posto-plano').textContent = '⭐ Plano ' + (_sessao?.plano || 'Premium');
-  irPara('dashboard');
+  aplicarPermissoesCargo();
+  // Funcionários não vão para equipe — redirecionam para validar (primeira página permitida)
+  const cargo = ((_sessao && _sessao.cargo) || 'gerente').toLowerCase();
+  const paginaInicial = cargo === 'frentista' ? 'validar' : 'dashboard';
+  irPara(paginaInicial);
 }
 
 // ── Logout ─────────────────────────────────────────────
@@ -1830,17 +1933,17 @@ function irParaCadastroExterno() {
 }
 
 // ── Navegação ──────────────────────────────────────────
-const PAGES = ['dashboard','validar','precos','criar-cupom','cupons','notificacoes','perfil','configuracoes'];
-const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', 'criar-cupom':'Criar Cupom', cupons:'Histórico de Cupons', notificacoes:'Notificações', perfil:'Perfil do Posto', configuracoes:'Configurações' };
+const PAGES = ['dashboard','validar','precos','criar-cupom','cupons','notificacoes','equipe','perfil','configuracoes'];
+const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', 'criar-cupom':'Criar Cupom', cupons:'Histórico de Cupons', notificacoes:'Notificações', equipe:'Equipe', perfil:'Perfil do Posto', configuracoes:'Configurações' };
 
 function irPara(pg) {
   PAGES.forEach(p => {
     const el = document.getElementById('page-' + p);
     if (el) el.style.display = p === pg ? 'block' : 'none';
   });
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('ativo'));
   document.querySelectorAll('.nav-item').forEach(n => {
-    if (n.textContent.trim().toLowerCase().includes(TITULOS[pg].toLowerCase().slice(0,5))) n.classList.add('ativo');
+    n.classList.remove('ativo');
+    if (n.getAttribute('data-page') === pg) n.classList.add('ativo');
   });
   document.getElementById('topbar-titulo').textContent = TITULOS[pg] || pg;
   fecharSidebar();
@@ -1850,6 +1953,7 @@ function irPara(pg) {
   if (pg === 'cupons')      carregarHistoricoCupons();
   if (pg === 'perfil')      carregarPerfil();
   if (pg === 'notificacoes') carregarNotifConfig();
+  if (pg === 'equipe')      carregarEquipe();
 }
 
 function abrirSidebar() {
@@ -2400,9 +2504,133 @@ function alterarSenha() {
   const s2 = document.getElementById('seg-senha2').value;
   if (!s1 || s1.length < 6) { alert('Senha deve ter pelo menos 6 caracteres.'); return; }
   if (s1 !== s2) { alert('As senhas não coincidem.'); return; }
-  alert('✓ Senha alterada com sucesso!');
+  alert('\u2713 Senha alterada com sucesso!');
   document.getElementById('seg-senha').value = '';
   document.getElementById('seg-senha2').value = '';
+}
+
+// ── Sistema de Permissões ──────────────────────────────
+const PERMISSOES = {
+  gerente:   { pagesPermitidas: ['dashboard','validar','precos','criar-cupom','cupons','notificacoes','equipe','perfil','configuracoes'] },
+  caixa:     { pagesPermitidas: ['dashboard','validar','criar-cupom','cupons','notificacoes'] },
+  frentista: { pagesPermitidas: ['dashboard','validar','cupons'] }
+};
+
+function aplicarPermissoesCargo() {
+  const cargo = ((_sessao && _sessao.cargo) || 'gerente').toLowerCase();
+  const perm = PERMISSOES[cargo] || PERMISSOES.gerente;
+  const permitidas = perm.pagesPermitidas;
+
+  document.querySelectorAll('.nav-item[data-page]').forEach(function(item) {
+    const page = item.getAttribute('data-page');
+    item.style.display = permitidas.includes(page) ? '' : 'none';
+  });
+
+  // Ocultar botão "Atualizar Preços" topbar para quem não tem acesso
+  if (!permitidas.includes('precos')) {
+    document.querySelectorAll('.btn-topbar-orange').forEach(function(b) { b.style.display = 'none'; });
+  }
+
+  // Mostrar cargo na sidebar
+  const cargoLabel = { gerente: '\u2b50 Plano ' + ((_sessao && _sessao.plano) || 'Premium'), caixa: '\ud83d\udcb3 Caixa', frentista: '\u26fd Frentista' };
+  const elPlano = document.getElementById('sb-posto-plano');
+  if (elPlano) elPlano.textContent = cargoLabel[cargo] || cargo;
+}
+
+// ── Equipe ─────────────────────────────────────────────
+async function carregarEquipe() {
+  if (!_sessao) return;
+  const lista = document.getElementById('lista-equipe');
+  lista.innerHTML = '<div style="text-align:center;padding:32px;color:#aaa"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
+  try {
+    const r = await fetch('/api/parceiros/equipe?postoId=' + _sessao.postoId, {
+      headers: { 'Authorization': 'Bearer ' + _sessao.token }
+    });
+    const d = await r.json();
+    if (!d.ok || !d.funcionarios || d.funcionarios.length === 0) {
+      lista.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa"><i class="fas fa-users" style="font-size:32px;margin-bottom:12px;display:block"></i>Nenhum funcionário cadastrado ainda.<br><span style="font-size:12px;margin-top:8px;display:block">Adicione um funcionário usando o formulário acima.</span></div>';
+      return;
+    }
+    const cargoLabel = { gerente:'\u2b50 Gerente', caixa:'\ud83d\udcb3 Caixa', frentista:'\u26fd Frentista' };
+    const cargoBadge = { gerente:'badge-amarelo', caixa:'badge-azul', frentista:'badge-cinza' };
+    lista.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:14px">'
+      + '<thead><tr style="background:#F5F5F5">'
+      + '<th style="padding:10px 14px;text-align:left;font-weight:700;color:#555">Nome</th>'
+      + '<th style="padding:10px 14px;text-align:left;font-weight:700;color:#555">E-mail</th>'
+      + '<th style="padding:10px 14px;text-align:center;font-weight:700;color:#555">Cargo</th>'
+      + '<th style="padding:10px 14px;text-align:center;font-weight:700;color:#555">Ação</th>'
+      + '</tr></thead><tbody>'
+      + d.funcionarios.map(function(f) {
+          return '<tr style="border-top:1px solid #F0F0F0">'
+            + '<td style="padding:10px 14px;font-weight:600">' + (f.nome || '—') + '</td>'
+            + '<td style="padding:10px 14px;color:var(--sub);font-size:13px">' + f.email + '</td>'
+            + '<td style="padding:10px 14px;text-align:center"><span class="badge ' + (cargoBadge[f.cargo]||'badge-cinza') + '">' + (cargoLabel[f.cargo]||f.cargo) + '</span></td>'
+            + '<td style="padding:10px 14px;text-align:center">'
+            + '<button onclick="removerFuncionario(\'' + f.id + '\')" style="padding:6px 14px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer"><i class="fas fa-trash"></i> Remover</button>'
+            + '</td></tr>';
+        }).join('')
+      + '</tbody></table>';
+  } catch(e) {
+    lista.innerHTML = '<div style="text-align:center;padding:32px;color:#d32f2f"><i class="fas fa-exclamation-circle"></i> Erro ao carregar equipe. Tente novamente.</div>';
+  }
+}
+
+async function convidarFuncionario() {
+  const nome  = document.getElementById('eq-nome').value.trim();
+  const email = document.getElementById('eq-email').value.trim();
+  const senha = document.getElementById('eq-senha').value;
+  const cargo = document.getElementById('eq-cargo').value;
+  const erroEl = document.getElementById('equipe-form-erro');
+  const okEl   = document.getElementById('equipe-form-ok');
+  erroEl.style.display = 'none';
+  okEl.style.display   = 'none';
+
+  if (!nome || !email || !senha) { erroEl.textContent = 'Preencha todos os campos.'; erroEl.style.display = 'block'; return; }
+  if (senha.length < 6)          { erroEl.textContent = 'Senha deve ter pelo menos 6 caracteres.'; erroEl.style.display = 'block'; return; }
+  if (!email.includes('@'))      { erroEl.textContent = 'E-mail inválido.'; erroEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('btn-convidar');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cadastrando...';
+
+  try {
+    const r = await fetch('/api/parceiros/equipe/convidar', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+_sessao.token },
+      body: JSON.stringify({ nome: nome, email: email, senha: senha, cargo: cargo, postoId: _sessao.postoId })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      okEl.textContent = '\u2713 Funcionário cadastrado com sucesso! Ele já pode fazer login com o e-mail e senha informados.';
+      okEl.style.display = 'block';
+      document.getElementById('eq-nome').value = '';
+      document.getElementById('eq-email').value = '';
+      document.getElementById('eq-senha').value = '';
+      carregarEquipe();
+    } else {
+      erroEl.textContent = d.erro || 'Erro ao cadastrar funcionário.';
+      erroEl.style.display = 'block';
+    }
+  } catch(e) {
+    erroEl.textContent = 'Erro de conexão. Tente novamente.';
+    erroEl.style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-user-plus"></i> Cadastrar funcionário';
+}
+
+async function removerFuncionario(funcId) {
+  if (!confirm('Remover este funcionário? O acesso será cancelado imediatamente.')) return;
+  try {
+    const r = await fetch('/api/parceiros/equipe/' + funcId, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + _sessao.token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ postoId: _sessao.postoId })
+    });
+    const d = await r.json();
+    if (d.ok) { carregarEquipe(); }
+    else { alert(d.erro || 'Erro ao remover funcionário.'); }
+  } catch(e) { alert('Erro de conexão.'); }
 }
 </script>
 </body>
