@@ -10719,8 +10719,8 @@ function abrirModalEditarParceiro(id) {
 }
 
 function epMaskCep(inp) {
-  let v = inp.value.replace(/\D/g,'');
-  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5,8);
+  let v = inp.value.replace(/\D/g,'').slice(0,8);
+  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5);
   inp.value = v;
 }
 
