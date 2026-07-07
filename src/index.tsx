@@ -6332,10 +6332,14 @@ function formatarTelefone(input) {
 }
 
 function formatarCEP(input) {
-  let v = input.value.replace(/\D/g,'');
-  if (v.length > 8) v = v.slice(0,8);
-  if (v.length > 5) input.value = v.slice(0,5) + '-' + v.slice(5);
-  else input.value = v;
+  const pos    = input.selectionStart;
+  const before = input.value.slice(0, pos).replace(/\D/g,'').length;
+  const d      = input.value.replace(/\D/g,'').slice(0,8);
+  const fmt    = d.length > 5 ? d.slice(0,5)+'-'+d.slice(5) : d;
+  input.value  = fmt;
+  let cur = 0, digits = 0;
+  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
+  input.setSelectionRange(cur, cur);
 }
 
 async function buscarCEP() {
@@ -8788,7 +8792,7 @@ app.get('/admin', (c) => {
       </div>
       <div class="form-group">
         <label>CEP</label>
-        <input type="text" id="edit-cep" placeholder="00000-000" oninput="this.classList.add('edited')"/>
+        <input type="text" id="edit-cep" placeholder="00000-000" maxlength="9" oninput="epMaskCep(this);this.classList.add('edited')"/>
       </div>
     </div>
     <div class="form-row">
@@ -9252,7 +9256,7 @@ app.get('/admin', (c) => {
           </div>
           <div class="form-group">
             <label>CNPJ</label>
-            <input id="ep-cnpj" type="text" placeholder="00.000.000/0001-00" maxlength="18"/>
+            <input id="ep-cnpj" type="text" placeholder="00.000.000/0001-00" maxlength="18" oninput="epMaskCnpj(this)" onblur="epBlurCnpj(this)"/>
           </div>
           <div class="form-group">
             <label>Bandeira</label>
@@ -10718,10 +10722,38 @@ function abrirModalEditarParceiro(id) {
   document.getElementById('modal-parceiro-edit').scrollTop = 0;
 }
 
+// ── Helpers de formatação com cursor preservado ──────────
+function _fmtCnpj(raw) {
+  const v = raw.replace(/\D/g,'').slice(0,14);
+  if (v.length > 12) return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
+  if (v.length > 8)  return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
+  if (v.length > 5)  return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
+  if (v.length > 2)  return v.slice(0,2)+'.'+v.slice(2);
+  return v;
+}
+function epMaskCnpj(inp) {
+  const pos    = inp.selectionStart;
+  const before = inp.value.slice(0, pos).replace(/\D/g,'').length;
+  const fmt    = _fmtCnpj(inp.value);
+  inp.value    = fmt;
+  let cur = 0, digits = 0;
+  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
+  inp.setSelectionRange(cur, cur);
+}
+function epBlurCnpj(inp) { inp.value = _fmtCnpj(inp.value); }
+
+function _fmtCep(raw) {
+  const v = raw.replace(/\D/g,'').slice(0,8);
+  return v.length > 5 ? v.slice(0,5)+'-'+v.slice(5) : v;
+}
 function epMaskCep(inp) {
-  let v = inp.value.replace(/\D/g,'').slice(0,8);
-  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5);
-  inp.value = v;
+  const pos    = inp.selectionStart;
+  const before = inp.value.slice(0, pos).replace(/\D/g,'').length;
+  const fmt    = _fmtCep(inp.value);
+  inp.value    = fmt;
+  let cur = 0, digits = 0;
+  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
+  inp.setSelectionRange(cur, cur);
 }
 
 async function epBuscarCep() {

@@ -835,17 +835,21 @@ export function getParceriasLandingHTML(): string {
     else if(v.length)i.value='('+v;
   }
   function mCNPJ(i){
-    let v=i.value.replace(/\D/g,'').slice(0,14);
-    if(v.length>12)i.value=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
-    else if(v.length>8)i.value=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
-    else if(v.length>5)i.value=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
-    else if(v.length>2)i.value=v.slice(0,2)+'.'+v.slice(2);
-    else i.value=v;
+    const pos=i.selectionStart, before=i.value.slice(0,pos).replace(/\D/g,'').length;
+    let v=i.value.replace(/\D/g,'').slice(0,14), fmt=v;
+    if(v.length>12)fmt=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
+    else if(v.length>8)fmt=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
+    else if(v.length>5)fmt=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
+    else if(v.length>2)fmt=v.slice(0,2)+'.'+v.slice(2);
+    i.value=fmt;
+    let cur=0,digits=0; while(cur<fmt.length&&digits<before){if(/\d/.test(fmt[cur]))digits++;cur++;} i.setSelectionRange(cur,cur);
   }
   function mCEP(i){
-    let v=i.value.replace(/\D/g,'').slice(0,8);
-    if(v.length>5) i.value=v.slice(0,5)+'-'+v.slice(5);
-    else i.value=v;
+    const pos=i.selectionStart, before=i.value.slice(0,pos).replace(/\D/g,'').length;
+    const v=i.value.replace(/\D/g,'').slice(0,8);
+    const fmt=v.length>5?v.slice(0,5)+'-'+v.slice(5):v;
+    i.value=fmt;
+    let cur=0,digits=0; while(cur<fmt.length&&digits<before){if(/\d/.test(fmt[cur]))digits++;cur++;} i.setSelectionRange(cur,cur);
     if(v.length===8) buscarCEP();
   }
   async function buscarCEP(){
@@ -1727,7 +1731,7 @@ export function getPainelEmpresaHTML(): string {
           <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
             <div style="flex:1;min-width:200px">
               <label class="perf-label">CNPJ *</label>
-              <input id="perf-cnpj" class="login-input" type="text" style="margin-bottom:0;font-size:16px;font-weight:700;letter-spacing:1px" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" onblur="perfBuscarCnpj()" maxlength="18"/>
+              <input id="perf-cnpj" class="login-input" type="text" style="margin-bottom:0;font-size:16px;font-weight:700;letter-spacing:1px" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" onblur="blurCNPJ(this);perfBuscarCnpj()" maxlength="18"/>
             </div>
             <button onclick="perfBuscarCnpj()" id="perf-btn-cnpj" style="padding:11px 20px;background:var(--laranja);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;margin-bottom:0">
               <i class="fas fa-search"></i> Buscar CNPJ
@@ -2611,19 +2615,41 @@ async function carregarPerfil() {
   } catch {}
 }
 
+function _fmtCnpj(raw) {
+  const v = raw.replace(/\D/g,'').slice(0,14);
+  if (v.length > 12) return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
+  if (v.length > 8)  return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
+  if (v.length > 5)  return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
+  if (v.length > 2)  return v.slice(0,2)+'.'+v.slice(2);
+  return v;
+}
 function mCNPJ(inp) {
-  let v = inp.value.replace(/\D/g,'').slice(0,14);
-  if (v.length > 12) v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
-  else if (v.length > 8) v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
-  else if (v.length > 5) v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
-  else if (v.length > 2) v = v.slice(0,2)+'.'+v.slice(2);
-  inp.value = v;
+  // Salva posição do cursor relativa aos dígitos já digitados
+  const pos    = inp.selectionStart;
+  const before = inp.value.slice(0, pos).replace(/\D/g,'').length;
+  const fmt    = _fmtCnpj(inp.value);
+  inp.value    = fmt;
+  // Restaura cursor: conta 'before' dígitos na string formatada
+  let cur = 0, digits = 0;
+  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
+  inp.setSelectionRange(cur, cur);
+}
+function blurCNPJ(inp) {
+  inp.value = _fmtCnpj(inp.value);
 }
 
+function _fmtCep(raw) {
+  const v = raw.replace(/\D/g,'').slice(0,8);
+  return v.length > 5 ? v.slice(0,5)+'-'+v.slice(5) : v;
+}
 function mCEP(inp) {
-  let v = inp.value.replace(/\D/g,'').slice(0,8);
-  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5);
-  inp.value = v;
+  const pos    = inp.selectionStart;
+  const before = inp.value.slice(0, pos).replace(/\D/g,'').length;
+  const fmt    = _fmtCep(inp.value);
+  inp.value    = fmt;
+  let cur = 0, digits = 0;
+  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
+  inp.setSelectionRange(cur, cur);
 }
 
 // ── Busca CNPJ via BrasilAPI ────────────────────────────
