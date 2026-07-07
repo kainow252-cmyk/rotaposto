@@ -8931,110 +8931,42 @@ app.get('/admin', (c) => {
 
   <!-- ══ PRODUTOS & PLANOS ══ -->
   <section id="section-planos" style="display:none">
+    <!-- Header -->
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-      <h2>📦 Produtos & Planos</h2>
-      <button onclick="abrirModalNovoPLano()" style="background:var(--laranja);color:white;border:none;padding:10px 20px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px">
-        <i class="fas fa-plus"></i> Novo Plano para Posto
+      <div>
+        <h2 style="margin:0">⛽ Planos para Postos Parceiros</h2>
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Gerencie os planos B2B contratados pelos postos cadastrados no RotaPosto</div>
+      </div>
+      <button onclick="abrirModalNovoPLano()" style="background:var(--laranja);color:white;border:none;padding:10px 20px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <i class="fas fa-plus"></i> Novo Plano
       </button>
     </div>
 
-    <!-- Abas: Planos Postos / Planos App -->
-    <div style="display:flex;gap:4px;margin-bottom:22px;background:#0A1520;border-radius:12px;padding:4px;width:fit-content">
-      <button id="tab-planos-postos" onclick="trocarTabPlanos('postos')" style="background:#FF6D00;color:#fff;border:none;padding:9px 22px;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer;transition:.2s">
-        <i class="fas fa-gas-pump"></i> Planos dos Postos
-      </button>
-      <button id="tab-planos-app" onclick="trocarTabPlanos('app')" style="background:transparent;color:rgba(255,255,255,0.45);border:none;padding:9px 22px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s">
-        <i class="fas fa-mobile-alt"></i> Planos do App
-      </button>
-    </div>
-
-    <!-- ─── ABA: Planos dos Postos ─── -->
-    <div id="tab-content-postos">
-      <!-- KPIs de postos por plano -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px" id="planos-postos-kpis">
-        <div class="kpi-card" style="padding:18px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">🆓</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Gratuito</div>
-          <div style="font-size:26px;font-weight:900;color:#42A5F5" id="kpi-postos-gratis">–</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
-        </div>
-        <div class="kpi-card" style="padding:18px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">⭐</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Básico</div>
-          <div style="font-size:26px;font-weight:900;color:#FF6D00" id="kpi-postos-basico">–</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
-        </div>
-        <div class="kpi-card" style="padding:18px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">👑</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Plus</div>
-          <div style="font-size:26px;font-weight:900;color:#FFD600" id="kpi-postos-plus">–</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
-        </div>
-        <div class="kpi-card" style="padding:18px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">📦</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Outros planos</div>
-          <div style="font-size:26px;font-weight:900;color:rgba(255,255,255,0.5)" id="kpi-postos-outros">–</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
-        </div>
-      </div>
-
-      <!-- Grid de cards dos planos de postos -->
-      <div id="planos-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:20px;margin-bottom:28px">
-        <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);font-size:13px">
-          <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block"></i>
-          Carregando planos...
-        </div>
-      </div>
-    </div>
-
-    <!-- ─── ABA: Planos do App (usuário final) ─── -->
-    <div id="tab-content-app" style="display:none">
-      <!-- KPIs de assinantes do app -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px" id="planos-kpis">
-        <div class="kpi-card" style="padding:18px;text-align:center">
-          <div style="font-size:22px;margin-bottom:4px">🆓</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Gratuito</div>
-          <div style="font-size:26px;font-weight:900;color:#42A5F5" id="plano-free-count">–</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.3)">usuários</div>
-        </div>
-        <div class="kpi-card" style="padding:18px;text-align:center">
-          <div style="font-size:22px;margin-bottom:4px">⭐</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Premium Mensal</div>
-          <div style="font-size:26px;font-weight:900;color:#FF6D00" id="plano-premium-count">–</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes</div>
-        </div>
-        <div class="kpi-card" style="padding:18px;text-align:center">
-          <div style="font-size:22px;margin-bottom:4px">👑</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Premium Anual</div>
-          <div style="font-size:26px;font-weight:900;color:#FFD600" id="plano-anual-count">–</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes</div>
-        </div>
-      </div>
-      <div style="background:rgba(66,165,245,0.06);border:1px solid rgba(66,165,245,0.2);border-radius:14px;padding:20px 24px">
-        <div style="font-size:12px;font-weight:800;color:#42A5F5;margin-bottom:6px"><i class="fas fa-info-circle"></i> Planos do App (usuário final)</div>
-        <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:0">Estes são os planos de assinatura para usuários do app: <strong style="color:#fff">Gratuito, Premium Mensal (R$9,90) e Premium Anual (R$89)</strong>. Gerenciados pelo sistema Woovi/KV e não editáveis aqui.</p>
-      </div>
-    </div>
-
-    <!-- Modal Editar/Criar Plano de Posto -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px" id="planos-kpis">
+    <!-- KPIs: postos por plano -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px">
       <div class="kpi-card" style="padding:18px;text-align:center">
         <div style="font-size:22px;margin-bottom:4px">🆓</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Gratuito</div>
-        <div style="font-size:26px;font-weight:900;color:#42A5F5" id="plano-free-count">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">usuários</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;font-weight:700">Gratuito</div>
+        <div style="font-size:28px;font-weight:900;color:#42A5F5" id="kpi-postos-gratis">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
       </div>
       <div class="kpi-card" style="padding:18px;text-align:center">
         <div style="font-size:22px;margin-bottom:4px">⭐</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Premium Mensal</div>
-        <div style="font-size:26px;font-weight:900;color:#FF6D00" id="plano-premium-count">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;font-weight:700">Básico</div>
+        <div style="font-size:28px;font-weight:900;color:#FF6D00" id="kpi-postos-basico">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
       </div>
       <div class="kpi-card" style="padding:18px;text-align:center">
         <div style="font-size:22px;margin-bottom:4px">👑</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px">Premium Anual</div>
-        <div style="font-size:26px;font-weight:900;color:#FFD600" id="plano-anual-count">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;font-weight:700">Plus</div>
+        <div style="font-size:28px;font-weight:900;color:#FFD600" id="kpi-postos-plus">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
+      </div>
+      <div class="kpi-card" style="padding:18px;text-align:center">
+        <div style="font-size:22px;margin-bottom:4px">📦</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;font-weight:700">Outros</div>
+        <div style="font-size:28px;font-weight:900;color:rgba(255,255,255,0.45)" id="kpi-postos-outros">–</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
       </div>
     </div>
 
@@ -9046,7 +8978,7 @@ app.get('/admin', (c) => {
       </div>
     </div>
 
-    <!-- Modal Editar/Criar Plano -->
+    <!-- Modal Editar/Criar Plano de Posto -->
     <div id="modal-plano" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;overflow-y:auto;padding:20px">
       <div style="background:#1A1D23;border:1px solid rgba(255,255,255,0.1);border-radius:18px;max-width:600px;margin:0 auto;padding:28px;position:relative">
         <button onclick="fecharModalPlano()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px">✕</button>
@@ -10590,43 +10522,6 @@ let _planoEditandoId = null;  // id do plano em edição (null = novo)
 
 const CICLO_LABEL = { forever: 'Grátis', monthly: '/mês', yearly: '/ano', weekly: '/semana' };
 
-// ─── Trocar aba de planos (postos / app) ────────────────────────────────────
-function trocarTabPlanos(aba) {
-  const isPostos = aba === 'postos';
-  document.getElementById('tab-content-postos').style.display = isPostos ? 'block' : 'none';
-  document.getElementById('tab-content-app').style.display    = isPostos ? 'none'  : 'block';
-  const btnPostos = document.getElementById('tab-planos-postos');
-  const btnApp    = document.getElementById('tab-planos-app');
-  btnPostos.style.background = isPostos ? '#FF6D00'            : 'transparent';
-  btnPostos.style.color      = isPostos ? '#fff'               : 'rgba(255,255,255,0.45)';
-  btnApp.style.background    = isPostos ? 'transparent'        : '#42A5F5';
-  btnApp.style.color         = isPostos ? 'rgba(255,255,255,0.45)' : '#fff';
-  // Carregar KPIs da aba app quando necessário
-  if (!isPostos) carregarKpisApp();
-}
-
-// ─── KPIs de assinantes do app ───────────────────────────────────────────────
-async function carregarKpisApp() {
-  try {
-    const [asRes, usRes] = await Promise.all([
-      fetch('/api/admin/assinaturas?key=' + encodeURIComponent(ADMIN_KEY)),
-      fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY))
-    ]);
-    const asData = await asRes.json();
-    const usData = await usRes.json();
-    const assinaturas = asData.assinaturas || [];
-    const premium = assinaturas.filter(a => a.status === 'ACTIVE' && a.plano === 'premium').length;
-    const anual   = assinaturas.filter(a => a.status === 'ACTIVE' && a.plano === 'anual').length;
-    const total   = (usData.usuarios || []).length;
-    const free    = Math.max(0, total - premium - anual);
-    const pfc = document.getElementById('plano-free-count');
-    const ppc = document.getElementById('plano-premium-count');
-    const pac = document.getElementById('plano-anual-count');
-    if (pfc) pfc.textContent = free;
-    if (ppc) ppc.textContent = premium;
-    if (pac) pac.textContent = anual;
-  } catch(e) { console.warn('kpis-app:', e); }
-}
 
 async function carregarEstatisticasPlanos() {
   // 1. KPIs de postos por plano
