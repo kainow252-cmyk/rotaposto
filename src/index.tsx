@@ -7476,11 +7476,9 @@ app.get('/admin', (c) => {
     <div class="nav-section">App & Usuários</div>
     <div class="nav-item" id="nav-app-usuarios" onclick="showSection('app-usuarios',this)"><i class="fas fa-mobile-alt"></i>Usuários do App</div>
     <div class="nav-item" id="nav-dados-usuarios" onclick="showSection('dados-usuarios',this)"><i class="fas fa-id-card"></i>Dados & Contatos</div>
-    <div class="nav-item" id="nav-permissoes" onclick="showSection('permissoes',this)"><i class="fas fa-shield-alt"></i>Permissões</div>
     <div class="nav-item" id="nav-assinaturas" onclick="showSection('assinaturas',this)"><i class="fas fa-crown"></i>Assinaturas</div>
     <div class="nav-section">Planos & Produtos</div>
     <div class="nav-item" id="nav-planos" onclick="showSection('planos',this)"><i class="fas fa-box-open"></i>Produtos & Planos</div>
-    <div class="nav-item" id="nav-niveis" onclick="showSection('niveis',this)"><i class="fas fa-layer-group"></i>Níveis de Acesso</div>
     <div class="nav-item" id="nav-menu-app" onclick="showSection('menu-app',this)"><i class="fas fa-sliders-h"></i>Menu do App</div>
     <div class="nav-section">Postos & Dados</div>
     <div class="nav-item" id="nav-postos-parceiros" onclick="showSection('postos-parceiros',this)"><i class="fas fa-star"></i>Postos Parceiros</div>
@@ -7919,69 +7917,7 @@ app.get('/admin', (c) => {
     </div>
   </section>
 
-  <!-- ══ PERMISSÕES DE USUÁRIOS ══ -->
-  <section id="section-permissoes" style="display:none">
-    <div class="page-header">
-      <h2>🛡️ Permissões de Usuários</h2>
-      <div style="display:flex;gap:10px;align-items:center">
-        <span id="perm-count" style="background:rgba(255,109,0,0.12);color:#FF6D00;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">– usuários</span>
-        <button class="btn-refresh" onclick="carregarPermissoes()"><i class="fas fa-sync-alt"></i> Atualizar</button>
-      </div>
-    </div>
-    <!-- Filtros rápidos por nível -->
-    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
-      <button onclick="filtrarPermissoesPor('todos')" id="pf-todos" style="background:rgba(255,109,0,0.2);border:1px solid rgba(255,109,0,0.4);color:#FF6D00;border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">Todos</button>
-      <button onclick="filtrarPermissoesPor('admin')" id="pf-admin" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">👑 Admin</button>
-      <button onclick="filtrarPermissoesPor('premium')" id="pf-premium" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">⭐ Premium</button>
-      <button onclick="filtrarPermissoesPor('free')" id="pf-free" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">🆓 Free</button>
-      <button onclick="filtrarPermissoesPor('bloqueado')" id="pf-bloqueado" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:100px;padding:6px 18px;font-size:12px;font-weight:800;cursor:pointer">🚫 Bloqueados</button>
-    </div>
-    <div class="section-card">
-      <div class="section-header">
-        <h3><i class="fas fa-users-cog" style="color:#FF6D00;margin-right:8px"></i>Controle de Acesso por Usuário</h3>
-        <input id="perm-search" type="text" placeholder="🔍 Buscar por UID ou e-mail..." oninput="filtrarPermissoes()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:240px"/>
-      </div>
-      <div style="overflow-x:auto">
-        <table style="min-width:820px">
-          <thead><tr>
-            <th>Usuário</th>
-            <th>E-mail</th>
-            <th>Login Via</th>
-            <th>Nível Atual</th>
-            <th>Plano</th>
-            <th>Status</th>
-            <th>Alterar Permissão</th>
-          </tr></thead>
-          <tbody id="permissoes-tbody">
-            <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <!-- Legenda de níveis -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px">
-      <div class="kpi-card" style="padding:16px;border-left:3px solid #FFD600">
-        <div style="font-size:20px;margin-bottom:6px">👑</div>
-        <div style="font-size:13px;font-weight:800;color:#FFD600">Admin</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Acesso total ao painel, pode gerenciar tudo</div>
-      </div>
-      <div class="kpi-card" style="padding:16px;border-left:3px solid #FF6D00">
-        <div style="font-size:20px;margin-bottom:6px">⭐</div>
-        <div style="font-size:13px;font-weight:800;color:#FF6D00">Premium</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Todos os postos, mapa ao vivo, sem anúncios</div>
-      </div>
-      <div class="kpi-card" style="padding:16px;border-left:3px solid #42A5F5">
-        <div style="font-size:20px;margin-bottom:6px">🆓</div>
-        <div style="font-size:13px;font-weight:800;color:#42A5F5">Free</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Acesso básico, postos próximos limitados</div>
-      </div>
-      <div class="kpi-card" style="padding:16px;border-left:3px solid #FF5252">
-        <div style="font-size:20px;margin-bottom:6px">🚫</div>
-        <div style="font-size:13px;font-weight:800;color:#FF5252">Bloqueado</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">Sem acesso ao app, login negado</div>
-      </div>
-    </div>
-  </section>
+
 
   <!-- ══ PRODUTOS & PLANOS ══ -->
   <section id="section-planos" style="display:none">
@@ -8084,98 +8020,7 @@ app.get('/admin', (c) => {
     </div>
   </section>
 
-  <!-- ══ NÍVEIS DE ACESSO ══ -->
-  <section id="section-niveis" style="display:none">
-    <div class="page-header">
-      <h2>🎯 Níveis de Acesso</h2>
-    </div>
-    <!-- Cards de estatísticas por nível -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px">
-      <div class="kpi-card" style="padding:20px;border-left:4px solid #FFD600">
-        <div style="font-size:32px;margin-bottom:8px">👑</div>
-        <div style="font-size:13px;font-weight:800;color:#FFD600">Admin</div>
-        <div style="font-size:32px;font-weight:900;color:#fff;margin:6px 0" id="nivel-admin-count">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">usuários com acesso total</div>
-      </div>
-      <div class="kpi-card" style="padding:20px;border-left:4px solid #FF6D00">
-        <div style="font-size:32px;margin-bottom:8px">⭐</div>
-        <div style="font-size:13px;font-weight:800;color:#FF6D00">Premium</div>
-        <div style="font-size:32px;font-weight:900;color:#fff;margin:6px 0" id="nivel-premium-count">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">assinantes ativos</div>
-      </div>
-      <div class="kpi-card" style="padding:20px;border-left:4px solid #42A5F5">
-        <div style="font-size:32px;margin-bottom:8px">🆓</div>
-        <div style="font-size:13px;font-weight:800;color:#42A5F5">Free</div>
-        <div style="font-size:32px;font-weight:900;color:#fff;margin:6px 0" id="nivel-free-count">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">usuários gratuitos</div>
-      </div>
-      <div class="kpi-card" style="padding:20px;border-left:4px solid #FF5252">
-        <div style="font-size:32px;margin-bottom:8px">🚫</div>
-        <div style="font-size:13px;font-weight:800;color:#FF5252">Bloqueados</div>
-        <div style="font-size:32px;font-weight:900;color:#fff;margin:6px 0" id="nivel-bloqueado-count">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">sem acesso ao app</div>
-      </div>
-    </div>
-    <!-- Definição dos níveis -->
-    <div class="section-card">
-      <div class="section-header">
-        <h3><i class="fas fa-layer-group" style="color:#FF6D00;margin-right:8px"></i>Definição dos Níveis</h3>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:16px;padding:8px 0">
-        <div style="display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:20px;padding:16px;background:rgba(255,214,0,0.05);border-radius:12px;border:1px solid rgba(255,214,0,0.15)">
-          <div style="text-align:center"><div style="font-size:32px">👑</div><div style="font-size:12px;font-weight:800;color:#FFD600;margin-top:4px">ADMIN</div></div>
-          <div>
-            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px">Acesso Administrativo Total</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.7">Pode acessar o painel admin, gerenciar usuários, postos parceiros, ver relatórios completos, ativar/cancelar assinaturas, bloquear usuários e configurar o app.</div>
-            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-              <span style="background:rgba(255,214,0,0.1);color:#FFD600;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Painel Admin</span>
-              <span style="background:rgba(255,214,0,0.1);color:#FFD600;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Todos os recursos</span>
-              <span style="background:rgba(255,214,0,0.1);color:#FFD600;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Gerenciar usuários</span>
-            </div>
-          </div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.3);text-align:center">Atribuição<br/>manual</div>
-        </div>
-        <div style="display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:20px;padding:16px;background:rgba(255,109,0,0.05);border-radius:12px;border:1px solid rgba(255,109,0,0.15)">
-          <div style="text-align:center"><div style="font-size:32px">⭐</div><div style="font-size:12px;font-weight:800;color:#FF6D00;margin-top:4px">PREMIUM</div></div>
-          <div>
-            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px">Assinante Pago — Acesso Completo ao App</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.7">Acesso a todos os postos do Brasil, mapa em tempo real, rota de menor custo, histórico completo de preços, sem anúncios e suporte prioritário.</div>
-            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-              <span style="background:rgba(255,109,0,0.1);color:#FF6D00;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">PIX R$ 9,90/mês</span>
-              <span style="background:rgba(255,109,0,0.1);color:#FF6D00;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">ou R$ 89/ano</span>
-              <span style="background:rgba(255,109,0,0.1);color:#FF6D00;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Ativação automática PIX</span>
-            </div>
-          </div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.3);text-align:center">Via assinatura<br/>PIX / Cartão</div>
-        </div>
-        <div style="display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:20px;padding:16px;background:rgba(66,165,245,0.05);border-radius:12px;border:1px solid rgba(66,165,245,0.15)">
-          <div style="text-align:center"><div style="font-size:32px">🆓</div><div style="font-size:12px;font-weight:800;color:#42A5F5;margin-top:4px">FREE</div></div>
-          <div>
-            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px">Usuário Gratuito — Acesso Básico</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.7">Acesso limitado ao app: postos próximos em raio de 5km, preços colaborativos básicos e mapa simples. Vê anúncios no app.</div>
-            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-              <span style="background:rgba(66,165,245,0.1);color:#42A5F5;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Padrão ao criar conta</span>
-              <span style="background:rgba(66,165,245,0.1);color:#42A5F5;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Raio 5km</span>
-            </div>
-          </div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.3);text-align:center">Padrão<br/>automático</div>
-        </div>
-        <div style="display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:20px;padding:16px;background:rgba(255,82,82,0.05);border-radius:12px;border:1px solid rgba(255,82,82,0.15)">
-          <div style="text-align:center"><div style="font-size:32px">🚫</div><div style="font-size:12px;font-weight:800;color:#FF5252;margin-top:4px">BLOQUEADO</div></div>
-          <div>
-            <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px">Acesso Negado ao App</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.7">Usuário banido ou suspenso. O login é negado e o app exibe mensagem de conta bloqueada. Pode ser revertido pelo admin a qualquer momento.</div>
-            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-              <span style="background:rgba(255,82,82,0.1);color:#FF5252;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Login negado</span>
-              <span style="background:rgba(255,82,82,0.1);color:#FF5252;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Atribuição manual</span>
-              <span style="background:rgba(255,82,82,0.1);color:#FF5252;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700">Reversível</span>
-            </div>
-          </div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.3);text-align:center">Manual pelo<br/>admin</div>
-        </div>
-      </div>
-    </div>
-  </section>
+
 
   <!-- ══ MENU DO APP ══ -->
   <section id="section-menu-app" style="display:none">
