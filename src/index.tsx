@@ -8588,10 +8588,7 @@ app.get('/admin', (c) => {
           <div class="form-group">
             <label>Plano</label>
             <select id="ep-plano" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
-              <option value="visibilidade">Visibilidade (Grátis)</option>
-              <option value="basico">Básico</option>
-              <option value="premium">Premium</option>
-              <option value="pro">Pro</option>
+              <option value="">Carregando planos...</option>
             </select>
           </div>
           <div class="form-group">
@@ -8970,7 +8967,7 @@ const ADMIN_KEY = new URLSearchParams(window.location.search).get('key') || sess
 let adminLat = -23.5505, adminLng = -46.6333, adminCidade = 'São Paulo', adminUF = 'SP';
 
 // Dados em cache
-let _appUsuarios = [], _assinaturas = [], _parceiros = [];
+let _appUsuarios = [], _assinaturas = [], _parceiros = [], _planosData = [];
 
 // ── SAIR ────────────────────────────────────────────────────────────────────
 function sairAdmin() {
@@ -9502,9 +9499,17 @@ function renderParceiros(lista) {
     return;
   }
   const planoBadge = (p) => {
-    const map = { premium:'#FFD600', pro:'#FF6D00', basico:'#69F0AE', visibilidade:'#42A5F5' };
-    const cor = map[(p||'').toLowerCase()] || 'rgba(255,255,255,0.3)';
-    return \`<span style="background:\${cor}22;color:\${cor};padding:3px 8px;border-radius:100px;font-size:10px;font-weight:800;text-transform:uppercase">\${p||'free'}</span>\`;
+    // Busca nos planos dinâmicos do KV primeiro
+    const planoObj = (_planosData || []).find(x => x.id === p);
+    if (planoObj) {
+      const cor = planoObj.cor || '#FF6D00';
+      const emoji = planoObj.emoji || '';
+      return \`<span style="background:\${cor}22;color:\${cor};padding:3px 9px;border-radius:100px;font-size:10px;font-weight:800;white-space:nowrap">\${emoji} \${planoObj.nome}</span>\`;
+    }
+    // Fallback para planos legado
+    const mapLegado = { premium:'#FFD600', pro:'#FF6D00', basico:'#69F0AE', visibilidade:'#42A5F5', free:'#42A5F5', gratuito:'#42A5F5' };
+    const cor = mapLegado[(p||'').toLowerCase()] || 'rgba(255,255,255,0.3)';
+    return \`<span style="background:\${cor}22;color:\${cor};padding:3px 9px;border-radius:100px;font-size:10px;font-weight:800;text-transform:uppercase">\${p||'—'}</span>\`;
   };
   const statusBadge = (s) => {
     const map = { ativo:'#00C853', pendente:'#FFD600', suspenso:'#FF6D00', cancelado:'#FF5252' };
@@ -9598,6 +9603,36 @@ function limparFiltrosParceiros() {
 // ─── Modal Editar Parceiro ────────────────────────────────────────────────────
 let _parceiroEditandoId = null;
 
+// Popula o select de planos do modal de posto com os planos do KV
+async function popularSelectPlanosModal(planoAtual) {
+  const sel = document.getElementById('ep-plano');
+  if (!sel) return;
+  // Garante que _planosData está carregado
+  let planos = _planosData || [];
+  if (!planos.length) {
+    try {
+      const r = await fetch('/api/admin/planos?key=' + encodeURIComponent(ADMIN_KEY));
+      const d = await r.json();
+      planos = d.planos || [];
+      _planosData = planos;
+    } catch {}
+  }
+  if (!planos.length) {
+    // Fallback estático
+    sel.innerHTML = '<option value="visibilidade">Visibilidade (Grátis)</option>'
+      + '<option value="basico">Básico</option>'
+      + '<option value="premium">Premium</option>'
+      + '<option value="pro">Pro</option>';
+  } else {
+    sel.innerHTML = planos.filter(p => p.ativo !== false).map(p => {
+      const valorFmt = p.valor === 0 ? 'Grátis' : 'R$ ' + (p.valor / 100).toFixed(2).replace('.',',') + '/' + (p.ciclo === 'monthly' ? 'mês' : p.ciclo === 'yearly' ? 'ano' : p.ciclo === 'trial' ? 'teste' : '∞');
+      return '<option value="' + p.id + '">' + (p.emoji || '') + ' ' + p.nome + ' — ' + valorFmt + '</option>';
+    }).join('');
+  }
+  if (planoAtual) sel.value = planoAtual;
+  if (!sel.value && sel.options.length) sel.value = sel.options[0].value;
+}
+
 function abrirModalEditarParceiro(id) {
   const p = _parceiros.find(x => x.id === id);
   if (!p) return;
@@ -9614,7 +9649,6 @@ function abrirModalEditarParceiro(id) {
   document.getElementById('ep-bairro').value             = p.bairro           !== '—' ? (p.bairro           || '') : '';
   document.getElementById('ep-bandeira').value           = p.bandeira         !== '—' ? (p.bandeira         || '') : '';
   document.getElementById('ep-cnpj').value               = p.cnpj             !== '—' ? (p.cnpj             || '') : '';
-  document.getElementById('ep-plano').value              = p.plano            || 'visibilidade';
   document.getElementById('ep-status').value             = p.status           || 'pendente';
   document.getElementById('ep-seloVerificado').checked   = !!p.seloVerificado;
   document.getElementById('ep-pinDourado').checked       = !!p.pinDourado;
@@ -9628,6 +9662,7 @@ function abrirModalEditarParceiro(id) {
   document.getElementById('ep-preco-dieselS10').value         = pr.dieselS10         > 0 ? pr.dieselS10         : '';
   document.getElementById('ep-preco-gnv').value               = pr.gnv               > 0 ? pr.gnv               : '';
 
+  popularSelectPlanosModal(p.plano || '');
   document.getElementById('ep-deletar-btn').style.display = (id === 'p_teste') ? 'none' : 'inline-flex';
   document.getElementById('modal-parceiro-edit').style.display = 'block';
   document.getElementById('modal-parceiro-edit').scrollTop = 0;
@@ -9941,12 +9976,12 @@ function preencherModalComANP(idxStr) {
   document.getElementById('ep-email').value = '';
   document.getElementById('ep-tel').value   = '';
   document.getElementById('ep-telTelemarketing').value = '';
-  document.getElementById('ep-plano').value  = 'visibilidade';
   document.getElementById('ep-status').value = 'ativo';
   document.getElementById('ep-seloVerificado').checked = false;
   document.getElementById('ep-pinDourado').checked     = false;
   document.getElementById('ep-topoLista').checked      = false;
   document.getElementById('ep-cuponsAtivos').checked   = false;
+  popularSelectPlanosModal('');  // seleciona o primeiro plano disponível
   document.getElementById('ep-deletar-btn').style.display = 'none';
   document.getElementById('modal-parceiro-edit').style.display = 'block';
   document.getElementById('modal-parceiro-edit').scrollTop = 0;
@@ -10211,7 +10246,7 @@ async function alterarPermissao(uid, acao) {
 //  PRODUTOS & PLANOS — Admin
 // ════════════════════════════════════════════════════════════
 
-let _planosData = [];         // cache dos planos carregados
+// _planosData declarado globalmente acima (junto com _parceiros)
 let _planoEditandoId = null;  // id do plano em edição (null = novo)
 
 const CICLO_LABEL = { forever: 'Grátis', monthly: '/mês', yearly: '/ano', weekly: '/semana' };
