@@ -3733,7 +3733,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function abrirModal(titulo, conteudoHTML) { abrirTela(titulo, conteudoHTML); }
 
   // ── Minha Conta ───────────────────────────────────────────────────────────
-  function abrirMinhaConta(destacarCPF?: boolean) {
+  function abrirMinhaConta(destacarCPF) {
     var u = currentUser || {};
     var nome = u.name || 'Usuário';
     var email = u.email || '—';
