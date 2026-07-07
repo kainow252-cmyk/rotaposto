@@ -4594,8 +4594,9 @@ app.get('/app_old', (c) => {
       <!-- CEP -->
       <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">📮 CEP <span style="font-weight:400;color:#AAA;">(opcional)</span></label>
       <div style="display:flex;gap:8px;margin-bottom:14px;">
-        <input id="cp-cep" type="text" placeholder="00000-000" maxlength="9"
-          oninput="formatarCEP(this)"
+        <input id="cp-cep" type="text" placeholder="00000-000" maxlength="8"
+          oninput="this.value=this.value.replace(/\D/g,'').slice(0,8)"
+          onblur="this.value=_fmtCep(this.value)"
           style="flex:1;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;font-family:inherit;">
         <button onclick="buscarCEP()" style="padding:13px 16px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Buscar</button>
       </div>
@@ -6332,14 +6333,8 @@ function formatarTelefone(input) {
 }
 
 function formatarCEP(input) {
-  const pos    = input.selectionStart;
-  const before = input.value.slice(0, pos).replace(/\D/g,'').length;
-  const d      = input.value.replace(/\D/g,'').slice(0,8);
-  const fmt    = d.length > 5 ? d.slice(0,5)+'-'+d.slice(5) : d;
-  input.value  = fmt;
-  let cur = 0, digits = 0;
-  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
-  input.setSelectionRange(cur, cur);
+  // oninput: só filtra dígitos; onblur formata
+  input.value = input.value.replace(/\D/g,'').slice(0,8);
 }
 
 async function buscarCEP() {
@@ -8792,7 +8787,7 @@ app.get('/admin', (c) => {
       </div>
       <div class="form-group">
         <label>CEP</label>
-        <input type="text" id="edit-cep" placeholder="00000-000" maxlength="9" oninput="epMaskCep(this);this.classList.add('edited')"/>
+        <input type="text" id="edit-cep" placeholder="00000-000" maxlength="8" oninput="epMaskCep(this);this.classList.add('edited')" onblur="epBlurCep(this)"/>
       </div>
     </div>
     <div class="form-row">
@@ -9248,15 +9243,15 @@ app.get('/admin', (c) => {
           </div>
           <div class="form-group">
             <label>WhatsApp / Tel Principal</label>
-            <input id="ep-tel" type="text" placeholder="(27) 99999-9999"/>
+            <input id="ep-tel" type="text" placeholder="(27) 99999-9999" maxlength="11" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)" onblur="this.value=_fmtTel(this.value)"/>
           </div>
           <div class="form-group">
             <label>Tel Telemarketing / Comercial</label>
-            <input id="ep-telTelemarketing" type="text" placeholder="(27) 3000-0000"/>
+            <input id="ep-telTelemarketing" type="text" placeholder="(27) 3000-0000" maxlength="11" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)" onblur="this.value=_fmtTel(this.value)"/>
           </div>
           <div class="form-group">
             <label>CNPJ</label>
-            <input id="ep-cnpj" type="text" placeholder="00.000.000/0001-00" maxlength="18" oninput="epMaskCnpj(this)" onblur="epBlurCnpj(this)"/>
+            <input id="ep-cnpj" type="text" placeholder="00.000.000/0001-00" maxlength="14" oninput="epMaskCnpj(this)" onblur="epBlurCnpj(this)"/>
           </div>
           <div class="form-group">
             <label>Bandeira</label>
@@ -9281,7 +9276,7 @@ app.get('/admin', (c) => {
           <div style="display:grid;grid-template-columns:150px 1fr 80px;gap:10px;margin-bottom:10px">
             <div class="form-group" style="margin-bottom:0">
               <label style="color:rgba(255,255,255,0.45)">CEP</label>
-              <input id="ep-cep" type="text" placeholder="29000-000" maxlength="9" onblur="epBuscarCep()" oninput="epMaskCep(this)"/>
+              <input id="ep-cep" type="text" placeholder="29000-000" maxlength="8" oninput="epMaskCep(this)" onblur="epBlurCep(this);epBuscarCep()"/>
             </div>
             <div class="form-group" style="margin-bottom:0">
               <label style="color:rgba(255,255,255,0.45)">Rua / Logradouro *</label>
@@ -10722,39 +10717,29 @@ function abrirModalEditarParceiro(id) {
   document.getElementById('modal-parceiro-edit').scrollTop = 0;
 }
 
-// ── Helpers de formatação com cursor preservado ──────────
+// ── Helpers de formatação (aplicados no onblur) ───────────
+// oninput: APENAS filtra não-dígitos — sem reformatar durante digitação
+// onblur:  aplica máscara completa — sem bug de cursor
 function _fmtCnpj(raw) {
-  const v = raw.replace(/\D/g,'').slice(0,14);
-  if (v.length > 12) return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
-  if (v.length > 8)  return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
-  if (v.length > 5)  return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
-  if (v.length > 2)  return v.slice(0,2)+'.'+v.slice(2);
+  const v = (raw||'').replace(/\D/g,'').slice(0,14);
+  if (v.length === 14) return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
   return v;
 }
-function epMaskCnpj(inp) {
-  const pos    = inp.selectionStart;
-  const before = inp.value.slice(0, pos).replace(/\D/g,'').length;
-  const fmt    = _fmtCnpj(inp.value);
-  inp.value    = fmt;
-  let cur = 0, digits = 0;
-  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
-  inp.setSelectionRange(cur, cur);
-}
-function epBlurCnpj(inp) { inp.value = _fmtCnpj(inp.value); }
-
 function _fmtCep(raw) {
-  const v = raw.replace(/\D/g,'').slice(0,8);
-  return v.length > 5 ? v.slice(0,5)+'-'+v.slice(5) : v;
+  const v = (raw||'').replace(/\D/g,'').slice(0,8);
+  return v.length === 8 ? v.slice(0,5)+'-'+v.slice(5) : v;
 }
-function epMaskCep(inp) {
-  const pos    = inp.selectionStart;
-  const before = inp.value.slice(0, pos).replace(/\D/g,'').length;
-  const fmt    = _fmtCep(inp.value);
-  inp.value    = fmt;
-  let cur = 0, digits = 0;
-  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
-  inp.setSelectionRange(cur, cur);
+function _fmtTel(raw) {
+  const v = (raw||'').replace(/\D/g,'').slice(0,11);
+  if (v.length === 11) return '('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
+  if (v.length === 10) return '('+v.slice(0,2)+') '+v.slice(2,6)+'-'+v.slice(6);
+  return v;
 }
+// oninput — só dígitos, sem reformatar
+function epMaskCnpj(inp) { inp.value = inp.value.replace(/\D/g,'').slice(0,14); }
+function epBlurCnpj(inp)  { inp.value = _fmtCnpj(inp.value); }
+function epMaskCep(inp)   { inp.value = inp.value.replace(/\D/g,'').slice(0,8); }
+function epBlurCep(inp)   { inp.value = _fmtCep(inp.value); }
 
 async function epBuscarCep() {
   const cep = (document.getElementById('ep-cep').value||'').replace(/\D/g,'');

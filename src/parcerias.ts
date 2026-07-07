@@ -563,15 +563,15 @@ export function getParceriasLandingHTML(): string {
         <div class="fg"><label class="fl">Nome do responsável *</label><input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name" required/></div>
         <div class="fr">
           <div class="fg"><label class="fl">E-mail *</label><input class="fi" id="f-email" type="email" placeholder="joao@posto.com" required/></div>
-          <div class="fg"><label class="fl">WhatsApp *</label><input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)" required/></div>
+          <div class="fg"><label class="fl">WhatsApp *</label><input class="fi" id="f-tel" placeholder="(27) 99999-9999" oninput="mTel(this)" onblur="blurTel(this)" required/></div>
         </div>
         <div class="fg"><label class="fl">Nome do posto *</label><input class="fi" id="f-posto" placeholder="Posto São João" required/></div>
-        <div class="fg"><label class="fl">CNPJ *</label><input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" required/></div>
+        <div class="fg"><label class="fl">CNPJ *</label><input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" onblur="blurCNPJForm(this)" maxlength="18" required/></div>
 
         <div style="background:rgba(255,109,0,0.06);border:1px solid rgba(255,109,0,0.2);border-radius:12px;padding:16px;margin-bottom:13px">
           <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#FF6D00;margin-bottom:12px"><i class="fas fa-map-marker-alt"></i> &nbsp;Localização do posto *</div>
           <div class="fr" style="margin-bottom:0">
-            <div class="fg"><label class="fl">CEP *</label><input class="fi" id="f-cep" placeholder="29000-000" oninput="mCEP(this)" required/></div>
+            <div class="fg"><label class="fl">CEP *</label><input class="fi" id="f-cep" placeholder="29000-000" oninput="mCEP(this)" onblur="blurCEPForm(this)" maxlength="8" required/></div>
             <div class="fg" style="display:flex;align-items:flex-end;padding-bottom:1px">
               <button type="button" onclick="buscarCEP()" style="width:100%;padding:11px;background:rgba(255,109,0,0.15);border:1.5px solid rgba(255,109,0,0.4);border-radius:9px;color:#FF6D00;font-size:12px;font-weight:800;cursor:pointer;font-family:'Raleway',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px"><i class="fas fa-search"></i> Buscar CEP</button>
             </div>
@@ -829,28 +829,31 @@ export function getParceriasLandingHTML(): string {
     if(el){el.classList.remove('open');document.body.style.overflow='';}
   }
   function mTel(i){
-    let v=i.value.replace(/\D/g,'').slice(0,11);
-    if(v.length>7)i.value='('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
-    else if(v.length>2)i.value='('+v.slice(0,2)+') '+v.slice(2);
-    else if(v.length)i.value='('+v;
+    // só dígitos enquanto digita, máscara no blur
+    i.value = i.value.replace(/\D/g,'').slice(0,11);
+  }
+  function blurTel(i){
+    const v=i.value.replace(/\D/g,'').slice(0,11);
+    if(v.length>7) i.value='('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
+    else if(v.length>2) i.value='('+v.slice(0,2)+') '+v.slice(2);
+    else if(v.length) i.value='('+v;
+    else i.value=v;
   }
   function mCNPJ(i){
-    const pos=i.selectionStart, before=i.value.slice(0,pos).replace(/\D/g,'').length;
-    let v=i.value.replace(/\D/g,'').slice(0,14), fmt=v;
-    if(v.length>12)fmt=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
-    else if(v.length>8)fmt=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
-    else if(v.length>5)fmt=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
-    else if(v.length>2)fmt=v.slice(0,2)+'.'+v.slice(2);
-    i.value=fmt;
-    let cur=0,digits=0; while(cur<fmt.length&&digits<before){if(/\d/.test(fmt[cur]))digits++;cur++;} i.setSelectionRange(cur,cur);
+    i.value = i.value.replace(/\D/g,'').slice(0,14);
+  }
+  function blurCNPJForm(i){
+    const v=i.value.replace(/\D/g,'').slice(0,14);
+    if(v.length===14) i.value=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
+    else i.value=v;
   }
   function mCEP(i){
-    const pos=i.selectionStart, before=i.value.slice(0,pos).replace(/\D/g,'').length;
+    i.value = i.value.replace(/\D/g,'').slice(0,8);
+  }
+  function blurCEPForm(i){
     const v=i.value.replace(/\D/g,'').slice(0,8);
-    const fmt=v.length>5?v.slice(0,5)+'-'+v.slice(5):v;
-    i.value=fmt;
-    let cur=0,digits=0; while(cur<fmt.length&&digits<before){if(/\d/.test(fmt[cur]))digits++;cur++;} i.setSelectionRange(cur,cur);
-    if(v.length===8) buscarCEP();
+    if(v.length===8){ i.value=v.slice(0,5)+'-'+v.slice(5); buscarCEP(); }
+    else i.value=v;
   }
   async function buscarCEP(){
     const cep=document.getElementById('f-cep').value.replace(/\D/g,'');
@@ -1731,7 +1734,7 @@ export function getPainelEmpresaHTML(): string {
           <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
             <div style="flex:1;min-width:200px">
               <label class="perf-label">CNPJ *</label>
-              <input id="perf-cnpj" class="login-input" type="text" style="margin-bottom:0;font-size:16px;font-weight:700;letter-spacing:1px" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" onblur="blurCNPJ(this);perfBuscarCnpj()" maxlength="18"/>
+              <input id="perf-cnpj" class="login-input" type="text" style="margin-bottom:0;font-size:16px;font-weight:700;letter-spacing:1px" placeholder="00.000.000/0001-00" oninput="mCNPJ(this)" onblur="blurCNPJ(this);perfBuscarCnpj()" maxlength="14"/>
             </div>
             <button onclick="perfBuscarCnpj()" id="perf-btn-cnpj" style="padding:11px 20px;background:var(--laranja);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;margin-bottom:0">
               <i class="fas fa-search"></i> Buscar CNPJ
@@ -1756,7 +1759,7 @@ export function getPainelEmpresaHTML(): string {
             </div>
             <div>
               <label class="perf-label">WhatsApp / Telefone</label>
-              <input id="perf-tel" class="login-input" type="tel" style="margin-bottom:0" placeholder="(27) 99999-9999"/>
+              <input id="perf-tel" class="login-input" type="tel" style="margin-bottom:0" placeholder="(27) 99999-9999" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)" onblur="this.value=_fmtTel(this.value)"/>
             </div>
             <div>
               <label class="perf-label">E-mail de contato</label>
@@ -1780,7 +1783,7 @@ export function getPainelEmpresaHTML(): string {
           <div style="display:grid;grid-template-columns:160px 1fr 90px;gap:12px;margin-bottom:12px">
             <div>
               <label class="perf-label">CEP *</label>
-              <input id="perf-cep" class="login-input" type="text" style="margin-bottom:0" placeholder="29000-000" maxlength="9" oninput="mCEP(this)" onblur="perfBuscarCep()"/>
+              <input id="perf-cep" class="login-input" type="text" style="margin-bottom:0" placeholder="29000-000" maxlength="8" oninput="mCEP(this)" onblur="this.value=_fmtCep(this.value);perfBuscarCep()"/>
             </div>
             <div>
               <label class="perf-label">Rua / Logradouro *</label>
@@ -2615,42 +2618,26 @@ async function carregarPerfil() {
   } catch {}
 }
 
+// ── Helpers de formatação (aplicados no onblur) ─────────
 function _fmtCnpj(raw) {
-  const v = raw.replace(/\D/g,'').slice(0,14);
-  if (v.length > 12) return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
-  if (v.length > 8)  return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
-  if (v.length > 5)  return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
-  if (v.length > 2)  return v.slice(0,2)+'.'+v.slice(2);
+  const v = (raw||'').replace(/\D/g,'').slice(0,14);
+  if (v.length === 14) return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
   return v;
 }
-function mCNPJ(inp) {
-  // Salva posição do cursor relativa aos dígitos já digitados
-  const pos    = inp.selectionStart;
-  const before = inp.value.slice(0, pos).replace(/\D/g,'').length;
-  const fmt    = _fmtCnpj(inp.value);
-  inp.value    = fmt;
-  // Restaura cursor: conta 'before' dígitos na string formatada
-  let cur = 0, digits = 0;
-  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
-  inp.setSelectionRange(cur, cur);
-}
-function blurCNPJ(inp) {
-  inp.value = _fmtCnpj(inp.value);
-}
-
 function _fmtCep(raw) {
-  const v = raw.replace(/\D/g,'').slice(0,8);
-  return v.length > 5 ? v.slice(0,5)+'-'+v.slice(5) : v;
+  const v = (raw||'').replace(/\D/g,'').slice(0,8);
+  return v.length === 8 ? v.slice(0,5)+'-'+v.slice(5) : v;
 }
-function mCEP(inp) {
-  const pos    = inp.selectionStart;
-  const before = inp.value.slice(0, pos).replace(/\D/g,'').length;
-  const fmt    = _fmtCep(inp.value);
-  inp.value    = fmt;
-  let cur = 0, digits = 0;
-  while (cur < fmt.length && digits < before) { if (/\d/.test(fmt[cur])) digits++; cur++; }
-  inp.setSelectionRange(cur, cur);
+function _fmtTel(raw) {
+  const v = (raw||'').replace(/\D/g,'').slice(0,11);
+  if (v.length === 11) return '('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
+  if (v.length === 10) return '('+v.slice(0,2)+') '+v.slice(2,6)+'-'+v.slice(6);
+  return v;
 }
+// oninput: só filtra não-dígitos, sem reformatar (evita bug de cursor)
+function mCNPJ(inp) { inp.value = inp.value.replace(/\D/g,'').slice(0,14); }
+function blurCNPJ(inp) { inp.value = _fmtCnpj(inp.value); }
+function mCEP(inp)  { inp.value = inp.value.replace(/\D/g,'').slice(0,8); }
 
 // ── Busca CNPJ via BrasilAPI ────────────────────────────
 async function perfBuscarCnpj() {
