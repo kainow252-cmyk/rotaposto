@@ -7422,6 +7422,130 @@ app.delete('/api/admin/postos/:id', async (c) => {
   return c.json({ ok: true, id })
 })
 
+// ─── GET /api/admin/parceiros — lista TODOS os postos (R2 + KV fallback + hardcoded teste) ──
+app.get('/api/admin/parceiros', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv  = getKV(c.env as any)
+  const r2  = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+
+  const parceiros: Record<string,unknown>[] = []
+  const vistos = new Set<string>()
+
+  // 1. Listar objetos R2 com prefixo parceiro--
+  if (r2) {
+    try {
+      const listed = await r2.list({ prefix: 'parceiro--' })
+      for (const obj of listed.objects) {
+        const id = obj.key.replace('parceiro--', '')
+        // Ignorar chaves auxiliares (email_, cnpj_)
+        if (id.startsWith('email_') || id.startsWith('cnpj_')) continue
+        try {
+          const data = await r2Get(r2, `parceiro:${id}`) as Record<string,unknown> | null
+          if (data && data.id) {
+            vistos.add(String(data.id))
+            parceiros.push(normalizarParceiro(data, id, obj.uploaded))
+          }
+        } catch {}
+      }
+    } catch(e) { console.warn('[admin/parceiros] r2.list erro:', e) }
+  }
+
+  // 2. Fallback: varrer KV por parceiro:* (legado)
+  if (kv) {
+    try {
+      const kvList = await kv.list({ prefix: 'parceiro:' })
+      for (const k of kvList.keys) {
+        const seg = k.name.replace('parceiro:', '')
+        // Apenas IDs reais (não sess_, email_, cnpj_)
+        if (seg.startsWith('sess_') || seg.startsWith('email_') || seg.startsWith('cnpj_')) continue
+        if (vistos.has(seg)) continue
+        try {
+          const raw = await kv.get(k.name)
+          if (!raw) continue
+          const data = JSON.parse(raw) as Record<string,unknown>
+          if (data && data.id) {
+            vistos.add(seg)
+            parceiros.push(normalizarParceiro(data, seg, null))
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
+  // 3. Posto hardcoded de teste (sempre visível no admin)
+  if (!vistos.has('p_teste')) {
+    parceiros.push({
+      id: 'p_teste', nomePosto: 'Posto Teste RotaPosto', email: 'teste@rotaposto.com.br',
+      plano: 'premium', tel: '(27) 99999-9999', cidade: 'Vitória - ES',
+      cnpj: '00.000.000/0001-00', bandeira: 'Independente',
+      status: 'ativo', seloVerificado: true, criadoEm: '2025-01-01T00:00:00.000Z',
+      _hardcoded: true
+    })
+  }
+
+  // Ordenar: mais recentes primeiro
+  parceiros.sort((a, b) => {
+    const da = a.criadoEm ? new Date(String(a.criadoEm)).getTime() : 0
+    const db = b.criadoEm ? new Date(String(b.criadoEm)).getTime() : 0
+    return db - da
+  })
+
+  return c.json({ total: parceiros.length, parceiros })
+})
+
+function normalizarParceiro(data: Record<string,unknown>, id: string, uploaded: Date | null | undefined): Record<string,unknown> {
+  return {
+    id: String(data.id || id),
+    nomePosto:      data.nomePosto      || data.nome || '—',
+    email:          data.email          || '—',
+    plano:          data.plano          || 'visibilidade',
+    tel:            data.tel            || data.whatsapp || '—',
+    cidade:         data.cidade         || '—',
+    cnpj:           data.cnpj           || '—',
+    bandeira:       data.bandeira       || '—',
+    status:         data.status         || 'pendente',
+    seloVerificado: Boolean(data.seloVerificado),
+    pinDourado:     Boolean(data.pinDourado),
+    criadoEm:       data.criadoEm       || uploaded?.toISOString() || '—',
+    // Métricas
+    totalCliques:   data.totalCliques   || 0,
+    totalCupons:    data.totalCupons    || 0,
+    totalImpressoes:data.totalImpressoes|| 0,
+  }
+}
+
+// ─── PUT /api/admin/parceiros/:id — editar dados do posto ─────────────────────
+app.put('/api/admin/parceiros/:id', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  const id = c.req.param('id')
+  const body = await c.req.json() as Record<string,unknown>
+
+  if (id === 'p_teste') {
+    return c.json({ ok: true, aviso: 'Posto de teste não persiste alterações (hardcoded)' })
+  }
+
+  // Carregar dados atuais
+  const atual = await kvGetParceiro(kv, id, r2) as Record<string,unknown> | null
+  if (!atual) return c.json({ erro: 'Posto não encontrado' }, 404)
+
+  // Campos editáveis pelo admin (não permite mudar senhaHash, id)
+  const campos = ['nomePosto','email','tel','cidade','cnpj','bandeira','plano','status','seloVerificado','pinDourado','notificacoesAtivas','cuponsAtivos','topoLista']
+  const atualizado: Record<string,unknown> = { ...atual }
+  for (const campo of campos) {
+    if (campo in body) atualizado[campo] = body[campo]
+  }
+  atualizado.atualizadoEm = new Date().toISOString()
+
+  await kvSetParceiro(kv, id, atualizado, undefined, r2)
+  return c.json({ ok: true, parceiro: normalizarParceiro(atualizado, id, null) })
+})
+
 app.get('/admin', (c) => {
   const key = c.req.query('key') || ''
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
@@ -8052,22 +8176,22 @@ app.get('/admin', (c) => {
         <input id="pc-search" type="text" placeholder="🔍 Buscar posto..." oninput="filtrarParceiros()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:200px"/>
       </div>
       <div style="overflow-x:auto">
-        <table style="min-width:740px;table-layout:fixed;width:100%">
+        <table style="min-width:760px;table-layout:fixed;width:100%">
           <colgroup>
-            <col style="width:22%"/>
             <col style="width:20%"/>
+            <col style="width:19%"/>
+            <col style="width:10%"/>
+            <col style="width:12%"/>
             <col style="width:11%"/>
-            <col style="width:14%"/>
-            <col style="width:13%"/>
             <col style="width:10%"/>
-            <col style="width:10%"/>
+            <col style="width:18%"/>
           </colgroup>
           <thead><tr>
             <th>Posto / Empresa</th>
             <th>E-mail</th>
             <th style="text-align:center">Plano</th>
             <th style="text-align:center">Cidade</th>
-            <th style="text-align:center">Tel</th>
+            <th style="text-align:center">Status</th>
             <th style="text-align:center">Cadastrado</th>
             <th style="text-align:center">Ações</th>
           </tr></thead>
@@ -8075,6 +8199,82 @@ app.get('/admin', (c) => {
             <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Modal Editar Parceiro -->
+    <div id="modal-parceiro-edit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;overflow-y:auto;padding:20px">
+      <div style="background:#1A1D23;border:1px solid rgba(255,255,255,0.1);border-radius:18px;max-width:580px;margin:0 auto;padding:28px;position:relative">
+        <button onclick="fecharModalParceiro()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px">✕</button>
+        <h3 style="font-size:17px;font-weight:900;color:#fff;margin:0 0 6px"><i class="fas fa-gas-pump" style="color:#FF6D00;margin-right:8px"></i>Editar Posto Parceiro</h3>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:22px;font-family:monospace" id="ep-id-display">ID: —</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Nome do Posto *</label>
+            <input id="ep-nomePosto" type="text" placeholder="Ex: Posto Central"/>
+          </div>
+          <div class="form-group">
+            <label>E-mail</label>
+            <input id="ep-email" type="email" placeholder="contato@posto.com.br"/>
+          </div>
+          <div class="form-group">
+            <label>WhatsApp / Tel</label>
+            <input id="ep-tel" type="text" placeholder="(27) 99999-9999"/>
+          </div>
+          <div class="form-group">
+            <label>Cidade</label>
+            <input id="ep-cidade" type="text" placeholder="Vitória - ES"/>
+          </div>
+          <div class="form-group">
+            <label>Bandeira</label>
+            <input id="ep-bandeira" type="text" placeholder="Petrobras, Shell, Independente..."/>
+          </div>
+          <div class="form-group">
+            <label>CNPJ</label>
+            <input id="ep-cnpj" type="text" placeholder="00.000.000/0001-00"/>
+          </div>
+          <div class="form-group">
+            <label>Plano</label>
+            <select id="ep-plano" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
+              <option value="visibilidade">Visibilidade (Grátis)</option>
+              <option value="basico">Básico</option>
+              <option value="premium">Premium</option>
+              <option value="pro">Pro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="ep-status" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
+              <option value="ativo">Ativo</option>
+              <option value="pendente">Pendente</option>
+              <option value="suspenso">Suspenso</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Flags -->
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:22px;padding:14px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.07)">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7)">
+            <input id="ep-seloVerificado" type="checkbox" style="accent-color:#FF6D00;width:16px;height:16px"/> Selo Verificado ✅
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7)">
+            <input id="ep-pinDourado" type="checkbox" style="accent-color:#FFD600;width:16px;height:16px"/> Pin Dourado 📍
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7)">
+            <input id="ep-topoLista" type="checkbox" style="accent-color:#42A5F5;width:16px;height:16px"/> Topo da Lista 🔝
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7)">
+            <input id="ep-cuponsAtivos" type="checkbox" style="accent-color:#00C853;width:16px;height:16px"/> Cupons Ativos 🎟️
+          </label>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button onclick="fecharModalParceiro()" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:13px">Cancelar</button>
+          <button id="ep-deletar-btn" onclick="deletarParceiroModal()" style="background:rgba(255,82,82,0.15);color:#FF5252;border:1px solid rgba(255,82,82,0.3);padding:10px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700"><i class="fas fa-trash"></i> Remover</button>
+          <button onclick="salvarParceiroModal()" style="background:#FF6D00;color:white;border:none;padding:10px 24px;border-radius:10px;font-weight:900;font-size:13px;cursor:pointer"><i class="fas fa-save"></i> Salvar</button>
+        </div>
       </div>
     </div>
   </section>
@@ -8802,15 +9002,16 @@ async function cancelarAssinatura(uid) {
 }
 
 // ── POSTOS PARCEIROS ─────────────────────────────────────────────────────────
+// ── POSTOS PARCEIROS ─────────────────────────────────────────────────────────
 async function carregarParceirosCadastrados() {
   const tbody = document.getElementById('parceiros-tbody');
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando parceiros...</td></tr>';
   try {
-    const res = await fetch('/api/admin/usuarios?key=' + encodeURIComponent(ADMIN_KEY));
+    // Usar nova rota dedicada que inclui KV fallback + posto teste
+    const res = await fetch('/api/admin/parceiros?key=' + encodeURIComponent(ADMIN_KEY));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     _parceiros = data.parceiros || [];
-
     document.getElementById('parceiros-count').textContent = _parceiros.length + ' parceiro(s)';
     renderParceiros(_parceiros);
   } catch(e) {
@@ -8825,37 +9026,124 @@ function renderParceiros(lista) {
     return;
   }
   const planoBadge = (p) => {
-    const cores = { premium: '#FFD600', basico: '#69F0AE', gratuito: 'rgba(255,255,255,0.3)', pro: '#FF6D00' };
-    const cor = cores[(p||'gratuito').toLowerCase()] || 'rgba(255,255,255,0.3)';
-    return \`<span style="background:\${cor}22;color:\${cor};padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;text-transform:uppercase">\${p || 'gratuito'}</span>\`;
+    const map = { premium:'#FFD600', pro:'#FF6D00', basico:'#69F0AE', visibilidade:'#42A5F5' };
+    const cor = map[(p||'').toLowerCase()] || 'rgba(255,255,255,0.3)';
+    return \`<span style="background:\${cor}22;color:\${cor};padding:3px 8px;border-radius:100px;font-size:10px;font-weight:800;text-transform:uppercase">\${p||'free'}</span>\`;
   };
-  const fmtDate = (iso) => { if (!iso || iso === '—') return '—'; try { return new Date(iso).toLocaleDateString('pt-BR'); } catch { return iso; } };
+  const statusBadge = (s) => {
+    const map = { ativo:'#00C853', pendente:'#FFD600', suspenso:'#FF6D00', cancelado:'#FF5252' };
+    const cor = map[(s||'').toLowerCase()] || 'rgba(255,255,255,0.3)';
+    return \`<span style="background:\${cor}22;color:\${cor};padding:3px 8px;border-radius:100px;font-size:10px;font-weight:800">\${s||'—'}</span>\`;
+  };
+  const fmtDate = (v) => { if (!v || v === '—') return '—'; try { return new Date(v).toLocaleDateString('pt-BR'); } catch { return v; } };
 
-  tbody.innerHTML = lista.map(u => \`<tr class="tr-hover">
-    <td style="overflow:hidden">
-      <div style="font-weight:800;color:#fff;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.nomePosto || '—'}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ID: \${u.id}</div>
-    </td>
-    <td style="color:rgba(255,255,255,0.6);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.email || '—'}</td>
-    <td style="text-align:center">\${planoBadge(u.plano)}</td>
-    <td style="text-align:center;color:rgba(255,255,255,0.6);font-size:12px">\${u.cidade || '—'}</td>
-    <td style="text-align:center;color:rgba(255,255,255,0.6);font-size:12px">\${u.tel || '—'}</td>
-    <td style="text-align:center;color:rgba(255,255,255,0.4);font-size:11px">\${fmtDate(u.criadoEm)}</td>
-    <td style="text-align:center">
-      <div style="display:inline-flex;gap:6px;justify-content:center">
-        <button class="btn-danger" onclick="deletarParceiro('\${u.id}', '\${(u.nomePosto||'').replace(/'/g,'')}')" title="Remover posto"><i class="fas fa-trash"></i> Remover</button>
-      </div>
-    </td>
-  </tr>\`).join('');
+  tbody.innerHTML = lista.map(u => {
+    const nomeEsc = (u.nomePosto||'').replace(/'/g, '&#39;');
+    const hardcoded = u._hardcoded ? '<span title="Conta de teste (hardcoded)" style="color:#FFD600;font-size:10px;margin-left:4px">🧪</span>' : '';
+    return \`<tr class="tr-hover">
+      <td style="overflow:hidden">
+        <div style="font-weight:800;color:#fff;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.nomePosto||'—'}\${hardcoded}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:1px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ID: \${u.id}</div>
+      </td>
+      <td style="font-size:11px;color:rgba(255,255,255,0.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.email||'—'}</td>
+      <td style="text-align:center">\${planoBadge(u.plano)}</td>
+      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.cidade||'—'}</td>
+      <td style="text-align:center">\${statusBadge(u.status)}</td>
+      <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.4)">\${fmtDate(u.criadoEm)}</td>
+      <td style="text-align:center">
+        <div style="display:inline-flex;gap:5px;justify-content:center">
+          <button class="btn-info" data-pid="\${u.id}" onclick="abrirModalEditarParceiro(this.dataset.pid)" title="Editar posto"><i class="fas fa-pen"></i></button>
+          <button class="btn-danger" data-pid="\${u.id}" data-pnome="\${nomeEsc}" onclick="deletarParceiro(this.dataset.pid, this.dataset.pnome)" title="Remover posto"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>\`;
+  }).join('');
 }
 
 function filtrarParceiros() {
   const q = document.getElementById('pc-search').value.toLowerCase();
-  renderParceiros(q ? _parceiros.filter(p => (p.nomePosto||'').toLowerCase().includes(q) || (p.email||'').toLowerCase().includes(q) || (p.cidade||'').toLowerCase().includes(q) || (p.id||'').toLowerCase().includes(q)) : _parceiros);
+  renderParceiros(q ? _parceiros.filter(p =>
+    (p.nomePosto||'').toLowerCase().includes(q) ||
+    (p.email||'').toLowerCase().includes(q) ||
+    (p.cidade||'').toLowerCase().includes(q) ||
+    (p.id||'').toLowerCase().includes(q)
+  ) : _parceiros);
+}
+
+// ─── Modal Editar Parceiro ────────────────────────────────────────────────────
+let _parceiroEditandoId = null;
+
+function abrirModalEditarParceiro(id) {
+  const p = _parceiros.find(x => x.id === id);
+  if (!p) return;
+  _parceiroEditandoId = id;
+  document.getElementById('ep-id-display').textContent = 'ID: ' + id + (p._hardcoded ? '  🧪 conta de teste' : '');
+  document.getElementById('ep-nomePosto').value  = p.nomePosto  || '';
+  document.getElementById('ep-email').value      = p.email      !== '—' ? (p.email || '') : '';
+  document.getElementById('ep-tel').value        = p.tel        !== '—' ? (p.tel   || '') : '';
+  document.getElementById('ep-cidade').value     = p.cidade     !== '—' ? (p.cidade|| '') : '';
+  document.getElementById('ep-bandeira').value   = p.bandeira   !== '—' ? (p.bandeira||'') : '';
+  document.getElementById('ep-cnpj').value       = p.cnpj       !== '—' ? (p.cnpj  || '') : '';
+  document.getElementById('ep-plano').value      = p.plano      || 'visibilidade';
+  document.getElementById('ep-status').value     = p.status     || 'pendente';
+  document.getElementById('ep-seloVerificado').checked = !!p.seloVerificado;
+  document.getElementById('ep-pinDourado').checked      = !!p.pinDourado;
+  document.getElementById('ep-topoLista').checked       = !!p.topoLista;
+  document.getElementById('ep-cuponsAtivos').checked    = !!p.cuponsAtivos;
+  // Botão remover: esconder para conta hardcoded
+  document.getElementById('ep-deletar-btn').style.display = p._hardcoded ? 'none' : 'inline-flex';
+  document.getElementById('modal-parceiro-edit').style.display = 'block';
+}
+
+function fecharModalParceiro() {
+  document.getElementById('modal-parceiro-edit').style.display = 'none';
+  _parceiroEditandoId = null;
+}
+
+async function salvarParceiroModal() {
+  if (!_parceiroEditandoId) return;
+  const btn = document.querySelector('#modal-parceiro-edit button[onclick="salvarParceiroModal()"]');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
+  const body = {
+    nomePosto:      document.getElementById('ep-nomePosto').value.trim(),
+    email:          document.getElementById('ep-email').value.trim(),
+    tel:            document.getElementById('ep-tel').value.trim(),
+    cidade:         document.getElementById('ep-cidade').value.trim(),
+    bandeira:       document.getElementById('ep-bandeira').value.trim(),
+    cnpj:           document.getElementById('ep-cnpj').value.trim(),
+    plano:          document.getElementById('ep-plano').value,
+    status:         document.getElementById('ep-status').value,
+    seloVerificado: document.getElementById('ep-seloVerificado').checked,
+    pinDourado:     document.getElementById('ep-pinDourado').checked,
+    topoLista:      document.getElementById('ep-topoLista').checked,
+    cuponsAtivos:   document.getElementById('ep-cuponsAtivos').checked,
+  };
+  try {
+    const res = await fetch('/api/admin/parceiros/' + encodeURIComponent(_parceiroEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok || data.erro) throw new Error(data.erro || 'Erro ao salvar');
+    showToast(data.aviso ? '⚠️ ' + data.aviso : '✅ Posto atualizado!', data.aviso ? '' : 'ok');
+    fecharModalParceiro();
+    await carregarParceirosCadastrados();
+  } catch(e) {
+    showToast('❌ Erro: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar'; }
+  }
+}
+
+async function deletarParceiroModal() {
+  if (!_parceiroEditandoId) return;
+  const p = _parceiros.find(x => x.id === _parceiroEditandoId);
+  await deletarParceiro(_parceiroEditandoId, p ? p.nomePosto : _parceiroEditandoId);
+  fecharModalParceiro();
 }
 
 async function deletarParceiro(id, nome) {
-  if (!confirm('Remover o posto "' + nome + '" (ID: ' + id + ')? Esta ação é irreversível.')) return;
+  if (id === 'p_teste') { showToast('⚠️ Posto de teste não pode ser removido', ''); return; }
+  if (!confirm('Remover o posto "' + nome + '"?\nEsta ação é irreversível.')) return;
   try {
     const res = await fetch('/api/admin/postos/' + encodeURIComponent(id) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
