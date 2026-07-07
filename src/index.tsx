@@ -11245,7 +11245,7 @@ function renderizarPlanosGrid() {
     // Checkboxes de benefícios fixos
     const benefCheckboxes = BENEFICIOS_POSTO.map(b =>
       '<label style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.04);border:1px solid ' + (beneficiosPlano.includes(b.id) ? cor + '55' : 'rgba(255,255,255,0.07)') + ';border-radius:8px;padding:7px 10px;cursor:pointer" id="pp-blabel-' + i + '-' + b.id + '">'
-      + '<input type="checkbox" ' + (beneficiosPlano.includes(b.id) ? 'checked' : '') + ' onchange="toggleBeneficioPostoCard(' + i + ',\'' + b.id + '\',this.checked,this)" style="accent-color:' + cor + ';width:14px;height:14px;flex-shrink:0;cursor:pointer">'
+      + '<input type="checkbox" data-plano-idx="' + i + '" data-bid="' + b.id + '" ' + (beneficiosPlano.includes(b.id) ? 'checked' : '') + ' onchange="toggleBeneficioPostoCard(parseInt(this.dataset.planoIdx),this.dataset.bid,this.checked,this)" style="accent-color:' + cor + ';width:14px;height:14px;flex-shrink:0;cursor:pointer">'
       + '<i class="' + b.icon + '" style="color:rgba(255,255,255,0.35);font-size:11px;flex-shrink:0"></i>'
       + '<span style="font-size:11px;color:rgba(255,255,255,0.7)">' + b.label + '</span>'
       + '</label>'
