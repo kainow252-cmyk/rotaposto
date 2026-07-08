@@ -3467,7 +3467,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<span style="font-size:11px;color:#FF6D00;cursor:pointer;font-weight:600;" onclick="abrirReportarPreco('+idx+')">'
       + '📝 Preços diferentes? Informe o valor real</span></div>'
       + '<div style="margin-top:12px;" id="btn-gerar-desconto-wrap">'
-      + (function(){ var Q=String.fromCharCode(39); return '<button onclick="abrirGerarCupom(' + Q + (p.id||'') + Q + ',' + Q + (p.nome||'Posto').replace(/'/g,Q) + Q + ',' + Q + selectedFuel + Q + ')" '; }())
+      + (function(){ var Q=String.fromCharCode(39); var nP=(p.nome||'Posto').split(Q).join(''); return '<button onclick="abrirGerarCupom(' + Q + (p.id||'') + Q + ',' + Q + nP + Q + ',' + Q + selectedFuel + Q + ')" '; }())
       + 'style="width:100%;padding:12px;background:linear-gradient(135deg,#FF6D00,#FFA040);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">'
       + '🎟️ Gerar Cupom de Desconto Premium'
       + '</button></div>';
@@ -5871,7 +5871,7 @@ function abrirGerarCupom(postoId, nomePosto, combustivelSugerido) {
     + '<select id="cupom-combustivel" style="width:100%;padding:12px;border:2px solid #eee;border-radius:12px;font-size:15px;background:#fff;">' + optsHtml + '</select>'
     + '</div>'
     + '<div id="cupom-area" style="display:none;"></div>'
-    + (function(){ var Q=String.fromCharCode(39); return '<button id="btn-gerar-cupom" onclick="gerarCupomPremium(' + Q + (postoId||'') + Q + ',' + Q + (nomePosto||'Posto Parceiro').replace(/'/g,Q) + Q + ')" '; }())
+    + (function(){ var Q=String.fromCharCode(39); var nP=(nomePosto||'Posto Parceiro').split(Q).join(''); return '<button id="btn-gerar-cupom" onclick="gerarCupomPremium(' + Q + (postoId||'') + Q + ',' + Q + nP + Q + ')" '; }())
     + 'style="width:100%;padding:14px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">🎟️ Gerar Cupom de Desconto</button>'
     + '<button onclick="fecharModalCupom()" style="width:100%;padding:14px;background:#f5f5f5;border:none;border-radius:14px;font-size:14px;color:#555;cursor:pointer;">Cancelar</button>'
     + '</div>';

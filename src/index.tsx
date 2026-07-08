@@ -6433,7 +6433,7 @@ function abrirModalPosto(id) {
               style="width:100%;padding:9px 10px 9px 30px;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;font-family:'Raleway',sans-serif;font-size:15px;font-weight:800;color:white;background:rgba(255,255,255,0.06);outline:none;box-sizing:border-box"
               onfocus="this.style.borderColor='var(--laranja)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'"/>
           </div>
-          <button id="btn-reportar-preco" onclick="reportarPreco('\${posto.id}', '\${state.combustivel}', '\${(posto.nome||'').replace(/'/g,'')}')"
+          <button id="btn-reportar-preco" onclick="reportarPreco('\${posto.id}', '\${state.combustivel}', '\${(posto.nome||'').split(String.fromCharCode(39)).join('')}')"
             style="padding:9px 16px;background:linear-gradient(135deg,#FF6D00,#ff8c00);color:white;border:none;border-radius:10px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">
             <i class="fas fa-paper-plane"></i> Reportar
           </button>
