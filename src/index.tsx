@@ -7683,13 +7683,18 @@ async function loginGoogle() {
   try {
     await window._fbSignInWithPopup(_firebaseAuth, window._fbGoogleProvider);
   } catch (err) {
-    // Popup bloqueado → fallback para PKCE redirect
-    if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user')) {
+    const errCode = err && (err as Record<string, unknown>).code as string || ''
+    // Fallback para PKCE redirect: popup bloqueado OU domínio não autorizado no Firebase
+    const deveFallbackPKCE = errCode === 'auth/popup-blocked'
+      || errCode === 'auth/popup-closed-by-user'
+      || errCode === 'auth/unauthorized-domain'
+      || errCode === 'auth/operation-not-supported-in-this-environment'
+    if (deveFallbackPKCE) {
       try {
         await _loginGooglePKCE();
         return;
       } catch (err2) {
-        _mostrarErroAuth(err2);
+        _mostrarErroAuth(err2)
       }
     } else {
       _mostrarErroAuth(err);
@@ -13812,6 +13817,9 @@ async function carregarEquipe() {
   }
 }
 
+// Helper: escapa email/nome para uso seguro em data-attributes HTML
+function _esc(v) { return String(v || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+
 function renderEquipeTabela(lista) {
   const masters = lista.filter(s => s.role === 'master').length;
   const admins  = lista.filter(s => s.role === 'admin').length;
@@ -13830,42 +13838,53 @@ function renderEquipeTabela(lista) {
 
   const tbody = document.getElementById('equipe-tbody');
   tbody.innerHTML = lista.map(s => {
+    const emailEsc = _esc(s.email);
+    const nomeEsc  = _esc(s.nome);
     const roleBadge = s.role === 'master'
       ? '<span class="role-badge-master"><i class="fas fa-crown"></i>Master</span>'
       : s.role === 'admin'
         ? '<span class="role-badge-admin"><i class="fas fa-user-shield"></i>Admin</span>'
-        : '<span class="role-badge-funcionario"><i class="fas fa-user-tie"></i>Funcionário</span>';
+        : '<span class="role-badge-funcionario"><i class="fas fa-user-tie"></i>Funcionario</span>';
 
     // Contar permissões habilitadas
     const perm = s.permissoes || {};
     const totalPerm = MODULOS_PERM.length;
     const habPerm = s.role === 'master' ? totalPerm : Object.values(perm).filter(Boolean).length;
     const permStr = s.role === 'master'
-      ? '<span style="color:#FFD600;font-size:11px;font-weight:700">Todos os módulos</span>'
-      : '<span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.5)">' + habPerm + '/' + totalPerm + ' módulos</span>';
+      ? '<span style="color:#FFD600;font-size:11px;font-weight:700">Todos os modulos</span>'
+      : '<span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.5)">' + habPerm + '/' + totalPerm + ' modulos</span>';
 
-    const statusBadge = s.ativo
-      ? '<span class="staff-ativo-toggle staff-ativo-on" onclick="toggleStaffAtivo(\'' + s.email + '\',' + (!s.ativo) + ')"><i class="fas fa-check-circle"></i>Ativo</span>'
-      : '<span class="staff-ativo-toggle staff-ativo-off" onclick="toggleStaffAtivo(\'' + s.email + '\',' + (!s.ativo) + ')"><i class="fas fa-times-circle"></i>Inativo</span>';
+    // Usar data-attributes para passar parâmetros — evita problema de aspas aninhadas
+    const novoAtivo = s.ativo ? 'false' : 'true';
+    const statusClass = s.ativo ? 'staff-ativo-toggle staff-ativo-on' : 'staff-ativo-toggle staff-ativo-off';
+    const statusIcon  = s.ativo ? 'fa-check-circle' : 'fa-times-circle';
+    const statusText  = s.ativo ? 'Ativo' : 'Inativo';
+    const statusBadge = '<span class="' + statusClass + '" data-email="' + emailEsc + '" data-ativo="' + novoAtivo + '" onclick="toggleStaffAtivoEl(this)"><i class="fas ' + statusIcon + '"></i>' + statusText + '</span>';
 
-    const criadoEm = s.criadoEm ? new Date(s.criadoEm).toLocaleDateString('pt-BR') : '—';
+    const criadoEm = s.criadoEm ? new Date(s.criadoEm).toLocaleDateString('pt-BR') : '-';
 
     return '<tr class="tr-hover">'
-      + '<td><div style="font-weight:700;color:#fff">' + (s.nome || '—') + '</div>'
-        + (s.cargo ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">' + s.cargo + '</div>' : '') + '</td>'
-      + '<td style="font-family:monospace;font-size:11px;color:rgba(255,255,255,0.6)">' + s.email + '</td>'
+      + '<td><div style="font-weight:700;color:#fff">' + (nomeEsc || '-') + '</div>'
+        + (s.cargo ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">' + _esc(s.cargo) + '</div>' : '') + '</td>'
+      + '<td style="font-family:monospace;font-size:11px;color:rgba(255,255,255,0.6)">' + emailEsc + '</td>'
       + '<td>' + roleBadge + '</td>'
       + '<td>' + permStr + '</td>'
       + '<td>' + statusBadge + '</td>'
       + '<td style="font-size:11px;color:rgba(255,255,255,0.35)">' + criadoEm + '</td>'
       + '<td style="text-align:right">'
-        + '<button class="btn-info" style="padding:5px 10px;font-size:10px;margin-right:4px" onclick="abrirModalEditarStaff(\'' + s.email + '\')"><i class="fas fa-edit"></i> Editar</button>'
-        + '<button class="btn-danger" style="padding:5px 10px;font-size:10px;margin-right:4px" onclick="abrirModalSenhaStaff(\'' + s.email + '\',\'' + (s.nome||'').replace(/'/g,'') + '\')"><i class="fas fa-key"></i></button>'
-        + '<button class="btn-danger" style="padding:5px 10px;font-size:10px" onclick="excluirStaff(\'' + s.email + '\',\'' + (s.nome||'').replace(/'/g,'') + '\')"><i class="fas fa-trash"></i></button>'
+        + '<button class="btn-info" style="padding:5px 10px;font-size:10px;margin-right:4px" data-email="' + emailEsc + '" onclick="abrirModalEditarStaffEl(this)"><i class="fas fa-edit"></i> Editar</button>'
+        + '<button class="btn-danger" style="padding:5px 10px;font-size:10px;margin-right:4px" data-email="' + emailEsc + '" data-nome="' + nomeEsc + '" onclick="abrirModalSenhaStaffEl(this)"><i class="fas fa-key"></i></button>'
+        + '<button class="btn-danger" style="padding:5px 10px;font-size:10px" data-email="' + emailEsc + '" data-nome="' + nomeEsc + '" onclick="excluirStaffEl(this)"><i class="fas fa-trash"></i></button>'
       + '</td>'
     + '</tr>';
   }).join('');
 }
+
+// Wrappers que leem data-attributes em vez de receber parâmetros direto no onclick
+function toggleStaffAtivoEl(el) { toggleStaffAtivo(el.dataset.email, el.dataset.ativo === 'true'); }
+function abrirModalEditarStaffEl(el) { abrirModalEditarStaff(el.dataset.email); }
+function abrirModalSenhaStaffEl(el) { abrirModalSenhaStaff(el.dataset.email, el.dataset.nome); }
+function excluirStaffEl(el) { excluirStaff(el.dataset.email, el.dataset.nome); }
 
 function buildPermRows(permissoes, role) {
   const wrap = document.getElementById('perm-rows');
@@ -14011,7 +14030,7 @@ async function salvarStaff() {
 }
 
 async function excluirStaff(email, nome) {
-  if (!confirm('Excluir o funcionário "' + nome + '" (' + email + ')?\nEssa ação não pode ser desfeita.')) return;
+  if (!confirm('Excluir o funcionario "' + nome + '" (' + email + ')? Esta acao nao pode ser desfeita.')) return;
   try {
     const res = await fetch('/api/admin/equipe/' + encodeURIComponent(email) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
     const data = await res.json();
