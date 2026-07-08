@@ -3528,32 +3528,35 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     const n = nome.toUpperCase();
     if (n.includes('SHELL')) return '🐚';
     if (n.includes('IPIRANGA')) return '🔵';
-    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR') return '🟢';
+    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR' || n.includes('PETRO BR')) return '🟢';
     if (n.includes('RAIZEN') || n.includes('RAÍZEN')) return '⛽';
-    if (n.includes('ALE') || n.includes('ALÉ')) return '🔴';
+    if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes(' ALE') || n.includes('ALEPOSTO')) return '🔴';
     if (n.includes('TEXACO')) return '⭐';
     if (n.includes('ESSO')) return '🔷';
     if (n.includes('BANDEIRANTE')) return '🏁';
+    if (n.includes('VIBRA')) return '🟡';
     return '⛽';
   }
 
   function getBandeiraCor(nome) {
     if (!nome) return { emoji: '⛽', bg: '#F5F5F5', border: '#E0E0E0' };
     const n = nome.toUpperCase();
-    if (n.includes('SHELL'))     return { emoji: '🐚', bg: '#FFF3E0', border: '#FFB300' };
-    if (n.includes('IPIRANGA')) return { emoji: '🔵', bg: '#E3F2FD', border: '#1565C0' };
-    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR')
-                                 return { emoji: '🟢', bg: '#E8F5E9', border: '#2E7D32' };
-    if (n.includes('RAIZEN') || n.includes('RAÍZEN'))
-                                 return { emoji: '⛽', bg: '#F3E5F5', border: '#7B1FA2' };
-    if (n.includes('ALE') || n.includes('ALÉ'))
-                                 return { emoji: '⛽', bg: '#FFEBEE', border: '#E53935' };
-    if (n.includes('TEXACO'))    return { emoji: '⭐', bg: '#FFFDE7', border: '#F9A825' };
-    if (n.includes('ESSO'))      return { emoji: '⛽', bg: '#E3F2FD', border: '#1565C0' };
+    if (n.includes('SHELL'))       return { emoji: '🐚', bg: '#FFF3E0', border: '#FFB300' };
+    if (n.includes('IPIRANGA'))    return { emoji: '🔵', bg: '#E3F2FD', border: '#1565C0' };
+    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR' || n.includes('PETRO BR'))
+                                   return { emoji: '🟢', bg: '#E8F5E9', border: '#2E7D32' };
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN') || n.includes('RAIZ'))
+                                   return { emoji: '⛽', bg: '#F3E5F5', border: '#7B1FA2' };
+    // ALE: testar apenas se a palavra inteira for ALE ou conter ALÉZEA, ALÉ — evitar falso match em YAHOO AUTO POSTO etc.
+    if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes(' ALE') || n.includes('ALEPOSTO'))
+                                   return { emoji: '⛽', bg: '#FFEBEE', border: '#E53935' };
+    if (n.includes('TEXACO'))      return { emoji: '⭐', bg: '#FFFDE7', border: '#F9A825' };
+    if (n.includes('ESSO'))        return { emoji: '⛽', bg: '#E3F2FD', border: '#1565C0' };
     if (n.includes('BANDEIRANTE')) return { emoji: '🏁', bg: '#F5F5F5', border: '#616161' };
-    // Posto independente — inicial do nome
-    const inicial = nome.trim().charAt(0).toUpperCase();
-    return { emoji: inicial, bg: '#FFF3E0', border: '#FF6D00' };
+    if (n.includes('ULTRAGAZ') || n.includes('ULTRA GAZ')) return { emoji: '🟤', bg: '#FFF8E1', border: '#FF8F00' };
+    if (n.includes('VIBRA') || n.includes('VIBRA EN')) return { emoji: '🟡', bg: '#FFFDE7', border: '#F9A825' };
+    // Independente / não reconhecido — ícone neutro
+    return { emoji: '⛽', bg: '#F5F5F5', border: '#9E9E9E' };
   }
 
   function getDemoPostos() {

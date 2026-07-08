@@ -13511,9 +13511,14 @@ function iniciarMapaAdmin(reset) {
     .then(r => r.json())
     .then(data => {
       (data.postos || []).forEach(p => {
+        if (!p.lat || !p.lng) return;
+        const precoVal = p.preco ?? (p.precos?.gasolina);
+        if (!precoVal) return;
+        const precoStr = precoVal.toFixed(2);
         const cor = p.fonte === 'anp' ? '#1565C0' : '#FF6D00';
-        const icon = L.divIcon({ html: \`<div style="background:\${cor};color:white;padding:3px 7px;border-radius:8px;font-size:10px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.4);border:2px solid white;white-space:nowrap">R$\${p.preco?.toFixed(2)}</div>\`, className: '', iconAnchor: [20, 12] });
-        L.marker([p.lat, p.lng], { icon }).addTo(adminMap).bindPopup(\`<strong>\${p.nome}</strong><br>\${p.bandeira} · \${p.fonte?.toUpperCase()}<br>R$ \${p.preco?.toFixed(2)}\`);
+        const html = \`<div style="background:\${cor};color:white;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,0.4);border:2px solid white;white-space:nowrap;line-height:1.2">R$ \${precoStr}</div>\`;
+        const icon = L.divIcon({ html, className: '', iconSize: [80, 26], iconAnchor: [40, 13] });
+        L.marker([p.lat, p.lng], { icon }).addTo(adminMap).bindPopup(\`<strong>\${p.nome}</strong><br>\${p.bandeira || '–'} · \${(p.fonte||'').toUpperCase()}<br>R$ \${precoStr}\`);
       });
     });
 }
