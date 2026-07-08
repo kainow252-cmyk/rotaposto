@@ -3764,122 +3764,114 @@ app.get('/manifest.json', (c) => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  /ir — Página HTML com link direto para Google Maps (Round 7 Maps fix)
+//  /ir — Página HTML intermediária para abrir Google Maps (Round 8)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-//  HISTÓRICO DE FALHAS:
-//    R1-R5: client-side (geo:, intent://, window.open) → todos bloqueados pelo TWA
-//    R6: server-side 302 → maps.google.com → Android converte para intent:// via
-//        App Links → ERR_UNKNOWN_URL_SCHEME (TWA tem delegate_permission/common.handle_all_urls)
+//  HISTÓRICO COMPLETO DE FALHAS (todos os schemes bloqueados pelo TWA):
+//    R1: geo:LAT,LNG                  → ERR_UNKNOWN_URL_SCHEME
+//    R2: window.open(maps.google.com, '_blank', 'noopener') → intent:// → bloqueado
+//    R3: <a target="_blank">.click()  → App Links → intent:// → bloqueado
+//    R4: window.location.href = intent://navigation/now → ERR_UNKNOWN_URL_SCHEME
+//    R5: window.open(maps.google.com, '_blank') sem features → Custom Tab, mas
+//        TWA intercepta window.open para domínios externos → bloqueado
+//    R6: server 302 → maps.google.com → Android converte para intent:// → bloqueado
+//    R7: comgooglemaps:// → ERR_UNKNOWN_URL_SCHEME (TWA bloqueia TODOS os custom schemes)
 //
-//  SOLUÇÃO R7: Página HTML intermediária com <a href="comgooglemaps://...">
-//    - comgooglemaps:// é deep link nativo registrado no AndroidManifest do Maps
-//    - NÃO passa pelo sistema de App Links do Chrome (é scheme custom, não https://)
-//    - O TWA permite abrir apps externos via deep links em elementos <a> clicados pelo usuário
-//    - Fallback: link https:// para Maps web caso o app não esteja instalado
+//  SOLUÇÃO R8: Página /ir com botão que usa window.open(_blank) via CLIQUE DO USUÁRIO
+//    - Clique manual em botão dispara window.open(webLink, '_blank') via onclick
+//    - TWA trata cliques do usuário diferente de JS automático
+//    - '_blank' sem features = Chrome Custom Tab
+//    - Custom Tab processa App Links nativamente → abre Google Maps app
+//    - Diferença do R5: R5 usava JS automático, R8 usa clique humano direto no botão
 //
 app.get('/ir', (c) => {
   const lat = c.req.query('lat')
   const lng = c.req.query('lng')
   const nome = c.req.query('nome') || ''
 
-  let deepLink: string
   let webLink: string
   let titulo: string
 
   if (lat && lng && lat !== '0' && lng !== '0') {
-    // comgooglemaps:// — deep link nativo do Google Maps para navegação turn-by-turn
-    // Não passa pelo App Links / Chrome → não vira intent:// → não bloqueia no TWA
-    deepLink = `comgooglemaps://?daddr=${encodeURIComponent(lat + ',' + lng)}&directionsmode=driving`
-    webLink  = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + ',' + lng)}&travelmode=driving`
-    titulo   = nome ? nome : `${lat}, ${lng}`
+    webLink = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + ',' + lng)}&travelmode=driving`
+    titulo  = nome ? nome : `${lat}, ${lng}`
   } else if (nome) {
-    deepLink = `comgooglemaps://?q=${encodeURIComponent(nome)}`
-    webLink  = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome)}`
-    titulo   = nome
+    webLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome)}`
+    titulo  = nome
   } else {
-    deepLink = `comgooglemaps://`
-    webLink  = `https://maps.google.com/`
-    titulo   = 'Google Maps'
+    webLink = `https://maps.google.com/`
+    titulo  = 'Google Maps'
   }
 
-  // Página intermediária: tenta abrir comgooglemaps:// automaticamente via JS,
-  // se falhar (app não instalado) mostra botão com link web fallback
+  const tituloSafe = titulo.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')
+  const webLinkSafe = webLink.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+
+  // R8: botão com onclick="window.open(url,'_blank')" — clique do usuário
+  // O TWA permite que cliques em botões abram Chrome Custom Tab com window.open
+  // Custom Tab processa App Links do Android → Google Maps app abre nativamente
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
   <meta name="theme-color" content="#FF6D00"/>
-  <title>Abrindo Google Maps…</title>
+  <title>Ir até ${tituloSafe}</title>
   <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
          background:#fff;display:flex;align-items:center;justify-content:center;
          min-height:100vh;padding:24px}
-    .card{max-width:340px;width:100%;text-align:center}
-    .icon{font-size:56px;margin-bottom:16px}
-    h1{font-size:20px;font-weight:800;color:#1a1a1a;margin-bottom:8px}
-    p{font-size:14px;color:#666;margin-bottom:24px;line-height:1.5}
+    .card{max-width:360px;width:100%;text-align:center}
+    .icon{font-size:64px;margin-bottom:20px;display:block}
+    h1{font-size:22px;font-weight:800;color:#111;margin-bottom:10px}
+    p{font-size:15px;color:#555;margin-bottom:28px;line-height:1.5}
+    p strong{color:#111}
     .btn{display:block;width:100%;background:#FF6D00;color:#fff;border:none;
-         padding:16px;border-radius:14px;font-size:16px;font-weight:700;
-         text-decoration:none;cursor:pointer;margin-bottom:12px}
-    .btn-sec{display:block;width:100%;background:#f5f5f5;color:#333;
-             padding:14px;border-radius:14px;font-size:14px;font-weight:600;
-             text-decoration:none;cursor:pointer;border:1px solid #ddd}
-    .spinner{width:32px;height:32px;border:3px solid #FF6D0033;
-             border-top-color:#FF6D00;border-radius:50%;animation:spin .8s linear infinite;
-             margin:0 auto 16px}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    #status{font-size:13px;color:#999;margin-top:8px}
+         padding:18px 16px;border-radius:16px;font-size:17px;font-weight:800;
+         text-decoration:none;cursor:pointer;margin-bottom:14px;
+         box-shadow:0 4px 16px rgba(255,109,0,0.35);
+         -webkit-appearance:none;letter-spacing:0.2px}
+    .btn:active{background:#e56200;transform:scale(0.98)}
+    .btn-sec{display:block;width:100%;background:#f2f2f2;color:#333;border:none;
+             padding:16px;border-radius:16px;font-size:15px;font-weight:600;
+             text-decoration:none;cursor:pointer;border:1px solid #e0e0e0;
+             -webkit-appearance:none}
+    .btn-sec:active{background:#e5e5e5}
+    .hint{font-size:12px;color:#aaa;margin-top:20px;line-height:1.4}
   </style>
 </head>
 <body>
-  <div class="card" id="loading-card">
-    <div class="spinner"></div>
-    <h1>Abrindo Google Maps…</h1>
-    <p>Redirecionando para <strong>${titulo.replace(/</g,'&lt;')}</strong></p>
-    <div id="status">Aguarde…</div>
-  </div>
-  <div class="card" id="fallback-card" style="display:none">
-    <div class="icon">🗺️</div>
+  <div class="card">
+    <span class="icon">🗺️</span>
     <h1>Abrir Google Maps</h1>
-    <p>Toque no botão para navegar até <strong>${titulo.replace(/</g,'&lt;')}</strong></p>
-    <a href="${deepLink}" class="btn" id="btn-deep">
-      📍 Abrir no Google Maps App
-    </a>
-    <a href="${webLink}" class="btn-sec" target="_blank">
+    <p>Navegar até<br><strong>${tituloSafe}</strong></p>
+    <button class="btn" onclick="abrirMaps()">
+      📍 Abrir no Google Maps
+    </button>
+    <a href="${webLinkSafe}" class="btn-sec">
       🌐 Abrir no Maps Web
     </a>
+    <p class="hint">Se o app não abrir automaticamente,<br>use "Abrir no Maps Web"</p>
   </div>
   <script>
-    // Tenta abrir comgooglemaps:// automaticamente
-    // Se o app não estiver instalado, o link falha silenciosamente e mostramos fallback
-    var deepLink = ${JSON.stringify(deepLink)};
-    var tried = false;
+    var MAPS_URL = ${JSON.stringify(webLink)};
 
-    function mostrarFallback() {
-      document.getElementById('loading-card').style.display = 'none';
-      document.getElementById('fallback-card').style.display = 'block';
+    function abrirMaps() {
+      // window.open sem 3º argumento = Chrome Custom Tab no Android
+      // Custom Tab suporta App Links → Android abre o app Google Maps
+      // Clique do usuário (não JS automático) garante que o TWA permita a abertura
+      var w = window.open(MAPS_URL, '_blank');
+      if (!w || w.closed) {
+        // Custom Tab bloqueado: tentar navegação direta
+        window.location.href = MAPS_URL;
+      }
     }
 
-    // Método 1: iframe com deep link (não navega a página, só tenta abrir o app)
-    try {
-      var iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = deepLink;
-      document.body.appendChild(iframe);
-      tried = true;
-    } catch(e) {}
-
-    // Método 2: window.location após pequeno delay (fallback do iframe)
+    // Tentar abrir automaticamente ao carregar (pode funcionar em alguns TWA configs)
+    // Se falhar, o botão manual acima sempre funciona
     setTimeout(function() {
-      if (!tried) {
-        try { window.location.href = deepLink; } catch(e) {}
-      }
-      // Após 2s sem abrir o app, mostrar o card de fallback
-      setTimeout(mostrarFallback, 2000);
-    }, 300);
+      try { abrirMaps(); } catch(e) {}
+    }, 600);
   <\/script>
 </body>
 </html>`
