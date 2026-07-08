@@ -3785,107 +3785,133 @@ app.get('/ir', async (c) => {
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;overflow:hidden;background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0f172a;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 
-  /* ── Mapa ── */
   #map{position:absolute;inset:0;z-index:0}
 
-  /* ── Overlay de loading ── */
-  #overlay{position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s}
+  /* overlay */
+  #overlay{position:fixed;inset:0;background:#0f172a;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    z-index:9999;transition:opacity .5s}
   #overlay.hide{opacity:0;pointer-events:none}
-  .spin{width:44px;height:44px;border:3px solid rgba(255,255,255,.12);border-top-color:#f97316;border-radius:50%;animation:spin .9s linear infinite;margin-bottom:14px}
+  .spin{width:44px;height:44px;border:3px solid rgba(255,255,255,.1);
+    border-top-color:#f97316;border-radius:50%;animation:spin .85s linear infinite;margin-bottom:14px}
   @keyframes spin{to{transform:rotate(360deg)}}
-  #status-txt{color:#fff;font-size:15px;font-weight:600;text-align:center;padding:0 32px;margin-bottom:6px}
-  #sub-txt{color:rgba(255,255,255,.45);font-size:13px;text-align:center;padding:0 32px}
+  #status-txt{color:#fff;font-size:15px;font-weight:600;text-align:center;padding:0 32px;margin-bottom:5px}
+  #sub-txt{color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:0 32px}
 
-  /* ── Barra de topo ── */
-  #top-bar{position:absolute;top:0;left:0;right:0;z-index:100;
-    background:linear-gradient(to bottom,rgba(15,23,42,.92) 60%,transparent);
-    padding:env(safe-area-inset-top,12px) 16px 28px;pointer-events:none}
+  /* topo */
+  #top-bar{
+    position:absolute;top:0;left:0;right:0;z-index:200;
+    background:linear-gradient(to bottom,rgba(10,15,28,.95) 55%,transparent);
+    padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 32px;
+    pointer-events:none}
   #top-bar h1{color:#fff;font-size:15px;font-weight:700;
-    text-shadow:0 1px 4px rgba(0,0,0,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #top-bar p{color:rgba(255,255,255,.6);font-size:12px;margin-top:3px}
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    text-shadow:0 1px 6px rgba(0,0,0,.8)}
+  #rota-info{color:rgba(255,255,255,.7);font-size:13px;font-weight:500;margin-top:4px;
+    display:flex;align-items:center;gap:8px}
+  #rota-info .badge{
+    background:rgba(249,115,22,.25);border:1px solid rgba(249,115,22,.5);
+    color:#f97316;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700}
 
-  /* ── Botão centralizar ── */
-  #btn-center{position:absolute;right:14px;bottom:130px;z-index:100;
-    width:42px;height:42px;border-radius:50%;border:none;background:#fff;
-    box-shadow:0 2px 10px rgba(0,0,0,.35);font-size:18px;cursor:pointer;
-    display:flex;align-items:center;justify-content:center}
+  /* botão centralizar */
+  #btn-center{
+    position:absolute;right:14px;bottom:108px;z-index:200;
+    width:44px;height:44px;border-radius:50%;border:none;
+    background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.4);
+    font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    -webkit-tap-highlight-color:transparent}
 
-  /* ── Barra inferior com botão Waze ── */
-  #bottom-bar{position:absolute;bottom:0;left:0;right:0;z-index:100;
-    padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));
-    background:linear-gradient(to top,rgba(15,23,42,.97) 70%,transparent)}
+  /* barra inferior */
+  #bottom-bar{
+    position:absolute;bottom:0;left:0;right:0;z-index:200;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(to top,rgba(10,15,28,.98) 65%,transparent)}
 
-  /* Botão Waze principal */
-  #btn-waze{
-    display:flex;align-items:center;justify-content:center;gap:12px;
-    width:100%;padding:17px 20px;border:none;border-radius:16px;cursor:pointer;
-    background:linear-gradient(135deg,#06C167,#05a354);
-    box-shadow:0 4px 20px rgba(6,193,103,.45);
-    color:#fff;font-size:17px;font-weight:800;letter-spacing:.2px;
+  /* card de rota */
+  #rota-card{
+    display:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+    border-radius:14px;padding:10px 14px;margin-bottom:10px;
+    display:flex;align-items:center;gap:10px}
+  #rota-card .rc-icon{font-size:22px}
+  #rota-card .rc-dist{color:#fff;font-size:16px;font-weight:800}
+  #rota-card .rc-dur{color:rgba(255,255,255,.55);font-size:13px;margin-top:1px}
+
+  /* botão principal — Traçar Rota */
+  #btn-rota{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;padding:17px;border:none;border-radius:16px;cursor:pointer;
+    background:linear-gradient(135deg,#f97316,#ea580c);
+    box-shadow:0 4px 20px rgba(249,115,22,.45);
+    color:#fff;font-size:16px;font-weight:800;
     transition:transform .12s,box-shadow .12s;
     -webkit-tap-highlight-color:transparent}
-  #btn-waze:active{transform:scale(.96);box-shadow:0 2px 10px rgba(6,193,103,.3)}
-  #btn-waze svg{flex-shrink:0}
-  #btn-waze .wz-label{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
-  #btn-waze .wz-title{font-size:17px;font-weight:800;line-height:1.1}
-  #btn-waze .wz-sub{font-size:11px;font-weight:500;opacity:.85;line-height:1}
+  #btn-rota:active{transform:scale(.96);box-shadow:0 2px 10px rgba(249,115,22,.3)}
+  #btn-rota.calculando{opacity:.7;pointer-events:none}
+  #btn-rota .bt-icon{font-size:20px}
 
-  /* Customização do mapa Leaflet */
-  .leaflet-control-attribution{display:none!important}
-  .leaflet-control-zoom{display:none!important}
+  /* Leaflet customização */
+  .leaflet-control-attribution,.leaflet-control-zoom{display:none!important}
+
+  /* pin posto */
   .pin-posto{
-    background:#f97316;border:3px solid #fff;border-radius:50% 50% 50% 0;
-    width:34px;height:34px;transform:rotate(-45deg);
-    box-shadow:0 3px 12px rgba(249,115,22,.6)}
-  .pin-posto span{display:block;transform:rotate(45deg);font-size:16px;line-height:28px;text-align:center}
+    width:38px;height:38px;border-radius:50% 50% 50% 0;
+    transform:rotate(-45deg);background:#f97316;
+    border:3px solid #fff;box-shadow:0 3px 14px rgba(249,115,22,.7)}
+  .pin-posto em{
+    display:block;transform:rotate(45deg);
+    font-size:17px;line-height:32px;text-align:center;font-style:normal}
+
+  /* pin usuário */
   .pin-user{
-    background:#3b82f6;border:3px solid #fff;border-radius:50%;
-    width:20px;height:20px;box-shadow:0 2px 8px rgba(59,130,246,.7)}
+    width:18px;height:18px;border-radius:50%;
+    background:#3b82f6;border:2.5px solid #fff;
+    box-shadow:0 2px 8px rgba(59,130,246,.8)}
   .pulse-ring{
-    border:3px solid rgba(59,130,246,.4);border-radius:50%;
-    width:36px;height:36px;position:absolute;top:-8px;left:-8px;
+    position:absolute;top:-10px;left:-10px;
+    width:38px;height:38px;border-radius:50%;
+    border:2px solid rgba(59,130,246,.5);
     animation:pulse 2s ease-out infinite}
-  @keyframes pulse{0%{transform:scale(.8);opacity:1}100%{transform:scale(2.2);opacity:0}}
+  @keyframes pulse{0%{transform:scale(.7);opacity:1}100%{transform:scale(2);opacity:0}}
+
+  /* linha de rota */
+  .rota-line{stroke:#f97316;stroke-width:5;stroke-opacity:.9;
+    stroke-linecap:round;stroke-linejoin:round}
 </style>
 </head>
 <body>
 
-<!-- Loading overlay -->
 <div id="overlay">
   <div class="spin"></div>
   <div id="status-txt">Obtendo localização…</div>
   <div id="sub-txt">Aguarde um momento</div>
 </div>
 
-<!-- Mapa -->
 <div id="map"></div>
 
-<!-- Topo -->
 <div id="top-bar">
   <h1>⛽ ${tituloSafe}</h1>
-  <p id="sub-info">Carregando mapa…</p>
+  <div id="rota-info">
+    <span id="info-dist">Calculando…</span>
+    <span id="info-dur" class="badge" style="display:none"></span>
+  </div>
 </div>
 
-<!-- Centralizar -->
 <button id="btn-center" title="Centralizar">📍</button>
 
-<!-- Botão Waze na base -->
 <div id="bottom-bar">
-  <button id="btn-waze">
-    <!-- Ícone Waze SVG inline (sem dependência externa) -->
-    <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="32" cy="28" r="22" fill="#fff" opacity=".2"/>
-      <path d="M32 6C19.85 6 10 15.85 10 28c0 7.18 3.52 13.55 8.97 17.56l-1.1 5.5 5.8-2.9C25.6 49.36 28.73 50 32 50c12.15 0 22-9.85 22-22S44.15 6 32 6z" fill="#fff"/>
-      <circle cx="24" cy="28" r="3" fill="#06C167"/>
-      <circle cx="40" cy="28" r="3" fill="#06C167"/>
-      <path d="M24 36c2 3 14 3 16 0" stroke="#06C167" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
-    <div class="wz-label">
-      <span class="wz-title">Navegar com Waze</span>
-      <span class="wz-sub">Trânsito em tempo real</span>
+  <div id="rota-card" style="display:none">
+    <span class="rc-icon">🛣️</span>
+    <div>
+      <div class="rc-dist" id="card-dist">—</div>
+      <div class="rc-dur" id="card-dur">—</div>
     </div>
+  </div>
+  <button id="btn-rota">
+    <span class="bt-icon">🗺️</span>
+    <span id="btn-rota-txt">Traçar Rota</span>
   </button>
 </div>
 
@@ -3896,166 +3922,202 @@ app.get('/ir', async (c) => {
   var DLNG = ${temCoords ? lng : 'null'};
   var NOME = ${JSON.stringify(tituloSafe)};
 
-  var _map, _userMarker, _destMarker, _userLat, _userLng, _watchId;
+  var _map, _userMarker, _rotaLayer;
+  var _userLat = null, _userLng = null;
+  var _watchId = null;
+  var _rotaOk   = false;
 
-  /* ── Utilidades ───────────────────────── */
-  function setStatus(txt, sub) {
-    var a = document.getElementById('status-txt');
-    var b = document.getElementById('sub-txt');
-    if(a) a.textContent = txt;
-    if(b !== undefined && sub !== undefined) b.textContent = sub;
+  /* ── helpers ──────────────────────────── */
+  function setStatus(t,s){ 
+    var a=document.getElementById('status-txt'),b=document.getElementById('sub-txt');
+    if(a)a.textContent=t; if(b&&s!==undefined)b.textContent=s;
   }
-  function setSubInfo(txt) {
-    var el = document.getElementById('sub-info');
-    if(el) el.textContent = txt;
+  function hideOverlay(){
+    var o=document.getElementById('overlay');
+    if(!o)return; o.classList.add('hide');
+    setTimeout(function(){o.style.display='none';},550);
   }
-  function hideOverlay() {
-    var ov = document.getElementById('overlay');
-    if(!ov) return;
-    ov.classList.add('hide');
-    setTimeout(function(){ ov.style.display='none'; }, 550);
+  function setInfoDist(t){
+    var e=document.getElementById('info-dist'); if(e)e.textContent=t;
   }
-  function dist(la1,lo1,la2,lo2){
-    var R=6371,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
+  function setInfoDur(t){
+    var e=document.getElementById('info-dur');
+    if(!e)return;
+    if(t){e.textContent=t;e.style.display='inline-block';}
+    else{e.style.display='none';}
+  }
+  function showCard(dist,dur){
+    var c=document.getElementById('rota-card');
+    var d=document.getElementById('card-dist');
+    var t=document.getElementById('card-dur');
+    if(c)c.style.display='flex';
+    if(d)d.textContent=dist;
+    if(t)t.textContent=dur;
+  }
+  function fmtDist(m){
+    return m<1000 ? Math.round(m)+'m' : (m/1000).toFixed(1)+'km';
+  }
+  function fmtDur(s){
+    var m=Math.round(s/60);
+    return m<60 ? m+' min' : Math.floor(m/60)+'h '+('0'+(m%60)).slice(-2)+'min';
+  }
+  function haversine(la1,lo1,la2,lo2){
+    var R=6371000,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
     var a=Math.sin(dLa/2)*Math.sin(dLa/2)+
           Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*
           Math.sin(dLo/2)*Math.sin(dLo/2);
     return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
   }
 
-  /* ── Inicia Leaflet ───────────────────── */
-  function initMap() {
-    var center = (DLAT && DLNG) ? [DLAT, DLNG] : [-14.235, -51.925];
-    var zoom   = (DLAT && DLNG) ? 15 : 4;
+  /* ── Inicia mapa Leaflet ─────────────── */
+  function initMap(){
+    var center = (DLAT&&DLNG) ? [DLAT,DLNG] : [-14.235,-51.925];
+    var zoom   = (DLAT&&DLNG) ? 14 : 4;
 
-    _map = L.map('map', {
-      center: center, zoom: zoom,
-      zoomControl: false, attributionControl: false
-    });
+    _map = L.map('map',{center:center,zoom:zoom,
+      zoomControl:false,attributionControl:false});
 
-    // Tiles escuros (CartoDB Dark Matter — sem key)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19, subdomains: 'abcd'
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+      maxZoom:19, subdomains:'abcd'
     }).addTo(_map);
 
-    // Marcador do posto
-    if(DLAT && DLNG) {
-      var pinHtml = '<div class="pin-posto"><span>⛽</span></div>';
-      var pinIcon = L.divIcon({ html: pinHtml, className:'', iconSize:[34,34], iconAnchor:[17,34] });
-      _destMarker = L.marker([DLAT, DLNG], { icon: pinIcon }).addTo(_map);
-      _destMarker.bindPopup('<b>' + NOME + '</b>', { closeButton:false }).openPopup();
+    // Marcador do posto destino
+    if(DLAT&&DLNG){
+      var html='<div class="pin-posto"><em>⛽</em></div>';
+      var icon=L.divIcon({html:html,className:'',iconSize:[38,38],iconAnchor:[19,38]});
+      L.marker([DLAT,DLNG],{icon:icon}).addTo(_map)
+        .bindPopup('<b>'+NOME+'</b>',{closeButton:false,maxWidth:200});
     }
 
     // Botão centralizar
-    document.getElementById('btn-center').addEventListener('click', function(){
-      if(_userLat != null && _map) {
-        _map.setView([_userLat, _userLng], 16, { animate:true });
-      } else if(DLAT) {
-        _map.setView([DLAT, DLNG], 15, { animate:true });
-      }
+    document.getElementById('btn-center').addEventListener('click',function(){
+      if(_userLat!=null) _map.setView([_userLat,_userLng],16,{animate:true});
+      else if(DLAT)      _map.setView([DLAT,DLNG],15,{animate:true});
     });
 
     // GPS
     obterGPS();
   }
 
-  /* ── Marcador do usuário ─────────────── */
-  function atualizarUser(lat, lng) {
-    _userLat = lat; _userLng = lng;
+  /* ── Marcador usuário ────────────────── */
+  function atualizarUser(lat,lng){
+    _userLat=lat; _userLng=lng;
     if(!_map) return;
-    if(!_userMarker) {
-      var pulseHtml = '<div class="pin-user"><div class="pulse-ring"></div></div>';
-      var userIcon  = L.divIcon({ html: pulseHtml, className:'', iconSize:[20,20], iconAnchor:[10,10] });
-      _userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset:1000 }).addTo(_map);
+    if(!_userMarker){
+      var h='<div class="pin-user"><div class="pulse-ring"></div></div>';
+      var ic=L.divIcon({html:h,className:'',iconSize:[18,18],iconAnchor:[9,9]});
+      _userMarker=L.marker([lat,lng],{icon:ic,zIndexOffset:1000}).addTo(_map);
     } else {
-      _userMarker.setLatLng([lat, lng]);
+      _userMarker.setLatLng([lat,lng]);
     }
-    // Atualiza sub-info com distância
-    if(DLAT && DLNG) {
-      var km = dist(lat, lng, DLAT, DLNG);
-      setSubInfo(km < 1
-        ? Math.round(km*1000) + ' m até o posto'
-        : km.toFixed(1) + ' km até o posto');
+    if(DLAT&&DLNG&&!_rotaOk){
+      var m=haversine(lat,lng,DLAT,DLNG);
+      setInfoDist(fmtDist(m)+' em linha reta');
     }
   }
 
   /* ── GPS ─────────────────────────────── */
-  function obterGPS() {
-    if(!navigator.geolocation) {
-      setStatus('GPS não disponível', '');
-      hideOverlay();
+  function obterGPS(){
+    if(!navigator.geolocation){
+      hideOverlay(); setInfoDist('GPS não disponível');
       return;
     }
-    setStatus('Obtendo localização…', 'Aguarde um momento');
-
-    var _ok = false;
-    var _timer = setTimeout(function(){
-      if(_ok) return;
-      if(_watchId != null){ navigator.geolocation.clearWatch(_watchId); _watchId=null; }
-      // Timeout: mostra mapa centrado no destino mesmo sem GPS
+    setStatus('Obtendo localização…','Aguarde um momento');
+    var _ok=false;
+    var _t=setTimeout(function(){
+      if(_ok)return;
+      if(_watchId!=null){navigator.geolocation.clearWatch(_watchId);_watchId=null;}
       hideOverlay();
-      setSubInfo('GPS indisponível — mostrando destino');
-    }, 12000);
+      setInfoDist('GPS indisponível');
+    },13000);
 
-    _watchId = navigator.geolocation.watchPosition(
+    _watchId=navigator.geolocation.watchPosition(
       function(pos){
-        var acc = pos.coords.accuracy;
-        if(!_ok && acc <= 150) {
-          _ok = true;
-          clearTimeout(_timer);
-          // Centraliza no usuário na primeira leitura boa
-          if(_map) _map.setView([pos.coords.latitude, pos.coords.longitude], 16, {animate:true});
+        var acc=pos.coords.accuracy;
+        atualizarUser(pos.coords.latitude,pos.coords.longitude);
+        if(!_ok && acc<=200){
+          _ok=true; clearTimeout(_t);
+          _map.setView([pos.coords.latitude,pos.coords.longitude],15,{animate:true});
           hideOverlay();
+          // Traça rota automaticamente ao obter GPS
+          tracarRota(pos.coords.latitude,pos.coords.longitude);
         }
-        atualizarUser(pos.coords.latitude, pos.coords.longitude);
       },
       function(err){
-        clearTimeout(_timer);
-        if(_watchId != null){ navigator.geolocation.clearWatch(_watchId); _watchId=null; }
+        clearTimeout(_t);
+        if(_watchId!=null){navigator.geolocation.clearWatch(_watchId);_watchId=null;}
         hideOverlay();
-        if(err.code === 1) {
-          setSubInfo('Permita localização para ver sua posição');
-        } else {
-          setSubInfo('GPS indisponível — mostrando destino');
-        }
+        setInfoDist(err.code===1 ? 'Permita localização' : 'GPS indisponível');
       },
-      { enableHighAccuracy:true, timeout:12000, maximumAge:0 }
+      {enableHighAccuracy:true,timeout:13000,maximumAge:0}
     );
   }
 
-  /* ── Botão Waze ──────────────────────── */
-  document.getElementById('btn-waze').addEventListener('click', function(){
-    if(!DLAT || !DLNG) return;
-    // Deep-link Waze: se instalado abre direto; senão vai para site/Play Store
-    var wazeUrl;
-    if(_userLat != null) {
-      wazeUrl = 'waze://?from.ll=' + _userLat + ',' + _userLng
-              + '&ll=' + DLAT + ',' + DLNG + '&navigate=yes&zoom=17';
+  /* ── Traça rota via OSRM ─────────────── */
+  function tracarRota(oLat,oLng){
+    if(!DLAT||!DLNG) return;
+    var btn=document.getElementById('btn-rota');
+    var txt=document.getElementById('btn-rota-txt');
+    if(btn) btn.classList.add('calculando');
+    if(txt) txt.textContent='Calculando rota…';
+
+    var url='https://router.project-osrm.org/route/v1/driving/'
+      + oLng+','+oLat+';'+DLNG+','+DLAT
+      + '?overview=full&geometries=geojson&steps=false';
+
+    fetch(url)
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.code!=='Ok'||!d.routes||!d.routes[0]) throw new Error('no route');
+        var route=d.routes[0];
+        var dist=fmtDist(route.distance);
+        var dur=fmtDur(route.duration);
+
+        // Linha no mapa
+        if(_rotaLayer) _map.removeLayer(_rotaLayer);
+        var coords=route.geometry.coordinates.map(function(c){return[c[1],c[0]];});
+        _rotaLayer=L.polyline(coords,{
+          color:'#f97316',weight:5,opacity:.9,
+          lineCap:'round',lineJoin:'round'
+        }).addTo(_map);
+
+        // Fit no mapa
+        _map.fitBounds(_rotaLayer.getBounds(),{padding:[60,60]});
+
+        // UI
+        _rotaOk=true;
+        setInfoDist(dist);
+        setInfoDur(dur);
+        showCard(dist,dur);
+        if(btn) btn.classList.remove('calculando');
+        if(txt) txt.textContent='Rota traçada ✓';
+      })
+      .catch(function(){
+        if(btn) btn.classList.remove('calculando');
+        if(txt) txt.textContent='Tentar novamente';
+        setInfoDist('Rota indisponível');
+      });
+  }
+
+  /* ── Botão "Traçar Rota" (manual) ────── */
+  document.getElementById('btn-rota').addEventListener('click',function(){
+    if(_rotaOk) return; // já traçada
+    if(_userLat!=null){
+      tracarRota(_userLat,_userLng);
     } else {
-      wazeUrl = 'waze://?ll=' + DLAT + ',' + DLNG + '&navigate=yes&zoom=17';
+      setStatus('Aguardando GPS…','Permita acesso à localização');
     }
-    // Tenta abrir Waze nativo; se não abrir em 1.5s, fallback para web
-    var fallbackUrl = 'https://waze.com/ul?ll=' + DLAT + ',' + DLNG + '&navigate=yes';
-    var start = Date.now();
-    window.location.href = wazeUrl;
-    setTimeout(function(){
-      // Se ainda estamos na página (Waze não abriu), vai para web
-      if(Date.now() - start < 2500) {
-        window.location.href = fallbackUrl;
-      }
-    }, 1500);
   });
 
   /* ── Init ────────────────────────────── */
-  if(typeof L !== 'undefined') {
+  if(typeof L!=='undefined'){
     initMap();
   } else {
-    setStatus('Erro ao carregar mapa', 'Verifique sua conexão');
+    setStatus('Erro ao carregar mapa','Verifique sua conexão');
   }
 
 })();
 </script>
-
 </body>
 </html>`
 
