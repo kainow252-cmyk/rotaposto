@@ -3550,11 +3550,33 @@ export function getPainelLoginHTML(): string {
   <div class="login-links">
     <a href="#" onclick="event.preventDefault();esqueceuSenha()">Esqueci minha senha</a>
     <span class="sep">─────────────────</span>
-    <a href="/parcerias#cadastro">Ainda não tem conta? Cadastrar meu posto →</a>
+    <a href="/parcerias#cadastro" id="link-cadastro">Ainda não tem conta? Cadastrar meu posto →</a>
   </div>
 </div>
 
 <script>
+// Detectar app Android/TWA e ajustar link de cadastro para /app/cadastrar-posto
+(function(){
+  var ua = navigator.userAgent || '';
+  var ref = document.referrer || '';
+  // TWA: referrer começa com android-app:// ou userAgent tem wv (WebView)
+  var isTWA = ref.indexOf('android-app://') === 0
+    || ua.indexOf('wv') > -1
+    || ua.indexOf('WebView') > -1;
+  // Standalone = instalado como PWA ou TWA (não browser normal)
+  var isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  var isAndroid = /Android/i.test(ua);
+
+  if(isTWA || (isAndroid && isStandalone)){
+    var el = document.getElementById('link-cadastro');
+    if(el){
+      el.href = '/app/cadastrar-posto';
+      el.textContent = 'Ainda não tem conta? Cadastrar meu posto →';
+    }
+  }
+})();
+
 // Redirecionar direto ao painel se já está logado
 window.addEventListener('load', () => {
   try {

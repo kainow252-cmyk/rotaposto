@@ -3783,6 +3783,20 @@ self.addEventListener('fetch', event => {
 // ══════════════════════════════════════════════════════
 app.get('/parcerias', (c) => c.html(getParceriasLandingHTML()))
 app.get('/parcerias/login', (c) => c.html(getPainelLoginHTML()))
+
+// Rota de login do painel acessada pelo app Android — link de cadastro já aponta para /app/cadastrar-posto
+app.get('/app/login', (c) => {
+  const html = getPainelLoginHTML()
+    .replace(
+      'id="link-cadastro" href="/parcerias#cadastro"',
+      'id="link-cadastro" href="/app/cadastrar-posto"'
+    )
+    .replace(
+      'href="/parcerias#cadastro" id="link-cadastro"',
+      'href="/app/cadastrar-posto" id="link-cadastro"'
+    )
+  return c.html(html)
+})
 app.get('/parcerias/empresa', (c) => c.html(getPainelEmpresaHTML()))
 app.get('/parcerias/validar', (c) => c.html(getValidadorHTML()))
 
