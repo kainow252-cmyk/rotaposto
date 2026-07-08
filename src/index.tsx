@@ -4376,6 +4376,7 @@ app.get('/ir', async (c) => {
   document.getElementById('btn-nav').addEventListener('click',function(){
     if(!_steps.length){alert('Rota ainda não calculada.');return;}
     _navAtiva  = true;
+    _mapaLivre = false; // navegação sempre segue o usuário
     _stepIdx   = 0;
     _distPercorrida = 0;
 
@@ -4400,6 +4401,7 @@ app.get('/ir', async (c) => {
   /* ── Botão fechar navegação ───────────── */
   document.getElementById('btn-nav-close').addEventListener('click',function(){
     _navAtiva=false;
+    _mapaLivre = true; // libera mapa ao sair da navegação
     document.getElementById('nav-banner').classList.remove('visible');
     var tb=document.getElementById('top-bar');
     if(tb) tb.style.display='block';
