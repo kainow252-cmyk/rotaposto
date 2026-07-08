@@ -2388,8 +2388,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       var coordsLat = s.lat || '';
       var coordsLng = s.lng || '';
       var btnIrLa = (coordsLat && coordsLng)
-        ? '<a href="https://www.google.com/maps/dir/?api=1&destination=' + coordsLat + ',' + coordsLng + '&travelmode=driving" class="sos-btn-irla" onclick="window.location.href=this.href;return false;">🗺️ Ir até lá</a>'
-        : '<a href="https://www.google.com/maps/search/' + encodeURIComponent(s.nome + ' ' + (s.endereco || '')) + '" class="sos-btn-irla" onclick="window.location.href=this.href;return false;">🗺️ Ir até lá</a>';
+        ? '<a href="#" class="sos-btn-irla" onclick="_abrirNavegacaoExterna(' + coordsLat + ',' + coordsLng + ',\'' + (s.nome||'').replace(/'/g,'') + '\');return false;">🗺️ Ir até lá</a>'
+        : '<a href="#" class="sos-btn-irla" onclick="_abrirNavegacaoExterna(0,0,\'' + encodeURIComponent(s.nome + ' ' + (s.endereco || '')) + '\');return false;">🗺️ Ir até lá</a>';
       return '<div class="sos-card">'
         + '<div class="sos-card-emoji">' + s.emoji + '</div>'
         + '<div class="sos-card-info">'
@@ -3571,13 +3571,33 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // Abre navegação no Google Maps — funciona em TWA/Android/iOS/Desktop
   function _abrirNavegacaoExterna(lat, lng, nome) {
-    // IMPORTANTE: geo: URI causa net::ERR_UNKNOWN_URL_SCHEME no Chrome/WebView Android
-    // Usar sempre https://maps.google.com — funciona universalmente e abre o app nativo via intent
-    var destino = encodeURIComponent(lat + ',' + lng);
-    var nomeParam = nome ? '&destination_place_id=&query=' + encodeURIComponent(nome) : '';
-    var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destino + '&travelmode=driving';
-    // window.open com _blank funciona em browser; no TWA/Android o OS intercepta e abre o app de mapas
-    window.open(mapsUrl, '_blank');
+    var destino = lat + ',' + lng;
+    var destinoEnc = encodeURIComponent(destino);
+
+    // Detectar se está rodando como TWA (Trusted Web Activity) ou WebView no Android
+    var ua = navigator.userAgent || '';
+    var isTWA = document.referrer.indexOf('android-app://') === 0
+      || ua.indexOf('wv') > -1
+      || window.matchMedia('(display-mode: standalone)').matches;
+
+    if (isTWA) {
+      // No TWA/WebView o window.open ou intent:// causam ERR_UNKNOWN_URL_SCHEME
+      // A forma correta é criar um <a> com target="_blank" e rel="noopener" e simular o clique
+      // O Android intercepta URLs do Google Maps e abre o app nativo sem passar pelo WebView
+      var mapsUrl = 'https://maps.google.com/maps?daddr=' + destinoEnc + '&directionsmode=driving';
+      var a = document.createElement('a');
+      a.href = mapsUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      // Adicionar ao DOM brevemente para garantir que o clique seja tratado pelo sistema
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      // Browser desktop/iOS — nova aba normal
+      var mapsUrl2 = 'https://www.google.com/maps/dir/?api=1&destination=' + destinoEnc + '&travelmode=driving';
+      window.open(mapsUrl2, '_blank', 'noopener,noreferrer');
+    }
   }
 
   function irAteLa() {
