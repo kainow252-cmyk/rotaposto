@@ -2166,20 +2166,48 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   let _mapaLivre = false;   // true = usuário está explorando o mapa, GPS não move
   let postosData = [];
   let semanaANP = '';   // semana de referência ANP — preenchida pela API
-  let selectedFuel = 'gasolina';
+  // Combustível persistido
+  var _fuelSalvo = (function() { try { return localStorage.getItem(_FUEL_KEY) || 'gasolina'; } catch(e) { return 'gasolina'; } })();
+  let selectedFuel = _fuelSalvo;
   let selectedPosto = null;
   let currentMonthIdx = 4; // Maio 2024
   const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
   // ── Estado dos filtros ────────────────────────────────────────────────────
-  let filtros = {
+  var _FILTROS_KEY = 'rp_filtros_v1';
+  var _FUEL_KEY    = 'rp_fuel_v1';
+
+  var _filtrosDefault = {
     raioKm: 5,
-    ordenar: 'preco',       // 'preco' | 'distancia' | 'avaliacao'
+    ordenar: 'preco',
     somenteAbertos: false,
     somentePrecoReal: false,
-    avaliacaoMin: 0,        // 0 = todos, 3 = 3+, 4 = 4+
+    avaliacaoMin: 0,
     somenteComDesconto: false
   };
+
+  // Carrega filtros salvos (ou usa defaults)
+  function _carregarFiltros() {
+    try {
+      var raw = localStorage.getItem(_FILTROS_KEY);
+      if (!raw) return Object.assign({}, _filtrosDefault);
+      var saved = JSON.parse(raw);
+      // Merge: campos novos usam o default, campos salvos prevalecem
+      return Object.assign({}, _filtrosDefault, saved);
+    } catch(e) {
+      return Object.assign({}, _filtrosDefault);
+    }
+  }
+
+  function _salvarFiltros() {
+    try { localStorage.setItem(_FILTROS_KEY, JSON.stringify(filtros)); } catch(e) {}
+  }
+
+  function _limparFiltrosSalvos() {
+    try { localStorage.removeItem(_FILTROS_KEY); } catch(e) {}
+  }
+
+  let filtros = _carregarFiltros();
   const MONTHS_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   // ── Usuário logado ──
@@ -3195,12 +3223,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (aplicar && window['_tmpFiltros']) {
       var t = window['_tmpFiltros'];
       var raioMudou = filtros.raioKm !== t.raioKm;
-      filtros.raioKm            = t.raioKm;
-      filtros.ordenar           = t.ordenar;
-      filtros.somenteAbertos    = t.somenteAbertos;
-      filtros.somentePrecoReal  = t.somentePrecoReal;
-      filtros.avaliacaoMin      = t.avaliacaoMin;
+      filtros.raioKm             = t.raioKm;
+      filtros.ordenar            = t.ordenar;
+      filtros.somenteAbertos     = t.somenteAbertos;
+      filtros.somentePrecoReal   = t.somentePrecoReal;
+      filtros.avaliacaoMin       = t.avaliacaoMin;
       filtros.somenteComDesconto = t.somenteComDesconto;
+      _salvarFiltros();
       _atualizarBadgeFiltros();
       // Re-buscar com novo raio sempre que raio mudou ou não há dados
       if (raioMudou || postosData.length === 0) {
@@ -3219,7 +3248,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   function limparFiltros() {
-    filtros = { raioKm: 5, ordenar: 'preco', somenteAbertos: false, somentePrecoReal: false, avaliacaoMin: 0, somenteComDesconto: false };
+    filtros = Object.assign({}, _filtrosDefault);
+    _limparFiltrosSalvos();
     _atualizarBadgeFiltros();
     renderLista();
   }
@@ -3588,6 +3618,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   function selectFuel(fuel, btn) {
     selectedFuel = fuel;
+    try { localStorage.setItem(_FUEL_KEY, fuel); } catch(e) {}
     document.querySelectorAll('.chip-fuel').forEach(c => c.classList.remove('active'));
     btn.classList.add('active');
     if (mapMain) {
@@ -5203,6 +5234,20 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     // Logado → iniciar na view mapa normalmente
     goToView('mapa');
+
+    // ── Restaurar combustível salvo ──────────────────────────────────────
+    if (selectedFuel !== 'gasolina') {
+      // Marcar o chip correto como active
+      document.querySelectorAll('.chip-fuel').forEach(function(chip) {
+        var onclick = chip.getAttribute('onclick') || '';
+        var isActive = onclick.includes("'" + selectedFuel + "'") || onclick.includes('"' + selectedFuel + '"');
+        chip.classList.toggle('active', isActive);
+      });
+    }
+
+    // ── Restaurar badge de filtros (caso filtros salvos existam) ─────────
+    _atualizarBadgeFiltros();
+
     // Pedir localização logo no init — antes de qualquer coisa
     _initLocalizacao();
 
