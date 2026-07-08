@@ -3807,15 +3807,17 @@ app.get('/ir', async (c) => {
                overflow:hidden;text-overflow:ellipsis;line-height:1.2}
     #header-sub{font-size:12px;opacity:0.9;margin-top:2px;white-space:nowrap;
                 overflow:hidden;text-overflow:ellipsis}
-    #map{position:fixed;top:56px;left:0;right:0;bottom:64px;z-index:1}
-    #footer{position:fixed;bottom:0;left:0;right:0;height:64px;
+    #map{position:fixed;top:56px;left:0;right:0;bottom:88px;z-index:1}
+    #footer{position:fixed;bottom:0;left:0;right:0;
             background:#fff;border-top:1px solid #e0e0e0;
-            display:flex;gap:8px;padding:10px 12px;z-index:1000;
-            box-shadow:0 -2px 8px rgba(0,0,0,0.08)}
+            display:flex;gap:8px;padding:12px 12px;
+            padding-bottom:calc(12px + env(safe-area-inset-bottom, 16px));
+            z-index:1000;box-shadow:0 -2px 8px rgba(0,0,0,0.08)}
     #btn-rota{flex:1;background:#FF6D00;color:#fff;border:none;
               border-radius:12px;font-size:15px;font-weight:800;
               cursor:pointer;display:flex;align-items:center;
-              justify-content:center;gap:8px;transition:background 0.15s}
+              justify-content:center;gap:8px;transition:background 0.15s;
+              min-height:48px}
     #btn-rota:active{background:#e05500;transform:scale(0.98)}
     #btn-rota:disabled{background:#ccc;cursor:default}
     #status-bar{position:fixed;top:56px;left:0;right:0;z-index:999;
@@ -3823,7 +3825,7 @@ app.get('/ir', async (c) => {
                 padding:9px 14px;text-align:center;display:none;
                 animation:slideDown 0.2s ease}
     @keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
-    #painel{position:fixed;bottom:64px;left:0;right:0;z-index:900;
+    #painel{position:fixed;bottom:88px;left:0;right:0;z-index:900;
             background:#fff;border-top:3px solid #FF6D00;
             max-height:45vh;overflow-y:auto;display:none;
             box-shadow:0 -4px 16px rgba(0,0,0,0.12)}
@@ -4056,7 +4058,7 @@ app.get('/ir', async (c) => {
       var url = 'https://router.project-osrm.org/route/v1/driving/'
         + uLng + ',' + uLat + ';'
         + DEST_LNG + ',' + DEST_LAT
-        + '?overview=full&geometries=geojson&steps=true&language=pt';
+        + '?overview=full&geometries=geojson&steps=true';
 
       fetch(url)
         .then(function(r) { return r.json(); })
