@@ -3932,9 +3932,9 @@ app.get('/ir', async (c) => {
     if (estado === 'calculando') {
       btn.disabled = true; icon.textContent = '⏳'; txt.textContent = 'Calculando...';
     } else if (estado === 'verPassos') {
-      icon.textContent = '📋'; txt.textContent = 'Ver passo a passo';
+      icon.textContent = '🚀'; txt.textContent = 'Ir agora';
     } else if (estado === 'fecharPassos') {
-      icon.textContent = '🗺️'; txt.textContent = 'Fechar passo a passo';
+      icon.textContent = '🚀'; txt.textContent = 'Ir agora';
     } else {
       icon.textContent = '🧭'; txt.textContent = 'Traçar Rota';
     }
@@ -3954,8 +3954,8 @@ app.get('/ir', async (c) => {
     setTimeout(function() { _btnBloqueado = false; }, 600);
 
     if (estadoBotao === 'tracaRota')         tracaRota();
-    else if (estadoBotao === 'verPassos')    { document.getElementById('painel').style.display = 'block'; setBotao('fecharPassos'); modoPassos = true; }
-    else if (estadoBotao === 'fecharPassos') fecharPainel();
+    else if (estadoBotao === 'verPassos')    abrirNavegacaoExterna();
+    else if (estadoBotao === 'fecharPassos') abrirNavegacaoExterna();
   }
 
   // ── Ícones Leaflet ────────────────────────────────────────────────────
@@ -4140,10 +4140,15 @@ app.get('/ir', async (c) => {
     }
     document.getElementById('passos').innerHTML = passosHtml || '<div class="step"><div class="step-txt">Rota calculada com sucesso.</div></div>';
 
-    // Garantir que o painel fique FECHADO após calcular a rota
-    // O usuário deve apertar "Ver passo a passo" explicitamente
+    // Painel interno não é usado — navegação abre externamente
     document.getElementById('painel').style.display = 'none';
     modoPassos = false;
+  }
+
+  // Abre Google Maps externo com navegação até o destino
+  function abrirNavegacaoExterna() {
+    var url = 'https://www.google.com/maps/dir/?api=1&destination=' + DEST_LAT + ',' + DEST_LNG + '&travelmode=driving';
+    window.open(url, '_blank');
   }
 
   // ── Inicializar ───────────────────────────────────────────────────────
