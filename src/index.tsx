@@ -3764,16 +3764,8 @@ app.get('/manifest.json', (c) => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  /ir — Mapa OpenStreetMap + Leaflet.js EMBUTIDO (Round 11)
+//  /ir — Google Maps JavaScript API com DirectionsService embutido
 // ══════════════════════════════════════════════════════════════════════════════
-//
-//  R10 falhou: chaves Google Maps não têm Maps JS API + Directions API habilitadas
-//
-//  SOLUÇÃO R11: OpenStreetMap (tiles gratuitos) + Leaflet.js (lib JS open-source)
-//  + OSRM (roteamento gratuito, sem chave) para calcular rota de carro
-//  → Zero dependência de chave Google → funciona imediatamente
-//  → Mapa embutido no domínio rotaposto.com.br → sem link externo → TWA ok
-//
 app.get('/ir', async (c) => {
   const lat  = c.req.query('lat')  || ''
   const lng  = c.req.query('lng')  || ''
@@ -3781,489 +3773,348 @@ app.get('/ir', async (c) => {
 
   const temCoords  = lat && lng && lat !== '0' && lng !== '0'
   const tituloSafe = nome
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    ? nome.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    : 'Posto'
+
+  const googleKey = ((c.env as any)?.GOOGLE_PLACES_KEY as string) || GOOGLE_API_KEY || ''
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-  <meta name="theme-color" content="#FF6D00"/>
-  <title>${tituloSafe || 'Mapa'}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;width:100%;overflow:hidden;
-              font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-              background:#f0f0f0}
-    #header{position:fixed;top:0;left:0;right:0;z-index:1000;
-            background:#FF6D00;color:#fff;
-            display:flex;align-items:center;gap:10px;
-            padding:12px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
-    #header .back{background:none;border:none;color:#fff;font-size:22px;
-                  cursor:pointer;padding:2px 6px 2px 0;line-height:1;flex-shrink:0}
-    #header-info{flex:1;min-width:0}
-    #header h1{font-size:15px;font-weight:800;white-space:nowrap;
-               overflow:hidden;text-overflow:ellipsis;line-height:1.2}
-    #header-sub{font-size:12px;opacity:0.9;margin-top:2px;white-space:nowrap;
-                overflow:hidden;text-overflow:ellipsis}
-    #map{position:fixed;top:56px;left:0;right:0;bottom:88px;z-index:1}
-    #footer{position:fixed;bottom:0;left:0;right:0;
-            background:#fff;border-top:1px solid #e0e0e0;
-            display:flex;gap:8px;padding:12px 12px;
-            padding-bottom:calc(12px + env(safe-area-inset-bottom, 16px));
-            z-index:1000;box-shadow:0 -2px 8px rgba(0,0,0,0.08)}
-    #btn-rota{flex:1;background:#FF6D00;color:#fff;border:none;
-              border-radius:12px;font-size:15px;font-weight:800;
-              cursor:pointer;display:flex;align-items:center;
-              justify-content:center;gap:8px;transition:background 0.15s;
-              min-height:48px}
-    #btn-rota:active{background:#e05500;transform:scale(0.98)}
-    #btn-rota:disabled{background:#ccc;cursor:default}
-    #status-bar{position:fixed;top:56px;left:0;right:0;z-index:999;
-                background:#1a73e8;color:#fff;font-size:13px;font-weight:600;
-                padding:9px 14px;text-align:center;display:none;
-                animation:slideDown 0.2s ease}
-    @keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
-    #painel{position:fixed;bottom:88px;left:0;right:0;z-index:900;
-            background:#fff;border-top:3px solid #FF6D00;
-            max-height:45vh;overflow-y:auto;display:none;
-            box-shadow:0 -4px 16px rgba(0,0,0,0.12)}
-    #painel-hdr{background:#FF6D00;color:#fff;padding:10px 14px;
-                font-size:14px;font-weight:800;
-                display:flex;justify-content:space-between;align-items:center;
-                position:sticky;top:0}
-    #painel-hdr button{background:none;border:none;color:#fff;
-                       font-size:20px;cursor:pointer;line-height:1}
-    #resumo{padding:10px 14px;background:#fff8f4;
-            border-bottom:1px solid #ffe0cc;
-            font-size:13px;color:#555;display:flex;gap:20px}
-    #resumo b{color:#FF6D00;font-size:15px}
-    .step{display:flex;gap:10px;padding:10px 14px;border-bottom:1px solid #f5f5f5;
-          align-items:flex-start}
-    .step-num{background:#FF6D00;color:#fff;border-radius:50%;
-              width:24px;height:24px;display:flex;align-items:center;
-              justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;
-              margin-top:1px}
-    .step-txt{font-size:13px;color:#222;line-height:1.4}
-    .step-dist{font-size:11px;color:#999;margin-top:3px}
-    #loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.92);
-                     display:flex;flex-direction:column;align-items:center;
-                     justify-content:center;z-index:2000;gap:14px}
-    #loading-overlay p{font-size:15px;color:#444;font-weight:600}
-    .spinner{width:44px;height:44px;border:4px solid #eee;
-             border-top-color:#FF6D00;border-radius:50%;
-             animation:spin 0.75s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    /* Leaflet pin customizado */
-    .pin-posto svg{filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))}
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Rota — ${tituloSafe}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  #map{width:100%;height:100%;position:absolute;top:0;left:0}
+  #overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s}
+  #overlay.hide{opacity:0;pointer-events:none}
+  .spin{width:48px;height:48px;border:4px solid rgba(255,255,255,.15);border-top-color:#f97316;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:16px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #status-txt{color:#fff;font-size:15px;text-align:center;padding:0 24px;margin-bottom:8px}
+  #sub-txt{color:rgba(255,255,255,.5);font-size:13px;text-align:center;padding:0 24px}
+  #top-bar{position:absolute;top:0;left:0;right:0;z-index:100;background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);padding:12px 16px 24px;pointer-events:none}
+  #top-bar h1{color:#fff;font-size:16px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+  #top-bar p{color:rgba(255,255,255,.8);font-size:12px;margin-top:2px;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  #bottom-bar{position:absolute;bottom:0;left:0;right:0;z-index:100;background:linear-gradient(to top,rgba(0,0,0,.85),transparent);padding:24px 16px 28px}
+  #btn-nav{width:100%;padding:16px;background:#f97316;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 16px rgba(249,115,22,.5)}
+  #btn-nav:active{transform:scale(.97)}
+  #btn-nav .icon{font-size:20px}
+  #info-bar{position:absolute;top:60px;left:16px;right:16px;z-index:100;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);border-radius:12px;padding:10px 14px;display:none;align-items:center;gap:10px}
+  #info-bar span{color:#fff;font-size:13px}
+  #info-bar .dist{font-weight:700;color:#f97316;font-size:15px}
+  /* Bottom sheet */
+  #sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s}
+  #sheet-backdrop.show{opacity:1;pointer-events:all}
+  #sheet{position:fixed;bottom:0;left:0;right:0;z-index:201;background:#1e1e2e;border-radius:20px 20px 0 0;padding:20px 20px 36px;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+  #sheet.show{transform:translateY(0)}
+  #sheet h3{color:#fff;font-size:16px;font-weight:700;margin-bottom:4px}
+  #sheet p{color:rgba(255,255,255,.5);font-size:13px;margin-bottom:18px}
+  .sh-btn{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border-radius:12px;border:none;cursor:pointer;margin-bottom:10px;font-size:15px;font-weight:600;text-decoration:none}
+  .sh-btn img{width:28px;height:28px;border-radius:6px;object-fit:contain}
+  .sh-btn-gm{background:#fff;color:#222}
+  .sh-btn-wz{background:#00bcd4;color:#fff}
+  .sh-btn-cancel{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);justify-content:center;margin-top:4px}
+  #recenter-btn{position:absolute;right:16px;z-index:100;background:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center}
+  #acc-badge{position:absolute;left:16px;z-index:100;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);border-radius:8px;padding:4px 10px;color:#fff;font-size:12px;display:none}
+</style>
 </head>
 <body>
 
-<div id="loading-overlay">
-  <div class="spinner"></div>
-  <p id="loading-txt">Carregando mapa...</p>
+<div id="overlay">
+  <div class="spin"></div>
+  <div id="status-txt">Obtendo sua localização…</div>
+  <div id="sub-txt">Aguarde um momento</div>
 </div>
 
-<div id="header">
-  <button class="back" onclick="history.back()">&#8592;</button>
-  <div id="header-info">
-    <h1>${tituloSafe || 'Posto'}</h1>
-    <div id="header-sub">Aguardando localização...</div>
-  </div>
-</div>
-
-<div id="status-bar"></div>
 <div id="map"></div>
 
-<div id="painel">
-  <div id="painel-hdr">
-    <span>📋 Passo a passo</span>
-    <button onclick="fecharPainel()">✕</button>
-  </div>
-  <div id="resumo"></div>
-  <div id="passos"></div>
+<div id="top-bar">
+  <h1 id="posto-nome">${tituloSafe}</h1>
+  <p id="posto-end">Calculando rota…</p>
 </div>
 
-<div id="footer">
-  <button id="btn-rota">
-    <span id="btn-icon">🧭</span>
-    <span id="btn-txt">Traçar Rota</span>
+<div id="info-bar">
+  <span class="dist" id="rota-dist">—</span>
+  <span id="rota-dur">—</span>
+</div>
+
+<button id="recenter-btn" style="bottom:110px" title="Centralizar">📍</button>
+<div id="acc-badge" style="bottom:110px"></div>
+
+<div id="bottom-bar">
+  <button id="btn-nav" onclick="abrirNavSheet()">
+    <span class="icon">🚀</span> Iniciar navegação
   </button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js" onerror="_leafletErro()"><\/script>
+<!-- Bottom sheet externo -->
+<div id="sheet-backdrop" onclick="fecharSheet()"></div>
+<div id="sheet">
+  <h3>Abrir no app de navegação</h3>
+  <p>Escolha como quer navegar até o posto</p>
+  <a id="link-gm" class="sh-btn sh-btn-gm" href="#" target="_blank" rel="noopener">
+    <img src="https://maps.google.com/favicon.ico" onerror="this.style.display='none'"/>
+    Google Maps
+  </a>
+  <a id="link-wz" class="sh-btn sh-btn-wz" href="#" target="_blank" rel="noopener">
+    <img src="https://www.waze.com/favicon.ico" onerror="this.style.display='none'"/>
+    Waze
+  </a>
+  <button class="sh-btn sh-btn-cancel" onclick="fecharSheet()">Cancelar</button>
+</div>
+
 <script>
-  // Chamado se o CDN do Leaflet falhar
-  function _leafletErro() {
-    document.getElementById('loading-overlay').style.display = 'none';
-    document.getElementById('map').innerHTML =
-      '<div style="padding:40px;text-align:center;color:#666;font-size:14px">'
-      + 'Mapa indisponível.<br>Use o botão abaixo para navegar.</div>';
+(function(){
+  var DEST_LAT = ${temCoords ? lat : 'null'};
+  var DEST_LNG = ${temCoords ? lng : 'null'};
+  var DEST_NOME = "${tituloSafe.replace(/"/g, '\\"')}";
+
+  var _map = null;
+  var _userMarker = null;
+  var _userLat = null, _userLng = null;
+  var _watchId = null;
+  var _dirRenderer = null;
+  var _rotaCalculada = false;
+
+  function setStatus(txt, sub) {
+    var el = document.getElementById('status-txt');
+    var sel = document.getElementById('sub-txt');
+    if(el) el.textContent = txt;
+    if(sel && sub !== undefined) sel.textContent = sub;
   }
 
-  // ── Dados do destino ──────────────────────────────────────────────────
-  var DEST_LAT  = ${JSON.stringify(lat)};
-  var DEST_LNG  = ${JSON.stringify(lng)};
-  var DEST_NOME = ${JSON.stringify(nome)};
-  var TEM_COORDS = ${temCoords ? 'true' : 'false'};
-
-  // ── Estado ────────────────────────────────────────────────────────────
-  var map, marcadorUsuario, marcadorDestino, rotaLayer;
-  var estadoBotao = 'tracaRota'; // 'tracaRota' | 'calculando' | 'verPassos' | 'fecharPassos'
-  var modoPassos  = false;
-
-  // ── Utilitários UI ────────────────────────────────────────────────────
-  function setStatus(msg) {
-    var el = document.getElementById('status-bar');
-    if (msg) { el.textContent = msg; el.style.display = 'block'; }
-    else      { el.style.display = 'none'; }
+  function hideOverlay() {
+    var ov = document.getElementById('overlay');
+    if(ov) { ov.classList.add('hide'); setTimeout(function(){ ov.style.display='none'; }, 600); }
   }
 
-  function setSub(txt) {
-    document.getElementById('header-sub').textContent = txt;
+  function showInfoBar(dist, dur) {
+    var bar = document.getElementById('info-bar');
+    if(bar) { bar.style.display='flex'; }
+    var dd = document.getElementById('rota-dist');
+    var dt = document.getElementById('rota-dur');
+    if(dd) dd.textContent = dist;
+    if(dt) dt.textContent = dur;
+    var pe = document.getElementById('posto-end');
+    if(pe) pe.textContent = dist + ' • ' + dur;
   }
 
-  function setLoading(show, msg) {
-    var el = document.getElementById('loading-overlay');
-    el.style.display = show ? 'flex' : 'none';
-    if (msg) document.getElementById('loading-txt').textContent = msg;
+  // ── GPS com watchPosition ──────────────────────────────
+  function obterGPS(onOk, onErro) {
+    if(!navigator.geolocation) { onErro('sem-geo'); return; }
+    var _ok = false;
+    var _safety = setTimeout(function(){
+      if(_ok) return;
+      if(_watchId !== null){ navigator.geolocation.clearWatch(_watchId); _watchId=null; }
+      onErro('timeout');
+    }, 18000);
+
+    _watchId = navigator.geolocation.watchPosition(
+      function(pos) {
+        if(_ok) return;
+        var acc = pos.coords.accuracy;
+        if(acc > 2000) return; // muito impreciso, aguarda
+        _ok = true;
+        clearTimeout(_safety);
+        navigator.geolocation.clearWatch(_watchId); _watchId = null;
+        onOk(pos.coords.latitude, pos.coords.longitude, acc);
+      },
+      function(err) {
+        clearTimeout(_safety);
+        if(_watchId !== null){ navigator.geolocation.clearWatch(_watchId); _watchId=null; }
+        onErro(err.code === 1 ? 'denied' : 'erro');
+      },
+      { enableHighAccuracy: true, timeout: 18000, maximumAge: 0 }
+    );
   }
 
-  function setBotao(estado) {
-    estadoBotao = estado;
-    var btn  = document.getElementById('btn-rota');
-    var icon = document.getElementById('btn-icon');
-    var txt  = document.getElementById('btn-txt');
-    btn.disabled = false;
-    if (estado === 'calculando') {
-      btn.disabled = true; icon.textContent = '⏳'; txt.textContent = 'Calculando...';
-    } else if (estado === 'verPassos') {
-      icon.textContent = '🚀'; txt.textContent = 'Ir agora';
-    } else if (estado === 'fecharPassos') {
-      icon.textContent = '🚀'; txt.textContent = 'Ir agora';
-    } else {
-      icon.textContent = '🧭'; txt.textContent = 'Traçar Rota';
-    }
-  }
-
-  function fecharPainel() {
-    document.getElementById('painel').style.display = 'none';
-    setBotao('verPassos');
-    modoPassos = false;
-  }
-
-  // Proteção anti-duplo-clique (Android pode disparar touchend + click juntos)
-  var _btnBloqueado = false;
-  function acaoBotao() {
-    if (_btnBloqueado) return;
-    _btnBloqueado = true;
-    setTimeout(function() { _btnBloqueado = false; }, 600);
-
-    if (estadoBotao === 'tracaRota')         tracaRota();
-    else if (estadoBotao === 'verPassos')    abrirNavegacaoExterna();
-    else if (estadoBotao === 'fecharPassos') abrirNavegacaoExterna();
-  }
-
-  // ── Ícones Leaflet ────────────────────────────────────────────────────
-  function iconPosto() {
-    return L.divIcon({
-      className: 'pin-posto',
-      html: '<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">' +
-            '<path d="M16 0C7.16 0 0 7.16 0 16c0 11.84 16 24 16 24S32 27.84 32 16C32 7.16 24.84 0 16 0z" fill="#FF6D00"/>' +
-            '<circle cx="16" cy="16" r="7" fill="#fff"/>' +
-            '<circle cx="16" cy="16" r="4" fill="#FF6D00"/>' +
-            '</svg>',
-      iconSize: [32, 40],
-      iconAnchor: [16, 40],
-      popupAnchor: [0, -40]
-    });
-  }
-
-  function iconUsuario() {
-    return L.divIcon({
-      className: '',
-      html: '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
-            '<circle cx="12" cy="12" r="10" fill="#1a73e8" stroke="#fff" stroke-width="3"/>' +
-            '<circle cx="12" cy="12" r="4" fill="#fff"/>' +
-            '</svg>',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
-    });
-  }
-
-  // ── Inicializar mapa ──────────────────────────────────────────────────
-  function initMap() {
-    var centro = TEM_COORDS
-      ? [parseFloat(DEST_LAT), parseFloat(DEST_LNG)]
-      : [-15.78, -47.93];
-    var zoom = TEM_COORDS ? 15 : 5;
-
-    map = L.map('map', {
-      center: centro,
-      zoom:   zoom,
-      zoomControl: true,
-      attributionControl: false
-    });
-
-    // Tiles OpenStreetMap
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
-    }).addTo(map);
-
-    // Marcador do destino
-    if (TEM_COORDS) {
-      marcadorDestino = L.marker(
-        [parseFloat(DEST_LAT), parseFloat(DEST_LNG)],
-        { icon: iconPosto(), title: DEST_NOME }
-      ).addTo(map);
-      if (DEST_NOME) marcadorDestino.bindPopup('<b>' + DEST_NOME + '</b>').openPopup();
-    }
-
-    setLoading(false);
-
-    // Obter localização do usuário automaticamente
-    if (TEM_COORDS) {
-      setSub('Obtendo sua localização...');
-      obterLocalizacao(function(lat, lng) {
-        atualizarPosUsuario(lat, lng);
-        setSub('Toque em "Traçar Rota"');
-      }, function() {
-        setSub('Toque em "Traçar Rota"');
+  // ── Atualiza marcador do usuário ───────────────────────
+  function atualizarUserMarker(lat, lng) {
+    if(!_map) return;
+    _userLat = lat; _userLng = lng;
+    if(!_userMarker) {
+      _userMarker = new google.maps.Marker({
+        position: { lat: lat, lng: lng },
+        map: _map,
+        title: 'Você',
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#4285F4',
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 3
+        },
+        zIndex: 999
       });
     } else {
-      setSub('Coordenadas não disponíveis');
-      setBotao('tracaRota');
-      document.getElementById('btn-rota').disabled = true;
+      _userMarker.setPosition({ lat: lat, lng: lng });
     }
   }
 
-  function obterLocalizacao(onOk, onErro) {
-    if (!navigator.geolocation) { onErro(); return; }
-    var _wId = null;
-    var _ok = false;
-    // watchPosition é mais confiável no PWA Android que getCurrentPosition
-    _wId = navigator.geolocation.watchPosition(
-      function(p) {
-        if (_ok) return;
-        // Aceitar precisão até 1500m — melhor do que nada
-        if (p.coords.accuracy > 2000 && !_ok) return;
-        _ok = true;
-        if (_wId !== null) { navigator.geolocation.clearWatch(_wId); _wId = null; }
-        onOk(p.coords.latitude, p.coords.longitude);
-      },
-      function() {
-        if (_wId !== null) { navigator.geolocation.clearWatch(_wId); _wId = null; }
-        onErro();
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-    // Safety: após 15s sem GPS, liberar mesmo assim
-    setTimeout(function() {
-      if (_ok) return;
-      if (_wId !== null) { navigator.geolocation.clearWatch(_wId); _wId = null; }
-      onErro();
-    }, 15000);
-  }
-
-  function atualizarPosUsuario(lat, lng) {
-    var pos = [lat, lng];
-    if (marcadorUsuario) {
-      marcadorUsuario.setLatLng(pos);
-    } else {
-      marcadorUsuario = L.marker(pos, { icon: iconUsuario(), title: 'Você' }).addTo(map);
-    }
-  }
-
-  // ── Traçar rota via OSRM (gratuito, sem chave) ────────────────────────
-  function tracaRota() {
-    if (!TEM_COORDS) return;
-    setBotao('calculando');
-    setSub('Obtendo localização...');
-
-    obterLocalizacao(function(uLat, uLng) {
-      atualizarPosUsuario(uLat, uLng);
-      setSub('Calculando rota...');
-
-      // OSRM API pública (gratuita, sem chave)
-      var url = 'https://router.project-osrm.org/route/v1/driving/'
-        + uLng + ',' + uLat + ';'
-        + DEST_LNG + ',' + DEST_LAT
-        + '?overview=full&geometries=geojson&steps=true';
-
-      fetch(url)
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (!data.routes || !data.routes.length) throw new Error('Sem rota');
-          processarRota(data.routes[0], uLat, uLng);
-        })
-        .catch(function(e) {
-          setBotao('tracaRota');
-          setSub('Toque em "Traçar Rota"');
-          setStatus('Erro ao calcular rota. Tente novamente.');
-          setTimeout(function(){ setStatus(''); }, 3000);
-        });
-    }, function() {
-      setBotao('tracaRota');
-      setSub('Não foi possível obter localização');
-      setStatus('Permita o acesso à localização e tente novamente.');
-      setTimeout(function(){ setStatus(''); }, 4000);
-    });
-  }
-
-  function processarRota(route, uLat, uLng) {
-    // Remover rota anterior
-    if (rotaLayer) { map.removeLayer(rotaLayer); rotaLayer = null; }
-
-    // Desenhar linha da rota
-    rotaLayer = L.geoJSON(route.geometry, {
-      style: { color: '#FF6D00', weight: 5, opacity: 0.85 }
-    }).addTo(map);
-
-    // Ajustar zoom para ver a rota inteira
-    var bounds = L.latLngBounds(
-      [uLat, uLng],
-      [parseFloat(DEST_LAT), parseFloat(DEST_LNG)]
-    );
-    map.fitBounds(bounds, { padding: [40, 40] });
-
-    // Distância e tempo
-    var distM  = route.distance;
-    var distTxt = distM >= 1000
-      ? (distM / 1000).toFixed(1) + ' km'
-      : Math.round(distM) + ' m';
-    var durSec = route.duration;
-    var durTxt = durSec >= 3600
-      ? Math.floor(durSec/3600) + 'h ' + Math.floor((durSec%3600)/60) + 'min'
-      : Math.ceil(durSec/60) + ' min';
-
-    setSub(distTxt + ' · ' + durTxt);
-    setBotao('verPassos');
-
-    // Preencher painel passo a passo
-    var resumoEl = document.getElementById('resumo');
-    resumoEl.innerHTML = 'Distância: <b>' + distTxt + '</b>&nbsp;&nbsp;Tempo: <b>' + durTxt + '</b>';
-
-    var leg   = route.legs[0];
-    var steps = leg ? leg.steps : [];
-    var passosHtml = '';
-    for (var i = 0; i < steps.length; i++) {
-      var s   = steps[i];
-      var txt = s.maneuver && s.maneuver.instruction
-        ? s.maneuver.instruction
-        : (s.name || 'Continuar');
-      var dM  = s.distance;
-      var dTxt = dM >= 1000 ? (dM/1000).toFixed(1)+' km' : Math.round(dM)+' m';
-      passosHtml +=
-        '<div class="step">' +
-          '<div class="step-num">' + (i+1) + '</div>' +
-          '<div>' +
-            '<div class="step-txt">' + txt + '</div>' +
-            '<div class="step-dist">' + dTxt + '</div>' +
-          '</div>' +
-        '</div>';
-    }
-    document.getElementById('passos').innerHTML = passosHtml || '<div class="step"><div class="step-txt">Rota calculada com sucesso.</div></div>';
-
-    // Painel interno não é usado — navegação abre externamente
-    document.getElementById('painel').style.display = 'none';
-    modoPassos = false;
-  }
-
-  // Abre navegação externa — bottom sheet com Google Maps e Waze
-  // Usa <a href> criado e clicado programaticamente: único método que funciona
-  // no PWA Android sem gerar intent:// (window.open e location.href falham)
-  function abrirNavegacaoExterna() {
-    var dest = DEST_LAT + ',' + DEST_LNG;
-    var urlMaps = 'https://maps.google.com/?daddr=' + dest + '&directionsmode=driving';
-    var urlWaze = 'https://waze.com/ul?ll=' + dest + '&navigate=yes&zoom=17';
-
-    // iOS: Apple Maps nativo
-    if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
-      var a = document.createElement('a');
-      a.href = 'maps://maps.apple.com/?daddr=' + dest + '&dirflg=d';
-      a.click();
+  // ── Calcula rota com DirectionsService ─────────────────
+  function calcularRota(origemLat, origemLng) {
+    if(!DEST_LAT || !DEST_LNG) {
+      setStatus('Destino não especificado', '');
+      hideOverlay();
       return;
     }
+    setStatus('Calculando rota…', 'Buscando melhor caminho');
 
-    // Android/PWA: bottom sheet com opções
-    var old = document.getElementById('nav-sheet');
-    if (old) old.remove();
+    var svc = new google.maps.DirectionsService();
+    var origem = new google.maps.LatLng(origemLat, origemLng);
+    var destino = new google.maps.LatLng(DEST_LAT, DEST_LNG);
 
-    var sheet = document.createElement('div');
-    sheet.id = 'nav-sheet';
-    sheet.style.cssText = 'position:fixed;inset:0;z-index:99999';
-    sheet.innerHTML =
-      // Overlay escuro
-      '<div id="nav-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.55)">'
-      + '</div>'
-      // Painel
-      + '<div style="position:absolute;bottom:0;left:0;right:0;background:#fff;'
-      + 'border-radius:20px 20px 0 0;padding:20px 16px 32px;'
-      + 'box-shadow:0 -4px 24px rgba(0,0,0,0.18)">'
-      + '<div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 18px"></div>'
-      + '<div style="font-size:16px;font-weight:800;color:#111;margin-bottom:16px;text-align:center">Abrir navegação em</div>'
-      // Google Maps
-      + '<a id="nav-maps-link" href="' + urlMaps + '" '
-      + 'style="display:flex;align-items:center;gap:14px;padding:15px 16px;border-radius:14px;'
-      + 'background:#f7f7f7;margin-bottom:10px;text-decoration:none;color:#111;'
-      + 'font-weight:700;font-size:15px;border:1px solid #eee">'
-      + '<img src="https://maps.gstatic.com/mapfiles/maps_lite/pwa/icons/maps15_bnv.ico" '
-      + 'style="width:32px;height:32px;border-radius:8px" onerror="this.src=&apos;https://www.google.com/favicon.ico&apos;">'
-      + '<div><div>Google Maps</div>'
-      + '<div style="font-size:12px;font-weight:500;color:#888;margin-top:2px">Navegação com voz</div></div></a>'
-      // Waze
-      + '<a id="nav-waze-link" href="' + urlWaze + '" '
-      + 'style="display:flex;align-items:center;gap:14px;padding:15px 16px;border-radius:14px;'
-      + 'background:#f7f7f7;margin-bottom:16px;text-decoration:none;color:#111;'
-      + 'font-weight:700;font-size:15px;border:1px solid #eee">'
-      + '<img src="https://www.waze.com/favicon.ico" '
-      + 'style="width:32px;height:32px;border-radius:8px" onerror="this.style.display=&apos;none&apos;">'
-      + '<div><div>Waze</div>'
-      + '<div style="font-size:12px;font-weight:500;color:#888;margin-top:2px">Trânsito em tempo real</div></div></a>'
-      // Cancelar
-      + '<button onclick="document.getElementById(&apos;nav-sheet&apos;).remove()" '
-      + 'style="width:100%;padding:14px;border:none;background:#f0f0f0;border-radius:14px;'
-      + 'font-size:15px;font-weight:700;color:#555;cursor:pointer">Cancelar</button>'
-      + '</div>';
-
-    document.body.appendChild(sheet);
-
-    // Fechar ao tocar no overlay
-    document.getElementById('nav-overlay').addEventListener('click', function() {
-      sheet.remove();
+    svc.route({
+      origin: origem,
+      destination: destino,
+      travelMode: google.maps.TravelMode.DRIVING,
+      unitSystem: google.maps.UnitSystem.METRIC,
+      avoidHighways: false,
+      avoidTolls: false
+    }, function(result, status) {
+      if(status === 'OK' && result) {
+        _rotaCalculada = true;
+        _dirRenderer.setDirections(result);
+        var leg = result.routes[0].legs[0];
+        showInfoBar(leg.distance.text, leg.duration.text);
+        hideOverlay();
+      } else {
+        // fallback: mostrar apenas marcadores
+        hideOverlay();
+        setStatus('');
+        if(status === 'ZERO_RESULTS') {
+          document.getElementById('posto-end').textContent = 'Rota não encontrada — use navegação externa';
+        }
+      }
     });
   }
 
-  // ── Inicializar ───────────────────────────────────────────────────────
-  // Safety: se Leaflet demorar >8s, esconde loading e mostra erro
-  var _safetyTimer = setTimeout(function() {
-    setLoading(false);
-    setStatus('Sem conexão. Use o botão abaixo para navegar.');
-    setBotao('verPassos'); // libera o botão Ir agora mesmo sem mapa
-  }, 8000);
+  // ── initMap — chamado pela Google Maps JS API ──────────
+  window.initMap = function() {
+    // Mapa inicial centrado no Brasil
+    var center = DEST_LAT ? { lat: DEST_LAT, lng: DEST_LNG } : { lat: -14.235, lng: -51.925 };
+    var zoom   = DEST_LAT ? 14 : 4;
 
-  window.addEventListener('load', function() {
-    clearTimeout(_safetyTimer);
-    initMap();
-
-    // Registrar evento do botão principal via JS (evita duplo-disparo touch+click no Android)
-    var btnRota = document.getElementById('btn-rota');
-    var _touchAtivou = false;
-    btnRota.addEventListener('touchend', function(e) {
-      e.preventDefault(); // impede o click sintético que o browser gera após touchend
-      _touchAtivou = true;
-      acaoBotao();
-      setTimeout(function() { _touchAtivou = false; }, 600);
-    }, { passive: false });
-    btnRota.addEventListener('click', function(e) {
-      if (_touchAtivou) return; // já foi tratado pelo touchend
-      acaoBotao();
+    _map = new google.maps.Map(document.getElementById('map'), {
+      center: center,
+      zoom: zoom,
+      disableDefaultUI: true,
+      zoomControl: false,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      gestureHandling: 'greedy',
+      styles: [
+        {elementType:'geometry',stylers:[{color:'#242f3e'}]},
+        {elementType:'labels.text.stroke',stylers:[{color:'#242f3e'}]},
+        {elementType:'labels.text.fill',stylers:[{color:'#746855'}]},
+        {featureType:'road',elementType:'geometry',stylers:[{color:'#38414e'}]},
+        {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#212a37'}]},
+        {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+        {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#746855'}]},
+        {featureType:'road.highway',elementType:'geometry.stroke',stylers:[{color:'#1f2835'}]},
+        {featureType:'road.highway',elementType:'labels.text.fill',stylers:[{color:'#f3d19c'}]},
+        {featureType:'water',elementType:'geometry',stylers:[{color:'#17263c'}]},
+        {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#515c6d'}]}
+      ]
     });
-  });
-<\/script>
+
+    // Marcador do posto destino
+    if(DEST_LAT && DEST_LNG) {
+      new google.maps.Marker({
+        position: { lat: DEST_LAT, lng: DEST_LNG },
+        map: _map,
+        title: DEST_NOME,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#f97316" stroke="#fff" stroke-width="3"/><text x="18" y="24" text-anchor="middle" font-size="18" fill="#fff">⛽</text></svg>'),
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(20, 20)
+        }
+      });
+    }
+
+    // DirectionsRenderer
+    _dirRenderer = new google.maps.DirectionsRenderer({
+      map: _map,
+      suppressMarkers: false,
+      polylineOptions: {
+        strokeColor: '#f97316',
+        strokeWeight: 6,
+        strokeOpacity: 0.9
+      }
+    });
+
+    // Recenter button
+    document.getElementById('recenter-btn').addEventListener('click', function(){
+      if(_userLat && _map) {
+        _map.panTo({ lat: _userLat, lng: _userLng });
+        _map.setZoom(15);
+      }
+    });
+
+    // Agora pega GPS
+    setStatus('Obtendo sua localização…', 'Aguarde um momento');
+    obterGPS(
+      function(lat, lng, acc) {
+        atualizarUserMarker(lat, lng);
+        var acc_el = document.getElementById('acc-badge');
+        if(acc_el && acc < 500){ acc_el.style.display='block'; acc_el.textContent='±'+Math.round(acc)+'m'; }
+        // Começa watchPosition contínuo para atualizar marcador
+        _watchId = navigator.geolocation.watchPosition(function(pos){
+          atualizarUserMarker(pos.coords.latitude, pos.coords.longitude);
+        }, function(){}, { enableHighAccuracy: true, maximumAge: 5000 });
+        // Calcula rota
+        calcularRota(lat, lng);
+      },
+      function(motivo) {
+        if(motivo === 'denied') {
+          setStatus('GPS bloqueado', 'Permita localização nas configurações');
+        } else {
+          setStatus('GPS indisponível', 'Mostrando destino no mapa');
+        }
+        hideOverlay();
+        if(DEST_LAT) { _map.setCenter({ lat: DEST_LAT, lng: DEST_LNG }); _map.setZoom(15); }
+      }
+    );
+  };
+
+  // ── Bottom sheet de navegação externa ─────────────────
+  window.abrirNavSheet = function() {
+    var gmUrl, wzUrl;
+    if(_userLat && DEST_LAT) {
+      gmUrl = 'https://www.google.com/maps/dir/?api=1&origin=' + _userLat + ',' + _userLng + '&destination=' + DEST_LAT + ',' + DEST_LNG + '&travelmode=driving';
+      wzUrl = 'https://waze.com/ul?ll=' + DEST_LAT + ',' + DEST_LNG + '&navigate=yes';
+    } else if(DEST_LAT) {
+      gmUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + DEST_LAT + ',' + DEST_LNG + '&travelmode=driving';
+      wzUrl = 'https://waze.com/ul?ll=' + DEST_LAT + ',' + DEST_LNG + '&navigate=yes';
+    } else {
+      gmUrl = 'https://www.google.com/maps/';
+      wzUrl = 'https://waze.com/ul';
+    }
+    document.getElementById('link-gm').href = gmUrl;
+    document.getElementById('link-wz').href = wzUrl;
+    document.getElementById('sheet-backdrop').classList.add('show');
+    document.getElementById('sheet').classList.add('show');
+  };
+
+  window.fecharSheet = function() {
+    document.getElementById('sheet-backdrop').classList.remove('show');
+    document.getElementById('sheet').classList.remove('show');
+  };
+
+})();
+</script>
+
+<!-- Google Maps JS API -->
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=${googleKey}&callback=initMap&loading=async&libraries=geometry"
+  async defer
+  onerror="document.getElementById('status-txt').textContent='Erro ao carregar mapa. Verifique conexão.';document.getElementById('sub-txt').textContent='';document.getElementById('overlay').style.background='#1a1a2e';"
+></script>
+
 </body>
 </html>`
 
