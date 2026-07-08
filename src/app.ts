@@ -3572,53 +3572,135 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     document.getElementById('month-label').textContent = MONTHS_FULL[currentMonthIdx] + ' 2024';
   }
 
-  // Abre navegação no Google Maps — funciona em TWA/Android/iOS/Desktop
+  // Abre navegação no Google Maps — Round 5
+  // ─────────────────────────────────────────────────────────────────────────
+  // HISTÓRICO DE FALHAS (todas as abordagens anteriores bloqueadas pelo TWA):
+  //   R1: geo:LAT,LNG                     → ERR_UNKNOWN_URL_SCHEME (scheme geo: bloqueado)
+  //   R2: window.open(maps.google.com, '_blank', 'noopener') → Chrome converte para intent:// → bloqueado
+  //   R3: <a target="_blank">.click()     → Chrome App Links intercepta → intent:// → bloqueado
+  //   R4: window.location.href = 'intent://navigation/now#Intent;scheme=google.navigation' → ERR_UNKNOWN_URL_SCHEME
+  //
+  // SOLUÇÃO R5: window.open(url, '_blank') SEM terceiro argumento
+  //   - Sem features = Chrome Custom Tab (processo separado do TWA frame)
+  //   - Custom Tabs não são WebView — eles suportam App Links nativamente
+  //   - O Android intercepta maps.google.com como App Link e abre o Maps app
+  //   - Fallback: modal copiável se window.open retornar null (popup blocker)
+  // ─────────────────────────────────────────────────────────────────────────
   function _abrirNavegacaoExterna(lat, lng, nome) {
-    var ua = navigator.userAgent || '';
-    var isAndroid = /android/i.test(ua);
+    var temCoords = lat && lng && lat !== 0 && lng !== 0;
+    var mapsUrl;
 
-    // Detectar se está rodando como TWA (Trusted Web Activity) ou WebView no Android
-    // wv no UA = WebView; display-mode standalone = PWA/TWA instalado; referrer android-app:// = TWA nativo
-    var isTWA = document.referrer.indexOf('android-app://') === 0
-      || ua.indexOf('wv') > -1
-      || window.matchMedia('(display-mode: standalone)').matches;
-
-    if (isAndroid || isTWA) {
-      // ──────────────────────────────────────────────────────────────────────
-      // Android / TWA: usar intent:// nativo do Google Maps para navegação
-      // turn-by-turn imediata. NÃO usar maps.google.com — o Chrome intercepta
-      // qualquer URL *.google.com/maps como App Link e converte para intent://
-      // automaticamente, resultando em ERR_UNKNOWN_URL_SCHEME no TWA.
-      //
-      // intent://navigation/now?ll=LAT,LNG#Intent;scheme=google.navigation;
-      //   package=com.google.android.apps.maps;end
-      //
-      // Isso abre o app Google Maps direto em navegação sem passar pelo
-      // sistema de App Links do Chrome. Referência:
-      // https://dev.to/luc45hn/how-to-open-google-maps-in-turn-by-turn-navigation-mode-from-a-pwa-android-16e0
-      // ──────────────────────────────────────────────────────────────────────
-      if (lat && lng && lat !== 0 && lng !== 0) {
-        // Coordenadas disponíveis: abrir navegação turn-by-turn direto
-        var intentUrl = 'intent://navigation/now?ll=' + lat + ',' + lng
-          + '&title=' + encodeURIComponent(nome || 'Posto')
-          + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
-        window.location.href = intentUrl;
-      } else {
-        // Sem coordenadas: buscar pelo endereço/nome no Google Maps
-        var searchUrl = 'intent://maps.google.com/maps?q=' + encodeURIComponent(nome || '')
-          + '#Intent;scheme=https;package=com.google.android.apps.maps;'
-          + 'S.browser_fallback_url=' + encodeURIComponent('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(nome || ''))
-          + ';end';
-        window.location.href = searchUrl;
-      }
+    if (temCoords) {
+      // Com coordenadas: direção direta + modo dirigindo
+      mapsUrl = 'https://maps.google.com/maps?daddr=' + lat + ',' + lng + '&directionsmode=driving';
     } else {
-      // Browser desktop/iOS — nova aba com URL padrão
-      var destinoEnc = (lat && lng && lat !== 0 && lng !== 0)
-        ? encodeURIComponent(lat + ',' + lng)
-        : encodeURIComponent(nome || '');
-      var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destinoEnc + '&travelmode=driving';
-      window.open(mapsUrl, '_blank', 'noopener,noreferrer');
+      // Sem coordenadas: busca por nome/endereço
+      mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(nome || '');
     }
+
+    // window.open SEM terceiro argumento → Chrome Custom Tab no Android
+    // Custom Tab é processo externo ao TWA, suporta App Links (abre Maps app)
+    // Com terceiro argumento (features) → fica no frame TWA → App Links bloqueados
+    var w = window.open(mapsUrl, '_blank');
+
+    // Se window.open retornou null (popup blocker ou TWA bloqueou Custom Tab),
+    // exibir modal de fallback com endereço copiável
+    if (!w) {
+      _mostrarFallbackMaps(lat, lng, nome, mapsUrl);
+    }
+  }
+
+  // Fallback: exibe modal com link copiável quando window.open é bloqueado
+  function _mostrarFallbackMaps(lat, lng, nome, mapsUrl) {
+    // Remover modal anterior se existir
+    var existing = document.getElementById('fallback-maps-modal');
+    if (existing) existing.parentNode.removeChild(existing);
+
+    var modal = document.createElement('div');
+    modal.id = 'fallback-maps-modal';
+    modal.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'width:100%', 'height:100%',
+      'background:rgba(0,0,0,0.6)', 'z-index:99999',
+      'display:flex', 'align-items:center', 'justify-content:center',
+      'padding:16px'
+    ].join(';');
+
+    var box = document.createElement('div');
+    box.style.cssText = [
+      'background:#fff', 'border-radius:16px', 'padding:24px',
+      'max-width:360px', 'width:100%', 'box-shadow:0 8px 32px rgba(0,0,0,0.3)'
+    ].join(';');
+
+    var titulo = document.createElement('h3');
+    titulo.style.cssText = 'margin:0 0 8px;color:#FF6D00;font-size:18px;font-weight:700;';
+    titulo.textContent = '🗺️ Abrir no Google Maps';
+
+    var sub = document.createElement('p');
+    sub.style.cssText = 'margin:0 0 16px;color:#555;font-size:14px;line-height:1.4;';
+    sub.textContent = 'Toque no link abaixo para abrir o Google Maps:';
+
+    var link = document.createElement('a');
+    link.href = mapsUrl;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.style.cssText = [
+      'display:block', 'background:#FF6D00', 'color:#fff',
+      'text-align:center', 'padding:14px 16px', 'border-radius:10px',
+      'font-size:15px', 'font-weight:600', 'text-decoration:none',
+      'margin-bottom:12px'
+    ].join(';');
+    link.textContent = '📍 Abrir Rota no Maps';
+    link.onclick = function() {
+      modal.parentNode && modal.parentNode.removeChild(modal);
+    };
+
+    var btnCopiar = document.createElement('button');
+    btnCopiar.style.cssText = [
+      'display:block', 'width:100%', 'background:#f5f5f5', 'color:#333',
+      'border:1px solid #ddd', 'padding:12px 16px', 'border-radius:10px',
+      'font-size:14px', 'cursor:pointer', 'margin-bottom:12px'
+    ].join(';');
+    btnCopiar.textContent = '📋 Copiar link';
+    btnCopiar.onclick = function() {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(mapsUrl).then(function() {
+          btnCopiar.textContent = '✅ Link copiado!';
+          setTimeout(function() { btnCopiar.textContent = '📋 Copiar link'; }, 2000);
+        });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = mapsUrl;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btnCopiar.textContent = '✅ Link copiado!';
+        setTimeout(function() { btnCopiar.textContent = '📋 Copiar link'; }, 2000);
+      }
+    };
+
+    var btnFechar = document.createElement('button');
+    btnFechar.style.cssText = [
+      'display:block', 'width:100%', 'background:transparent', 'color:#999',
+      'border:none', 'padding:8px', 'font-size:13px', 'cursor:pointer'
+    ].join(';');
+    btnFechar.textContent = 'Fechar';
+    btnFechar.onclick = function() {
+      modal.parentNode && modal.parentNode.removeChild(modal);
+    };
+
+    box.appendChild(titulo);
+    box.appendChild(sub);
+    box.appendChild(link);
+    box.appendChild(btnCopiar);
+    box.appendChild(btnFechar);
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+
+    // Fechar ao clicar fora da caixa
+    modal.onclick = function(e) {
+      if (e.target === modal) modal.parentNode && modal.parentNode.removeChild(modal);
+    };
   }
 
   function irAteLa() {
