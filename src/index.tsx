@@ -3818,7 +3818,7 @@ app.get('/ir', async (c) => {
 
   /* botão centralizar */
   #btn-center{
-    position:absolute;right:14px;bottom:108px;z-index:200;
+    position:absolute;right:14px;bottom:138px;z-index:200;
     width:44px;height:44px;border-radius:50%;border:none;
     background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.4);
     font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -3879,6 +3879,74 @@ app.get('/ir', async (c) => {
   /* linha de rota */
   .rota-line{stroke:#f97316;stroke-width:5;stroke-opacity:.9;
     stroke-linecap:round;stroke-linejoin:round}
+
+  /* ── Banner turn-by-turn ─────────────── */
+  #nav-banner{
+    display:none;
+    position:absolute;top:0;left:0;right:0;z-index:300;
+    background:linear-gradient(135deg,#1e3a5f,#0f2744);
+    border-bottom:2px solid rgba(249,115,22,.5);
+    padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 14px;
+    animation:slideDown .3s ease}
+  @keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
+  #nav-banner.visible{display:block}
+
+  #nav-step{
+    display:flex;align-items:center;gap:14px}
+  #nav-arrow{
+    font-size:36px;min-width:44px;text-align:center;line-height:1;
+    filter:drop-shadow(0 0 8px rgba(249,115,22,.6))}
+  #nav-text-wrap{flex:1;min-width:0}
+  #nav-instruction{
+    color:#fff;font-size:15px;font-weight:700;
+    line-height:1.3;word-break:break-word}
+  #nav-dist-step{
+    color:rgba(255,255,255,.55);font-size:13px;margin-top:3px;font-weight:500}
+  #nav-progress{
+    display:flex;align-items:center;gap:6px;margin-top:10px}
+  #nav-prog-bar{
+    flex:1;height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden}
+  #nav-prog-fill{
+    height:100%;background:#f97316;border-radius:2px;
+    transition:width .5s ease;width:0%}
+  #nav-prog-label{
+    color:rgba(255,255,255,.4);font-size:11px;white-space:nowrap}
+
+  /* Botão fechar navegação */
+  #btn-nav-close{
+    position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:14px;
+    background:rgba(255,255,255,.12);border:none;border-radius:50%;
+    width:30px;height:30px;color:#fff;font-size:16px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    -webkit-tap-highlight-color:transparent}
+
+  /* Chegou! overlay */
+  #chegou-banner{
+    display:none;position:fixed;inset:0;z-index:9000;
+    background:rgba(10,15,28,.92);
+    flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  #chegou-banner.visible{display:flex}
+  #chegou-icon{font-size:64px;animation:bounce .6s ease infinite alternate}
+  @keyframes bounce{from{transform:scale(.9)}to{transform:scale(1.05)}}
+  #chegou-titulo{color:#fff;font-size:22px;font-weight:800;text-align:center}
+  #chegou-sub{color:rgba(255,255,255,.55);font-size:14px;text-align:center;padding:0 32px}
+  #btn-fechar-chegou{
+    margin-top:8px;padding:14px 36px;border:none;border-radius:16px;
+    background:linear-gradient(135deg,#f97316,#ea580c);
+    color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+
+  /* btn Iniciar Navegação */
+  #btn-nav{
+    display:none;align-items:center;justify-content:center;gap:10px;
+    width:100%;padding:17px;border:none;border-radius:16px;cursor:pointer;
+    background:linear-gradient(135deg,#1d4ed8,#1e40af);
+    box-shadow:0 4px 20px rgba(29,78,216,.45);
+    color:#fff;font-size:16px;font-weight:800;
+    margin-top:10px;
+    transition:transform .12s,box-shadow .12s;
+    -webkit-tap-highlight-color:transparent}
+  #btn-nav:active{transform:scale(.96)}
+  #btn-nav .bt-icon{font-size:20px}
 </style>
 </head>
 <body>
@@ -3890,6 +3958,22 @@ app.get('/ir', async (c) => {
 </div>
 
 <div id="map"></div>
+
+<!-- Banner de navegação turn-by-turn -->
+<div id="nav-banner">
+  <button id="btn-nav-close" title="Fechar navegação">✕</button>
+  <div id="nav-step">
+    <div id="nav-arrow">⬆️</div>
+    <div id="nav-text-wrap">
+      <div id="nav-instruction">Siga em frente</div>
+      <div id="nav-dist-step">—</div>
+    </div>
+  </div>
+  <div id="nav-progress">
+    <div id="nav-prog-bar"><div id="nav-prog-fill"></div></div>
+    <div id="nav-prog-label">0%</div>
+  </div>
+</div>
 
 <div id="top-bar">
   <h1>⛽ ${tituloSafe}</h1>
@@ -3913,6 +3997,18 @@ app.get('/ir', async (c) => {
     <span class="bt-icon">🗺️</span>
     <span id="btn-rota-txt">Traçar Rota</span>
   </button>
+  <button id="btn-nav">
+    <span class="bt-icon">▶</span>
+    <span>Iniciar Navegação</span>
+  </button>
+</div>
+
+<!-- Overlay chegou ao destino -->
+<div id="chegou-banner">
+  <div id="chegou-icon">⛽</div>
+  <div id="chegou-titulo">Você chegou!</div>
+  <div id="chegou-sub">${tituloSafe}</div>
+  <button id="btn-fechar-chegou" onclick="document.getElementById('chegou-banner').classList.remove('visible')">Fechar</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3926,6 +4022,44 @@ app.get('/ir', async (c) => {
   var _userLat = null, _userLng = null;
   var _watchId = null;
   var _rotaOk   = false;
+
+  // Navegação turn-by-turn
+  var _navAtiva   = false;
+  var _steps      = [];       // array de steps do OSRM
+  var _stepIdx    = 0;        // step atual
+  var _totalDist  = 0;        // distância total da rota (metros)
+  var _distPercorrida = 0;    // acumulada pelo GPS
+
+  /* ── Mapa de manobras → emoji ─────────── */
+  var MANOBRA_ICON = {
+    'turn-left':         '↰',
+    'turn-right':        '↱',
+    'turn-slight-left':  '↖',
+    'turn-slight-right': '↗',
+    'turn-sharp-left':   '⬅',
+    'turn-sharp-right':  '➡',
+    'uturn':             '↩',
+    'roundabout':        '🔄',
+    'rotary':            '🔄',
+    'merge':             '⬆',
+    'fork':              '⬆',
+    'on-ramp':           '⬆',
+    'off-ramp':          '↘',
+    'arrive':            '⛽',
+    'depart':            '▶',
+    'continue':          '⬆',
+    'new name':          '⬆',
+    'notification':      'ℹ️',
+    'end of road':       '↱'
+  };
+
+  function getManobra(step){
+    var mod=step.maneuver||{};
+    var tipo=(mod.type||'').toLowerCase();
+    var modif=(mod.modifier||'').toLowerCase();
+    var chave=tipo+(modif?('-'+modif):'');
+    return MANOBRA_ICON[chave] || MANOBRA_ICON[tipo] || '⬆';
+  }
 
   /* ── helpers ──────────────────────────── */
   function setStatus(t,s){ 
@@ -3967,6 +4101,101 @@ app.get('/ir', async (c) => {
           Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*
           Math.sin(dLo/2)*Math.sin(dLo/2);
     return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+
+  /* ── Traduz instrução do OSRM ─────────── */
+  function traduzirInstrucao(step){
+    var mod=step.maneuver||{};
+    var tipo=(mod.type||'').toLowerCase();
+    var modif=(mod.modifier||'').toLowerCase();
+    var rua=step.name||'';
+
+    if(tipo==='depart')   return 'Siga em frente'+(rua?' pela '+rua:'');
+    if(tipo==='arrive')   return 'Você chegou ao destino';
+    if(tipo==='continue') return 'Continue'+(rua?' pela '+rua:'');
+    if(tipo==='merge')    return 'Incorpore-se'+(rua?' na '+rua:'');
+    if(tipo==='on-ramp')  return 'Entre na rampa'+(rua?' '+rua:'');
+    if(tipo==='off-ramp') return 'Saia pela rampa'+(rua?' '+rua:'');
+    if(tipo==='fork'){
+      if(modif.indexOf('left')>=0)  return 'Na bifurcação, mantenha à esquerda';
+      if(modif.indexOf('right')>=0) return 'Na bifurcação, mantenha à direita';
+      return 'Siga em frente na bifurcação';
+    }
+    if(tipo==='roundabout'||tipo==='rotary'){
+      var saida=mod.exit?(' '+mod.exit+'ª saída'):'';
+      return 'Na rotatória, pegue a'+saida+(rua?' para '+rua:'');
+    }
+    if(tipo==='turn'||tipo==='end of road'||tipo==='new name'){
+      if(modif==='left')        return 'Vire à esquerda'+(rua?' na '+rua:'');
+      if(modif==='right')       return 'Vire à direita'+(rua?' na '+rua:'');
+      if(modif==='slight left') return 'Vire levemente à esquerda'+(rua?' na '+rua:'');
+      if(modif==='slight right')return 'Vire levemente à direita'+(rua?' na '+rua:'');
+      if(modif==='sharp left')  return 'Vire acentuadamente à esquerda';
+      if(modif==='sharp right') return 'Vire acentuadamente à direita';
+      if(modif==='uturn')       return 'Faça o retorno';
+      return 'Siga em frente'+(rua?' pela '+rua:'');
+    }
+    if(tipo==='uturn') return 'Faça o retorno';
+    return 'Continue'+(rua?' pela '+rua:'');
+  }
+
+  /* ── Atualiza banner de navegação ─────── */
+  function atualizarBannerNav(){
+    if(!_navAtiva||!_steps.length) return;
+    var step=_steps[_stepIdx]||_steps[_steps.length-1];
+    var emoji=getManobra(step);
+    var instr=traduzirInstrucao(step);
+    var distStep=step.distance>0?fmtDist(step.distance):'';
+
+    document.getElementById('nav-arrow').textContent=emoji;
+    document.getElementById('nav-instruction').textContent=instr;
+    document.getElementById('nav-dist-step').textContent=distStep?('em '+distStep):'';
+
+    // Progresso
+    var pct=_totalDist>0?Math.min(100,Math.round(_distPercorrida/_totalDist*100)):0;
+    document.getElementById('nav-prog-fill').style.width=pct+'%';
+    document.getElementById('nav-prog-label').textContent=pct+'%';
+  }
+
+  /* ── Localiza step mais próximo ─────────── */
+  function detectarStepAtual(lat,lng){
+    if(!_steps.length) return;
+    var melhorIdx=_stepIdx;
+    var melhorDist=Infinity;
+    // Só verifica steps a partir do atual (não volta atrás)
+    for(var i=_stepIdx;i<_steps.length;i++){
+      var s=_steps[i];
+      var loc=s.maneuver&&s.maneuver.location;
+      if(!loc) continue;
+      var d=haversine(lat,lng,loc[1],loc[0]);
+      if(d<melhorDist){melhorDist=d;melhorIdx=i;}
+      if(d>500&&i>_stepIdx+1) break; // para de procurar se muito longe
+    }
+    // Avança step se passou perto da manobra (< 40m)
+    if(_stepIdx<_steps.length-1){
+      var prox=_steps[_stepIdx+1];
+      var loc2=prox.maneuver&&prox.maneuver.location;
+      if(loc2){
+        var dp=haversine(lat,lng,loc2[1],loc2[0]);
+        if(dp<40){ _stepIdx++; atualizarBannerNav(); }
+      }
+    }
+
+    // Verifica chegada (< 30m do destino)
+    if(DLAT&&DLNG){
+      var dDest=haversine(lat,lng,DLAT,DLNG);
+      if(_navAtiva&&dDest<30) mostrarChegou();
+    }
+  }
+
+  /* ── Mostrar chegou! ─────────────────── */
+  function mostrarChegou(){
+    _navAtiva=false;
+    document.getElementById('nav-banner').classList.remove('visible');
+    document.getElementById('chegou-banner').classList.add('visible');
+    if(_watchId!=null){
+      navigator.geolocation.clearWatch(_watchId);_watchId=null;
+    }
   }
 
   /* ── Inicia mapa Leaflet ─────────────── */
@@ -4013,6 +4242,11 @@ app.get('/ir', async (c) => {
     if(DLAT&&DLNG&&!_rotaOk){
       var m=haversine(lat,lng,DLAT,DLNG);
       setInfoDist(fmtDist(m)+' em linha reta');
+    }
+    // Em modo navegação: centraliza mapa e detecta step
+    if(_navAtiva){
+      _map.setView([lat,lng],17,{animate:true});
+      detectarStepAtual(lat,lng);
     }
   }
 
@@ -4063,7 +4297,7 @@ app.get('/ir', async (c) => {
 
     var url='https://router.project-osrm.org/route/v1/driving/'
       + oLng+','+oLat+';'+DLNG+','+DLAT
-      + '?overview=full&geometries=geojson&steps=false';
+      + '?overview=full&geometries=geojson&steps=true';
 
     fetch(url)
       .then(function(r){return r.json();})
@@ -4072,6 +4306,13 @@ app.get('/ir', async (c) => {
         var route=d.routes[0];
         var dist=fmtDist(route.distance);
         var dur=fmtDur(route.duration);
+
+        // Salva steps para navegação turn-by-turn
+        _steps=[];
+        _totalDist=route.distance;
+        if(route.legs&&route.legs[0]&&route.legs[0].steps){
+          _steps=route.legs[0].steps;
+        }
 
         // Linha no mapa
         if(_rotaLayer) _map.removeLayer(_rotaLayer);
@@ -4091,6 +4332,10 @@ app.get('/ir', async (c) => {
         showCard(dist,dur);
         if(btn) btn.classList.remove('calculando');
         if(txt) txt.textContent='Rota traçada ✓';
+
+        // Mostra botão "Iniciar Navegação"
+        var btnNav=document.getElementById('btn-nav');
+        if(btnNav) btnNav.style.display='flex';
       })
       .catch(function(){
         if(btn) btn.classList.remove('calculando');
@@ -4107,6 +4352,46 @@ app.get('/ir', async (c) => {
     } else {
       setStatus('Aguardando GPS…','Permita acesso à localização');
     }
+  });
+
+  /* ── Botão "Iniciar Navegação" ─────────── */
+  document.getElementById('btn-nav').addEventListener('click',function(){
+    if(!_steps.length){alert('Rota ainda não calculada.');return;}
+    _navAtiva  = true;
+    _stepIdx   = 0;
+    _distPercorrida = 0;
+
+    // Esconde top-bar (substitui pelo banner)
+    var tb=document.getElementById('top-bar');
+    if(tb) tb.style.display='none';
+
+    // Mostra banner
+    var banner=document.getElementById('nav-banner');
+    if(banner) banner.classList.add('visible');
+
+    // Atualiza primeiro step
+    atualizarBannerNav();
+
+    // Ajusta mapa para modo navegação (centrado no usuário, zoom maior)
+    if(_userLat!=null) _map.setView([_userLat,_userLng],17,{animate:true});
+
+    // Esconde botão de iniciar (já está navegando)
+    this.style.display='none';
+  });
+
+  /* ── Botão fechar navegação ───────────── */
+  document.getElementById('btn-nav-close').addEventListener('click',function(){
+    _navAtiva=false;
+    document.getElementById('nav-banner').classList.remove('visible');
+    var tb=document.getElementById('top-bar');
+    if(tb) tb.style.display='block';
+    // Reexibe botão se rota ainda existe
+    if(_rotaOk){
+      var btnNav=document.getElementById('btn-nav');
+      if(btnNav) btnNav.style.display='flex';
+    }
+    // Volta zoom para ver toda a rota
+    if(_rotaLayer) _map.fitBounds(_rotaLayer.getBounds(),{padding:[60,60]});
   });
 
   /* ── Init ────────────────────────────── */
