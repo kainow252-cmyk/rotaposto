@@ -1024,7 +1024,24 @@ export function getPainelEmpresaHTML(): string {
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
+  <meta name="painel-version" content="20260708-planos"/>
   <title>RotaPosto Empresas — Painel do Gerente</title>
+  <script>
+    // Força reload se versão do painel mudou (quebra cache do browser)
+    (function(){
+      var v = document.querySelector('meta[name="painel-version"]');
+      var current = v ? v.getAttribute('content') : '';
+      var stored = localStorage.getItem('rp_painel_version');
+      if (stored && stored !== current) {
+        localStorage.setItem('rp_painel_version', current);
+        // Reload com cache-bust na query string
+        var url = location.pathname + '?v=' + current;
+        location.replace(url);
+      } else {
+        localStorage.setItem('rp_painel_version', current);
+      }
+    })();
+  </script>
   <link rel="manifest" href="/parcerias/manifest.json"/>
   <meta name="theme-color" content="#FF6D00"/>
   <meta name="mobile-web-app-capable" content="yes"/>
