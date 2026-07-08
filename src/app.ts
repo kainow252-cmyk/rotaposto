@@ -5332,24 +5332,20 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (old) old.remove();
     var btn = document.createElement('div');
     btn.id = 'rp-gps-btn';
-    btn.innerHTML = \`
-      <div onclick="_tentarGPSNovamente()" style="
-        position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
-        background:#FF6D00;color:#fff;border-radius:24px;padding:12px 20px;
-        font-size:14px;font-weight:700;cursor:pointer;z-index:9999;
-        box-shadow:0 4px 16px rgba(255,109,0,0.5);
-        display:flex;align-items:center;gap:8px;white-space:nowrap;
-        animation:rpGpsPulse 2s infinite">
-        <span style="font-size:18px">📍</span>
-        <span>\${mensagem}</span>
-      </div>
-      <style>
-        @keyframes rpGpsPulse {
-          0%,100%{box-shadow:0 4px 16px rgba(255,109,0,0.5)}
-          50%{box-shadow:0 4px 24px rgba(255,109,0,0.9)}
-        }
-      </style>
-    \`;
+    btn.innerHTML = '<div onclick="_tentarGPSNovamente()" style="'
+      + 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'
+      + 'background:#FF6D00;color:#fff;border-radius:24px;padding:12px 20px;'
+      + 'font-size:14px;font-weight:700;cursor:pointer;z-index:9999;'
+      + 'box-shadow:0 4px 16px rgba(255,109,0,0.5);'
+      + 'display:flex;align-items:center;gap:8px;white-space:nowrap;'
+      + 'animation:rpGpsPulse 2s infinite">'
+      + '<span style="font-size:18px">📍</span>'
+      + '<span>' + mensagem + '</span>'
+      + '</div>'
+      + '<style>@keyframes rpGpsPulse {'
+      + '0%,100%{box-shadow:0 4px 16px rgba(255,109,0,0.5)}'
+      + '50%{box-shadow:0 4px 24px rgba(255,109,0,0.9)}'
+      + '}</style>';
     document.body.appendChild(btn);
     // Auto-remover após 15s
     setTimeout(function() {
