@@ -5000,26 +5000,32 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       setTimeout(function() { if (splash && splash.parentNode) splash.parentNode.removeChild(splash); }, 450);
     }
 
-    // ── Processar resultado de redirect do Facebook (volta do OAuth) ──────────
-    var _fbRedirectPending = localStorage.getItem('rp_fb_redirect_pending');
-    if (_fbRedirectPending && window['_fbGetRedirectResult'] && window['_fbAuth']) {
+    // ── Processar resultado de redirect do Facebook (NÃO-BLOQUEANTE) ──────────
+    // IMPORTANTE: rodar em setTimeout para NÃO bloquear o init/splash.
+    // O Firebase pode demorar para carregar; qualquer await aqui trava a splash.
+    if (localStorage.getItem('rp_fb_redirect_pending')) {
       localStorage.removeItem('rp_fb_redirect_pending');
-      try {
-        var _fbResult = await window['_fbGetRedirectResult'](window['_fbAuth']);
-        if (_fbResult && _fbResult.user) {
-          var _fbU = _fbResult.user;
-          var _fbUserData = {
-            uid: _fbU.uid, email: _fbU.email || '',
-            name: _fbU.displayName || '', photo: _fbU.photoURL || '',
-            provider: 'facebook.com'
-          };
-          localStorage.setItem('rp_user', JSON.stringify(_fbUserData));
-          currentUser = _fbUserData;
-          showToast('✅ Olá, ' + (_fbU.displayName || _fbU.email) + '!');
+      setTimeout(function() {
+        if (window['_fbGetRedirectResult'] && window['_fbAuth']) {
+          window['_fbGetRedirectResult'](window['_fbAuth'])
+            .then(function(result: any) {
+              if (result && result.user) {
+                var u = result.user;
+                var userData = {
+                  uid: u.uid, email: u.email || '',
+                  name: u.displayName || '', photo: u.photoURL || '',
+                  provider: 'facebook.com'
+                };
+                localStorage.setItem('rp_user', JSON.stringify(userData));
+                showToast('✅ Olá, ' + (u.displayName || u.email) + '!');
+                // Recarregar a view de perfil para refletir o login
+                var curView = document.querySelector('.view.active');
+                if (curView && curView.id === 'view-perfil') goToView('perfil');
+              }
+            })
+            .catch(function(e: any) { console.warn('[FB Redirect]', e); });
         }
-      } catch(_e) {
-        console.warn('[FB Redirect]', _e);
-      }
+      }, 2500); // aguarda Firebase inicializar (scripts carregados de forma assíncrona)
     }
 
     // ── Verificar autenticação antes de abrir o app ──────────────────────────
