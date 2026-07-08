@@ -2149,6 +2149,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   let mapMain = null, mapPlan = null;
   let userLat = null, userLng = null; // null até GPS real chegar — nunca iniciar em SP
   let _geoJaObtida = false; // true após localização ser obtida (ou timeout)
+  let _mapaLivre = false;   // true = usuário está explorando o mapa, GPS não move
   let postosData = [];
   let semanaANP = '';   // semana de referência ANP — preenchida pela API
   let selectedFuel = 'gasolina';
@@ -2502,6 +2503,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     });
     var userMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(mapMain);
     userMarker._isUserMarker = true;
+
+    // Quando usuário arrasta ou faz zoom → mapa livre (GPS não move)
+    mapMain.on('dragstart zoomstart', function() {
+      _mapaLivre = true;
+    });
 
     // Carregar postos
     loadPostos();
@@ -5423,6 +5429,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     localStorage.removeItem('rp_loc_ts');
     _geoJaObtida = false;
     _geoGPSConfirmado = false;
+    _mapaLivre = false; // volta a seguir o usuário ao clicar no GPS
     var btn = document.getElementById('btn-gps-float');
     if (btn) { btn.style.opacity = '0.5'; btn.disabled = true; }
     showToast('📍 Atualizando localização via GPS…', 2000);
@@ -5690,9 +5697,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (!mapMain) {
       initMapMain();
     } else {
-      // Suavemente mover mapa para nova posição
-      mapMain.setView([lat, lng], 14, { animate: true });
-      // Atualizar marcador do usuário
+      // Só move o mapa se usuário não está explorando
+      if (!_mapaLivre) {
+        mapMain.setView([lat, lng], 14, { animate: true });
+      }
+      // Atualizar marcador do usuário (sempre, independente do mapa livre)
       mapMain.eachLayer(function(l) {
         if (l._isUserMarker) { mapMain.removeLayer(l); }
       });
