@@ -4145,12 +4145,55 @@ app.get('/ir', async (c) => {
     modoPassos = false;
   }
 
-  // Abre Google Maps externo com navegação até o destino
+  // Abre navegação externa até o destino
+  // No PWA Android, google.com/maps redireciona para intent:// → ERR_UNKNOWN_URL_SCHEME
+  // Solução: abrir uma nova aba HTML com links para Maps e Waze usando <a> com target="_blank"
+  // Isso sai do contexto do PWA e o Android trata o clique normalmente
   function abrirNavegacaoExterna() {
     var dest = DEST_LAT + ',' + DEST_LNG;
-    // No PWA Android, window.open gera intent:// que quebra.
-    // Usar location.href abre o Maps no Chrome externo corretamente.
-    window.location.href = 'https://www.google.com/maps/dir/?api=1&destination=' + dest + '&travelmode=driving';
+    var nomeDestino = encodeURIComponent(document.title || 'Posto');
+
+    // URLs de navegação
+    var urlMaps  = 'https://maps.google.com/?daddr=' + dest + '&directionsmode=driving';
+    var urlWaze  = 'https://waze.com/ul?ll=' + dest + '&navigate=yes';
+    var urlApple = 'maps://maps.apple.com/?daddr=' + dest + '&dirflg=d';
+
+    // Detectar iOS
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (isIOS) {
+      window.location.href = urlApple;
+      return;
+    }
+
+    // Android/PWA: abrir bottom sheet com opção Maps ou Waze
+    // Remove sheet anterior se existir
+    var old = document.getElementById('nav-sheet');
+    if (old) old.remove();
+
+    var sheet = document.createElement('div');
+    sheet.id = 'nav-sheet';
+    sheet.innerHTML =
+      '<div onclick="document.getElementById(\'nav-sheet\').remove()" style="'
+      + 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99998"></div>'
+      + '<div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-radius:20px 20px 0 0;'
+      + 'padding:20px;z-index:99999;box-shadow:0 -4px 24px rgba(0,0,0,0.2)">'
+      + '<div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 18px"></div>'
+      + '<div style="font-size:15px;font-weight:700;color:#222;margin-bottom:16px;text-align:center">Abrir navegação em:</div>'
+      + '<a href="' + urlMaps + '" target="_blank" rel="noopener" '
+      + 'style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:12px;'
+      + 'background:#f5f5f5;margin-bottom:10px;text-decoration:none;color:#222;font-weight:700;font-size:15px">'
+      + '<img src="https://www.google.com/favicon.ico" style="width:28px;height:28px;border-radius:6px" onerror="this.style.display=\'none\'">'
+      + '<span>Google Maps</span></a>'
+      + '<a href="' + urlWaze + '" target="_blank" rel="noopener" '
+      + 'style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:12px;'
+      + 'background:#f5f5f5;margin-bottom:10px;text-decoration:none;color:#222;font-weight:700;font-size:15px">'
+      + '<img src="https://www.waze.com/favicon.ico" style="width:28px;height:28px;border-radius:6px" onerror="this.style.display=\'none\'">'
+      + '<span>Waze</span></a>'
+      + '<button onclick="document.getElementById(\'nav-sheet\').remove()" '
+      + 'style="width:100%;padding:13px;border:none;background:#eee;border-radius:12px;'
+      + 'font-size:14px;font-weight:700;color:#666;cursor:pointer;margin-top:4px">Cancelar</button>'
+      + '</div>';
+    document.body.appendChild(sheet);
   }
 
   // ── Inicializar ───────────────────────────────────────────────────────
