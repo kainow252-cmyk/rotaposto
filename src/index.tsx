@@ -3895,14 +3895,14 @@ app.get('/ir', async (c) => {
 
   /* ── Banner turn-by-turn ─────────────── */
   #nav-banner{
-    display:none;
+    display:none!important;
     position:absolute;top:0;left:0;right:0;z-index:300;
     background:linear-gradient(135deg,#1e3a5f,#0f2744);
     border-bottom:2px solid rgba(249,115,22,.5);
     padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 14px;
     animation:slideDown .3s ease}
   @keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
-  #nav-banner.visible{display:block}
+  #nav-banner.visible{display:block!important}
 
   #nav-step{
     display:flex;align-items:center;gap:14px}
@@ -3950,14 +3950,16 @@ app.get('/ir', async (c) => {
 
   /* btn Iniciar Navegação */
   #btn-nav{
-    display:none;align-items:center;justify-content:center;gap:10px;
+    display:none; /* JS muda para flex */
     width:100%;padding:17px;border:none;border-radius:16px;cursor:pointer;
     background:linear-gradient(135deg,#1d4ed8,#1e40af);
     box-shadow:0 4px 20px rgba(29,78,216,.45);
     color:#fff;font-size:16px;font-weight:800;
     margin-top:10px;
     transition:transform .12s,box-shadow .12s;
-    -webkit-tap-highlight-color:transparent}
+    -webkit-tap-highlight-color:transparent;
+    align-items:center;justify-content:center;gap:10px}
+  #btn-nav.ativo{display:flex!important}
   #btn-nav:active{transform:scale(.96)}
   #btn-nav .bt-icon{font-size:20px}
 </style>
@@ -4351,7 +4353,7 @@ app.get('/ir', async (c) => {
 
         // Mostra botão "Iniciar Navegação"
         var btnNav=document.getElementById('btn-nav');
-        if(btnNav) btnNav.style.display='flex';
+        if(btnNav) btnNav.classList.add('ativo');
       })
       .catch(function(){
         if(btn) btn.classList.remove('calculando');
@@ -4392,7 +4394,7 @@ app.get('/ir', async (c) => {
     if(_userLat!=null) _map.setView([_userLat,_userLng],17,{animate:true});
 
     // Esconde botão de iniciar (já está navegando)
-    this.style.display='none';
+    this.classList.remove('ativo');
   });
 
   /* ── Botão fechar navegação ───────────── */
@@ -4404,7 +4406,7 @@ app.get('/ir', async (c) => {
     // Reexibe botão se rota ainda existe
     if(_rotaOk){
       var btnNav=document.getElementById('btn-nav');
-      if(btnNav) btnNav.style.display='flex';
+      if(btnNav) btnNav.classList.add('ativo');
     }
     // Volta zoom para ver toda a rota
     if(_rotaLayer) _map.fitBounds(_rotaLayer.getBounds(),{padding:[60,60]});
