@@ -1040,44 +1040,65 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   // Fluxo: navega para accounts.google.com dentro do WebView →
   //        Google autentica → redireciona para /auth/google/callback#id_token=xxx →
   //        página de callback extrai id_token → signInWithCredential → onLoginSuccess
+  // ── Google Login via PKCE redirect (funciona em TODOS os ambientes) ──
+  // SEMPRE usa PKCE redirect — elimina dependência de signInWithPopup/Firebase Hosting.
+  // Resolve: signInWithIdp 400, __/firebase/init.json 404, COOP popup-blocked.
   function loginGoogle() {
     var btn = document.getElementById('btn-google-login');
     if (btn) btn.disabled = true;
     showLoading(true);
 
-    // WebView nativo: OAuth implicit hybrid — response_type=token id_token
-    // Google retorna id_token direto no fragment (#) sem precisar de client_secret
-    if (usarRedirect()) {
-      var clientId = '1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com';
-      var redirectUri = 'https://rotaposto.com.br/auth/google/callback';
-      var nonce = Math.random().toString(36).substring(2) + Date.now().toString(36);
-      localStorage.setItem('google_oauth_nonce', nonce);
-      var oauthUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
-        '?client_id=' + encodeURIComponent(clientId) +
-        '&redirect_uri=' + encodeURIComponent(redirectUri) +
-        '&response_type=' + encodeURIComponent('token id_token') +
-        '&scope=' + encodeURIComponent('openid email profile') +
-        '&nonce=' + encodeURIComponent(nonce) +
-        '&prompt=select_account';
-      window.location.href = oauthUrl;
-      return;
-    }
+    var CLIENT_ID = '1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com';
+    var REDIRECT_URI = 'https://rotaposto.com.br/auth/google/callback';
 
-    // Browser/PWA normal: signInWithPopup
-    aguardarFirebase(function() {
-      window._fbSignInWithPopup(window._fbAuth, window._fbGoogleProvider)
-        .then(function(result) {
-          showLoading(false);
-          if (result && result.user) { onLoginSuccess(result.user); }
-        })
-        .catch(function(err) {
-          if (btn) btn.disabled = false;
-          tratarErroAuth(err, 'Google', window._fbGoogleProvider);
-        });
+    // Gerar PKCE code_verifier (64 bytes aleatórios → base64url)
+    var verifierArr = new Uint8Array(48);
+    crypto.getRandomValues(verifierArr);
+    var codeVerifier = btoa(String.fromCharCode.apply(null, verifierArr))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+    // Gerar state (CSRF) e nonce (OpenID)
+    var stateArr = new Uint8Array(16);
+    crypto.getRandomValues(stateArr);
+    var state = Array.from(stateArr).map(function(b) { return b.toString(16).padStart(2,'0'); }).join('');
+
+    var nonceArr = new Uint8Array(16);
+    crypto.getRandomValues(nonceArr);
+    var nonce = Array.from(nonceArr).map(function(b) { return b.toString(16).padStart(2,'0'); }).join('');
+
+    // Salvar no localStorage para usar no callback
+    localStorage.setItem('google_pkce_verifier', codeVerifier);
+    localStorage.setItem('google_pkce_state', state);
+    localStorage.setItem('google_pkce_nonce', nonce);
+
+    // Gerar code_challenge = BASE64URL(SHA-256(code_verifier))
+    var encoder = new TextEncoder();
+    crypto.subtle.digest('SHA-256', encoder.encode(codeVerifier)).then(function(digest) {
+      var codeChallenge = btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+      var oauthUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
+        + '?client_id=' + encodeURIComponent(CLIENT_ID)
+        + '&redirect_uri=' + encodeURIComponent(REDIRECT_URI)
+        + '&response_type=code'
+        + '&scope=' + encodeURIComponent('openid email profile')
+        + '&state=' + encodeURIComponent(state)
+        + '&nonce=' + encodeURIComponent(nonce)
+        + '&code_challenge=' + encodeURIComponent(codeChallenge)
+        + '&code_challenge_method=S256'
+        + '&prompt=select_account'
+        + '&access_type=online';
+
+      window.location.href = oauthUrl;
+    }).catch(function(err) {
+      console.error('[Auth] Erro ao gerar PKCE challenge:', err);
+      showLoading(false);
+      if (btn) btn.disabled = false;
+      showToast('Erro ao iniciar login. Tente novamente.');
     });
   }
 
-  // ── Facebook Login ──
+    // ── Facebook Login ──
   function loginFacebook() {
     var btn = document.getElementById('btn-facebook-login');
     if (btn) btn.disabled = true;
