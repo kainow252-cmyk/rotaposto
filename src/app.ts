@@ -162,12 +162,26 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     .search-input::placeholder { color: var(--gray-light); }
     .btn-filter {
-      width: 42px; height: 42px; flex-shrink: 0; position: relative;
-      display: flex; align-items: center; justify-content: center;
-      background: none; border: 1px solid var(--border);
-      border-radius: 10px; cursor: pointer; color: var(--gray-dark);
+      flex-shrink: 0; position: relative;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      background: #F5F5F5; border: 1.5px solid var(--border);
+      border-radius: 20px; cursor: pointer; color: var(--gray-dark);
+      padding: 0 14px; height: 42px; font-size: 13px; font-weight: 600;
+      font-family: 'Raleway', sans-serif; white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
-    .btn-filter.ativo { border-color: var(--orange); color: var(--orange); background: #FFF5EE; }
+    .btn-filter:hover { background: #EEEEEE; border-color: #BDBDBD; }
+    .btn-filter.ativo {
+      border-color: var(--orange); color: var(--orange);
+      background: #FFF5EE; font-weight: 700;
+    }
+    .btn-filter-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--orange); color: #fff;
+      font-size: 11px; font-weight: 800; line-height: 1;
+      width: 18px; height: 18px; border-radius: 50%;
+      margin-left: 2px;
+    }
 
     /* Chips combustível */
     .chips-row {
@@ -1517,8 +1531,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         <input type="text" class="search-input" id="search-input" placeholder="Buscar cidade ou endereço" oninput="onSearchInput(this.value)" onkeydown="if(event.key==='Enter') doSearch()"/>
       </div>
       <button class="btn-filter" id="btn-filtros" onclick="abrirPainelFiltros()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-        <span id="filtros-badge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;background:#FF6D00;border-radius:50%;"></span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 3H2l8 9.46V19l4 2v-7.54z"/></svg>
+        Filtros
+        <span id="filtros-badge" style="display:none" class="btn-filter-count">0</span>
       </button>
     </div>
     <div class="chips-row" id="chips-row">
@@ -3056,7 +3071,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var badge = document.getElementById('filtros-badge');
     var btn = document.getElementById('btn-filtros');
     var n = _contarFiltrosAtivos();
-    if (badge) badge.style.display = n > 0 ? 'block' : 'none';
+    if (badge) {
+      badge.style.display = n > 0 ? 'inline-flex' : 'none';
+      badge.textContent = String(n);
+    }
     if (btn) btn.classList.toggle('ativo', n > 0);
   }
 
