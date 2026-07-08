@@ -7539,7 +7539,7 @@ function _isAndroid() {
 // ── Google One Tap callback ───────────────────────────────────────────────────
 // Chamado automaticamente pelo GSI quando detecta conta Google no dispositivo.
 // Recebe credential (JWT id_token) e faz login direto sem nenhum clique do usuário.
-async function onGoogleOneTapCredential(response: any) {
+async function onGoogleOneTapCredential(response) {
   if (!response || !response.credential) return;
   const idToken = response.credential;
 

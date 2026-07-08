@@ -5025,7 +5025,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       setTimeout(function() {
         if (window['_fbGetRedirectResult'] && window['_fbAuth']) {
           window['_fbGetRedirectResult'](window['_fbAuth'])
-            .then(function(result: any) {
+            .then(function(result) {
               if (result && result.user) {
                 var u = result.user;
                 var userData = {
@@ -5040,7 +5040,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
                 if (curView && curView.id === 'view-perfil') goToView('perfil');
               }
             })
-            .catch(function(e: any) { console.warn('[FB Redirect]', e); });
+            .catch(function(e) { console.warn('[FB Redirect]', e); });
         }
       }, 2500); // aguarda Firebase inicializar (scripts carregados de forma assíncrona)
     }
