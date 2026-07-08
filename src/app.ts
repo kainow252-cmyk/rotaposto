@@ -3569,26 +3569,15 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     document.getElementById('month-label').textContent = MONTHS_FULL[currentMonthIdx] + ' 2024';
   }
 
-  // Abre navegação no Google Maps ou Waze — funciona em TWA/Android
+  // Abre navegação no Google Maps — funciona em TWA/Android/iOS/Desktop
   function _abrirNavegacaoExterna(lat, lng, nome) {
-    // No Android (TWA/Chrome) usa geo: URI que abre o app de mapas padrão
-    var isAndroid = /Android/i.test(navigator.userAgent);
-    if (isAndroid) {
-      // geo: URI abre Google Maps nativo no Android
-      var geoUrl = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng + (nome ? '(' + encodeURIComponent(nome) + ')' : '');
-      // Tentar geo: primeiro, fallback para google maps web
-      var link = document.createElement('a');
-      link.href = geoUrl;
-      link.click();
-      // Fallback após 500ms se geo: não abriu
-      setTimeout(function() {
-        window.location.href = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving';
-      }, 800);
-    } else {
-      // Desktop/iOS — abrir nova aba
-      var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving';
-      window.open(mapsUrl, '_blank');
-    }
+    // IMPORTANTE: geo: URI causa net::ERR_UNKNOWN_URL_SCHEME no Chrome/WebView Android
+    // Usar sempre https://maps.google.com — funciona universalmente e abre o app nativo via intent
+    var destino = encodeURIComponent(lat + ',' + lng);
+    var nomeParam = nome ? '&destination_place_id=&query=' + encodeURIComponent(nome) : '';
+    var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destino + '&travelmode=driving';
+    // window.open com _blank funciona em browser; no TWA/Android o OS intercepta e abre o app de mapas
+    window.open(mapsUrl, '_blank');
   }
 
   function irAteLa() {
