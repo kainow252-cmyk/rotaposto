@@ -3806,7 +3806,20 @@ app.get('/ir', async (c) => {
     position:absolute;top:0;left:0;right:0;z-index:200;
     background:linear-gradient(to bottom,rgba(10,15,28,.95) 55%,transparent);
     padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 32px;
-    pointer-events:none}
+    pointer-events:none;
+    display:flex;align-items:flex-start;gap:10px}
+  #btn-back{
+    pointer-events:all;
+    flex-shrink:0;
+    width:36px;height:36px;
+    background:rgba(255,255,255,.15);backdrop-filter:blur(8px);
+    border:1.5px solid rgba(255,255,255,.25);
+    border-radius:50%;color:#fff;font-size:18px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.4);line-height:1;
+    margin-top:1px}
+  #btn-back:active{transform:scale(.9);background:rgba(255,255,255,.25)}
+  #top-bar-info{flex:1;min-width:0}
   #top-bar h1{color:#fff;font-size:15px;font-weight:700;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     text-shadow:0 1px 6px rgba(0,0,0,.8)}
@@ -3976,10 +3989,13 @@ app.get('/ir', async (c) => {
 </div>
 
 <div id="top-bar">
-  <h1>⛽ ${tituloSafe}</h1>
-  <div id="rota-info">
-    <span id="info-dist">Calculando…</span>
-    <span id="info-dur" class="badge" style="display:none"></span>
+  <button id="btn-back" onclick="history.back()" title="Voltar">&#8592;</button>
+  <div id="top-bar-info">
+    <h1>⛽ ${tituloSafe}</h1>
+    <div id="rota-info">
+      <span id="info-dist">Calculando…</span>
+      <span id="info-dur" class="badge" style="display:none"></span>
+    </div>
   </div>
 </div>
 
