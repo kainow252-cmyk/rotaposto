@@ -3797,7 +3797,11 @@ app.get('/app/login', (c) => {
     )
   return c.html(html)
 })
-app.get('/parcerias/empresa', (c) => c.html(getPainelEmpresaHTML()))
+app.get('/parcerias/empresa', (c) => {
+  c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
+  c.header('Pragma', 'no-cache')
+  return c.html(getPainelEmpresaHTML())
+})
 app.get('/parcerias/validar', (c) => c.html(getValidadorHTML()))
 
 // ── GET /api/posto/:id — dados públicos do posto ──────────────────────────────

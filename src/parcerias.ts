@@ -1021,6 +1021,9 @@ export function getPainelEmpresaHTML(): string {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
   <title>RotaPosto Empresas — Painel do Gerente</title>
   <link rel="manifest" href="/parcerias/manifest.json"/>
   <meta name="theme-color" content="#FF6D00"/>
