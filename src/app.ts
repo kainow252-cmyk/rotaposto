@@ -5456,17 +5456,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '50%{box-shadow:0 4px 24px rgba(255,109,0,0.9)}'
       + '}</style>';
     document.body.appendChild(btn);
-    // Auto-remover após 15s
-    setTimeout(function() {
-      var el = document.getElementById('rp-gps-btn');
-      if (el) el.remove();
-    }, 15000);
+    // Não auto-remove — fica visível até o usuário tocar ou GPS chegar
   }
 
   window._tentarGPSNovamente = function() {
     var old = document.getElementById('rp-gps-btn');
     if (old) old.remove();
     showToast('📍 Solicitando GPS...', 2000);
+    _gpsJaAplicou = false;
     _gpsNativo(false);
   };
 
@@ -5507,67 +5504,84 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     _gpsNativo(false);
   }
 
-  // ── GPS com suporte TWA ─────────────────────────────────────────────────────
-  // silencioso=true: só atualiza marcador, não recarrega postos
-  var _watchId = null; // ID do watchPosition ativo
+  // ── GPS robusto para PWA Android ────────────────────────────────────────────
+  // Usa watchPosition que é mais confiável que getCurrentPosition no PWA/Android
+  var _watchId = null;
+  var _gpsJaAplicou = false; // evita aplicar SP-fallback depois de GPS real
 
   function _gpsNativo(silencioso) {
     if (!navigator.geolocation) {
       console.warn('[GPS] navigator.geolocation indisponível');
-      if (!silencioso) _buscarLocalizacaoGoogle(null);
+      if (!silencioso) _usarSPPadrao();
       return;
     }
 
-    // ── PASSO 1: baixa precisão (WiFi/rede) — <2s ──
-    navigator.geolocation.getCurrentPosition(
-      function(pos1) {
-        var acc1 = Math.round(pos1.coords.accuracy);
-        var lat1 = pos1.coords.latitude, lng1 = pos1.coords.longitude;
-        _aplicarLocalizacao(lat1, lng1, !silencioso, true);
+    _gpsJaAplicou = false;
 
-        // ── PASSO 2: alta precisão (satélite) — refina quando pronto ──
-        navigator.geolocation.getCurrentPosition(
-          function(pos2) {
-            var acc2 = Math.round(pos2.coords.accuracy);
-            var lat2 = pos2.coords.latitude, lng2 = pos2.coords.longitude;
-            _aplicarLocalizacao(lat2, lng2, false, true);
-            showToast('📍 GPS: ' + acc2 + 'm', 2000);
-          },
-          function(e2) { console.warn('[GPS] Preciso erro: ' + e2.code); },
-          { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
-        );
+    // Parar watch anterior se existir
+    if (_watchId !== null) {
+      navigator.geolocation.clearWatch(_watchId);
+      _watchId = null;
+    }
+
+    // ── watchPosition: mais confiável que getCurrentPosition no PWA Android ──
+    // Recebe atualizações contínuas; paramos após a primeira boa leitura
+    _watchId = navigator.geolocation.watchPosition(
+      function(pos) {
+        var lat = pos.coords.latitude;
+        var lng = pos.coords.longitude;
+        var acc = Math.round(pos.coords.accuracy);
+
+        console.log('[GPS] watchPosition: lat=' + lat + ' lng=' + lng + ' acc=' + acc + 'm');
+
+        // Ignorar leituras muito imprecisas (>2km) na primeira vez
+        if (!_gpsJaAplicou && acc > 2000) {
+          console.warn('[GPS] Precisão muito baixa (' + acc + 'm) — aguardando melhor...');
+          return;
+        }
+
+        // Parar o watch após obter posição boa
+        if (_watchId !== null) {
+          navigator.geolocation.clearWatch(_watchId);
+          _watchId = null;
+        }
+
+        _gpsJaAplicou = true;
+        _aplicarLocalizacao(lat, lng, !silencioso, true);
+        if (acc <= 100) showToast('📍 GPS: ' + acc + 'm', 2000);
+        else if (acc <= 500) showToast('📍 Localização: ~' + acc + 'm', 2000);
       },
-      function(err1) {
-        console.warn('[GPS] Rápido erro: ' + err1.code);
-        if (err1.code === 1) {
-          // Permissão negada
+      function(err) {
+        console.warn('[GPS] watchPosition erro: ' + err.code + ' — ' + err.message);
+        if (_watchId !== null) {
+          navigator.geolocation.clearWatch(_watchId);
+          _watchId = null;
+        }
+
+        if (err.code === 1) {
+          // Permissão negada pelo usuário
           showToast('📍 Ative a localização nas configurações.', 7000);
           _mostrarBotaoGPS('Toque para ativar GPS');
-          if (!silencioso) {
-            _buscarLocalizacaoGoogle(function(lat, lng) {
-              if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
-            });
-          }
+          if (!silencioso) _usarSPPadrao();
         } else {
-          // Timeout/indisponível: tentar direto com alta precisão
-          navigator.geolocation.getCurrentPosition(
-            function(pos) {
-              _aplicarLocalizacao(pos.coords.latitude, pos.coords.longitude, !silencioso, true);
-            },
-            function(e) {
-              console.warn('[GPS] Direto erro: ' + e.code);
-              if (!silencioso) {
-                _buscarLocalizacaoGoogle(function(lat, lng) {
-                  if (lat !== null) _aplicarLocalizacao(lat, lng, true, false);
-                });
-              }
-            },
-            { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
-          );
+          // Timeout ou indisponível — tentar fallback IP
+          console.warn('[GPS] Timeout/indisponível — tentando GeoIP...');
+          if (!silencioso && !_gpsJaAplicou) _usarSPPadrao();
         }
       },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
+
+    // Safety timeout: se em 25s não obteve nada, usar fallback
+    setTimeout(function() {
+      if (_gpsJaAplicou) return; // já teve GPS, ok
+      console.warn('[GPS] Safety timeout 25s — usando fallback');
+      if (_watchId !== null) {
+        navigator.geolocation.clearWatch(_watchId);
+        _watchId = null;
+      }
+      if (!silencioso) _usarSPPadrao();
+    }, 25000);
   }
 
   // ── Fallback de localização via Google Geolocation API (server-side) ──────────
@@ -5637,6 +5651,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (gpsReal) _geoGPSConfirmado = true;
     userLat = lat;
     userLng = lng;
+
+    // Remover botão "Toque para ativar GPS" se localização foi obtida
+    var gpsBtnEl = document.getElementById('rp-gps-btn');
+    if (gpsBtnEl) gpsBtnEl.remove();
 
     // Salvar cache só se GPS real E fora da região de SP
     var ehRegSP = _ehCoordSP(lat, lng);
