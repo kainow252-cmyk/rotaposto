@@ -1,8 +1,9 @@
-// RotaPosto — Service Worker PWA v3.0
+// RotaPosto — Service Worker PWA v3.1
 // REGRA: O SW NUNCA intercepta páginas HTML — apenas assets estáticos (/icons/, /static/)
 // Motivo: páginas são geradas server-side no Cloudflare Worker; cacheá-las quebra navegação
-const CACHE_NAME = 'rotaposto-v3';
+const CACHE_NAME = 'rotaposto-v3.1';
 const STATIC_ASSETS = [
+  '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/icon-512x512-maskable.png'
@@ -36,10 +37,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => {
-          console.log('[SW] Removendo cache antigo:', k);
-          return caches.delete(k);
-        })
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       )
     ).then(() => self.clients.claim())
   );
@@ -60,9 +58,10 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 3. Só cachear se for asset estático real (ícones, imagens, fontes, css, js)
+  // 3. Só cachear se for asset estático real (ícones, imagens, fontes, css, js, manifest)
   //    Qualquer coisa que pareça página HTML (sem extensão conhecida): NÃO interceptar
-  if (!isStaticAsset(url.pathname)) {
+  const isManifest = url.pathname === '/manifest.json' || url.pathname === '/parcerias/manifest.json';
+  if (!isStaticAsset(url.pathname) && !isManifest) {
     // Página HTML — deixa o browser ir direto à rede, sem SW
     return;
   }

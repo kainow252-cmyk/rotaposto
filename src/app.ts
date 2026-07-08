@@ -1505,8 +1505,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   data-auto_select="true"
   data-cancel_on_tap_outside="false"
   data-context="signin"
-  data-itp_support="true"
-  data-use_fedcm_for_prompt="true">
+  data-itp_support="true">
 </div>
 
 <div id="app-root">
@@ -5570,11 +5569,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         var lng = pos.coords.longitude;
         var acc = Math.round(pos.coords.accuracy);
 
-        console.log('[GPS] watchPosition: lat=' + lat + ' lng=' + lng + ' acc=' + acc + 'm');
-
         // Ignorar leituras muito imprecisas (>2km) na primeira vez
         if (!_gpsJaAplicou && acc > 2000) {
-          console.warn('[GPS] Precisão muito baixa (' + acc + 'm) — aguardando melhor...');
           return;
         }
 
@@ -5656,7 +5652,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
           if (callback) callback(null, null);
           return;
         }
-        console.log('[GPS] Google device: lat=' + lat + ' lng=' + lng + ' acc=' + acc + 'm fonte=' + (d.fonte||'?'));
         if (callback) { callback(lat, lng); }
         else { _aplicarLocalizacao(lat, lng, true, true); }
       } else {
