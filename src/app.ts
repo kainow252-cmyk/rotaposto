@@ -33,6 +33,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
   ${firebaseScripts}
+  <!-- Google Identity Services — One Tap (reconhece conta automaticamente no Android) -->
+  <script src="https://accounts.google.com/gsi/client" async defer><\/script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -1471,6 +1473,18 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   </div>
   <style>@keyframes splashprog{from{width:0%}to{width:100%}}</style>
 </div>
+<!-- Google One Tap — reconhece conta Google automaticamente no Android -->
+<div id="g_id_onload"
+  data-client_id="1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com"
+  data-callback="onGoogleOneTapCredential"
+  data-auto_prompt="true"
+  data-auto_select="true"
+  data-cancel_on_tap_outside="false"
+  data-context="signin"
+  data-itp_support="true"
+  data-use_fedcm_for_prompt="true">
+</div>
+
 <div id="app-root">
 
   <!-- ══════════════════════════════════
@@ -3692,6 +3706,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function abrirPerfil() {
     var el = document.getElementById('rp-perfil');
     if (!el) return;
+
+    // ── Usuário NÃO logado: mostrar tela de login ──────────────────────────
+    if (!currentUser) {
+      _mostrarPerfilNaoLogado();
+      el.classList.add('aberto');
+      return;
+    }
+
     // Atualizar nome/foto antes de abrir
     if (currentUser) {
       var nome = currentUser.name || currentUser.email?.split('@')[0] || 'Usuário';
@@ -3712,6 +3734,141 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function fecharPerfil() {
     var el = document.getElementById('rp-perfil');
     if (el) el.classList.remove('aberto');
+  }
+
+  // ── Tela de login quando usuário não está logado ───────────────────────────
+  function _mostrarPerfilNaoLogado() {
+    var header = document.getElementById('perfil-header');
+    var menu   = document.getElementById('perfil-menu-list');
+    if (!header || !menu) return;
+
+    // Cabeçalho simplificado
+    header.innerHTML = '<button onclick="fecharPerfil()" style="position:absolute;top:calc(var(--sat)+12px);right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1;">✕</button>'
+      + '<div style="display:flex;flex-direction:column;align-items:center;padding:40px 20px 24px;">'
+      + '<div style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:14px;">👤</div>'
+      + '<div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:6px;">Entre na sua conta</div>'
+      + '<div style="font-size:14px;color:rgba(255,255,255,0.7);text-align:center;max-width:240px;line-height:1.5;">Salve postos favoritos, acompanhe histórico e assine o Premium</div>'
+      + '</div>';
+
+    // Botões de login social
+    menu.innerHTML = '<div style="padding:20px 16px 0;">'
+      // Google
+      + '<button id="perfil-btn-google" onclick="_loginGoogleApp()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 20px;background:#fff;color:#1A1A1A;border:none;border-radius:16px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.15);">'
+      + '<svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>'
+      + '<span>Continuar com Google</span>'
+      + '</button>'
+      // Facebook
+      + '<button id="perfil-btn-fb" onclick="_loginFacebookApp()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 20px;background:#1877F2;color:#fff;border:none;border-radius:16px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:20px;box-shadow:0 2px 8px rgba(24,119,242,0.3);">'
+      + '<svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>'
+      + '<span>Continuar com Facebook</span>'
+      + '</button>'
+      // Divider
+      + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">'
+      + '<div style="flex:1;height:1px;background:rgba(0,0,0,0.08);"></div>'
+      + '<span style="font-size:12px;color:#aaa;font-weight:600;">ou</span>'
+      + '<div style="flex:1;height:1px;background:rgba(0,0,0,0.08);"></div>'
+      + '</div>'
+      // Continuar sem login
+      + '<button onclick="fecharPerfil()" style="width:100%;padding:13px;background:transparent;color:#888;border:1.5px solid #ddd;border-radius:16px;font-size:14px;font-weight:700;cursor:pointer;">'
+      + 'Continuar sem conta'
+      + '</button>'
+      + '</div>';
+  }
+
+  // ── Login Google via PKCE (mesmo fluxo do resto do app) ───────────────────
+  async function _loginGoogleApp() {
+    var btn = document.getElementById('perfil-btn-google');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<div style="width:22px;height:22px;border:3px solid #ddd;border-top-color:#4285F4;border-radius:50%;animation:spin 0.8s linear infinite;"></div><span>Abrindo Google...</span>'; }
+
+    var CLIENT_ID = '1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com';
+    var REDIRECT_URI = 'https://rotaposto.com.br/auth/google/callback';
+
+    // PKCE
+    var va = new Uint8Array(48); crypto.getRandomValues(va);
+    var verifier = btoa(String.fromCharCode.apply(null, Array.from(va))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    var digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    var challenge = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    var sa = new Uint8Array(16); crypto.getRandomValues(sa);
+    var state = Array.from(sa).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+
+    localStorage.setItem('google_pkce_verifier', verifier);
+    localStorage.setItem('google_pkce_state', state);
+
+    var params = new URLSearchParams({
+      client_id: CLIENT_ID, redirect_uri: REDIRECT_URI,
+      response_type: 'code', scope: 'openid email profile',
+      state: state, code_challenge: challenge,
+      code_challenge_method: 'S256', prompt: 'select_account', access_type: 'online'
+    });
+
+    // Se usuário já usou Google antes, pré-seleciona a conta
+    var saved = localStorage.getItem('rp_user');
+    if (saved) { try { var u = JSON.parse(saved); if (u && u.email) params.set('login_hint', u.email); } catch(e) {} }
+
+    window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+  }
+
+  // ── Login Facebook via Firebase popup ─────────────────────────────────────
+  async function _loginFacebookApp() {
+    var btn = document.getElementById('perfil-btn-fb');
+    if (!window['_fbSignInWithPopup'] || !window['_fbFacebookProvider'] || !window['_fbAuth']) {
+      showToast('⏳ Carregando...');
+      setTimeout(_loginFacebookApp, 1000);
+      return;
+    }
+    if (btn) { btn.disabled = true; }
+    try {
+      await window['_fbSignInWithPopup'](window['_fbAuth'], window['_fbFacebookProvider']);
+    } catch(e) {
+      showToast('❌ Erro ao entrar com Facebook');
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // ── Google One Tap callback (chamado pelo GSI automaticamente) ─────────────
+  window['onGoogleOneTapCredential'] = async function(response) {
+    if (!response || !response.credential) return;
+    showToast('🔄 Verificando conta Google...');
+    try {
+      var r = await fetch('/api/auth/google-onetap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: response.credential })
+      });
+      var d = await r.json();
+      if (d.ok && d.user) {
+        currentUser = {
+          uid: d.user.uid, email: d.user.email,
+          name: d.user.nome, photo: d.user.foto,
+          provider: 'google.com'
+        };
+        localStorage.setItem('rp_user', JSON.stringify(currentUser));
+        fecharPerfil();
+        showToast('✅ Olá, ' + (d.user.nome || d.user.email) + '!');
+        _atualizarUIUsuario(currentUser);
+      } else {
+        showToast('❌ ' + (d.erro || 'Erro ao fazer login'));
+      }
+    } catch(e) {
+      showToast('❌ Erro de rede. Tente novamente.');
+    }
+  };
+
+  // ── Atualizar UI após login ────────────────────────────────────────────────
+  function _atualizarUIUsuario(user) {
+    if (!user) return;
+    var nomeEl = document.getElementById('perfil-nome');
+    if (nomeEl) nomeEl.textContent = user.name || user.email?.split('@')[0] || 'Usuário';
+    var inicialEl = document.getElementById('perfil-avatar-inicial');
+    if (inicialEl) inicialEl.textContent = (user.name || user.email || 'U').charAt(0).toUpperCase();
+    if (user.photo) atualizarAvatarUI(user.photo);
+    // Restaurar menu normal se perfil estiver aberto
+    var menu = document.getElementById('perfil-menu-list');
+    if (menu && menu.querySelector('#perfil-btn-google')) {
+      // Estava mostrando tela de não-logado — reabrir com dados corretos
+      fecharPerfil();
+      setTimeout(abrirPerfil, 100);
+    }
   }
 
   function goToVehicle() { abrirMeusVeiculos(); }

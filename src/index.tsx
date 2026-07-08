@@ -2520,6 +2520,61 @@ app.post('/api/auth/google-code', async (c) => {
   }
 })
 
+// ─── One Tap / FedCM — valida JWT diretamente (sem troca de code) ────────────
+// O GSI envia o id_token (JWT) direto do browser → validamos a assinatura Google
+// e retornamos { ok, user } para o frontend completar o login sem redirect.
+app.post('/api/auth/google-onetap', async (c) => {
+  try {
+    const { idToken } = await c.req.json() as any
+    if (!idToken) return c.json({ ok: false, erro: 'idToken ausente' }, 400)
+
+    const CLIENT_ID = '1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com'
+
+    // Validar JWT junto ao Google tokeninfo (simples e sem necessidade de chave privada)
+    const verifyResp = await fetch(
+      'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken)
+    )
+    const info = await verifyResp.json() as any
+
+    if (!verifyResp.ok || info.error) {
+      return c.json({ ok: false, erro: 'Token inválido: ' + (info.error_description || info.error) }, 401)
+    }
+    // Garantir que o token foi emitido para nosso client_id
+    if (info.aud !== CLIENT_ID) {
+      return c.json({ ok: false, erro: 'Token não pertence a este app' }, 401)
+    }
+
+    const { sub: uid, email, name, picture: photo } = info
+
+    // Criar/atualizar sessão no KV (mesmo padrão de /api/usuario/sessao)
+    const kv = getKV(c.env as any)
+    if (kv) {
+      const sessionToken = crypto.randomUUID()
+      await kv.put(`session:${uid}`, JSON.stringify({
+        token: sessionToken, uid, createdAt: Date.now()
+      }), { expirationTtl: 60 * 60 * 24 * 30 })
+
+      // Upsert perfil
+      let perfil: any = {}
+      try { const r = await kv.get(`profile:${uid}`); if (r) perfil = JSON.parse(r) } catch {}
+      await kv.put(`profile:${uid}`, JSON.stringify({
+        ...perfil, uid, name: name || perfil.name || '',
+        email: email || perfil.email || '',
+        photo: photo || perfil.photo || '',
+        provider: 'google', ultimoLogin: Date.now(),
+        criadoEm: perfil.criadoEm || Date.now(),
+      }), { expirationTtl: 60 * 60 * 24 * 400 })
+    }
+
+    return c.json({
+      ok: true,
+      user: { uid, email, nome: name, foto: photo, provider: 'google' }
+    })
+  } catch (e) {
+    return c.json({ ok: false, erro: String(e) }, 500)
+  }
+})
+
 // ─── Callback OAuth Google (WebView nativo) ──────────────────────────────────
 // Google redireciona para cá após autenticação com ?code=xxx&state=yyy
 // Esta página lê o code, busca o id_token via /api/auth/google-code,
@@ -4389,8 +4444,10 @@ app.get('/app_old', (c) => {
   <meta property="og:description" content="Posto de combustível mais barato perto de você"/>
   <meta property="og:image" content="/icons/icon-512x512.png"/>
   <meta property="og:type" content="website"/>
-  <!-- Google OAuth -->
+  <!-- Google OAuth + One Tap -->
   <meta name="google-signin-client_id" content="${GOOGLE_CLIENT_ID}"/>
+  <!-- Google Identity Services (One Tap + FedCM) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <title>RotaPosto – Ache o Melhor Preço</title>
   <!-- PWA Manifest + Icons -->
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
@@ -5450,6 +5507,18 @@ app.get('/app_old', (c) => {
 
 <!-- ═══ CONTEÚDO PRINCIPAL ════════════════════════════════════════════════ -->
 <div id="app-main">
+
+<!-- ═══ GOOGLE ONE TAP — reconhece conta automaticamente no Android ════════ -->
+<div id="g_id_onload"
+  data-client_id="${GOOGLE_CLIENT_ID}"
+  data-callback="onGoogleOneTapCredential"
+  data-auto_prompt="true"
+  data-auto_select="true"
+  data-cancel_on_tap_outside="false"
+  data-context="signin"
+  data-itp_support="true"
+  data-use_fedcm_for_prompt="true">
+</div>
 
 <!-- ═══ MODAL LOGIN FIREBASE ═══════════════════════════════════════════════ -->
 <div class="auth-modal-overlay" id="auth-modal">
@@ -7451,6 +7520,49 @@ function _isAndroid() {
 }
 
 // ─── Login Google via OAuth próprio (Android/TWA) ─────────────────────────────
+// ── Google One Tap callback ───────────────────────────────────────────────────
+// Chamado automaticamente pelo GSI quando detecta conta Google no dispositivo.
+// Recebe credential (JWT id_token) e faz login direto sem nenhum clique do usuário.
+async function onGoogleOneTapCredential(response: any) {
+  if (!response || !response.credential) return;
+  const idToken = response.credential;
+
+  const btn = document.getElementById('btn-google-login') as HTMLButtonElement | null;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;margin:0 auto"></div>';
+  }
+
+  try {
+    mostrarToast('🔄 Verificando conta Google...');
+    const r = await fetch('/api/auth/google-onetap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken })
+    });
+    const d = await r.json();
+
+    if (d.ok && d.user) {
+      // Login bem-sucedido — mesmo fluxo do callback Google normal
+      window._currentUser = d.user;
+      localStorage.setItem('rp_user', JSON.stringify(d.user));
+      fecharLogin();
+      mostrarToast('✅ Olá, ' + (d.user.nome || d.user.email) + '!');
+      // Atualizar UI (ícone de usuário, etc.)
+      if (typeof _atualizarUIUsuario === 'function') _atualizarUIUsuario(d.user);
+    } else {
+      mostrarToast('❌ ' + (d.erro || 'Erro ao fazer login. Tente novamente.'));
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continuar com Google';
+      }
+    }
+  } catch(e) {
+    mostrarToast('❌ Erro de rede. Tente novamente.');
+    if (btn) { btn.disabled = false; }
+  }
+}
+
 // Fluxo: window.location.href → Google OAuth → /auth/google/callback → Firebase credential
 // Usa redirect_uri = https://rotaposto.com.br/auth/google/callback (cadastrado no Google Cloud)
 // Evita completamente o Firebase handler /__/auth/* e resolve o redirect_uri_mismatch no TWA.
@@ -7490,7 +7602,7 @@ async function _loginGooglePKCE() {
 
   // Montar URL do Google OAuth 2.0 com PKCE
   // response_type=code: retorna code nos query params, trocado por id_token no servidor
-  const params = new URLSearchParams({
+  const pkceParams: Record<string, string> = {
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
@@ -7501,7 +7613,18 @@ async function _loginGooglePKCE() {
     code_challenge_method: 'S256',
     prompt: 'select_account',
     access_type: 'online',
-  });
+  };
+
+  // Se usuário já fez login antes, pré-seleciona a conta (elimina tela de escolha)
+  const savedUser = localStorage.getItem('rp_user');
+  if (savedUser) {
+    try {
+      const u = JSON.parse(savedUser);
+      if (u && u.email) pkceParams.login_hint = u.email;
+    } catch(e) {}
+  }
+
+  const params = new URLSearchParams(pkceParams);
 
   // Navegar para o Google OAuth (Android Chrome abre uma Custom Tab → retorna ao callback)
   window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
