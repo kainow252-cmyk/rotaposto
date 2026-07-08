@@ -9784,10 +9784,12 @@ app.get('/api/admin/anp-busca', async (c) => {
 
 app.get('/admin', (c) => {
   const key = c.req.query('key') || ''
+  const staffMode = c.req.query('staff') === '1'
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
 
   // ── Tela de Login ─────────────────────────────────────────────────────────
-  if (key !== ADMIN_PASS) {
+  // Permite acesso com chave master OU via modo staff (autenticado no client)
+  if (key !== ADMIN_PASS && !staffMode) {
     const loginHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -9799,59 +9801,153 @@ app.get('/admin', (c) => {
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Raleway',sans-serif;background:#0D1B2A;color:#E0E7EF;min-height:100vh;display:flex;align-items:center;justify-content:center}
-    .login-card{background:#112035;border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:48px 40px;width:100%;max-width:400px;text-align:center}
+    .login-wrap{width:100%;max-width:420px;padding:16px}
+    .login-card{background:#112035;border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:44px 36px;text-align:center}
     .logo{font-size:28px;font-weight:900;color:#fff;margin-bottom:4px}.logo span{color:#FF6D00}
-    .logo-sub{font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-bottom:32px}
+    .logo-sub{font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-bottom:28px}
     h2{font-size:18px;font-weight:800;color:#fff;margin-bottom:6px}
-    p{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:28px}
-    .input-wrap{position:relative;margin-bottom:16px}
+    .subtitle{font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:24px;font-weight:600}
+    .tabs{display:flex;gap:4px;background:rgba(255,255,255,0.05);border-radius:10px;padding:4px;margin-bottom:22px}
+    .tab{flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:800;color:rgba(255,255,255,0.35);cursor:pointer;transition:all 0.2s;text-align:center}
+    .tab.active{background:#FF6D00;color:#fff}
+    .input-wrap{position:relative;margin-bottom:14px}
     .input-wrap i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.3);font-size:14px}
-    input[type=password]{width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;padding:13px 14px 13px 40px;color:#fff;font-size:14px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;transition:border-color 0.2s}
-    input[type=password]:focus{border-color:#FF6D00}
-    input[type=password]::placeholder{color:rgba(255,255,255,0.25)}
+    input[type=password],input[type=email],input[type=text]{width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;padding:13px 14px 13px 40px;color:#fff;font-size:14px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;transition:border-color 0.2s}
+    input:focus{border-color:#FF6D00}
+    input::placeholder{color:rgba(255,255,255,0.25)}
     .btn-login{width:100%;background:linear-gradient(135deg,#FF6D00,#e65100);color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:800;font-family:'Raleway',sans-serif;cursor:pointer;transition:opacity 0.2s;margin-top:4px}
     .btn-login:hover{opacity:0.9}
-    .error-msg{background:rgba(255,82,82,0.12);border:1px solid rgba(255,82,82,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:#FF5252;font-weight:700;margin-bottom:16px;display:none}
+    .btn-login:disabled{opacity:0.5;cursor:not-allowed}
+    .error-msg{background:rgba(255,82,82,0.12);border:1px solid rgba(255,82,82,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:#FF5252;font-weight:700;margin-bottom:14px;display:none;text-align:left}
+    .divider{display:flex;align-items:center;gap:10px;margin:18px 0 16px;color:rgba(255,255,255,0.2);font-size:11px;font-weight:700}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.08)}
   </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="logo">Rota<span>Posto</span></div>
-    <div class="logo-sub">PAINEL ADMINISTRATIVO</div>
-    <h2>Acesso Restrito</h2>
-    <p>Digite a senha para acessar o painel admin</p>
-    <div class="error-msg" id="error-msg"><i class="fas fa-exclamation-triangle"></i> Senha incorreta. Tente novamente.</div>
-    <form onsubmit="doLogin(event)">
-      <div class="input-wrap">
-        <i class="fas fa-lock"></i>
-        <input type="password" id="senha-input" placeholder="Senha do admin" autocomplete="current-password" autofocus/>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="logo">Rota<span>Posto</span></div>
+      <div class="logo-sub">PAINEL ADMINISTRATIVO</div>
+      <h2>Acesso Restrito</h2>
+      <p class="subtitle">Faça login para acessar o painel</p>
+
+      <!-- Abas: Funcionário / Master -->
+      <div class="tabs">
+        <div class="tab active" id="tab-func" onclick="switchTab('func')"><i class="fas fa-user-tie"></i> Funcionário</div>
+        <div class="tab" id="tab-master" onclick="switchTab('master')"><i class="fas fa-crown"></i> Master</div>
       </div>
-      <button type="submit" class="btn-login"><i class="fas fa-sign-in-alt"></i> &nbsp;Entrar</button>
-    </form>
+
+      <div class="error-msg" id="error-msg"></div>
+
+      <!-- Formulário Funcionário -->
+      <form id="form-func" onsubmit="doLoginFunc(event)">
+        <div class="input-wrap">
+          <i class="fas fa-envelope"></i>
+          <input type="email" id="func-email" placeholder="E-mail do funcionário" autocomplete="email"/>
+        </div>
+        <div class="input-wrap">
+          <i class="fas fa-lock"></i>
+          <input type="password" id="func-senha" placeholder="Senha" autocomplete="current-password"/>
+        </div>
+        <button type="submit" class="btn-login" id="btn-func-login"><i class="fas fa-sign-in-alt"></i> &nbsp;Entrar como Funcionário</button>
+      </form>
+
+      <!-- Formulário Master -->
+      <form id="form-master" style="display:none" onsubmit="doLoginMaster(event)">
+        <div class="input-wrap">
+          <i class="fas fa-shield-alt"></i>
+          <input type="password" id="master-senha" placeholder="Senha master do admin" autocomplete="current-password" autofocus/>
+        </div>
+        <button type="submit" class="btn-login" id="btn-master-login"><i class="fas fa-sign-in-alt"></i> &nbsp;Entrar como Master</button>
+      </form>
+    </div>
   </div>
   <script>
-    // Se já há um hash/key salvo, tenta logar
-    const saved = sessionStorage.getItem('admin_key');
-    if (saved) window.location.href = '/admin?key=' + encodeURIComponent(saved);
+    // Redireciona se já tem sessão salva
+    const savedKey = sessionStorage.getItem('admin_key');
+    if (savedKey) window.location.href = '/admin?key=' + encodeURIComponent(savedKey);
+    const savedStaff = sessionStorage.getItem('staff_session');
+    if (savedStaff) {
+      try {
+        const ss = JSON.parse(savedStaff);
+        if (ss && ss.email) window.location.href = '/admin?key=' + encodeURIComponent(ss.adminKey || '');
+      } catch(e) {}
+    }
 
-    function doLogin(e) {
+    function switchTab(tab) {
+      document.getElementById('tab-func').classList.toggle('active', tab === 'func');
+      document.getElementById('tab-master').classList.toggle('active', tab === 'master');
+      document.getElementById('form-func').style.display = tab === 'func' ? 'block' : 'none';
+      document.getElementById('form-master').style.display = tab === 'master' ? 'block' : 'none';
+      document.getElementById('error-msg').style.display = 'none';
+      if (tab === 'master') document.getElementById('master-senha').focus();
+      else document.getElementById('func-email').focus();
+    }
+
+    function showErr(msg) {
+      const el = document.getElementById('error-msg');
+      el.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + msg;
+      el.style.display = 'block';
+    }
+
+    function doLoginMaster(e) {
       e.preventDefault();
-      const senha = document.getElementById('senha-input').value.trim();
+      const senha = document.getElementById('master-senha').value.trim();
       if (!senha) return;
-      // Testa a senha fazendo um fetch para a API de usuários
+      const btn = document.getElementById('btn-master-login');
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+      document.getElementById('error-msg').style.display = 'none';
       fetch('/api/admin/usuarios?key=' + encodeURIComponent(senha))
         .then(r => {
           if (r.ok) {
             sessionStorage.setItem('admin_key', senha);
+            sessionStorage.removeItem('staff_session');
             window.location.href = '/admin?key=' + encodeURIComponent(senha);
           } else {
-            document.getElementById('error-msg').style.display = 'block';
-            document.getElementById('senha-input').value = '';
-            document.getElementById('senha-input').focus();
+            showErr('Senha master incorreta. Tente novamente.');
+            document.getElementById('master-senha').value = '';
+            document.getElementById('master-senha').focus();
+            btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> &nbsp;Entrar como Master';
           }
         })
         .catch(() => {
-          document.getElementById('error-msg').style.display = 'block';
+          showErr('Erro de conexão. Tente novamente.');
+          btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> &nbsp;Entrar como Master';
+        });
+    }
+
+    function doLoginFunc(e) {
+      e.preventDefault();
+      const email = document.getElementById('func-email').value.trim().toLowerCase();
+      const senha = document.getElementById('func-senha').value;
+      if (!email || !senha) { showErr('Preencha e-mail e senha.'); return; }
+      const btn = document.getElementById('btn-func-login');
+      btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+      document.getElementById('error-msg').style.display = 'none';
+      fetch('/api/admin/equipe/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, senha })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok && data.staff) {
+            // Salva dados do staff na sessão — sem senha
+            const staffSession = { ...data.staff, adminKey: '' };
+            sessionStorage.setItem('staff_session', JSON.stringify(staffSession));
+            sessionStorage.removeItem('admin_key');
+            // Redireciona para o admin com a chave master vazia (o painel verificará a sessão staff)
+            window.location.href = '/admin?staff=1&email=' + encodeURIComponent(email);
+          } else {
+            showErr(data.erro || 'Credenciais inválidas ou conta inativa.');
+            document.getElementById('func-senha').value = '';
+            document.getElementById('func-senha').focus();
+            btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> &nbsp;Entrar como Funcionário';
+          }
+        })
+        .catch(() => {
+          showErr('Erro de conexão. Tente novamente.');
+          btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> &nbsp;Entrar como Funcionário';
         });
     }
   </script>
@@ -9973,6 +10069,23 @@ app.get('/admin', (c) => {
     .form-group input.edited{border-color:rgba(255,109,0,0.5);background:rgba(255,109,0,0.05)}
     .uid-display{background:#0A1520;border:1px dashed rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;font-size:10px;color:rgba(255,255,255,0.3);font-family:monospace;word-break:break-all;margin-bottom:16px}
     .du-search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    /* Equipe & Acessos */
+    .role-badge-master{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;background:rgba(255,214,0,0.15);color:#FFD600}
+    .role-badge-admin{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;background:rgba(255,109,0,0.15);color:#FF6D00}
+    .role-badge-funcionario{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;background:rgba(66,165,245,0.15);color:#42A5F5}
+    .role-opt.selected-master{border-color:#FFD600!important;background:rgba(255,214,0,0.08)}
+    .role-opt.selected-admin{border-color:#FF6D00!important;background:rgba(255,109,0,0.08)}
+    .role-opt.selected-funcionario{border-color:#42A5F5!important;background:rgba(66,165,245,0.08)}
+    .perm-row{display:grid;grid-template-columns:1fr auto auto;gap:0;padding:9px 16px;border-bottom:1px solid rgba(255,255,255,0.04);align-items:center}
+    .perm-row:last-child{border-bottom:none}
+    .perm-row:hover{background:rgba(255,255,255,0.02)}
+    .perm-row .perm-label{font-size:12px;font-weight:700;color:rgba(255,255,255,0.75)}
+    .perm-row .perm-label small{display:block;font-size:10px;color:rgba(255,255,255,0.3);font-weight:600;margin-top:1px}
+    .perm-check{width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+    .perm-check input[type=checkbox]{width:16px;height:16px;accent-color:#FF6D00;cursor:pointer}
+    .staff-ativo-toggle{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;cursor:pointer;transition:all 0.2s}
+    .staff-ativo-on{background:rgba(0,200,83,0.15);color:#00C853}
+    .staff-ativo-off{background:rgba(255,82,82,0.12);color:#FF5252}
   </style>
 </head>
 <body>
@@ -9998,6 +10111,8 @@ app.get('/admin', (c) => {
     <div class="nav-item" id="nav-postos" onclick="showSection('postos',this)"><i class="fas fa-gas-pump"></i>Postos (Mapa)</div>
     <div class="nav-item" id="nav-precos" onclick="showSection('precos',this)"><i class="fas fa-tag"></i>Preços Reportados</div>
     <div class="nav-item" id="nav-mapa" onclick="showSection('mapa',this)"><i class="fas fa-map"></i>Mapa ao Vivo</div>
+    <div class="nav-section">Equipe & Acessos</div>
+    <div class="nav-item" id="nav-equipe" onclick="showSection('equipe',this)"><i class="fas fa-users-cog"></i>Conta Equipe</div>
   </nav>
   <div class="sidebar-footer">
     <div class="nav-item-sair" onclick="sairAdmin()"><i class="fas fa-sign-out-alt"></i>Sair</div>
@@ -11031,7 +11146,163 @@ app.get('/admin', (c) => {
       </div>
     </div>
   </section>
+
+  <!-- ══ EQUIPE & ACESSOS ══ -->
+  <section id="section-equipe" style="display:none">
+    <div class="page-header">
+      <h2>👥 Conta Equipe</h2>
+      <button class="btn-refresh" onclick="abrirModalNovoStaff()"><i class="fas fa-plus"></i> Novo Funcionário</button>
+    </div>
+
+    <!-- Hierarquia de roles -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
+      <div class="kpi-card" style="border-left:3px solid #FFD600">
+        <div class="kpi-icon" style="background:rgba(255,214,0,0.1);color:#FFD600"><i class="fas fa-crown"></i></div>
+        <div class="kpi-val" style="font-size:20px" id="eq-count-master">—</div>
+        <div class="kpi-label">Master</div>
+        <div class="kpi-delta" style="color:rgba(255,255,255,0.35);font-size:10px">Acesso total ao painel</div>
+      </div>
+      <div class="kpi-card" style="border-left:3px solid #FF6D00">
+        <div class="kpi-icon" style="background:rgba(255,109,0,0.1);color:#FF6D00"><i class="fas fa-user-shield"></i></div>
+        <div class="kpi-val" style="font-size:20px" id="eq-count-admin">—</div>
+        <div class="kpi-label">Admin</div>
+        <div class="kpi-delta" style="color:rgba(255,255,255,0.35);font-size:10px">Acesso configurável</div>
+      </div>
+      <div class="kpi-card" style="border-left:3px solid #42A5F5">
+        <div class="kpi-icon" style="background:rgba(66,165,245,0.1);color:#42A5F5"><i class="fas fa-user-tie"></i></div>
+        <div class="kpi-val" style="font-size:20px" id="eq-count-func">—</div>
+        <div class="kpi-label">Funcionário</div>
+        <div class="kpi-delta" style="color:rgba(255,255,255,0.35);font-size:10px">Acesso restrito</div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header">
+        <h3><i class="fas fa-users" style="margin-right:8px;color:#FF6D00"></i>Membros da Equipe</h3>
+        <button class="btn-refresh" onclick="carregarEquipe()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+      </div>
+      <div class="section-body" style="padding:0">
+        <div id="equipe-loading" style="padding:32px;text-align:center;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+        <div id="equipe-vazia" style="display:none;padding:40px;text-align:center;color:rgba(255,255,255,0.3)">
+          <i class="fas fa-users" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.2"></i>
+          Nenhum funcionário cadastrado ainda.<br>
+          <button class="btn-refresh" style="margin-top:16px" onclick="abrirModalNovoStaff()"><i class="fas fa-plus"></i> Criar primeiro funcionário</button>
+        </div>
+        <table id="equipe-tabela" style="display:none">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>Cargo</th>
+              <th>Permissões</th>
+              <th>Status</th>
+              <th>Criado</th>
+              <th style="text-align:right">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="equipe-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 </main>
+
+<!-- MODAL NOVO/EDITAR FUNCIONÁRIO -->
+<div class="modal-overlay" id="modal-staff" style="display:none">
+  <div class="modal-box" style="max-width:580px;max-height:90vh;overflow-y:auto">
+    <h4 id="modal-staff-titulo">👤 Novo Funcionário</h4>
+    <input type="hidden" id="staff-edit-email"/>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);display:block;margin-bottom:6px;text-transform:uppercase">Nome Completo</label>
+        <input type="text" id="staff-nome" placeholder="Ex: João Silva" style="width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);display:block;margin-bottom:6px;text-transform:uppercase">Cargo / Título</label>
+        <input type="text" id="staff-cargo" placeholder="Ex: Suporte, Analista..." style="width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none"/>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);display:block;margin-bottom:6px;text-transform:uppercase">E-mail de Login</label>
+      <input type="email" id="staff-email-input" placeholder="funcionario@empresa.com" style="width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none"/>
+    </div>
+
+    <div id="staff-senha-wrap" style="margin-top:12px">
+      <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);display:block;margin-bottom:6px;text-transform:uppercase">Senha <span id="staff-senha-hint" style="color:rgba(255,255,255,0.25);font-weight:600">(deixe em branco para não alterar)</span></label>
+      <input type="password" id="staff-senha" placeholder="Mínimo 6 caracteres" style="width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none"/>
+    </div>
+
+    <div style="margin-top:14px">
+      <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);display:block;margin-bottom:8px;text-transform:uppercase">Nível de Acesso</label>
+      <div style="display:flex;gap:8px">
+        <label style="flex:1;cursor:pointer">
+          <input type="radio" name="staff-role" value="master" style="display:none" onchange="onRoleChange()"/>
+          <div class="role-opt" data-role="master" style="padding:10px 8px;border-radius:10px;border:2px solid rgba(255,214,0,0.2);text-align:center;transition:all 0.2s;cursor:pointer" onclick="selectRole('master')">
+            <div style="font-size:18px;margin-bottom:4px">👑</div>
+            <div style="font-size:12px;font-weight:800;color:#FFD600">Master</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">Acesso total</div>
+          </div>
+        </label>
+        <label style="flex:1;cursor:pointer">
+          <input type="radio" name="staff-role" value="admin" style="display:none" onchange="onRoleChange()"/>
+          <div class="role-opt" data-role="admin" style="padding:10px 8px;border-radius:10px;border:2px solid rgba(255,109,0,0.2);text-align:center;transition:all 0.2s;cursor:pointer" onclick="selectRole('admin')">
+            <div style="font-size:18px;margin-bottom:4px">🛡️</div>
+            <div style="font-size:12px;font-weight:800;color:#FF6D00">Admin</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">Configurável</div>
+          </div>
+        </label>
+        <label style="flex:1;cursor:pointer">
+          <input type="radio" name="staff-role" value="funcionario" style="display:none" onchange="onRoleChange()"/>
+          <div class="role-opt" data-role="funcionario" style="padding:10px 8px;border-radius:10px;border:2px solid rgba(66,165,245,0.2);text-align:center;transition:all 0.2s;cursor:pointer" onclick="selectRole('funcionario')">
+            <div style="font-size:18px;margin-bottom:4px">👤</div>
+            <div style="font-size:12px;font-weight:800;color:#42A5F5">Funcionário</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">Restrito</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Matriz de Permissões -->
+    <div id="staff-perm-wrap" style="margin-top:14px;display:none">
+      <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);display:block;margin-bottom:10px;text-transform:uppercase">Módulos Visíveis & Acessíveis</label>
+      <div style="background:#0A1520;border-radius:10px;border:1px solid rgba(255,255,255,0.08);overflow:hidden">
+        <div style="display:grid;grid-template-columns:1fr auto auto;gap:0;font-size:10px;font-weight:800;color:rgba(255,255,255,0.25);text-transform:uppercase;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.06)">
+          <span>Módulo</span><span style="padding-right:20px">Ver</span><span>Editar</span>
+        </div>
+        <div id="perm-rows"></div>
+      </div>
+      <button type="button" onclick="marcarTodasPermissoes(true)" style="margin-top:8px;margin-right:8px;padding:5px 12px;background:rgba(0,200,83,0.1);color:#00C853;border:1px solid rgba(0,200,83,0.25);border-radius:6px;font-family:'Raleway',sans-serif;font-size:11px;font-weight:700;cursor:pointer">✓ Marcar todas</button>
+      <button type="button" onclick="marcarTodasPermissoes(false)" style="padding:5px 12px;background:rgba(255,82,82,0.08);color:#FF5252;border:1px solid rgba(255,82,82,0.2);border-radius:6px;font-family:'Raleway',sans-serif;font-size:11px;font-weight:700;cursor:pointer">✗ Desmarcar todas</button>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;background:#0A1520;border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
+      <input type="checkbox" id="staff-ativo" checked style="accent-color:#FF6D00;width:16px;height:16px;cursor:pointer"/>
+      <label for="staff-ativo" style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.7);cursor:pointer">Conta ativa (pode fazer login)</label>
+    </div>
+
+    <div id="staff-modal-err" style="display:none;margin-top:12px;background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:#FF5252;font-weight:700"></div>
+
+    <div class="modal-actions" style="margin-top:18px">
+      <button class="btn-danger" onclick="fecharModalStaff()">Cancelar</button>
+      <button class="btn-success" id="btn-salvar-staff" onclick="salvarStaff()"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REDEFINIR SENHA -->
+<div class="modal-overlay" id="modal-staff-senha" style="display:none">
+  <div class="modal-box" style="max-width:380px">
+    <h4>🔑 Redefinir Senha</h4>
+    <p id="modal-staff-senha-desc" style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px"></p>
+    <input type="password" id="nova-senha-input" placeholder="Nova senha (mín. 6 caracteres)" style="width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:11px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;margin-bottom:14px"/>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="document.getElementById('modal-staff-senha').style.display='none'">Cancelar</button>
+      <button class="btn-success" onclick="confirmarRedefinirSenha()"><i class="fas fa-key"></i> Redefinir</button>
+    </div>
+  </div>
+</div>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -11039,7 +11310,97 @@ app.get('/admin', (c) => {
 let adminMap = null;
 let chartPrecos = null;
 let currentSection = 'dashboard';
-const ADMIN_KEY = new URLSearchParams(window.location.search).get('key') || sessionStorage.getItem('admin_key') || '';
+
+// ══ SESSÃO: suporta Master (URL key) e Funcionário (sessionStorage staff_session) ══
+const _urlParams = new URLSearchParams(window.location.search);
+const _staffMode = _urlParams.get('staff') === '1';
+
+// Carrega dados do funcionário logado (se for modo staff)
+let _staffSession = null;
+try {
+  const raw = sessionStorage.getItem('staff_session');
+  if (raw) _staffSession = JSON.parse(raw);
+} catch(e) {}
+
+// ADMIN_KEY: para master usa URL key; para staff usa a chave salva no staff_session (pode ser vazia — APIs protegidas usam outro mecanismo)
+// Para APIs que precisam de autenticação: Master usa key, Staff usa própria sessão via /api/admin/equipe/login
+const ADMIN_KEY = _urlParams.get('key') || sessionStorage.getItem('admin_key') || '';
+
+// Se é modo staff mas não tem sessão válida → volta ao login
+if (_staffMode && (!_staffSession || !_staffSession.email)) {
+  window.location.href = '/admin';
+}
+
+// Função para verificar se o staff atual tem permissão para um módulo
+function temPermissao(modulo) {
+  if (!_staffMode) return true; // Master tem tudo
+  if (!_staffSession) return false;
+  if (_staffSession.role === 'master') return true;
+  const perm = _staffSession.permissoes || {};
+  return !!perm[modulo];
+}
+
+// Aplica permissões ao sidebar e oculta itens que o staff não tem acesso
+function aplicarPermissoes() {
+  if (!_staffMode || !_staffSession) return;
+
+  const mapa = {
+    'nav-dashboard':       'dashboard',
+    'nav-app-usuarios':    'usuarios',
+    'nav-dados-usuarios':  'dados',
+    'nav-assinaturas':     'assinaturas',
+    'nav-planos-app':      'planos',
+    'nav-planos':          'planos',
+    'nav-menu-app':        'menuApp',
+    'nav-postos-parceiros':'postos',
+    'nav-postos':          'postos',
+    'nav-precos':          'precos',
+    'nav-mapa':            'mapa',
+    'nav-equipe':          null, // só master/admin pode ver
+  };
+
+  Object.entries(mapa).forEach(function(entry) {
+    const navId = entry[0], modKey = entry[1];
+    const el = document.getElementById(navId);
+    if (!el) return;
+    // nav-equipe só para master e admin
+    if (modKey === null) {
+      if (_staffSession.role === 'funcionario') el.style.display = 'none';
+      return;
+    }
+    if (!temPermissao(modKey)) el.style.display = 'none';
+  });
+
+  // Ocultar nav-sections sem filhos visíveis
+  document.querySelectorAll('.nav-section').forEach(function(section) {
+    let next = section.nextElementSibling;
+    let allHidden = true;
+    while (next && !next.classList.contains('nav-section')) {
+      if (next.style.display !== 'none') { allHidden = false; break; }
+      next = next.nextElementSibling;
+    }
+    if (allHidden) section.style.display = 'none';
+  });
+
+  // Mostrar badge do funcionário logado no sidebar footer
+  const footer = document.querySelector('.sidebar-footer');
+  if (footer && _staffSession.nome) {
+    const badge = document.createElement('div');
+    badge.style.cssText = 'padding:0 16px 8px;font-size:10px;color:rgba(255,255,255,0.35);font-weight:700';
+    const roleIcon = _staffSession.role === 'admin' ? '🛡️' : '👤';
+    badge.innerHTML = roleIcon + ' ' + _staffSession.nome + '<div style="font-size:9px;color:rgba(255,255,255,0.2);margin-top:1px">' + (_staffSession.cargo || _staffSession.role) + '</div>';
+    footer.insertBefore(badge, footer.firstChild);
+  }
+
+  // Redirecionar para a primeira seção permitida
+  const primeiraPermitida = ['dashboard','usuarios','dados','assinaturas','planos','menuApp','postos','precos','mapa']
+    .find(m => temPermissao(m));
+  if (primeiraPermitida) {
+    const navMap2 = { dashboard:'nav-dashboard', usuarios:'nav-app-usuarios', dados:'nav-dados-usuarios', assinaturas:'nav-assinaturas', planos:'nav-planos-app', menuApp:'nav-menu-app', postos:'nav-postos-parceiros', precos:'nav-precos', mapa:'nav-mapa' };
+    const navEl = document.getElementById(navMap2[primeiraPermitida]);
+    if (navEl) setTimeout(function() { showSection(primeiraPermitida === 'usuarios' ? 'app-usuarios' : primeiraPermitida === 'dados' ? 'dados-usuarios' : primeiraPermitida === 'planos' ? 'planos-app' : primeiraPermitida === 'postos' ? 'postos-parceiros' : primeiraPermitida, navEl); }, 50);
+  }
+}
 
 // Região selecionada (default: São Paulo)
 let adminLat = -23.5505, adminLng = -46.6333, adminCidade = 'São Paulo', adminUF = 'SP';
@@ -11051,6 +11412,7 @@ let _appUsuarios = [], _assinaturas = [], _parceiros = [], _planosData = [];
 function sairAdmin() {
   if (!confirm('Deseja sair do painel admin?')) return;
   sessionStorage.removeItem('admin_key');
+  sessionStorage.removeItem('staff_session');
   window.location.href = '/admin';
 }
 
@@ -11133,6 +11495,7 @@ function showSection(name, el) {
   if (name === 'planos-app') carregarPlanosApp();
   if (name === 'niveis') carregarEstatisticasNiveis();
   if (name === 'menu-app') carregarMenuApp();
+  if (name === 'equipe') carregarEquipe();
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -12515,6 +12878,9 @@ function iniciarMapaAdmin(reset) {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.getElementById('last-update').textContent = 'Carregando...';
 
+// Aplica permissões do staff (se for modo funcionário)
+aplicarPermissoes();
+
 // Tenta geolocalizar o admin antes de carregar dados
 function _initComGeo() {
   if (!navigator.geolocation) { carregarDashboard(); return; }
@@ -13408,11 +13774,439 @@ async function salvarMenuApp() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar'; }
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  EQUIPE & ACESSOS — JavaScript do Painel Admin
+// ══════════════════════════════════════════════════════════════════════════════
+
+const MODULOS_PERM = [
+  { key: 'dashboard',    label: 'Dashboard',        desc: 'Visão geral e KPIs' },
+  { key: 'usuarios',     label: 'Usuários do App',   desc: 'Gerenciar usuários' },
+  { key: 'dados',        label: 'Dados & Contatos',  desc: 'Formulários e dados' },
+  { key: 'assinaturas',  label: 'Assinaturas',       desc: 'Planos e pagamentos' },
+  { key: 'planos',       label: 'Planos & Produtos', desc: 'Planos app e postos' },
+  { key: 'menuApp',      label: 'Menu do App',       desc: 'Configurar menu' },
+  { key: 'postos',       label: 'Postos & Dados',    desc: 'Postos e parceiros' },
+  { key: 'precos',       label: 'Preços Reportados', desc: 'Preços colaborativos' },
+  { key: 'mapa',         label: 'Mapa ao Vivo',      desc: 'Mapa de postos' },
+];
+
+let _staffEditando = null;
+let _staffRedefinindoEmail = null;
+let _staffLista = [];
+
+async function carregarEquipe() {
+  document.getElementById('equipe-loading').style.display = 'block';
+  document.getElementById('equipe-vazia').style.display = 'none';
+  document.getElementById('equipe-tabela').style.display = 'none';
+  try {
+    const res = await fetch('/api/admin/equipe?key=' + encodeURIComponent(ADMIN_KEY));
+    if (!res.ok) { showToast('Erro ao carregar equipe (' + res.status + ')', 'err'); return; }
+    const data = await res.json();
+    _staffLista = data.staff || [];
+    renderEquipeTabela(_staffLista);
+  } catch(e) {
+    showToast('Erro de conexão ao carregar equipe', 'err');
+  } finally {
+    document.getElementById('equipe-loading').style.display = 'none';
+  }
+}
+
+function renderEquipeTabela(lista) {
+  const masters = lista.filter(s => s.role === 'master').length;
+  const admins  = lista.filter(s => s.role === 'admin').length;
+  const funcs   = lista.filter(s => s.role === 'funcionario').length;
+  const cm = document.getElementById('eq-count-master'); if(cm) cm.textContent = masters;
+  const ca = document.getElementById('eq-count-admin');  if(ca) ca.textContent = admins;
+  const cf = document.getElementById('eq-count-func');   if(cf) cf.textContent = funcs;
+
+  if (!lista.length) {
+    document.getElementById('equipe-vazia').style.display = 'block';
+    document.getElementById('equipe-tabela').style.display = 'none';
+    return;
+  }
+  document.getElementById('equipe-vazia').style.display = 'none';
+  document.getElementById('equipe-tabela').style.display = 'table';
+
+  const tbody = document.getElementById('equipe-tbody');
+  tbody.innerHTML = lista.map(s => {
+    const roleBadge = s.role === 'master'
+      ? '<span class="role-badge-master"><i class="fas fa-crown"></i>Master</span>'
+      : s.role === 'admin'
+        ? '<span class="role-badge-admin"><i class="fas fa-user-shield"></i>Admin</span>'
+        : '<span class="role-badge-funcionario"><i class="fas fa-user-tie"></i>Funcionário</span>';
+
+    // Contar permissões habilitadas
+    const perm = s.permissoes || {};
+    const totalPerm = MODULOS_PERM.length;
+    const habPerm = s.role === 'master' ? totalPerm : Object.values(perm).filter(Boolean).length;
+    const permStr = s.role === 'master'
+      ? '<span style="color:#FFD600;font-size:11px;font-weight:700">Todos os módulos</span>'
+      : '<span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.5)">' + habPerm + '/' + totalPerm + ' módulos</span>';
+
+    const statusBadge = s.ativo
+      ? '<span class="staff-ativo-toggle staff-ativo-on" onclick="toggleStaffAtivo(\'' + s.email + '\',' + (!s.ativo) + ')"><i class="fas fa-check-circle"></i>Ativo</span>'
+      : '<span class="staff-ativo-toggle staff-ativo-off" onclick="toggleStaffAtivo(\'' + s.email + '\',' + (!s.ativo) + ')"><i class="fas fa-times-circle"></i>Inativo</span>';
+
+    const criadoEm = s.criadoEm ? new Date(s.criadoEm).toLocaleDateString('pt-BR') : '—';
+
+    return '<tr class="tr-hover">'
+      + '<td><div style="font-weight:700;color:#fff">' + (s.nome || '—') + '</div>'
+        + (s.cargo ? '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">' + s.cargo + '</div>' : '') + '</td>'
+      + '<td style="font-family:monospace;font-size:11px;color:rgba(255,255,255,0.6)">' + s.email + '</td>'
+      + '<td>' + roleBadge + '</td>'
+      + '<td>' + permStr + '</td>'
+      + '<td>' + statusBadge + '</td>'
+      + '<td style="font-size:11px;color:rgba(255,255,255,0.35)">' + criadoEm + '</td>'
+      + '<td style="text-align:right">'
+        + '<button class="btn-info" style="padding:5px 10px;font-size:10px;margin-right:4px" onclick="abrirModalEditarStaff(\'' + s.email + '\')"><i class="fas fa-edit"></i> Editar</button>'
+        + '<button class="btn-danger" style="padding:5px 10px;font-size:10px;margin-right:4px" onclick="abrirModalSenhaStaff(\'' + s.email + '\',\'' + (s.nome||'').replace(/'/g,'') + '\')"><i class="fas fa-key"></i></button>'
+        + '<button class="btn-danger" style="padding:5px 10px;font-size:10px" onclick="excluirStaff(\'' + s.email + '\',\'' + (s.nome||'').replace(/'/g,'') + '\')"><i class="fas fa-trash"></i></button>'
+      + '</td>'
+    + '</tr>';
+  }).join('');
+}
+
+function buildPermRows(permissoes, role) {
+  const wrap = document.getElementById('perm-rows');
+  if (!wrap) return;
+  wrap.innerHTML = MODULOS_PERM.map(m => {
+    const checked = role === 'master' ? true : !!(permissoes && permissoes[m.key]);
+    const disabled = role === 'master' ? 'disabled' : '';
+    return '<div class="perm-row">'
+      + '<div class="perm-label">' + m.label + '<small>' + m.desc + '</small></div>'
+      + '<div class="perm-check"><input type="checkbox" id="perm-' + m.key + '" ' + (checked ? 'checked' : '') + ' ' + disabled + '/></div>'
+      + '<div></div>'
+    + '</div>';
+  }).join('');
+}
+
+function selectRole(role) {
+  document.querySelectorAll('.role-opt').forEach(el => {
+    el.classList.remove('selected-master','selected-admin','selected-funcionario');
+  });
+  const sel = document.querySelector('.role-opt[data-role="' + role + '"]');
+  if (sel) sel.classList.add('selected-' + role);
+  const radios = document.querySelectorAll('input[name="staff-role"]');
+  radios.forEach(r => { r.checked = r.value === role; });
+  const permWrap = document.getElementById('staff-perm-wrap');
+  if (permWrap) permWrap.style.display = (role === 'master') ? 'none' : 'block';
+  // rebuild perm rows com estado atual
+  const currentPerm = getPermAtual();
+  buildPermRows(currentPerm, role);
+}
+
+function getPermAtual() {
+  const perm = {};
+  MODULOS_PERM.forEach(m => {
+    const el = document.getElementById('perm-' + m.key);
+    perm[m.key] = el ? el.checked : false;
+  });
+  return perm;
+}
+
+function marcarTodasPermissoes(val) {
+  MODULOS_PERM.forEach(m => {
+    const el = document.getElementById('perm-' + m.key);
+    if (el && !el.disabled) el.checked = val;
+  });
+}
+
+function abrirModalNovoStaff() {
+  _staffEditando = null;
+  document.getElementById('modal-staff-titulo').textContent = '👤 Novo Funcionário';
+  document.getElementById('staff-edit-email').value = '';
+  document.getElementById('staff-nome').value = '';
+  document.getElementById('staff-cargo').value = '';
+  document.getElementById('staff-email-input').value = '';
+  document.getElementById('staff-email-input').readOnly = false;
+  document.getElementById('staff-senha').value = '';
+  document.getElementById('staff-ativo').checked = true;
+  const senhaHint = document.getElementById('staff-senha-hint');
+  if (senhaHint) senhaHint.style.display = 'none';
+  const modalErr = document.getElementById('staff-modal-err');
+  if (modalErr) modalErr.style.display = 'none';
+  // reset role
+  selectRole('funcionario');
+  // permissões default = todas desmarcadas
+  buildPermRows({}, 'funcionario');
+  document.getElementById('modal-staff').style.display = 'flex';
+}
+
+function abrirModalEditarStaff(email) {
+  const s = _staffLista.find(x => x.email === email);
+  if (!s) return;
+  _staffEditando = email;
+  document.getElementById('modal-staff-titulo').textContent = '✏️ Editar Funcionário';
+  document.getElementById('staff-edit-email').value = email;
+  document.getElementById('staff-nome').value = s.nome || '';
+  document.getElementById('staff-cargo').value = s.cargo || '';
+  document.getElementById('staff-email-input').value = email;
+  document.getElementById('staff-email-input').readOnly = true;
+  document.getElementById('staff-senha').value = '';
+  document.getElementById('staff-ativo').checked = !!s.ativo;
+  const senhaHint = document.getElementById('staff-senha-hint');
+  if (senhaHint) senhaHint.style.display = 'inline';
+  const modalErr = document.getElementById('staff-modal-err');
+  if (modalErr) modalErr.style.display = 'none';
+  selectRole(s.role || 'funcionario');
+  buildPermRows(s.permissoes || {}, s.role || 'funcionario');
+  document.getElementById('modal-staff').style.display = 'flex';
+}
+
+function fecharModalStaff() {
+  document.getElementById('modal-staff').style.display = 'none';
+  _staffEditando = null;
+}
+
+async function salvarStaff() {
+  const nome  = document.getElementById('staff-nome').value.trim();
+  const cargo = document.getElementById('staff-cargo').value.trim();
+  const email = document.getElementById('staff-email-input').value.trim().toLowerCase();
+  const senha = document.getElementById('staff-senha').value;
+  const ativo = document.getElementById('staff-ativo').checked;
+  const roleEl = document.querySelector('input[name="staff-role"]:checked');
+  const role = roleEl ? roleEl.value : 'funcionario';
+  const modalErr = document.getElementById('staff-modal-err');
+  modalErr.style.display = 'none';
+
+  if (!nome) { modalErr.textContent = 'Nome é obrigatório.'; modalErr.style.display = 'block'; return; }
+  if (!email || !email.includes('@')) { modalErr.textContent = 'E-mail inválido.'; modalErr.style.display = 'block'; return; }
+  if (!_staffEditando && senha.length < 6) { modalErr.textContent = 'Senha deve ter mínimo 6 caracteres.'; modalErr.style.display = 'block'; return; }
+  if (_staffEditando && senha && senha.length < 6) { modalErr.textContent = 'Nova senha deve ter mínimo 6 caracteres.'; modalErr.style.display = 'block'; return; }
+
+  const permissoes = {};
+  MODULOS_PERM.forEach(m => {
+    const el = document.getElementById('perm-' + m.key);
+    permissoes[m.key] = el ? el.checked : false;
+  });
+
+  const payload = { email, nome, cargo, role, ativo, permissoes, key: ADMIN_KEY };
+  if (!_staffEditando || senha) payload.senha = senha;
+
+  const btn = document.getElementById('btn-salvar-staff');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+
+  try {
+    const res = await fetch('/api/admin/equipe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast(_staffEditando ? '✅ Funcionário atualizado!' : '✅ Funcionário criado!', 'ok');
+      fecharModalStaff();
+      carregarEquipe();
+    } else {
+      modalErr.textContent = data.erro || 'Erro ao salvar.';
+      modalErr.style.display = 'block';
+    }
+  } catch(e) {
+    modalErr.textContent = 'Erro de conexão.';
+    modalErr.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar';
+  }
+}
+
+async function excluirStaff(email, nome) {
+  if (!confirm('Excluir o funcionário "' + nome + '" (' + email + ')?\nEssa ação não pode ser desfeita.')) return;
+  try {
+    const res = await fetch('/api/admin/equipe/' + encodeURIComponent(email) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) { showToast('✅ Funcionário removido.', 'ok'); carregarEquipe(); }
+    else showToast('❌ ' + (data.erro || 'Erro ao excluir'), 'err');
+  } catch(e) { showToast('❌ Erro de conexão', 'err'); }
+}
+
+async function toggleStaffAtivo(email, novoAtivo) {
+  const s = _staffLista.find(x => x.email === email);
+  if (!s) return;
+  const payload = {
+    email, nome: s.nome, cargo: s.cargo || '', role: s.role,
+    ativo: novoAtivo, permissoes: s.permissoes || {}, key: ADMIN_KEY
+  };
+  try {
+    const res = await fetch('/api/admin/equipe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.ok) { showToast(novoAtivo ? '✅ Conta ativada' : '⛔ Conta desativada', 'ok'); carregarEquipe(); }
+    else showToast('❌ Erro ao atualizar status', 'err');
+  } catch(e) { showToast('❌ Erro de conexão', 'err'); }
+}
+
+function abrirModalSenhaStaff(email, nome) {
+  _staffRedefinindoEmail = email;
+  document.getElementById('modal-staff-senha-desc').textContent = 'Redefinir senha de: ' + nome + ' (' + email + ')';
+  document.getElementById('nova-senha-input').value = '';
+  document.getElementById('modal-staff-senha').style.display = 'flex';
+}
+
+async function confirmarRedefinirSenha() {
+  const novaSenha = document.getElementById('nova-senha-input').value;
+  if (!novaSenha || novaSenha.length < 6) { showToast('Senha deve ter mínimo 6 caracteres', 'err'); return; }
+  try {
+    const res = await fetch('/api/admin/equipe/' + encodeURIComponent(_staffRedefinindoEmail) + '/senha?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ novaSenha })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('✅ Senha redefinida com sucesso!', 'ok');
+      document.getElementById('modal-staff-senha').style.display = 'none';
+    } else {
+      showToast('❌ ' + (data.erro || 'Erro ao redefinir senha'), 'err');
+    }
+  } catch(e) { showToast('❌ Erro de conexão', 'err'); }
+}
 </script>
 </body>
 </html>`
 
   return c.html(html)
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SISTEMA DE EQUIPE ADMIN — Contas de Funcionários com Permissões
+// ══════════════════════════════════════════════════════════════════════════════
+// KV key pattern: admin:staff:{email} → { email, nome, senha, role, permissoes, criadoEm, ativo }
+// roles: 'master' | 'admin' | 'funcionario'
+// permissoes: { dashboard, usuarios, dados, assinaturas, planos, postos, precos, mapa, menuApp }
+
+function hashSenha(senha: string): string {
+  // Hash simples determinístico (sem crypto.subtle para compatibilidade CF Workers síncrono)
+  let h = 0x811c9dc5
+  for (let i = 0; i < senha.length; i++) {
+    h ^= senha.charCodeAt(i)
+    h = (h * 0x01000193) >>> 0
+  }
+  return h.toString(16).padStart(8, '0') + senha.length.toString(16)
+}
+
+async function kvGetStaff(kv: KVNamespace | undefined, email: string) {
+  if (!kv) return null
+  const raw = await kv.get('admin:staff:' + email.toLowerCase())
+  if (!raw) return null
+  try { return JSON.parse(raw) } catch { return null }
+}
+
+async function kvSetStaff(kv: KVNamespace | undefined, email: string, data: Record<string, unknown>) {
+  if (!kv) return
+  await kv.put('admin:staff:' + email.toLowerCase(), JSON.stringify(data))
+}
+
+async function kvListStaff(kv: KVNamespace | undefined): Promise<unknown[]> {
+  if (!kv) return []
+  const list = await kv.list({ prefix: 'admin:staff:' })
+  const results = await Promise.all(
+    list.keys.map(async (k) => {
+      const raw = await kv.get(k.name)
+      if (!raw) return null
+      try {
+        const d = JSON.parse(raw)
+        const { senha: _, ...safe } = d  // remove senha do retorno
+        return safe
+      } catch { return null }
+    })
+  )
+  return results.filter(Boolean)
+}
+
+// ─── POST /api/admin/equipe/login — login de funcionário ─────────────────────
+app.post('/api/admin/equipe/login', async (c) => {
+  try {
+    const kv = getKV(c.env)
+    const { email, senha } = await c.req.json() as { email: string; senha: string }
+    if (!email || !senha) return c.json({ ok: false, erro: 'Email e senha obrigatórios' }, 400)
+
+    const staff = await kvGetStaff(kv, email)
+    if (!staff || !staff.ativo) return c.json({ ok: false, erro: 'Conta não encontrada ou inativa' }, 401)
+
+    const hash = hashSenha(senha)
+    if (staff.senha !== hash) return c.json({ ok: false, erro: 'Senha incorreta' }, 401)
+
+    const { senha: _, ...safeStaff } = staff
+    return c.json({ ok: true, staff: safeStaff })
+  } catch {
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ─── GET /api/admin/equipe — listar funcionários ──────────────────────────────
+app.get('/api/admin/equipe', async (c) => {
+  const key = c.req.query('key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env)
+  const staff = await kvListStaff(kv)
+  return c.json({ ok: true, staff })
+})
+
+// ─── POST /api/admin/equipe — criar/atualizar funcionário ─────────────────────
+app.post('/api/admin/equipe', async (c) => {
+  const key = c.req.query('key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+
+  try {
+    const body = await c.req.json() as Record<string, unknown>
+    const { email, nome, senha, role, permissoes, ativo } = body as {
+      email: string; nome: string; senha?: string; role: string;
+      permissoes: Record<string,boolean>; ativo: boolean
+    }
+    if (!email || !nome || !role) return c.json({ ok: false, erro: 'email, nome e role obrigatórios' }, 400)
+
+    const existing = await kvGetStaff(kv, email)
+    const senhaHash = senha ? hashSenha(senha) : (existing?.senha || hashSenha('trocar@123'))
+
+    const staffData = {
+      email: email.toLowerCase(), nome, senha: senhaHash,
+      role, permissoes: permissoes || {}, ativo: ativo !== false,
+      criadoEm: existing?.criadoEm || new Date().toISOString(),
+      atualizadoEm: new Date().toISOString()
+    }
+    await kvSetStaff(kv, email, staffData)
+    const { senha: _, ...safe } = staffData
+    return c.json({ ok: true, staff: safe })
+  } catch {
+    return c.json({ ok: false, erro: 'Erro ao salvar funcionário' }, 500)
+  }
+})
+
+// ─── DELETE /api/admin/equipe/:email — remover funcionário ───────────────────
+app.delete('/api/admin/equipe/:email', async (c) => {
+  const key = c.req.query('key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+  const email = c.req.param('email')
+  await kv.delete('admin:staff:' + email.toLowerCase())
+  return c.json({ ok: true })
+})
+
+// ─── POST /api/admin/equipe/:email/senha — resetar senha ─────────────────────
+app.post('/api/admin/equipe/:email/senha', async (c) => {
+  const key = c.req.query('key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+  const email = c.req.param('email')
+  const { novaSenha } = await c.req.json() as { novaSenha: string }
+  const staff = await kvGetStaff(kv, email)
+  if (!staff) return c.json({ ok: false, erro: 'Funcionário não encontrado' }, 404)
+  staff.senha = hashSenha(novaSenha)
+  staff.atualizadoEm = new Date().toISOString()
+  await kvSetStaff(kv, email, staff)
+  return c.json({ ok: true })
 })
 
 // ─── POST /api/admin/sync-anp ─────────────────────────────────────────────────
