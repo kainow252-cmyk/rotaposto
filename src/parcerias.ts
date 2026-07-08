@@ -1400,6 +1400,7 @@ export function getPainelEmpresaHTML(): string {
       <div class="nav-item nav-item-gestao" data-page="criar-cupom" onclick="irPara('criar-cupom')"><i class="fas fa-ticket-alt"></i> Criar Cupom</div>
       <div class="nav-item" data-page="cupons" onclick="irPara('cupons')"><i class="fas fa-history"></i> Histórico de Cupons</div>
       <div class="nav-item" data-page="notificacoes" onclick="irPara('notificacoes')"><i class="fas fa-bell"></i> Notificações</div>
+      <div class="nav-item" data-page="planos" onclick="irPara('planos')"><i class="fas fa-crown"></i> Planos & Assinatura</div>
       <div class="nav-group-label">Conta</div>
       <div class="nav-item nav-item-gerente" data-page="equipe" onclick="irPara('equipe')"><i class="fas fa-users-cog"></i> Equipe</div>
       <div class="nav-item nav-item-gerente" data-page="perfil" onclick="irPara('perfil')"><i class="fas fa-store"></i> Perfil do Posto</div>
@@ -2048,6 +2049,53 @@ export function getPainelEmpresaHTML(): string {
         </div>
       </div>
 
+      <!-- ── PLANOS & ASSINATURA ── -->
+      <div id="page-planos" style="display:none">
+
+        <!-- Status do plano atual -->
+        <div class="config-section" id="planos-status-section" style="margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div>
+              <div class="config-titulo" style="margin-bottom:4px">💳 Assinatura Atual</div>
+              <div id="planos-status-badge" style="display:inline-flex;align-items:center;gap:8px;background:#1a1a1a;border:1.5px solid #333;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:700;color:#fff">
+                <i class="fas fa-spinner fa-spin" style="color:#FF6D00"></i> Carregando...
+              </div>
+            </div>
+            <div id="planos-prox-venc" style="font-size:12px;color:var(--sub);text-align:right"></div>
+          </div>
+        </div>
+
+        <!-- Cards dos planos -->
+        <div class="config-section">
+          <div class="config-titulo" style="margin-bottom:4px">📦 Escolha seu Plano</div>
+          <p style="font-size:13px;color:var(--sub);margin:0 0 20px">Pagamento via PIX recorrente. Cancele quando quiser.</p>
+          <div id="planos-lista" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+            <div style="text-align:center;padding:40px;color:#aaa;grid-column:1/-1">
+              <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:10px;display:block"></i> Buscando planos...
+            </div>
+          </div>
+        </div>
+
+        <!-- Dúvidas frequentes -->
+        <div class="config-section" style="margin-top:16px">
+          <div class="config-titulo">ℹ️ Dúvidas Frequentes</div>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
+            <div style="background:#1a1a1a;border-radius:10px;padding:14px 16px">
+              <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px">Como funciona o PIX recorrente?</div>
+              <div style="font-size:12px;color:#aaa">Um QR Code PIX é gerado mensalmente. Você paga quando quiser — o sistema aguarda a confirmação para renovar seu plano.</div>
+            </div>
+            <div style="background:#1a1a1a;border-radius:10px;padding:14px 16px">
+              <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px">Posso cancelar a qualquer momento?</div>
+              <div style="font-size:12px;color:#aaa">Sim. Basta não renovar o PIX quando vencer. Seu plano continua ativo até o fim do período pago.</div>
+            </div>
+            <div style="background:#1a1a1a;border-radius:10px;padding:14px 16px">
+              <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px">Plano Gratuito tem limite?</div>
+              <div style="font-size:12px;color:#aaa">O plano gratuito inclui o perfil básico no app. Para benefícios como selo verificado, cupons e destaque no mapa, escolha um plano pago.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div><!-- .page-content -->
   </main>
 </div>
@@ -2120,8 +2168,8 @@ function irParaCadastroExterno() {
 }
 
 // ── Navegação ──────────────────────────────────────────
-const PAGES = ['dashboard','validar','precos','criar-cupom','cupons','notificacoes','equipe','perfil','configuracoes'];
-const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', 'criar-cupom':'Criar Cupom', cupons:'Histórico de Cupons', notificacoes:'Notificações', equipe:'Equipe', perfil:'Perfil do Posto', configuracoes:'Configurações' };
+const PAGES = ['dashboard','validar','precos','criar-cupom','cupons','notificacoes','planos','equipe','perfil','configuracoes'];
+const TITULOS = { dashboard:'Dashboard', validar:'Validar Cupom', precos:'Preços e Desconto', 'criar-cupom':'Criar Cupom', cupons:'Histórico de Cupons', notificacoes:'Notificações', planos:'Planos & Assinatura', equipe:'Equipe', perfil:'Perfil do Posto', configuracoes:'Configurações' };
 
 function irPara(pg) {
   PAGES.forEach(p => {
@@ -2141,6 +2189,7 @@ function irPara(pg) {
   if (pg === 'perfil')      carregarPerfil();
   if (pg === 'notificacoes') carregarNotifConfig();
   if (pg === 'equipe')      carregarEquipe();
+  if (pg === 'planos')      carregarPlanos();
 }
 
 function abrirSidebar() {
@@ -3260,6 +3309,224 @@ function fecharModalPixPosto() {
   const overlay = document.getElementById('pix-posto-overlay');
   if (overlay) overlay.classList.remove('visivel');
   if (_pollingPixPosto) { clearInterval(_pollingPixPosto); _pollingPixPosto = null; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── PLANOS & ASSINATURA ────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _planosCache = null;
+let _planoStatusCache = null;
+
+async function carregarPlanos() {
+  if (!_sessao) return;
+
+  // Atualizar status atual em paralelo
+  _atualizarStatusPlano();
+
+  // Buscar planos do admin
+  const lista = document.getElementById('planos-lista');
+  if (!lista) return;
+
+  try {
+    const r = await fetch('/api/admin/planos-posto', {
+      headers: { 'Authorization': 'Bearer ' + _sessao.token }
+    });
+    const d = await r.json();
+    const planos = d.planos || d || [];
+    _planosCache = planos;
+    _renderizarCardsPlanos(planos);
+  } catch(e) {
+    lista.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;color:#f44">'
+      + '<i class="fas fa-exclamation-triangle" style="font-size:24px;display:block;margin-bottom:10px"></i>'
+      + 'Erro ao carregar planos. <button onclick="carregarPlanos()" style="background:none;border:none;color:#FF6D00;cursor:pointer;font-weight:700;text-decoration:underline">Tentar novamente</button>'
+      + '</div>';
+  }
+}
+
+async function _atualizarStatusPlano() {
+  const badge = document.getElementById('planos-status-badge');
+  const vencDiv = document.getElementById('planos-prox-venc');
+  if (!badge) return;
+
+  try {
+    const r = await fetch('/api/pix/posto/status/' + _sessao.postoId, {
+      headers: { 'Authorization': 'Bearer ' + _sessao.token }
+    });
+    const d = await r.json();
+    _planoStatusCache = d;
+
+    const nomes = {
+      posto_gratis:'Gratuito', posto_basico:'Plano Básico',
+      posto_plus:'Plano Plus', posto_premium:'Plano Premium',
+      posto_profissional:'Plano Profissional'
+    };
+    const planoNome = nomes[d.plano] || d.plano || 'Gratuito';
+    const ativo = d.status === 'ACTIVE' || d.status === 'ativo' || !d.status || d.plano === 'posto_gratis';
+
+    const cor = ativo ? '#00C853' : '#FF6D00';
+    const icone = ativo ? 'fa-check-circle' : 'fa-exclamation-circle';
+    const statusTxt = ativo ? 'Ativo' : (d.status === 'EXPIRED' ? 'Expirado' : 'Pendente');
+
+    badge.innerHTML = '<i class="fas ' + icone + '" style="color:' + cor + '"></i>'
+      + ' <span style="color:' + cor + '">' + planoNome + '</span>'
+      + ' <span style="color:#888;font-weight:400">· ' + statusTxt + '</span>';
+
+    if (d.proximoVencimento && vencDiv) {
+      const dt = new Date(d.proximoVencimento);
+      const fmt = dt.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+      vencDiv.innerHTML = '<i class="fas fa-calendar-alt" style="color:#FF6D00;margin-right:4px"></i>Próximo venc.: <b style="color:#fff">' + fmt + '</b>';
+    }
+
+    // Re-renderizar cards se já carregados (para marcar plano ativo)
+    if (_planosCache) _renderizarCardsPlanos(_planosCache);
+  } catch(e) {
+    badge.innerHTML = '<i class="fas fa-question-circle" style="color:#888"></i> <span style="color:#888">Indisponível</span>';
+  }
+}
+
+function _renderizarCardsPlanos(planos) {
+  const lista = document.getElementById('planos-lista');
+  if (!lista) return;
+  if (!planos || planos.length === 0) {
+    lista.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;color:#aaa">Nenhum plano disponível no momento.</div>';
+    return;
+  }
+
+  const planoAtual = _planoStatusCache?.plano || _sessao?.plano || 'posto_gratis';
+  const statusAtual = _planoStatusCache?.status || 'ativo';
+
+  lista.innerHTML = planos.map(p => {
+    const isAtual = p.id === planoAtual;
+    const ehGratis = p.valor === 0 || p.ciclo === 'forever';
+    const valorFmt = ehGratis ? 'Grátis' : 'R$ ' + (p.valor / 100).toFixed(2).replace('.', ',') + '/mês';
+    const destaque = p.destaque || false;
+
+    const beneficios = p.beneficios || [];
+
+    // Borda e cor do card baseada no estado
+    const bordaCor = isAtual ? '#00C853' : (destaque ? '#FF6D00' : '#2a2a2a');
+    const bgCard = isAtual ? 'rgba(0,200,83,0.05)' : (destaque ? 'rgba(255,109,0,0.04)' : '#141414');
+
+    let btnHtml = '';
+    if (isAtual && (statusAtual === 'ACTIVE' || statusAtual === 'ativo' || ehGratis)) {
+      btnHtml = '<button disabled style="width:100%;padding:13px;background:#1e3a2a;color:#00C853;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:default">'
+        + '<i class="fas fa-check"></i> Plano atual</button>';
+    } else if (ehGratis) {
+      btnHtml = '<button onclick="ativarPlanoGratis()" style="width:100%;padding:13px;background:#2a2a2a;color:#aaa;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">'
+        + 'Usar plano gratuito</button>';
+    } else {
+      btnHtml = '<button onclick="assinarPlanoPix(\'' + p.id + '\')" style="width:100%;padding:13px;background:' + (destaque ? '#FF6D00' : '#333') + ';color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">'
+        + '<i class="fas fa-qrcode"></i> Assinar via PIX</button>';
+    }
+
+    const beneficiosHtml = beneficios.length > 0
+      ? beneficios.filter(b => b.ativo !== false).slice(0, 6).map(b =>
+          '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#ccc;padding:3px 0">'
+          + '<i class="fas fa-check-circle" style="color:#FF6D00;flex-shrink:0;font-size:10px"></i>'
+          + (typeof b === 'string' ? b : (b.label || b.nome || ''))
+          + '</div>'
+        ).join('')
+      : _beneficiosPadrao(p.id).map(b =>
+          '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#ccc;padding:3px 0">'
+          + '<i class="fas fa-check-circle" style="color:#FF6D00;flex-shrink:0;font-size:10px"></i>' + b
+          + '</div>'
+        ).join('');
+
+    return '<div style="background:' + bgCard + ';border:2px solid ' + bordaCor + ';border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden">'
+      + (destaque ? '<div style="position:absolute;top:0;right:0;background:#FF6D00;color:#fff;font-size:10px;font-weight:900;padding:4px 12px;border-radius:0 14px 0 10px">MAIS POPULAR</div>' : '')
+      + (isAtual ? '<div style="position:absolute;top:0;left:0;background:#00C853;color:#fff;font-size:10px;font-weight:900;padding:4px 12px;border-radius:14px 0 10px 0">SEU PLANO</div>' : '')
+      // Cabeçalho
+      + '<div style="' + (isAtual || destaque ? 'margin-top:14px' : '') + '">'
+      +   '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+      +     '<span style="font-size:24px">' + (p.emoji || '📦') + '</span>'
+      +     '<div>'
+      +       '<div style="font-size:16px;font-weight:900;color:#fff">' + p.nome + '</div>'
+      +       '<div style="font-size:12px;color:#aaa">' + (p.descricao || '') + '</div>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div style="font-size:' + (ehGratis ? '22px' : '28px') + ';font-weight:900;color:' + (ehGratis ? '#aaa' : '#FF6D00') + '">' + valorFmt + '</div>'
+      +   (p.diasTeste ? '<div style="font-size:11px;color:#4CAF50;margin-top:4px"><i class="fas fa-gift"></i> ' + p.diasTeste + ' dias grátis no início</div>' : '')
+      + '</div>'
+      // Benefícios
+      + '<div style="flex:1">' + (beneficiosHtml || '<div style="font-size:12px;color:#888">Plano básico</div>') + '</div>'
+      // Botão
+      + btnHtml
+      + '</div>';
+  }).join('');
+}
+
+function _beneficiosPadrao(planoId) {
+  const mapa = {
+    posto_gratis: ['Perfil básico no app', 'Exibir preços no mapa'],
+    posto_basico: ['Perfil básico no app', 'Selo verificado', 'Topo da lista de resultados', 'Gerar cupons de desconto', 'Suporte prioritário', 'Relatório de cliques e visitas'],
+    posto_plus:   ['Tudo do Básico', 'Pin dourado no mapa', 'Notificações por proximidade', 'Destaque na busca por cidade', 'Múltiplos usuários por posto', 'Atualização automática de preços'],
+    posto_premium:['Tudo do Plus', 'Painel completo de analytics', 'Integração API de preços', 'Gerente de conta dedicado']
+  };
+  return mapa[planoId] || ['Acesso ao painel', 'Suporte por e-mail'];
+}
+
+// Modal PIX para assinar novo plano
+async function assinarPlanoPix(planoId) {
+  if (!_sessao) return;
+  const overlay  = document.getElementById('pix-posto-overlay');
+  const conteudo = document.getElementById('ppm-conteudo');
+  const subTexto = document.getElementById('ppm-sub-texto');
+  if (!overlay || !conteudo) return;
+
+  overlay.classList.add('visivel');
+  if (subTexto) subTexto.textContent = 'Gerando PIX para assinatura do plano...';
+  conteudo.innerHTML = '<div style="text-align:center;padding:32px 0;color:#999">'
+    + '<i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:12px;display:block"></i>Gerando PIX...</div>';
+
+  try {
+    const r = await fetch('/api/pix/posto/assinar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _sessao.token },
+      body: JSON.stringify({
+        postoId: _sessao.postoId,
+        plano: planoId,
+        email: _sessao.email,
+        cnpj: _sessao.cnpj || ''
+      })
+    });
+    const d = await r.json();
+
+    if (d.sucesso) {
+      if (subTexto) subTexto.textContent = 'Escaneie o QR Code ou copie o código PIX para assinar.';
+      _exibirQRPosto(d);
+    } else {
+      conteudo.innerHTML = '<div style="text-align:center;padding:24px">'
+        + '<div style="font-size:32px;margin-bottom:12px">❌</div>'
+        + '<p style="color:#d32f2f;font-weight:700;margin-bottom:8px">' + (d.erro || 'Erro ao gerar PIX') + '</p>'
+        + '<button onclick="assinarPlanoPix(\'' + planoId + '\')" style="margin-top:8px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Tentar novamente</button>'
+        + '</div>';
+    }
+  } catch(e) {
+    conteudo.innerHTML = '<div style="text-align:center;padding:24px">'
+      + '<p style="color:#d32f2f;font-weight:700">Erro de rede. Tente novamente.</p>'
+      + '<button onclick="assinarPlanoPix(\'' + planoId + '\')" style="margin-top:12px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Tentar novamente</button>'
+      + '</div>';
+  }
+}
+
+async function ativarPlanoGratis() {
+  // Plano gratuito não precisa de PIX — atualiza direto via API
+  const lista = document.getElementById('planos-lista');
+  try {
+    const r = await fetch('/api/pix/posto/assinar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _sessao.token },
+      body: JSON.stringify({ postoId: _sessao.postoId, plano: 'posto_gratis', email: _sessao.email, cnpj: _sessao.cnpj || '' })
+    });
+    const d = await r.json();
+    if (d.sucesso) {
+      _sessao.plano = 'posto_gratis';
+      localStorage.setItem('rp_empresa_sessao', JSON.stringify(_sessao));
+      alert('✅ Plano Gratuito ativado!');
+      carregarPlanos();
+    }
+  } catch(e) { alert('Erro ao ativar plano gratuito.'); }
 }
 </script>
 </body>
