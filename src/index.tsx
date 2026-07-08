@@ -4211,7 +4211,7 @@ app.get('/ir', async (c) => {
       + 'background:#f7f7f7;margin-bottom:10px;text-decoration:none;color:#111;'
       + 'font-weight:700;font-size:15px;border:1px solid #eee">'
       + '<img src="https://maps.gstatic.com/mapfiles/maps_lite/pwa/icons/maps15_bnv.ico" '
-      + 'style="width:32px;height:32px;border-radius:8px" onerror="this.src=\'https://www.google.com/favicon.ico\'">'
+      + 'style="width:32px;height:32px;border-radius:8px" onerror="this.src=&apos;https://www.google.com/favicon.ico&apos;">'
       + '<div><div>Google Maps</div>'
       + '<div style="font-size:12px;font-weight:500;color:#888;margin-top:2px">Navegação com voz</div></div></a>'
       // Waze
@@ -4220,11 +4220,11 @@ app.get('/ir', async (c) => {
       + 'background:#f7f7f7;margin-bottom:16px;text-decoration:none;color:#111;'
       + 'font-weight:700;font-size:15px;border:1px solid #eee">'
       + '<img src="https://www.waze.com/favicon.ico" '
-      + 'style="width:32px;height:32px;border-radius:8px" onerror="this.style.display=\'none\'">'
+      + 'style="width:32px;height:32px;border-radius:8px" onerror="this.style.display=&apos;none&apos;">'
       + '<div><div>Waze</div>'
       + '<div style="font-size:12px;font-weight:500;color:#888;margin-top:2px">Trânsito em tempo real</div></div></a>'
       // Cancelar
-      + '<button onclick="document.getElementById(\'nav-sheet\').remove()" '
+      + '<button onclick="document.getElementById(&apos;nav-sheet&apos;).remove()" '
       + 'style="width:100%;padding:14px;border:none;background:#f0f0f0;border-radius:14px;'
       + 'font-size:15px;font-weight:700;color:#555;cursor:pointer">Cancelar</button>'
       + '</div>';
