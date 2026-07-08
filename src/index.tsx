@@ -13951,11 +13951,11 @@ function renderizarAbasPlanos() {
   }).join('');
 
   // Botão "+ Novo Plano" como última aba
-  tabs.innerHTML += '<div onclick="abrirModalNovoPLano()" style="'
+  tabs.innerHTML += '<div id="btn-novo-plano-tab" onclick="abrirModalNovoPLano()" style="'
     + 'cursor:pointer;border-radius:16px;padding:18px 12px 16px;text-align:center;'
     + 'border:2px dashed rgba(255,255,255,0.10);background:rgba(255,255,255,0.02);'
     + 'transition:all 0.2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:110px'
-    + '" onmouseover="this.style.borderColor=\'rgba(255,109,0,0.35)\';this.style.background=\'rgba(255,109,0,0.05)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,0.10)\';this.style.background=\'rgba(255,255,255,0.02)\'">'
+    + '">'
     + '<div style="width:36px;height:36px;border-radius:50%;border:2px dashed rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center">'
     + '<i class="fas fa-plus" style="font-size:14px;color:rgba(255,255,255,0.25)"></i></div>'
     + '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);letter-spacing:0.3px">Novo Plano</div>'
@@ -14179,13 +14179,22 @@ function mostrarToastPostos(msg, cor) {
 function renderizarBeneficiosModal(selecionados = []) {
   const grid = document.getElementById('mp-beneficios-grid');
   if (!grid) return;
-  grid.innerHTML = BENEFICIOS_POSTO.map(b =>
-    \`<label style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid \${selecionados.includes(b.id) ? 'rgba(255,109,0,0.35)' : 'rgba(255,255,255,0.08)'};border-radius:9px;padding:9px 12px;cursor:pointer;transition:.15s" onmouseover="this.style.borderColor='rgba(255,109,0,0.3)'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'rgba(255,109,0,0.35)':'rgba(255,255,255,0.08)'">
-      <input type="checkbox" data-bid="\${b.id}" class="beneficio-check" style="accent-color:var(--laranja);width:15px;height:15px;flex-shrink:0" \${selecionados.includes(b.id) ? 'checked' : ''} onchange="this.closest('label').style.borderColor=this.checked?'rgba(255,109,0,0.35)':'rgba(255,255,255,0.08)'"/>
-      <i class="\${b.icon}" style="color:rgba(255,255,255,0.4);font-size:11px;flex-shrink:0"></i>
-      <span style="font-size:11px;color:rgba(255,255,255,0.75)">\${b.label}</span>
-    </label>\`
-  ).join('');
+  grid.innerHTML = BENEFICIOS_POSTO.map(b => {
+    var checked = selecionados.includes(b.id);
+    var borderCol = checked ? 'rgba(255,109,0,0.35)' : 'rgba(255,255,255,0.08)';
+    return '<label class="benef-label" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1.5px solid ' + borderCol + ';border-radius:9px;padding:9px 12px;cursor:pointer;transition:.15s">'
+      + '<input type="checkbox" data-bid="' + b.id + '" class="beneficio-check" style="accent-color:var(--laranja);width:15px;height:15px;flex-shrink:0" '
+      + (checked ? 'checked' : '')
+      + ' onchange="mpBenefCheck(this)"/>'
+      + '<i class="' + b.icon + '" style="color:rgba(255,255,255,0.4);font-size:11px;flex-shrink:0"></i>'
+      + '<span style="font-size:11px;color:rgba(255,255,255,0.75)">' + b.label + '</span>'
+      + '</label>';
+  }).join('');
+}
+
+function mpBenefCheck(el) {
+  var label = el.closest('label');
+  if (label) label.style.borderColor = el.checked ? 'rgba(255,109,0,0.35)' : 'rgba(255,255,255,0.08)';
 }
 
 function coletarBeneficiosModal() {
