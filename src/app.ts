@@ -3574,32 +3574,50 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // Abre navegação no Google Maps — funciona em TWA/Android/iOS/Desktop
   function _abrirNavegacaoExterna(lat, lng, nome) {
-    var destino = lat + ',' + lng;
-    var destinoEnc = encodeURIComponent(destino);
+    var ua = navigator.userAgent || '';
+    var isAndroid = /android/i.test(ua);
 
     // Detectar se está rodando como TWA (Trusted Web Activity) ou WebView no Android
-    var ua = navigator.userAgent || '';
+    // wv no UA = WebView; display-mode standalone = PWA/TWA instalado; referrer android-app:// = TWA nativo
     var isTWA = document.referrer.indexOf('android-app://') === 0
       || ua.indexOf('wv') > -1
       || window.matchMedia('(display-mode: standalone)').matches;
 
-    if (isTWA) {
-      // No TWA/WebView o window.open ou intent:// causam ERR_UNKNOWN_URL_SCHEME
-      // A forma correta é criar um <a> com target="_blank" e rel="noopener" e simular o clique
-      // O Android intercepta URLs do Google Maps e abre o app nativo sem passar pelo WebView
-      var mapsUrl = 'https://maps.google.com/maps?daddr=' + destinoEnc + '&directionsmode=driving';
-      var a = document.createElement('a');
-      a.href = mapsUrl;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      // Adicionar ao DOM brevemente para garantir que o clique seja tratado pelo sistema
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+    if (isAndroid || isTWA) {
+      // ──────────────────────────────────────────────────────────────────────
+      // Android / TWA: usar intent:// nativo do Google Maps para navegação
+      // turn-by-turn imediata. NÃO usar maps.google.com — o Chrome intercepta
+      // qualquer URL *.google.com/maps como App Link e converte para intent://
+      // automaticamente, resultando em ERR_UNKNOWN_URL_SCHEME no TWA.
+      //
+      // intent://navigation/now?ll=LAT,LNG#Intent;scheme=google.navigation;
+      //   package=com.google.android.apps.maps;end
+      //
+      // Isso abre o app Google Maps direto em navegação sem passar pelo
+      // sistema de App Links do Chrome. Referência:
+      // https://dev.to/luc45hn/how-to-open-google-maps-in-turn-by-turn-navigation-mode-from-a-pwa-android-16e0
+      // ──────────────────────────────────────────────────────────────────────
+      if (lat && lng && lat !== 0 && lng !== 0) {
+        // Coordenadas disponíveis: abrir navegação turn-by-turn direto
+        var intentUrl = 'intent://navigation/now?ll=' + lat + ',' + lng
+          + '&title=' + encodeURIComponent(nome || 'Posto')
+          + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
+        window.location.href = intentUrl;
+      } else {
+        // Sem coordenadas: buscar pelo endereço/nome no Google Maps
+        var searchUrl = 'intent://maps.google.com/maps?q=' + encodeURIComponent(nome || '')
+          + '#Intent;scheme=https;package=com.google.android.apps.maps;'
+          + 'S.browser_fallback_url=' + encodeURIComponent('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(nome || ''))
+          + ';end';
+        window.location.href = searchUrl;
+      }
     } else {
-      // Browser desktop/iOS — nova aba normal
-      var mapsUrl2 = 'https://www.google.com/maps/dir/?api=1&destination=' + destinoEnc + '&travelmode=driving';
-      window.open(mapsUrl2, '_blank', 'noopener,noreferrer');
+      // Browser desktop/iOS — nova aba com URL padrão
+      var destinoEnc = (lat && lng && lat !== 0 && lng !== 0)
+        ? encodeURIComponent(lat + ',' + lng)
+        : encodeURIComponent(nome || '');
+      var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destinoEnc + '&travelmode=driving';
+      window.open(mapsUrl, '_blank', 'noopener,noreferrer');
     }
   }
 
