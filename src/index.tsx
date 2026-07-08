@@ -11628,55 +11628,19 @@ app.get('/admin', (c) => {
   <!-- ══ PLANOS DOS POSTOS (B2B) ══ -->
   <section id="section-planos" style="display:none">
     <!-- Header -->
-    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div class="page-header" style="margin-bottom:20px">
       <div>
         <h2 style="margin:0">⛽ Planos para Postos Parceiros</h2>
-        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Gerencie os planos B2B contratados pelos postos cadastrados no RotaPosto</div>
-      </div>
-      <button onclick="abrirModalNovoPLano()" style="background:var(--laranja);color:white;border:none;padding:10px 20px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <i class="fas fa-plus"></i> Novo Plano
-      </button>
-    </div>
-
-    <!-- KPIs: postos por plano -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px">
-      <div class="kpi-card" style="padding:18px;text-align:center">
-        <div style="font-size:22px;margin-bottom:4px">🆓</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;font-weight:700">Gratuito</div>
-        <div style="font-size:28px;font-weight:900;color:#42A5F5" id="kpi-postos-gratis">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
-      </div>
-      <div class="kpi-card" style="padding:18px;text-align:center">
-        <div style="font-size:22px;margin-bottom:4px">⭐</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;font-weight:700">Básico</div>
-        <div style="font-size:28px;font-weight:900;color:#FF6D00" id="kpi-postos-basico">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
-      </div>
-      <div class="kpi-card" style="padding:18px;text-align:center">
-        <div style="font-size:22px;margin-bottom:4px">👑</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;font-weight:700">Plus</div>
-        <div style="font-size:28px;font-weight:900;color:#FFD600" id="kpi-postos-plus">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
-      </div>
-      <div class="kpi-card" style="padding:18px;text-align:center">
-        <div style="font-size:22px;margin-bottom:4px">📦</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;font-weight:700">Outros</div>
-        <div style="font-size:28px;font-weight:900;color:rgba(255,255,255,0.45)" id="kpi-postos-outros">–</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.3)">postos</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Selecione um plano para editar · Clique em + Novo para adicionar</div>
       </div>
     </div>
 
-    <!-- Aviso de contexto -->
-    <div style="background:rgba(255,109,0,0.07);border:1px solid rgba(255,109,0,0.2);border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
-      <i class="fas fa-gas-pump" style="color:#FF6D00;font-size:16px;flex-shrink:0"></i>
-      <div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6">
-        Planos B2B exibidos no painel de adesão dos postos parceiros. Edite preço, ciclo, benefícios e configure cada plano diretamente nos cards abaixo.
-      </div>
-    </div>
+    <!-- Abas de seleção de plano (KPI + navegação) -->
+    <div id="planos-tabs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:28px"></div>
 
-    <!-- Grid de cards dos planos editáveis inline (renderizado via JS) -->
-    <div id="planos-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;margin-bottom:28px">
-      <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);font-size:13px;grid-column:1/-1">
+    <!-- Painel de edição do plano selecionado (tela inteira) -->
+    <div id="planos-grid" style="margin-bottom:28px">
+      <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);font-size:13px">
         <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block"></i>
         Carregando planos...
       </div>
@@ -13927,43 +13891,184 @@ let _planoEditandoId = null;  // id do plano em edição (null = novo)
 const CICLO_LABEL = { forever: 'Grátis', monthly: '/mês', yearly: '/ano', weekly: '/semana' };
 
 
+// Índice do plano selecionado na aba (null = nenhum ainda)
+var _planoTabIdx = null;
+
 async function carregarEstatisticasPlanos() {
-  // 1. KPIs de postos por plano
+  // 1. Carregar planos primeiro para montar as abas
+  await carregarPlanosGrid();
+
+  // 2. KPIs: contar postos por plano e atualizar contadores nas abas
   try {
     const parcsRes = await fetch('/api/admin/parceiros?key=' + encodeURIComponent(ADMIN_KEY));
     const parcsData = await parcsRes.json();
     const parceiros = parcsData.parceiros || [];
-    const contarPlano = (id) => parceiros.filter(p => (p.plano || 'posto_gratis') === id).length;
-    const nGratis  = contarPlano('posto_gratis')  || contarPlano('visibilidade') || contarPlano('free');
-    const nBasico  = contarPlano('posto_basico')  || contarPlano('basico');
-    const nPlus    = contarPlano('posto_plus')    || contarPlano('plus');
-    const nOutros  = parceiros.length - nGratis - nBasico - nPlus;
-    const sg = document.getElementById('kpi-postos-gratis');
-    const sb = document.getElementById('kpi-postos-basico');
-    const sp = document.getElementById('kpi-postos-plus');
-    const so = document.getElementById('kpi-postos-outros');
-    if (sg) sg.textContent = nGratis;
-    if (sb) sb.textContent = nBasico;
-    if (sp) sp.textContent = nPlus;
-    if (so) so.textContent = Math.max(0, nOutros);
-  } catch(e) { console.warn('kpis-postos:', e); }
-
-  // 2. Carregar e renderizar cards dos planos de postos
-  await carregarPlanosGrid();
+    _planosData.forEach(function(p, i) {
+      var n = parceiros.filter(function(parc) { return (parc.plano || 'posto_gratis') === p.id; }).length;
+      var el = document.getElementById('plano-tab-count-' + i);
+      if (el) el.textContent = n;
+    });
+  } catch(e) { /* sem contadores é ok */ }
 }
 
 async function carregarPlanosGrid() {
   const grid = document.getElementById('planos-grid');
   if (!grid) return;
   try {
-    // Carrega planos B2B de postos (separado dos planos do app)
     const res = await fetch('/api/admin/planos-posto?key=' + encodeURIComponent(ADMIN_KEY));
     const data = await res.json();
     _planosData = data.planos || [];
-    renderizarPlanosGrid();
+    // Selecionar primeiro plano se nenhum estiver selecionado
+    if (_planoTabIdx === null && _planosData.length > 0) _planoTabIdx = 0;
+    renderizarAbasPlanos();
+    renderizarPlanoSelecionado();
   } catch(e) {
     grid.innerHTML = '<div style="color:#FF5252;padding:20px;text-align:center">Erro ao carregar planos: ' + e.message + '</div>';
   }
+}
+
+function renderizarAbasPlanos() {
+  var tabs = document.getElementById('planos-tabs');
+  if (!tabs) return;
+  tabs.innerHTML = _planosData.map(function(p, i) {
+    var cor = p.cor || '#FF6D00';
+    var isAtivo = i === _planoTabIdx;
+    return '<div onclick="selecionarPlanoTab(' + i + ')" style="'
+      + 'cursor:pointer;border-radius:16px;padding:18px 12px 16px;text-align:center;'
+      + 'border:2px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.07)') + ';'
+      + 'background:' + (isAtivo ? 'rgba(' + _hexToRgb(cor) + ',0.14)' : 'rgba(255,255,255,0.03)') + ';'
+      + 'transition:all 0.2s;position:relative;overflow:hidden;'
+      + 'box-shadow:' + (isAtivo ? '0 4px 20px rgba(' + _hexToRgb(cor) + ',0.2)' : 'none') + ';'
+      + '">'
+      // Barra colorida no topo
+      + '<div style="position:absolute;top:0;left:0;right:0;height:4px;background:' + cor + ';opacity:' + (isAtivo ? '1' : '0.25') + ';border-radius:16px 16px 0 0"></div>'
+      + '<div style="font-size:26px;margin-bottom:8px;margin-top:2px">' + (p.emoji || '📦') + '</div>'
+      + '<div style="font-size:12px;font-weight:800;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.45)') + ';margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">' + p.nome + '</div>'
+      + '<div style="font-size:26px;font-weight:900;color:' + cor + ';line-height:1;opacity:' + (isAtivo ? '1' : '0.6') + '" id="plano-tab-count-' + i + '">–</div>'
+      + '<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;font-weight:600;letter-spacing:0.3px">postos</div>'
+      + (isAtivo ? '<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:' + cor + ';opacity:0.6"></div>' : '')
+      + '</div>';
+  }).join('');
+
+  // Botão "+ Novo Plano" como última aba
+  tabs.innerHTML += '<div onclick="abrirModalNovoPLano()" style="'
+    + 'cursor:pointer;border-radius:16px;padding:18px 12px 16px;text-align:center;'
+    + 'border:2px dashed rgba(255,255,255,0.10);background:rgba(255,255,255,0.02);'
+    + 'transition:all 0.2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:110px'
+    + '" onmouseover="this.style.borderColor=\'rgba(255,109,0,0.35)\';this.style.background=\'rgba(255,109,0,0.05)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,0.10)\';this.style.background=\'rgba(255,255,255,0.02)\'">'
+    + '<div style="width:36px;height:36px;border-radius:50%;border:2px dashed rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center">'
+    + '<i class="fas fa-plus" style="font-size:14px;color:rgba(255,255,255,0.25)"></i></div>'
+    + '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);letter-spacing:0.3px">Novo Plano</div>'
+    + '</div>';
+}
+
+function _hexToRgb(hex) {
+  hex = hex.replace('#','');
+  if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  var r = parseInt(hex.substring(0,2),16);
+  var g = parseInt(hex.substring(2,4),16);
+  var b = parseInt(hex.substring(4,6),16);
+  return r + ',' + g + ',' + b;
+}
+
+function selecionarPlanoTab(idx) {
+  _planoTabIdx = idx;
+  renderizarAbasPlanos();
+  renderizarPlanoSelecionado();
+}
+
+function renderizarPlanoSelecionado() {
+  var grid = document.getElementById('planos-grid');
+  if (!grid) return;
+  if (!_planosData.length) {
+    grid.innerHTML = '<div style="color:rgba(255,255,255,0.3);padding:40px;text-align:center">Nenhum plano cadastrado. Clique em "+ Novo Plano" para criar.</div>';
+    return;
+  }
+  var i = (_planoTabIdx !== null && _planoTabIdx < _planosData.length) ? _planoTabIdx : 0;
+  var p = _planosData[i];
+  var cor = p.cor || '#FF6D00';
+  var isGratis = p.ciclo === 'forever';
+  var isProtected = ['posto_gratis','posto_basico','posto_plus'].includes(p.id);
+  var CICLO_OPTS_POSTO = [
+    { v:'forever', l:'Grátis / Para sempre' },
+    { v:'trial',   l:'Período de Teste (grátis)' },
+    { v:'monthly', l:'Mensal' },
+    { v:'yearly',  l:'Anual' }
+  ];
+  var cicloOpts = CICLO_OPTS_POSTO.map(function(o) {
+    return '<option value="' + o.v + '"' + (p.ciclo === o.v ? ' selected' : '') + '>' + o.l + '</option>';
+  }).join('');
+  var beneficiosPlano = Array.isArray(p.beneficios) ? p.beneficios : [];
+  var benefCheckboxes = BENEFICIOS_POSTO.map(function(b) {
+    var checked = beneficiosPlano.includes(b.id);
+    return '<label style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1.5px solid '
+      + (checked ? cor + '66' : 'rgba(255,255,255,0.07)')
+      + ';border-radius:10px;padding:10px 12px;cursor:pointer;transition:border-color 0.15s" id="pp-blabel-' + i + '-' + b.id + '">'
+      + '<input type="checkbox" data-plano-idx="' + i + '" data-bid="' + b.id + '" '
+      + (checked ? 'checked' : '') + ' onchange="toggleBeneficioPostoCard(parseInt(this.dataset.planoIdx),this.dataset.bid,this.checked,this)"'
+      + ' style="accent-color:' + cor + ';width:15px;height:15px;flex-shrink:0;cursor:pointer">'
+      + '<i class="' + b.icon + '" style="color:' + (checked ? cor : 'rgba(255,255,255,0.3)') + ';font-size:12px;flex-shrink:0;width:14px;text-align:center"></i>'
+      + '<span style="font-size:12px;color:' + (checked ? '#fff' : 'rgba(255,255,255,0.55)') + ';font-weight:' + (checked ? '700' : '500') + '">' + b.label + '</span>'
+      + '</label>';
+  }).join('');
+
+  grid.innerHTML = '<div style="background:#0D1B2A;border:2px solid ' + cor + '44;border-radius:18px;overflow:hidden;width:100%">'
+    // Faixa colorida topo
+    + '<div style="height:5px;background:linear-gradient(90deg,' + cor + ',' + cor + '88)"></div>'
+    // Header do plano
+    + '<div style="padding:24px 28px 20px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+    +   '<input id="pp-emoji-' + i + '" type="text" maxlength="4" value="' + (p.emoji||'📦') + '" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:26px;text-align:center;padding:8px;width:54px;font-family:inherit;outline:none">'
+    +   '<div style="flex:1;min-width:200px">'
+    +     '<input id="pp-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g,'&quot;') + '" style="width:100%;background:transparent;border:none;border-bottom:2px solid rgba(255,255,255,0.1);color:#fff;font-size:22px;font-weight:900;padding:4px 0 8px;font-family:inherit;outline:none;margin-bottom:6px" placeholder="Nome do plano">'
+    +     '<input id="pp-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g,'&quot;') + '" style="width:100%;background:transparent;border:none;border-bottom:1.5px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);font-size:13px;padding:4px 0 6px;font-family:inherit;outline:none" placeholder="Descrição do plano...">'
+    +   '</div>'
+    +   '<input id="pp-cor-' + i + '" type="color" value="' + cor + '" title="Cor do plano" style="width:44px;height:44px;border:2px solid rgba(255,255,255,0.12);border-radius:10px;background:rgba(255,255,255,0.04);padding:3px;cursor:pointer;flex-shrink:0">'
+    + '</div>'
+    // Preço + ciclo
+    + '<div style="padding:20px 28px;border-bottom:1px solid rgba(255,255,255,0.07);display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;align-items:start">'
+    +   '<div>'
+    +     '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Preço (centavos)</div>'
+    +     '<div style="display:flex;align-items:center;gap:8px">'
+    +       '<span style="font-size:18px;font-weight:700;color:rgba(255,255,255,0.35)">R$</span>'
+    +       '<input id="pp-valor-' + i + '" type="number" min="0" step="1" value="' + p.valor + '" ' + (isGratis ? 'disabled' : '') + ' style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:24px;font-weight:900;padding:10px 14px;width:150px;font-family:inherit;outline:none;' + (isGratis ? 'opacity:0.35;cursor:not-allowed' : '') + '">'
+    +     '</div>'
+    +     '<div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:5px">ex: 9900 = R$ 99,00</div>'
+    +   '</div>'
+    +   '<div>'
+    +     '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Ciclo de Cobrança</div>'
+    +     '<select id="pp-ciclo-' + i + '" onchange="ppToggleTrialBox(' + i + ')" style="width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:14px;font-weight:600;padding:10px 14px;font-family:inherit;outline:none;cursor:pointer">' + cicloOpts + '</select>'
+    +   '</div>'
+    + '</div>'
+    // Trial box
+    + '<div id="pp-trial-box-' + i + '" style="display:' + (['trial','forever'].includes(p.ciclo) ? 'flex' : 'none') + ';align-items:center;gap:10px;background:rgba(255,214,0,0.07);border-bottom:1px solid rgba(255,255,255,0.07);padding:14px 28px">'
+    +   '<i class="fas fa-clock" style="color:#FFD600;font-size:13px;flex-shrink:0"></i>'
+    +   '<span style="font-size:12px;color:#FFD600;font-weight:700;flex-shrink:0">Dias de teste:</span>'
+    +   '<input id="pp-dias-' + i + '" type="number" min="0" max="365" value="' + (p.diasTeste||0) + '" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,214,0,0.3);border-radius:8px;color:#FFD600;font-size:16px;font-weight:900;padding:6px 10px;width:80px;font-family:inherit;outline:none">'
+    +   '<span style="font-size:11px;color:rgba(255,255,255,0.3)">(0 = sem trial)</span>'
+    + '</div>'
+    // Switches
+    + '<div style="padding:16px 28px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;gap:28px;flex-wrap:wrap">'
+    +   '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.7)">'
+    +     '<input id="pp-ativo-' + i + '" type="checkbox" ' + (p.ativo ? 'checked' : '') + ' style="accent-color:#00C853;width:17px;height:17px;cursor:pointer"> Plano Ativo'
+    +   '</label>'
+    +   '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.7)">'
+    +     '<input id="pp-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FFD600;width:17px;height:17px;cursor:pointer"> Mais Popular'
+    +   '</label>'
+    + '</div>'
+    // Benefícios
+    + '<div style="padding:20px 28px;border-bottom:1px solid rgba(255,255,255,0.07)">'
+    +   '<div style="font-size:11px;color:rgba(255,255,255,0.35);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px"><i class="fas fa-gas-pump" style="color:' + cor + ';margin-right:6px"></i>Benefícios do Posto Parceiro</div>'
+    +   '<div id="pp-bens-' + i + '" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">' + benefCheckboxes + '</div>'
+    + '</div>'
+    // Rodapé
+    + '<div style="padding:16px 28px;background:rgba(0,0,0,0.2);display:flex;justify-content:space-between;align-items:center">'
+    +   '<div style="font-size:11px;color:rgba(255,255,255,0.2)">ID: ' + p.id + '</div>'
+    +   '<div style="display:flex;gap:10px">'
+    +     (!isProtected ? '<button onclick="deletarPlanoPostoInline(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25);padding:9px 16px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700"><i class="fas fa-trash"></i> Excluir</button>' : '')
+    +     '<button onclick="salvarPlanoPostoInline(' + i + ',&apos;' + p.id + '&apos;)" style="background:' + cor + ';color:#fff;border:none;padding:10px 28px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer"><i class="fas fa-save" style="margin-right:6px"></i>Salvar alterações</button>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
 }
 
 // ─── Benefícios fixos disponíveis para planos de postos parceiros ────────────
@@ -13982,90 +14087,7 @@ const BENEFICIOS_POSTO = [
   { id: 'multiplos_usuarios',  label: 'Múltiplos usuários por posto',           icon: 'fas fa-users' },
 ];
 
-function renderizarPlanosGrid() {
-  const grid = document.getElementById('planos-grid');
-  if (!grid) return;
-  if (!_planosData.length) {
-    grid.innerHTML = '<div style="color:rgba(255,255,255,0.3);padding:40px;text-align:center;grid-column:1/-1">Nenhum plano cadastrado</div>';
-    return;
-  }
-  const CICLO_OPTS_POSTO = [
-    { v:'forever', l:'Grátis / Para sempre' },
-    { v:'trial',   l:'Período de Teste (grátis)' },
-    { v:'monthly', l:'Mensal' },
-    { v:'yearly',  l:'Anual' }
-  ];
-  grid.innerHTML = _planosData.map((p, i) => {
-    const cor = p.cor || '#FF6D00';
-    const isGratis = p.ciclo === 'forever';
-    const cicloOpts = CICLO_OPTS_POSTO.map(o => '<option value="' + o.v + '"' + (p.ciclo === o.v ? ' selected' : '') + '>' + o.l + '</option>').join('');
-    const beneficiosPlano = Array.isArray(p.beneficios) ? p.beneficios : [];
-    // Checkboxes de benefícios fixos
-    const benefCheckboxes = BENEFICIOS_POSTO.map(b =>
-      '<label style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.04);border:1px solid ' + (beneficiosPlano.includes(b.id) ? cor + '55' : 'rgba(255,255,255,0.07)') + ';border-radius:8px;padding:7px 10px;cursor:pointer" id="pp-blabel-' + i + '-' + b.id + '">'
-      + '<input type="checkbox" data-plano-idx="' + i + '" data-bid="' + b.id + '" ' + (beneficiosPlano.includes(b.id) ? 'checked' : '') + ' onchange="toggleBeneficioPostoCard(parseInt(this.dataset.planoIdx),this.dataset.bid,this.checked,this)" style="accent-color:' + cor + ';width:14px;height:14px;flex-shrink:0;cursor:pointer">'
-      + '<i class="' + b.icon + '" style="color:rgba(255,255,255,0.35);font-size:11px;flex-shrink:0"></i>'
-      + '<span style="font-size:11px;color:rgba(255,255,255,0.7)">' + b.label + '</span>'
-      + '</label>'
-    ).join('');
-    const isProtected = ['posto_gratis','posto_basico','posto_plus'].includes(p.id);
-    return '<div class="kpi-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">'
-      // Faixa colorida no topo
-      + '<div style="height:5px;background:' + cor + ';width:100%"></div>'
-      // Cabeçalho — emoji + nome + status
-      + '<div style="padding:16px 18px 12px;border-bottom:1px solid rgba(255,255,255,0.07)">'
-      +   '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
-      +     '<input id="pp-emoji-' + i + '" type="text" maxlength="4" value="' + (p.emoji||'📦') + '" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:22px;text-align:center;padding:5px;width:48px;font-family:inherit;outline:none">'
-      +     '<input id="pp-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g,'&quot;') + '" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:15px;font-weight:800;padding:7px 10px;font-family:inherit;outline:none" placeholder="Nome do plano">'
-      +     '<input id="pp-cor-' + i + '" type="color" value="' + cor + '" title="Cor do plano" style="width:36px;height:36px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.04);padding:3px;cursor:pointer;flex-shrink:0">'
-      +   '</div>'
-      +   '<input id="pp-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g,'&quot;') + '" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:rgba(255,255,255,0.5);font-size:12px;padding:7px 10px;font-family:inherit;outline:none;box-sizing:border-box" placeholder="Descrição do plano...">'
-      + '</div>'
-      // Preço + ciclo + dias de teste
-      + '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.07)">'
-      +   '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">'
-      +     '<div style="flex:1;min-width:110px">'
-      +       '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">Preço (centavos)</div>'
-      +       '<div style="display:flex;align-items:center;gap:5px">'
-      +         '<span style="color:rgba(255,255,255,0.35);font-size:13px;font-weight:700">R$</span>'
-      +         '<input id="pp-valor-' + i + '" type="number" min="0" step="1" value="' + p.valor + '" ' + (isGratis ? 'disabled' : '') + ' style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:18px;font-weight:900;padding:7px 10px;width:100px;font-family:inherit;outline:none;' + (isGratis ? 'opacity:0.35;cursor:not-allowed' : '') + '">'
-      +       '</div>'
-      +       '<div style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px">ex: 9900 = R$99,00</div>'
-      +     '</div>'
-      +     '<div style="min-width:160px">'
-      +       '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">Ciclo</div>'
-      +       '<select id="pp-ciclo-' + i + '" onchange="ppToggleTrialBox(' + i + ')" style="background:#0A1520;border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:12px;font-weight:600;padding:8px 10px;font-family:inherit;outline:none;cursor:pointer;width:100%">' + cicloOpts + '</select>'
-      +     '</div>'
-      +   '</div>'
-      +   '<div id="pp-trial-box-' + i + '" style="display:' + (['trial','forever'].includes(p.ciclo) ? 'flex' : 'none') + ';align-items:center;gap:8px;background:rgba(255,214,0,0.07);border:1px solid rgba(255,214,0,0.2);border-radius:8px;padding:10px 12px">'
-      +     '<i class="fas fa-clock" style="color:#FFD600;font-size:12px;flex-shrink:0"></i>'
-      +     '<span style="font-size:11px;color:#FFD600;font-weight:700;flex-shrink:0">Dias de teste:</span>'
-      +     '<input id="pp-dias-' + i + '" type="number" min="0" max="365" value="' + (p.diasTeste||0) + '" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,214,0,0.3);border-radius:6px;color:#FFD600;font-size:14px;font-weight:900;padding:5px 8px;width:70px;font-family:inherit;outline:none">'
-      +     '<span style="font-size:10px;color:rgba(255,255,255,0.35)">(0 = sem trial)</span>'
-      +   '</div>'
-      + '</div>'
-      // Switches ativo + destaque
-      + '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;gap:20px">'
-      +   '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.65)">'
-      +     '<input id="pp-ativo-' + i + '" type="checkbox" ' + (p.ativo ? 'checked' : '') + ' style="accent-color:#00C853;width:16px;height:16px;cursor:pointer"> Plano Ativo'
-      +   '</label>'
-      +   '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.65)">'
-      +     '<input id="pp-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FFD600;width:16px;height:16px;cursor:pointer"> Mais Popular'
-      +   '</label>'
-      + '</div>'
-      // Benefícios fixos checkboxes
-      + '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.07)">'
-      +   '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px"><i class="fas fa-gas-pump" style="color:' + cor + ';margin-right:5px"></i>Benefícios do Posto Parceiro</div>'
-      +   '<div id="pp-bens-' + i + '" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' + benefCheckboxes + '</div>'
-      + '</div>'
-      // Rodapé salvar/excluir
-      + '<div style="padding:12px 18px;background:rgba(0,0,0,0.15);display:flex;justify-content:flex-end;gap:8px">'
-      +   (!isProtected ? '<button onclick="deletarPlanoPostoInline(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700"><i class="fas fa-trash"></i></button>' : '')
-      +   '<button onclick="salvarPlanoPostoInline(' + i + ',&apos;' + p.id + '&apos;)" style="background:' + cor + ';color:#fff;border:none;padding:8px 22px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer"><i class="fas fa-save" style="margin-right:6px"></i>Salvar</button>'
-      + '</div>'
-      + '</div>';
-  }).join('');
-}
+// renderizarPlanosGrid substituída por renderizarAbasPlanos + renderizarPlanoSelecionado
 
 // Atualiza visibilidade da caixa de dias de teste ao mudar o ciclo
 function ppToggleTrialBox(i) {
