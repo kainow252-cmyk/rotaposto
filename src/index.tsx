@@ -3790,7 +3790,7 @@ app.get('/ir', async (c) => {
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <meta name="theme-color" content="#FF6D00"/>
   <title>${tituloSafe || 'Mapa'}</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;width:100%;overflow:hidden;
@@ -3893,7 +3893,8 @@ app.get('/ir', async (c) => {
   </button>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"
+  onerror="document.getElementById('loading-overlay').style.display='none';document.getElementById('map').innerHTML='<div style=\\'padding:40px;text-align:center;color:#666\\'>Mapa indisponível.<br>Use o botão abaixo para navegar.</div>';"><\/script>
 <script>
   // ── Dados do destino ──────────────────────────────────────────────────
   var DEST_LAT  = ${JSON.stringify(lat)};
@@ -4034,11 +4035,30 @@ app.get('/ir', async (c) => {
 
   function obterLocalizacao(onOk, onErro) {
     if (!navigator.geolocation) { onErro(); return; }
-    navigator.geolocation.getCurrentPosition(
-      function(p) { onOk(p.coords.latitude, p.coords.longitude); },
-      function()  { onErro(); },
-      { timeout: 10000, maximumAge: 15000, enableHighAccuracy: true }
+    var _wId = null;
+    var _ok = false;
+    // watchPosition é mais confiável no PWA Android que getCurrentPosition
+    _wId = navigator.geolocation.watchPosition(
+      function(p) {
+        if (_ok) return;
+        // Aceitar precisão até 1500m — melhor do que nada
+        if (p.coords.accuracy > 2000 && !_ok) return;
+        _ok = true;
+        if (_wId !== null) { navigator.geolocation.clearWatch(_wId); _wId = null; }
+        onOk(p.coords.latitude, p.coords.longitude);
+      },
+      function() {
+        if (_wId !== null) { navigator.geolocation.clearWatch(_wId); _wId = null; }
+        onErro();
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
+    // Safety: após 15s sem GPS, liberar mesmo assim
+    setTimeout(function() {
+      if (_ok) return;
+      if (_wId !== null) { navigator.geolocation.clearWatch(_wId); _wId = null; }
+      onErro();
+    }, 15000);
   }
 
   function atualizarPosUsuario(lat, lng) {
@@ -4211,7 +4231,15 @@ app.get('/ir', async (c) => {
   }
 
   // ── Inicializar ───────────────────────────────────────────────────────
+  // Safety: se Leaflet demorar >8s, esconde loading e mostra erro
+  var _safetyTimer = setTimeout(function() {
+    setLoading(false);
+    setStatus('Sem conexão. Use o botão abaixo para navegar.');
+    setBotao('verPassos'); // libera o botão Ir agora mesmo sem mapa
+  }, 8000);
+
   window.addEventListener('load', function() {
+    clearTimeout(_safetyTimer);
     initMap();
 
     // Registrar evento do botão principal via JS (evita duplo-disparo touch+click no Android)
