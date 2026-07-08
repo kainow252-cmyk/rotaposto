@@ -2,6 +2,10 @@
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Cross-Origin-Embedder-Policy: unsafe-none
 
+/x5LakcrEBYEZAk0jBiw7VA7EYXo-0HQ14lInP4I2HFVq_gzqonn8yvvESRPrVaLr
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Type: text/plain
+
 /.well-known/assetlinks.json
   Content-Type: application/json
   Access-Control-Allow-Origin: *

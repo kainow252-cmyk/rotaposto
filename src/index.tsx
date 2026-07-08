@@ -2476,6 +2476,22 @@ app.get('/.well-known/assetlinks.json', (c) => {
   })
 })
 
+// ─── Firebase Hosting — verificação de domínio (ACME HTTP challenge) ────────
+// O Firebase verifica a propriedade do domínio fazendo GET nesta URL.
+// Deve retornar exatamente o conteúdo do token sem HTML nem redirect.
+app.get('/x5LakcrEBYEZAk0jBiw7VA7EYXo-0HQ14lInP4I2HFVq_gzqonn8yvvESRPrVaLr', (c) => {
+  return new Response(
+    'x5LakcrEBYEZAk0jBiw7VA7EYXo-0HQ14lInP4I2HFVq_gzqonn8yvvESRPrVaLr.M0-GObbb5ePi63ASQsPKBrDqfgayGnOWpyrEF0nHqug',
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      }
+    }
+  )
+})
+
 // ─── Frontend Principal ───────────────────────────────────────────────────────
 // Rota raiz → onboarding (splash + login) como app nativo
 // ─── API: trocar Google OAuth code por id_token via PKCE ─────────────────────
