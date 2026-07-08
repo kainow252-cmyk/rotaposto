@@ -3887,7 +3887,7 @@ app.get('/ir', async (c) => {
 </div>
 
 <div id="footer">
-  <button id="btn-rota" onclick="acaoBotao()">
+  <button id="btn-rota">
     <span id="btn-icon">🧭</span>
     <span id="btn-txt">Traçar Rota</span>
   </button>
@@ -3946,9 +3946,15 @@ app.get('/ir', async (c) => {
     modoPassos = false;
   }
 
+  // Proteção anti-duplo-clique (Android pode disparar touchend + click juntos)
+  var _btnBloqueado = false;
   function acaoBotao() {
-    if (estadoBotao === 'tracaRota')     tracaRota();
-    else if (estadoBotao === 'verPassos')  { document.getElementById('painel').style.display = 'block'; setBotao('fecharPassos'); modoPassos = true; }
+    if (_btnBloqueado) return;
+    _btnBloqueado = true;
+    setTimeout(function() { _btnBloqueado = false; }, 600);
+
+    if (estadoBotao === 'tracaRota')         tracaRota();
+    else if (estadoBotao === 'verPassos')    { document.getElementById('painel').style.display = 'block'; setBotao('fecharPassos'); modoPassos = true; }
     else if (estadoBotao === 'fecharPassos') fecharPainel();
   }
 
@@ -4133,11 +4139,30 @@ app.get('/ir', async (c) => {
         '</div>';
     }
     document.getElementById('passos').innerHTML = passosHtml || '<div class="step"><div class="step-txt">Rota calculada com sucesso.</div></div>';
+
+    // Garantir que o painel fique FECHADO após calcular a rota
+    // O usuário deve apertar "Ver passo a passo" explicitamente
+    document.getElementById('painel').style.display = 'none';
+    modoPassos = false;
   }
 
   // ── Inicializar ───────────────────────────────────────────────────────
   window.addEventListener('load', function() {
     initMap();
+
+    // Registrar evento do botão principal via JS (evita duplo-disparo touch+click no Android)
+    var btnRota = document.getElementById('btn-rota');
+    var _touchAtivou = false;
+    btnRota.addEventListener('touchend', function(e) {
+      e.preventDefault(); // impede o click sintético que o browser gera após touchend
+      _touchAtivou = true;
+      acaoBotao();
+      setTimeout(function() { _touchAtivou = false; }, 600);
+    }, { passive: false });
+    btnRota.addEventListener('click', function(e) {
+      if (_touchAtivou) return; // já foi tratado pelo touchend
+      acaoBotao();
+    });
   });
 <\/script>
 </body>
