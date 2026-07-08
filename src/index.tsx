@@ -3764,120 +3764,147 @@ app.get('/manifest.json', (c) => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  /ir — Página HTML intermediária para abrir Google Maps (Round 8)
+//  /ir — Página HTML intermediária para abrir app de navegação (Round 9)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-//  HISTÓRICO COMPLETO DE FALHAS (todos os schemes bloqueados pelo TWA):
-//    R1: geo:LAT,LNG                  → ERR_UNKNOWN_URL_SCHEME
-//    R2: window.open(maps.google.com, '_blank', 'noopener') → intent:// → bloqueado
-//    R3: <a target="_blank">.click()  → App Links → intent:// → bloqueado
-//    R4: window.location.href = intent://navigation/now → ERR_UNKNOWN_URL_SCHEME
-//    R5: window.open(maps.google.com, '_blank') sem features → Custom Tab, mas
-//        TWA intercepta window.open para domínios externos → bloqueado
-//    R6: server 302 → maps.google.com → Android converte para intent:// → bloqueado
-//    R7: comgooglemaps:// → ERR_UNKNOWN_URL_SCHEME (TWA bloqueia TODOS os custom schemes)
+//  HISTÓRICO COMPLETO DE FALHAS no TWA Android:
+//    R1: geo:LAT,LNG                          → ERR_UNKNOWN_URL_SCHEME
+//    R2: window.open(maps.google.com,'_blank','noopener') → intent:// → bloqueado
+//    R3: <a target="_blank">.click()           → App Links → intent:// → bloqueado
+//    R4: window.location.href = intent://...  → ERR_UNKNOWN_URL_SCHEME
+//    R5: window.open(maps.google.com,'_blank') sem features → bloqueado (JS auto)
+//    R6: server 302 → maps.google.com          → Android App Link → intent:// → bloqueado
+//    R7: comgooglemaps://                       → ERR_UNKNOWN_URL_SCHEME
+//    R8: window.open(_blank) via clique humano → intent:// → ERR_UNKNOWN_URL_SCHEME
+//        (o Android ainda intercepta maps.google.com como App Link no Custom Tab)
 //
-//  SOLUÇÃO R8: Página /ir com botão que usa window.open(_blank) via CLIQUE DO USUÁRIO
-//    - Clique manual em botão dispara window.open(webLink, '_blank') via onclick
-//    - TWA trata cliques do usuário diferente de JS automático
-//    - '_blank' sem features = Chrome Custom Tab
-//    - Custom Tab processa App Links nativamente → abre Google Maps app
-//    - Diferença do R5: R5 usava JS automático, R8 usa clique humano direto no botão
+//  RAIZ DO PROBLEMA: assetlinks.json tem delegate_permission/common.handle_all_urls
+//  → TWA intercepta TODAS URLs → *.google.com/maps vira intent:// → TWA bloqueia intent://
+//
+//  SOLUÇÃO R9: Oferecer Waze + Maps Web como alternativas
+//    - Waze (ul.waze.com): NÃO está nos App Links do Google Maps → Custom Tab abre Waze
+//    - Google Maps Web: link <a href> direto para maps.google.com (não JS) → navega no browser
+//    - Copiar coordenadas: fallback se nenhum app abrir
 //
 app.get('/ir', (c) => {
-  const lat = c.req.query('lat')
-  const lng = c.req.query('lng')
+  const lat  = c.req.query('lat')
+  const lng  = c.req.query('lng')
   const nome = c.req.query('nome') || ''
 
-  let webLink: string
-  let titulo: string
+  let wazeLink: string
+  let mapsLink: string
+  let titulo:   string
 
   if (lat && lng && lat !== '0' && lng !== '0') {
-    webLink = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + ',' + lng)}&travelmode=driving`
-    titulo  = nome ? nome : `${lat}, ${lng}`
+    wazeLink = `https://ul.waze.com/ul?ll=${encodeURIComponent(lat + '%2C' + lng)}&navigate=yes&zoom=17`
+    mapsLink = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + ',' + lng)}&travelmode=driving`
+    titulo   = nome ? nome : `${lat}, ${lng}`
   } else if (nome) {
-    webLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome)}`
-    titulo  = nome
+    wazeLink = `https://ul.waze.com/ul?q=${encodeURIComponent(nome)}&navigate=yes`
+    mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome)}`
+    titulo   = nome
   } else {
-    webLink = `https://maps.google.com/`
-    titulo  = 'Google Maps'
+    wazeLink = 'https://ul.waze.com/ul'
+    mapsLink = 'https://maps.google.com/'
+    titulo   = 'Google Maps'
   }
 
   const tituloSafe = titulo.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')
-  const webLinkSafe = webLink.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+  const wazeSafe   = wazeLink.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+  const mapsSafe   = mapsLink.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+  const latVal     = (lat  && lat  !== '0') ? lat  : ''
+  const lngVal     = (lng  && lng  !== '0') ? lng  : ''
+  const coords     = (latVal && lngVal) ? `${latVal}, ${lngVal}` : ''
 
-  // R8: botão com onclick="window.open(url,'_blank')" — clique do usuário
-  // O TWA permite que cliques em botões abram Chrome Custom Tab com window.open
-  // Custom Tab processa App Links do Android → Google Maps app abre nativamente
+  const coordsBtn = coords
+    ? `<div class="divider"></div>
+    <button class="btn-copy" onclick="copiarCoords()">
+      <span>📋</span>
+      <span id="copy-txt">Copiar coordenadas</span>
+    </button>`
+    : ''
+
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
   <meta name="theme-color" content="#FF6D00"/>
-  <title>Ir até ${tituloSafe}</title>
+  <title>Navegar até ${tituloSafe}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-         background:#fff;display:flex;align-items:center;justify-content:center;
-         min-height:100vh;padding:24px}
-    .card{max-width:360px;width:100%;text-align:center}
-    .icon{font-size:64px;margin-bottom:20px;display:block}
-    h1{font-size:22px;font-weight:800;color:#111;margin-bottom:10px}
-    p{font-size:15px;color:#555;margin-bottom:28px;line-height:1.5}
-    p strong{color:#111}
-    .btn{display:block;width:100%;background:#FF6D00;color:#fff;border:none;
-         padding:18px 16px;border-radius:16px;font-size:17px;font-weight:800;
-         text-decoration:none;cursor:pointer;margin-bottom:14px;
-         box-shadow:0 4px 16px rgba(255,109,0,0.35);
-         -webkit-appearance:none;letter-spacing:0.2px}
-    .btn:active{background:#e56200;transform:scale(0.98)}
-    .btn-sec{display:block;width:100%;background:#f2f2f2;color:#333;border:none;
-             padding:16px;border-radius:16px;font-size:15px;font-weight:600;
-             text-decoration:none;cursor:pointer;border:1px solid #e0e0e0;
-             -webkit-appearance:none}
-    .btn-sec:active{background:#e5e5e5}
-    .hint{font-size:12px;color:#aaa;margin-top:20px;line-height:1.4}
+         background:#f7f7f7;display:flex;align-items:center;justify-content:center;
+         min-height:100vh;padding:20px}
+    .card{max-width:360px;width:100%;background:#fff;border-radius:20px;
+          padding:28px 20px;box-shadow:0 2px 20px rgba(0,0,0,0.08);text-align:center}
+    .icon{font-size:52px;margin-bottom:16px;display:block}
+    h1{font-size:20px;font-weight:800;color:#111;margin-bottom:6px}
+    .dest{font-size:14px;color:#555;margin-bottom:22px;line-height:1.4;
+          background:#f5f5f5;padding:8px 12px;border-radius:10px}
+    .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+           color:#aaa;margin-bottom:12px}
+    .btn-waze{display:flex;align-items:center;justify-content:center;gap:10px;
+              width:100%;background:#06C167;color:#fff;border:none;
+              padding:16px;border-radius:14px;font-size:16px;font-weight:800;
+              text-decoration:none;cursor:pointer;margin-bottom:10px;
+              box-shadow:0 3px 12px rgba(6,193,103,0.30);-webkit-appearance:none}
+    .btn-waze:active{background:#05a457;transform:scale(0.98)}
+    .btn-maps{display:flex;align-items:center;justify-content:center;gap:10px;
+              width:100%;background:#4285F4;color:#fff;border:none;
+              padding:16px;border-radius:14px;font-size:16px;font-weight:800;
+              text-decoration:none;cursor:pointer;margin-bottom:10px;
+              box-shadow:0 3px 12px rgba(66,133,244,0.30);-webkit-appearance:none}
+    .btn-maps:active{background:#3367d6;transform:scale(0.98)}
+    .divider{height:1px;background:#f0f0f0;margin:14px 0}
+    .btn-copy{display:flex;align-items:center;justify-content:center;gap:8px;
+              width:100%;background:#f5f5f5;color:#555;border:none;
+              padding:13px;border-radius:12px;font-size:14px;font-weight:600;
+              cursor:pointer;-webkit-appearance:none}
+    .btn-copy:active{background:#e8e8e8}
+    .hint{font-size:11px;color:#bbb;margin-top:16px;line-height:1.5}
+    .copied{color:#06C167!important;font-weight:700}
   </style>
 </head>
 <body>
   <div class="card">
-    <span class="icon">🗺️</span>
-    <h1>Abrir Google Maps</h1>
-    <p>Navegar até<br><strong>${tituloSafe}</strong></p>
-    <button class="btn" onclick="abrirMaps()">
-      📍 Abrir no Google Maps
-    </button>
-    <a href="${webLinkSafe}" class="btn-sec">
-      🌐 Abrir no Maps Web
+    <span class="icon">🧭</span>
+    <h1>Navegar até</h1>
+    <div class="dest">${tituloSafe}</div>
+    <div class="label">Escolha o app de navegação</div>
+    <a href="${wazeSafe}" class="btn-waze">
+      <span style="font-size:20px">🚗</span> Abrir no Waze
     </a>
-    <p class="hint">Se o app não abrir automaticamente,<br>use "Abrir no Maps Web"</p>
+    <a href="${mapsSafe}" class="btn-maps">
+      <span style="font-size:20px">🗺️</span> Abrir no Google Maps
+    </a>
+    ${coordsBtn}
+    <p class="hint">Toque no app desejado para iniciar a navegação.</p>
   </div>
   <script>
-    var MAPS_URL = ${JSON.stringify(webLink)};
-
-    function abrirMaps() {
-      // window.open sem 3º argumento = Chrome Custom Tab no Android
-      // Custom Tab suporta App Links → Android abre o app Google Maps
-      // Clique do usuário (não JS automático) garante que o TWA permita a abertura
-      var w = window.open(MAPS_URL, '_blank');
-      if (!w || w.closed) {
-        // Custom Tab bloqueado: tentar navegação direta
-        window.location.href = MAPS_URL;
+    var COORDS = ${JSON.stringify(coords)};
+    function copiarCoords() {
+      if (!COORDS) return;
+      try {
+        navigator.clipboard.writeText(COORDS).then(function() {
+          var el = document.getElementById('copy-txt');
+          if (el) { el.textContent = 'Copiado!'; el.className = 'copied'; }
+          setTimeout(function() {
+            var el2 = document.getElementById('copy-txt');
+            if (el2) { el2.textContent = 'Copiar coordenadas'; el2.className = ''; }
+          }, 2000);
+        });
+      } catch(e) {
+        window.prompt('Copie as coordenadas:', COORDS);
       }
     }
-
-    // Tentar abrir automaticamente ao carregar (pode funcionar em alguns TWA configs)
-    // Se falhar, o botão manual acima sempre funciona
-    setTimeout(function() {
-      try { abrirMaps(); } catch(e) {}
-    }, 600);
   <\/script>
 </body>
 </html>`
 
   return c.html(html)
 })
+
 
 // ══════════════════════════════════════════════════════
 //  Service Worker — servido pelo Worker (evita cache Pages)
