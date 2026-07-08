@@ -2695,6 +2695,748 @@ app.get('/landing', (c) => {
   return c.html(getLandingHTML())
 })
 
+// ─── /app/cadastrar-posto — Cadastro de posto exclusivo para o app Android/TWA ─
+// Fluxo mobile-first em 3 etapas: Dados → Login/Senha → Aguardando aprovação
+app.get('/app/cadastrar-posto', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#FF6D00"/>
+  <title>RotaPosto – Cadastrar Posto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    :root{
+      --laranja:#FF6D00;--laranja2:#FF8C00;--verde:#00C853;
+      --bg:#0D0D0D;--card:#161616;--borda:rgba(255,255,255,0.08);
+      --txt:#F5F5F5;--sub:rgba(255,255,255,0.45);
+      --input-bg:rgba(255,255,255,0.06);--input-borda:rgba(255,255,255,0.12);
+      --input-focus:rgba(255,109,0,0.5);
+      --r:14px;
+    }
+    html,body{
+      height:100%;background:var(--bg);color:var(--txt);
+      font-family:'Raleway',sans-serif;overflow-x:hidden;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar{
+      position:fixed;top:0;left:0;right:0;z-index:100;
+      background:var(--bg);border-bottom:1px solid var(--borda);
+      display:flex;align-items:center;gap:12px;padding:14px 18px;
+    }
+    .topbar-back{
+      width:36px;height:36px;border-radius:50%;background:var(--input-bg);
+      border:none;color:var(--txt);font-size:16px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    }
+    .topbar-title{font-size:16px;font-weight:800;flex:1}
+    .topbar-logo{
+      width:32px;height:32px;background:var(--laranja);border-radius:8px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:15px;color:#fff;font-weight:900;flex-shrink:0;
+    }
+
+    /* ── PROGRESS BAR ── */
+    .progress-wrap{
+      position:fixed;top:65px;left:0;right:0;z-index:99;
+      background:var(--bg);padding:12px 18px 10px;
+    }
+    .progress-steps{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+    .step-dot{
+      flex:1;height:4px;border-radius:4px;background:var(--input-bg);
+      transition:background .35s ease;
+    }
+    .step-dot.active{background:var(--laranja)}
+    .step-dot.done{background:rgba(255,109,0,0.4)}
+    .progress-label{font-size:11px;color:var(--sub);font-weight:600;letter-spacing:.4px}
+
+    /* ── CONTENT ── */
+    .content{padding:135px 18px 100px;max-width:480px;margin:0 auto}
+
+    /* ── STEP HEADER ── */
+    .step-header{margin-bottom:24px}
+    .step-badge{
+      display:inline-flex;align-items:center;gap:6px;
+      background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.25);
+      border-radius:20px;padding:5px 12px;
+      font-size:11px;font-weight:800;color:var(--laranja);letter-spacing:.5px;
+      text-transform:uppercase;margin-bottom:12px;
+    }
+    .step-title{font-size:22px;font-weight:900;line-height:1.25;margin-bottom:6px}
+    .step-sub{font-size:13px;color:var(--sub);line-height:1.5}
+
+    /* ── FORM FIELDS ── */
+    .fg{margin-bottom:14px}
+    .fl{
+      display:block;font-size:11px;font-weight:800;letter-spacing:.8px;
+      text-transform:uppercase;color:var(--sub);margin-bottom:6px;
+    }
+    .fi{
+      width:100%;padding:13px 14px;
+      background:var(--input-bg);border:1.5px solid var(--input-borda);
+      border-radius:var(--r);color:var(--txt);font-size:14px;font-family:'Raleway',sans-serif;
+      outline:none;transition:border-color .2s,background .2s;
+      -webkit-appearance:none;
+    }
+    .fi::placeholder{color:rgba(255,255,255,0.2)}
+    .fi:focus{border-color:var(--input-focus);background:rgba(255,109,0,0.04)}
+    .fi.erro{border-color:#FF5252;background:rgba(255,82,82,0.05)}
+    select.fi{cursor:pointer}
+    .fg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+    /* ── SECTION GROUP ── */
+    .sg{
+      background:rgba(255,109,0,0.04);border:1px solid rgba(255,109,0,0.15);
+      border-radius:var(--r);padding:16px;margin-bottom:14px;
+    }
+    .sg-title{
+      font-size:10px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;
+      color:var(--laranja);margin-bottom:14px;display:flex;align-items:center;gap:7px;
+    }
+
+    /* ── COMBUSTÍVEIS ── */
+    .comb-grid{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+    .comb-btn{
+      padding:8px 14px;border-radius:20px;
+      border:1.5px solid var(--input-borda);background:var(--input-bg);
+      color:rgba(255,255,255,0.5);font-size:12px;font-weight:700;
+      cursor:pointer;transition:all .2s;font-family:'Raleway',sans-serif;
+    }
+    .comb-btn.sel{
+      border-color:var(--laranja);background:rgba(255,109,0,0.15);color:var(--laranja);
+    }
+
+    /* ── GPS BUTTON ── */
+    .gps-btn{
+      width:100%;padding:11px;border-radius:var(--r);
+      border:1.5px solid rgba(0,200,83,0.3);background:rgba(0,200,83,0.07);
+      color:#69F0AE;font-size:13px;font-weight:800;cursor:pointer;
+      font-family:'Raleway',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;
+      transition:all .2s;
+    }
+    .gps-btn:active{background:rgba(0,200,83,0.15)}
+    .gps-status{font-size:11px;color:var(--sub);margin-top:6px;text-align:center}
+
+    /* ── CEP BUTTON ── */
+    .cep-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:flex-end}
+    .cep-search-btn{
+      padding:13px 16px;border-radius:var(--r);
+      border:1.5px solid rgba(255,109,0,0.35);background:rgba(255,109,0,0.1);
+      color:var(--laranja);font-size:13px;font-weight:800;cursor:pointer;
+      font-family:'Raleway',sans-serif;white-space:nowrap;
+      display:flex;align-items:center;gap:6px;transition:all .2s;
+    }
+    .cep-search-btn:active{background:rgba(255,109,0,0.2)}
+
+    /* ── SENHA FIELD ── */
+    .senha-wrap{position:relative}
+    .senha-toggle{
+      position:absolute;right:14px;top:50%;transform:translateY(-50%);
+      background:none;border:none;color:var(--sub);cursor:pointer;font-size:16px;padding:4px;
+    }
+    .senha-strength{display:flex;gap:4px;margin-top:8px}
+    .strength-bar{flex:1;height:3px;border-radius:3px;background:var(--input-bg);transition:background .3s}
+    .strength-bar.weak{background:#FF5252}
+    .strength-bar.medium{background:#FFC107}
+    .strength-bar.strong{background:#00C853}
+
+    /* ── TERMS ── */
+    .terms{
+      font-size:12px;color:var(--sub);text-align:center;
+      padding:0 8px;line-height:1.5;margin-bottom:16px;
+    }
+    .terms a{color:var(--laranja);text-decoration:none}
+
+    /* ── ERRO/SUCESSO MSG ── */
+    .msg-err{
+      background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.3);
+      border-radius:var(--r);padding:12px 14px;font-size:13px;color:#FF5252;
+      margin-bottom:14px;display:none;
+    }
+    .msg-ok{
+      background:rgba(0,200,83,0.1);border:1px solid rgba(0,200,83,0.3);
+      border-radius:var(--r);padding:12px 14px;font-size:13px;color:#69F0AE;
+      margin-bottom:14px;display:none;
+    }
+
+    /* ── BOTTOM BAR (botão fixo) ── */
+    .bottom-bar{
+      position:fixed;bottom:0;left:0;right:0;
+      background:var(--bg);border-top:1px solid var(--borda);
+      padding:14px 18px calc(14px + env(safe-area-inset-bottom));
+    }
+    .btn-main{
+      width:100%;padding:16px;border-radius:var(--r);
+      background:linear-gradient(135deg,var(--laranja),var(--laranja2));
+      border:none;color:#fff;font-size:15px;font-weight:900;
+      font-family:'Raleway',sans-serif;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      transition:opacity .2s,transform .1s;box-shadow:0 4px 20px rgba(255,109,0,0.35);
+    }
+    .btn-main:active{transform:scale(0.98);opacity:.9}
+    .btn-main:disabled{opacity:.5;cursor:not-allowed}
+    .btn-main .spinner{
+      width:18px;height:18px;border:2.5px solid rgba(255,255,255,0.3);
+      border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── STEP SUCCESS ── */
+    .success-screen{
+      display:none;flex-direction:column;align-items:center;
+      text-align:center;padding:40px 24px;
+    }
+    .success-icon{
+      width:80px;height:80px;border-radius:50%;
+      background:linear-gradient(135deg,rgba(0,200,83,0.2),rgba(0,200,83,0.05));
+      border:2px solid rgba(0,200,83,0.4);
+      display:flex;align-items:center;justify-content:center;
+      font-size:36px;color:#69F0AE;margin-bottom:24px;
+      animation:popIn .5s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes popIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+    .success-title{font-size:24px;font-weight:900;margin-bottom:12px}
+    .success-sub{font-size:14px;color:var(--sub);line-height:1.6;margin-bottom:32px}
+    .success-detail{
+      background:var(--card);border:1px solid var(--borda);border-radius:var(--r);
+      padding:20px;width:100%;text-align:left;margin-bottom:24px;
+    }
+    .detail-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--borda)}
+    .detail-row:last-child{border-bottom:none}
+    .detail-ico{color:var(--laranja);font-size:16px;margin-top:2px;flex-shrink:0}
+    .detail-txt{font-size:13px;color:var(--txt)}
+    .detail-txt strong{display:block;font-weight:800;margin-bottom:2px}
+    .detail-txt span{color:var(--sub);font-size:12px}
+    .btn-voltar-app{
+      width:100%;padding:14px;border-radius:var(--r);
+      background:var(--input-bg);border:1.5px solid var(--borda);
+      color:var(--txt);font-size:14px;font-weight:800;
+      font-family:'Raleway',sans-serif;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:8px;
+    }
+
+    /* ── STEP TRANSITIONS ── */
+    .step{display:none;animation:fadeUp .3s ease}
+    .step.active{display:block}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ── INFO TIP ── */
+    .tip{
+      background:rgba(255,109,0,0.06);border:1px solid rgba(255,109,0,0.18);
+      border-radius:10px;padding:10px 12px;font-size:12px;color:rgba(255,255,255,0.55);
+      line-height:1.5;display:flex;align-items:flex-start;gap:8px;margin-bottom:14px;
+    }
+    .tip i{color:var(--laranja);margin-top:1px;flex-shrink:0}
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <button class="topbar-back" onclick="voltarStep()" id="btn-back">
+    <i class="fas fa-arrow-left"></i>
+  </button>
+  <div class="topbar-title" id="topbar-title">Cadastrar Posto</div>
+  <div class="topbar-logo">⛽</div>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-wrap">
+  <div class="progress-steps">
+    <div class="step-dot active" id="dot-1"></div>
+    <div class="step-dot" id="dot-2"></div>
+    <div class="step-dot" id="dot-3"></div>
+  </div>
+  <div class="progress-label" id="progress-label">Etapa 1 de 2 — Dados do posto</div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <!-- ══ STEP 1: DADOS DO POSTO ══ -->
+  <div class="step active" id="step-1">
+    <div class="step-header">
+      <div class="step-badge"><i class="fas fa-store"></i> Etapa 1</div>
+      <div class="step-title">Dados do seu posto</div>
+      <div class="step-sub">Preencha as informações básicas. Leva menos de 2 minutos.</div>
+    </div>
+
+    <div class="msg-err" id="err-1"></div>
+
+    <div class="fg">
+      <label class="fl">Nome do responsável *</label>
+      <input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name"/>
+    </div>
+
+    <div class="fg">
+      <label class="fl">Nome do posto *</label>
+      <input class="fi" id="f-posto" placeholder="Posto São João"/>
+    </div>
+
+    <div class="fg">
+      <label class="fl">CNPJ *</label>
+      <input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00"
+        inputmode="numeric" maxlength="18"
+        oninput="fmtCNPJ(this)" />
+    </div>
+
+    <div class="fg">
+      <label class="fl">WhatsApp *</label>
+      <input class="fi" id="f-tel" placeholder="(27) 99999-9999"
+        inputmode="tel"
+        oninput="fmtTel(this)" />
+    </div>
+
+    <!-- LOCALIZAÇÃO -->
+    <div class="sg">
+      <div class="sg-title"><i class="fas fa-map-marker-alt"></i> Localização do posto</div>
+
+      <div class="fg">
+        <label class="fl">CEP *</label>
+        <div class="cep-row">
+          <input class="fi" id="f-cep" placeholder="00000-000"
+            inputmode="numeric" maxlength="9"
+            oninput="fmtCEP(this)" onblur="buscarCEPAuto()"/>
+          <button class="cep-search-btn" onclick="buscarCEPBtn()" id="btn-cep">
+            <i class="fas fa-search"></i> Buscar
+          </button>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Endereço *</label>
+        <input class="fi" id="f-rua" placeholder="Av. Nossa Senhora da Penha"/>
+      </div>
+
+      <div class="fg-row">
+        <div class="fg">
+          <label class="fl">Número *</label>
+          <input class="fi" id="f-num" placeholder="1234" inputmode="numeric"/>
+        </div>
+        <div class="fg">
+          <label class="fl">Bairro *</label>
+          <input class="fi" id="f-bairro" placeholder="Centro"/>
+        </div>
+      </div>
+
+      <div class="fg-row">
+        <div class="fg">
+          <label class="fl">Cidade *</label>
+          <input class="fi" id="f-cidade" placeholder="Vitória"/>
+        </div>
+        <div class="fg">
+          <label class="fl">Estado *</label>
+          <select class="fi" id="f-estado">
+            <option value="">UF</option>
+            <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+            <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+            <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+            <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+            <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+            <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+            <option>SP</option><option>SE</option><option>TO</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="gps-btn" onclick="obterGPS()" id="btn-gps">
+        <i class="fas fa-crosshairs"></i> Usar minha localização atual
+      </button>
+      <div class="gps-status" id="gps-status"></div>
+      <input type="hidden" id="f-lat"/><input type="hidden" id="f-lng"/>
+    </div>
+
+    <!-- COMBUSTÍVEIS -->
+    <div class="fg">
+      <label class="fl">Combustíveis que vende *</label>
+      <div class="comb-grid">
+        <button class="comb-btn" onclick="toggleComb(this,'gasolina')">⛽ Gasolina</button>
+        <button class="comb-btn" onclick="toggleComb(this,'etanol')">🌿 Etanol</button>
+        <button class="comb-btn" onclick="toggleComb(this,'diesel')">🚛 Diesel</button>
+        <button class="comb-btn" onclick="toggleComb(this,'gnv')">💨 GNV</button>
+        <button class="comb-btn" onclick="toggleComb(this,'gasolina_aditivada')">⭐ Gas. Aditivada</button>
+        <button class="comb-btn" onclick="toggleComb(this,'diesel_s10')">🔵 Diesel S-10</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 2: LOGIN E SENHA ══ -->
+  <div class="step" id="step-2">
+    <div class="step-header">
+      <div class="step-badge"><i class="fas fa-lock"></i> Etapa 2</div>
+      <div class="step-title">Crie seu acesso</div>
+      <div class="step-sub">Você vai usar esse e-mail e senha para entrar no painel do posto.</div>
+    </div>
+
+    <div class="msg-err" id="err-2"></div>
+
+    <div class="tip">
+      <i class="fas fa-info-circle"></i>
+      <span>Use um e-mail válido. Você receberá a confirmação de aprovação por aqui.</span>
+    </div>
+
+    <div class="fg">
+      <label class="fl">E-mail *</label>
+      <input class="fi" id="f-email" type="email" placeholder="seu@email.com"
+        autocomplete="email" inputmode="email"/>
+    </div>
+
+    <div class="fg">
+      <label class="fl">Senha *</label>
+      <div class="senha-wrap">
+        <input class="fi" id="f-senha" type="password" placeholder="Mínimo 6 caracteres"
+          autocomplete="new-password" oninput="checkSenha(this)"/>
+        <button class="senha-toggle" type="button" onclick="toggleSenha('f-senha','eye1')" id="eye1">
+          <i class="fas fa-eye"></i>
+        </button>
+      </div>
+      <div class="senha-strength" id="strength-bars">
+        <div class="strength-bar" id="bar1"></div>
+        <div class="strength-bar" id="bar2"></div>
+        <div class="strength-bar" id="bar3"></div>
+      </div>
+      <div id="senha-dica" style="font-size:11px;color:var(--sub);margin-top:5px"></div>
+    </div>
+
+    <div class="fg">
+      <label class="fl">Confirmar senha *</label>
+      <div class="senha-wrap">
+        <input class="fi" id="f-senha2" type="password" placeholder="Repita a senha"
+          autocomplete="new-password"/>
+        <button class="senha-toggle" type="button" onclick="toggleSenha('f-senha2','eye2')" id="eye2">
+          <i class="fas fa-eye"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="terms">
+      Ao cadastrar você concorda com os
+      <a href="https://rotaposto.com.br/termos" target="_blank">Termos de Uso</a>
+      e a
+      <a href="https://rotaposto.com.br/privacidade" target="_blank">Política de Privacidade</a>
+      do RotaPosto.
+    </div>
+  </div>
+
+  <!-- ══ STEP 3: SUCESSO ══ -->
+  <div class="step" id="step-3">
+    <div class="success-screen" id="success-screen" style="display:flex">
+      <div class="success-icon"><i class="fas fa-check"></i></div>
+      <div class="success-title">Cadastro enviado! 🎉</div>
+      <div class="success-sub">
+        Recebemos os dados do seu posto.<br/>
+        Nossa equipe irá analisar e ativar em até <strong>24 horas úteis</strong>.
+      </div>
+
+      <div class="success-detail">
+        <div class="detail-row">
+          <div class="detail-ico"><i class="fas fa-envelope"></i></div>
+          <div class="detail-txt">
+            <strong>Confirmação por e-mail</strong>
+            <span id="confirm-email">Você receberá um e-mail com os próximos passos.</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-ico"><i class="fas fa-clock"></i></div>
+          <div class="detail-txt">
+            <strong>Prazo de aprovação</strong>
+            <span>Até 24 horas úteis após o envio</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-ico"><i class="fas fa-store"></i></div>
+          <div class="detail-txt">
+            <strong>Posto cadastrado</strong>
+            <span id="confirm-posto">—</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-ico"><i class="fas fa-shield-alt"></i></div>
+          <div class="detail-txt">
+            <strong>Acesso ao painel</strong>
+            <span>Após aprovação, use e-mail e senha em rotaposto.com.br/parcerias/login</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-voltar-app" onclick="voltarApp()">
+        <i class="fas fa-arrow-left"></i> Voltar para o RotaPosto
+      </button>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- BOTTOM BAR -->
+<div class="bottom-bar" id="bottom-bar">
+  <button class="btn-main" id="btn-proximo" onclick="avancarStep()">
+    <span id="btn-txt"><i class="fas fa-arrow-right"></i> &nbsp;Próximo</span>
+  </button>
+</div>
+
+<script>
+// ── Estado global ──────────────────────────────────────────────────────────────
+var step = 1;
+var maxStep = 2; // 2 = etapa de login/senha (step 3 é a tela de sucesso)
+var combustiveisSel = [];
+var latGPS = '', lngGPS = '';
+
+// ── Formatadores ───────────────────────────────────────────────────────────────
+function fmtCNPJ(el) {
+  var v = el.value.replace(/\\D/g,'').substring(0,14);
+  if(v.length>12) v=v.replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{0,2})/,'$1.$2.$3/$4-$5');
+  else if(v.length>8) v=v.replace(/(\\d{2})(\\d{3})(\\d{3})(\\d{0,4})/,'$1.$2.$3/$4');
+  else if(v.length>5) v=v.replace(/(\\d{2})(\\d{3})(\\d{0,3})/,'$1.$2.$3');
+  else if(v.length>2) v=v.replace(/(\\d{2})(\\d{0,3})/,'$1.$2');
+  el.value=v;
+}
+function fmtTel(el) {
+  var v=el.value.replace(/\\D/g,'').substring(0,11);
+  if(v.length>10) v=v.replace(/(\\d{2})(\\d{5})(\\d{4})/,'($1) $2-$3');
+  else if(v.length>6) v=v.replace(/(\\d{2})(\\d{4,5})(\\d{0,4})/,'($1) $2-$3');
+  else if(v.length>2) v=v.replace(/(\\d{2})(\\d{0,5})/,'($1) $2');
+  el.value=v;
+}
+function fmtCEP(el) {
+  var v=el.value.replace(/\\D/g,'').substring(0,8);
+  if(v.length>5) v=v.replace(/(\\d{5})(\\d{0,3})/,'$1-$2');
+  el.value=v;
+}
+
+// ── Combustíveis ───────────────────────────────────────────────────────────────
+function toggleComb(btn, tipo) {
+  btn.classList.toggle('sel');
+  if(btn.classList.contains('sel')) combustiveisSel.push(tipo);
+  else combustiveisSel = combustiveisSel.filter(function(c){return c!==tipo});
+}
+
+// ── GPS ────────────────────────────────────────────────────────────────────────
+function obterGPS() {
+  var btn = document.getElementById('btn-gps');
+  var st  = document.getElementById('gps-status');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obtendo localização...';
+  btn.disabled = true;
+  st.textContent = '';
+  if(!navigator.geolocation){
+    st.textContent='GPS não disponível neste dispositivo.';
+    btn.innerHTML='<i class="fas fa-crosshairs"></i> Usar minha localização atual';
+    btn.disabled=false; return;
+  }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    latGPS = pos.coords.latitude.toFixed(6);
+    lngGPS = pos.coords.longitude.toFixed(6);
+    document.getElementById('f-lat').value = latGPS;
+    document.getElementById('f-lng').value = lngGPS;
+    st.style.color='#69F0AE';
+    st.textContent='✓ GPS obtido: '+latGPS+', '+lngGPS;
+    btn.innerHTML='<i class="fas fa-check-circle"></i> Localização obtida!';
+    btn.style.borderColor='rgba(0,200,83,0.6)';
+    btn.style.background='rgba(0,200,83,0.12)';
+    btn.disabled=false;
+  }, function(err){
+    var msg = err.code===1?'Permissão de localização negada.':err.code===2?'Localização indisponível.':'Tempo esgotado.';
+    st.style.color='#FF5252'; st.textContent=msg;
+    btn.innerHTML='<i class="fas fa-crosshairs"></i> Tentar novamente';
+    btn.disabled=false;
+  }, {timeout:10000, enableHighAccuracy:true});
+}
+
+// ── CEP ────────────────────────────────────────────────────────────────────────
+function buscarCEPAuto() { buscarCEP(); }
+function buscarCEPBtn() { buscarCEP(); }
+function buscarCEP() {
+  var cep = document.getElementById('f-cep').value.replace(/\\D/g,'');
+  if(cep.length!==8) return;
+  var btn = document.getElementById('btn-cep');
+  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+  btn.disabled=true;
+  fetch('https://viacep.com.br/ws/'+cep+'/json/')
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(d.erro){ btn.innerHTML='<i class="fas fa-search"></i> Buscar'; btn.disabled=false; return; }
+      document.getElementById('f-rua').value    = d.logradouro||'';
+      document.getElementById('f-bairro').value = d.bairro||'';
+      document.getElementById('f-cidade').value = d.localidade||'';
+      document.getElementById('f-estado').value = d.uf||'';
+      btn.innerHTML='<i class="fas fa-check"></i> OK';
+      setTimeout(function(){ btn.innerHTML='<i class="fas fa-search"></i> Buscar'; btn.disabled=false; }, 1500);
+    })
+    .catch(function(){ btn.innerHTML='<i class="fas fa-search"></i> Buscar'; btn.disabled=false; });
+}
+
+// ── Senha ──────────────────────────────────────────────────────────────────────
+function toggleSenha(id, eyeId) {
+  var el = document.getElementById(id);
+  var eye = document.getElementById(eyeId).querySelector('i');
+  el.type = el.type==='password'?'text':'password';
+  eye.className = el.type==='password'?'fas fa-eye':'fas fa-eye-slash';
+}
+function checkSenha(el) {
+  var v=el.value, len=v.length;
+  var b1=document.getElementById('bar1'), b2=document.getElementById('bar2'), b3=document.getElementById('bar3');
+  var dica=document.getElementById('senha-dica');
+  b1.className='strength-bar'; b2.className='strength-bar'; b3.className='strength-bar';
+  if(len===0){ dica.textContent=''; return; }
+  if(len<6){ b1.classList.add('weak'); dica.textContent='Muito curta — mínimo 6 caracteres'; dica.style.color='#FF5252'; return; }
+  var hasUpper=/[A-Z]/.test(v), hasNum=/[0-9]/.test(v), hasSpec=/[^a-zA-Z0-9]/.test(v);
+  var score = (hasUpper?1:0)+(hasNum?1:0)+(hasSpec?1:0)+(len>=10?1:0);
+  if(score<=1){ b1.classList.add('weak'); dica.textContent='Fraca'; dica.style.color='#FF5252'; }
+  else if(score===2){ b1.classList.add('medium'); b2.classList.add('medium'); dica.textContent='Média — adicione números ou símbolos'; dica.style.color='#FFC107'; }
+  else{ b1.classList.add('strong'); b2.classList.add('strong'); b3.classList.add('strong'); dica.textContent='Senha forte ✓'; dica.style.color='#69F0AE'; }
+}
+
+// ── Validação ──────────────────────────────────────────────────────────────────
+function v(id){ return (document.getElementById(id)?.value||'').trim(); }
+function setErr(step, msg) {
+  var el = document.getElementById('err-'+step);
+  el.textContent=msg; el.style.display=msg?'block':'none';
+}
+function shake(id) {
+  var el=document.getElementById(id);
+  if(!el) return;
+  el.classList.add('erro');
+  el.focus();
+  setTimeout(function(){ el.classList.remove('erro'); }, 1500);
+}
+
+function validarStep1() {
+  var nome=v('f-nome'),posto=v('f-posto'),cnpj=v('f-cnpj').replace(/\\D/g,''),
+      tel=v('f-tel').replace(/\\D/g,''),cep=v('f-cep').replace(/\\D/g,''),
+      rua=v('f-rua'),num=v('f-num'),cidade=v('f-cidade'),estado=v('f-estado');
+  if(!nome){ setErr(1,'Nome do responsável é obrigatório.'); shake('f-nome'); return false; }
+  if(!posto){ setErr(1,'Nome do posto é obrigatório.'); shake('f-posto'); return false; }
+  if(cnpj.length!==14){ setErr(1,'CNPJ inválido. Verifique o número.'); shake('f-cnpj'); return false; }
+  if(tel.length<10){ setErr(1,'WhatsApp inválido. Use DDD + número.'); shake('f-tel'); return false; }
+  if(cep.length!==8){ setErr(1,'CEP inválido.'); shake('f-cep'); return false; }
+  if(!rua){ setErr(1,'Endereço é obrigatório.'); shake('f-rua'); return false; }
+  if(!num){ setErr(1,'Número é obrigatório.'); shake('f-num'); return false; }
+  if(!cidade){ setErr(1,'Cidade é obrigatória.'); shake('f-cidade'); return false; }
+  if(!estado){ setErr(1,'Selecione o estado.'); shake('f-estado'); return false; }
+  if(combustiveisSel.length===0){ setErr(1,'Selecione ao menos um combustível.'); return false; }
+  setErr(1,''); return true;
+}
+
+function validarStep2() {
+  var email=v('f-email'), senha=v('f-senha'), senha2=v('f-senha2');
+  if(!email||!email.includes('@')){ setErr(2,'E-mail inválido.'); shake('f-email'); return false; }
+  if(senha.length<6){ setErr(2,'Senha deve ter no mínimo 6 caracteres.'); shake('f-senha'); return false; }
+  if(senha!==senha2){ setErr(2,'As senhas não coincidem.'); shake('f-senha2'); return false; }
+  setErr(2,''); return true;
+}
+
+// ── Navegação de steps ─────────────────────────────────────────────────────────
+function atualizarUI() {
+  // Steps
+  document.querySelectorAll('.step').forEach(function(s,i){ s.classList.toggle('active', i+1===step); });
+  // Dots
+  for(var i=1;i<=2;i++){
+    var d=document.getElementById('dot-'+i);
+    d.classList.remove('active','done');
+    if(i===step) d.classList.add('active');
+    else if(i<step) d.classList.add('done');
+  }
+  // Labels
+  var labels=['Etapa 1 de 2 — Dados do posto','Etapa 2 de 2 — Criar acesso','Cadastro enviado!'];
+  document.getElementById('progress-label').textContent = labels[step-1]||'';
+  // Títulos topbar
+  var titles=['Cadastrar Posto','Criar Acesso','Cadastro enviado'];
+  document.getElementById('topbar-title').textContent = titles[step-1]||'';
+  // Bottom bar
+  var bar=document.getElementById('bottom-bar');
+  var btnTxt=document.getElementById('btn-txt');
+  if(step===3){ bar.style.display='none'; return; }
+  bar.style.display='block';
+  if(step===maxStep) btnTxt.innerHTML='<i class="fas fa-paper-plane"></i> &nbsp;Enviar cadastro';
+  else btnTxt.innerHTML='<i class="fas fa-arrow-right"></i> &nbsp;Próximo';
+  // Botão voltar
+  document.getElementById('btn-back').style.visibility = step>1?'visible':'visible';
+}
+
+function avancarStep() {
+  if(step===1){ if(!validarStep1()) return; step=2; }
+  else if(step===2){ if(!validarStep2()) return; enviarCadastro(); return; }
+  atualizarUI();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function voltarStep() {
+  if(step===1){ voltarApp(); return; }
+  if(step===3) return;
+  step--;
+  atualizarUI();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function voltarApp() {
+  if(window.history.length>1) window.history.back();
+  else window.location.href='/app';
+}
+
+// ── Envio ──────────────────────────────────────────────────────────────────────
+async function enviarCadastro() {
+  var btn = document.getElementById('btn-proximo');
+  var btnTxt = document.getElementById('btn-txt');
+  btn.disabled=true;
+  btnTxt.innerHTML='<div class="spinner"></div>';
+
+  var payload = {
+    nome:    v('f-nome'),
+    nomePosto: v('f-posto'),
+    cnpj:    v('f-cnpj').replace(/\\D/g,''),
+    whatsapp: v('f-tel').replace(/\\D/g,''),
+    email:   v('f-email'),
+    senha:   v('f-senha'),
+    cep:     v('f-cep').replace(/\\D/g,''),
+    rua:     v('f-rua'),
+    numero:  v('f-num'),
+    bairro:  v('f-bairro'),
+    cidade:  v('f-cidade'),
+    estado:  v('f-estado'),
+    lat:     document.getElementById('f-lat').value,
+    lng:     document.getElementById('f-lng').value,
+    combustiveis: combustiveisSel.join(','),
+    plano:   'visibilidade',
+    origem:  'app_android',
+  };
+
+  try {
+    var r = await fetch('/api/parceiros/cadastro', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    var d = await r.json();
+    if(!d.ok) {
+      setErr(2, d.erro||'Erro ao enviar cadastro. Tente novamente.');
+      btn.disabled=false;
+      btnTxt.innerHTML='<i class="fas fa-paper-plane"></i> &nbsp;Enviar cadastro';
+      return;
+    }
+    // Sucesso
+    document.getElementById('confirm-email').textContent = 'Confirmação enviada para ' + v('f-email');
+    document.getElementById('confirm-posto').textContent  = v('f-posto') + ' — ' + v('f-cidade') + '/' + v('f-estado');
+    step=3;
+    atualizarUI();
+    window.scrollTo({top:0,behavior:'smooth'});
+  } catch(e) {
+    setErr(2,'Erro de conexão. Verifique sua internet e tente novamente.');
+    btn.disabled=false;
+    btnTxt.innerHTML='<i class="fas fa-paper-plane"></i> &nbsp;Enviar cadastro';
+  }
+}
+
+// Inicializar
+atualizarUI();
+</script>
+</body>
+</html>`)
+})
+
 app.get('/app', (c) => {
   // Se abrindo via domínio antigo (pages.dev), redirecionar para rotaposto.com.br
   // Isso faz o TWA reconhecer o assetlinks e esconder a barra do Chrome
