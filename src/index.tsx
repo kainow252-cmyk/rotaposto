@@ -7682,7 +7682,7 @@ async function loginGoogle() {
 
   try {
     await window._fbSignInWithPopup(_firebaseAuth, window._fbGoogleProvider);
-  } catch (err: any) {
+  } catch (err) {
     // Popup bloqueado → fallback para PKCE redirect
     if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user')) {
       try {

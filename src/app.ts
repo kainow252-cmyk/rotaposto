@@ -3863,7 +3863,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         // Desktop/iOS: popup normal
         await window['_fbSignInWithPopup'](window['_fbAuth'], window['_fbFacebookProvider']);
       }
-    } catch(e: any) {
+    } catch(e) {
       // Popup bloqueado → fallback para redirect
       if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user')) {
         localStorage.setItem('rp_fb_redirect_pending', '1');
