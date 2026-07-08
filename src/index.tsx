@@ -3764,146 +3764,313 @@ app.get('/manifest.json', (c) => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  /ir — Página HTML intermediária para abrir app de navegação (Round 9)
+//  /ir — Mapa Google Maps EMBUTIDO dentro do app (Round 10 — solução definitiva)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-//  HISTÓRICO COMPLETO DE FALHAS no TWA Android:
-//    R1: geo:LAT,LNG                          → ERR_UNKNOWN_URL_SCHEME
-//    R2: window.open(maps.google.com,'_blank','noopener') → intent:// → bloqueado
-//    R3: <a target="_blank">.click()           → App Links → intent:// → bloqueado
-//    R4: window.location.href = intent://...  → ERR_UNKNOWN_URL_SCHEME
-//    R5: window.open(maps.google.com,'_blank') sem features → bloqueado (JS auto)
-//    R6: server 302 → maps.google.com          → Android App Link → intent:// → bloqueado
-//    R7: comgooglemaps://                       → ERR_UNKNOWN_URL_SCHEME
-//    R8: window.open(_blank) via clique humano → intent:// → ERR_UNKNOWN_URL_SCHEME
-//        (o Android ainda intercepta maps.google.com como App Link no Custom Tab)
+//  HISTÓRICO DE FALHAS (R1-R9): qualquer link externo é bloqueado pelo TWA
+//  android.support.customtabs.trusted.HANDLES_INTERNAL_LINKS = true (padrão)
+//  → Android intercepta *.google.com/maps → intent:// → ERR_UNKNOWN_URL_SCHEME
 //
-//  RAIZ DO PROBLEMA: assetlinks.json tem delegate_permission/common.handle_all_urls
-//  → TWA intercepta TODAS URLs → *.google.com/maps vira intent:// → TWA bloqueia intent://
+//  SOLUÇÃO R10: Google Maps JavaScript API embutido na própria página
+//  → Sem link externo, sem App Links, sem intent://
+//  → Mapa roda dentro do domínio rotaposto.com.br (mesmo domínio do TWA)
+//  → Exibe mapa + rota de carro do usuário até o posto
+//  → Botão "Iniciar Navegação" usa Directions Renderer com painel de instruções
 //
-//  SOLUÇÃO R9: Oferecer Waze + Maps Web como alternativas
-//    - Waze (ul.waze.com): NÃO está nos App Links do Google Maps → Custom Tab abre Waze
-//    - Google Maps Web: link <a href> direto para maps.google.com (não JS) → navega no browser
-//    - Copiar coordenadas: fallback se nenhum app abrir
-//
-app.get('/ir', (c) => {
-  const lat  = c.req.query('lat')
-  const lng  = c.req.query('lng')
+app.get('/ir', async (c) => {
+  const lat  = c.req.query('lat')  || ''
+  const lng  = c.req.query('lng')  || ''
   const nome = c.req.query('nome') || ''
+  const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || 'AIzaSyBuPqI-hxHV33dqYbVC2G3LrM5uTCVol-8'
 
-  let wazeLink: string
-  let mapsLink: string
-  let titulo:   string
-
-  if (lat && lng && lat !== '0' && lng !== '0') {
-    wazeLink = `https://ul.waze.com/ul?ll=${encodeURIComponent(lat + '%2C' + lng)}&navigate=yes&zoom=17`
-    mapsLink = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + ',' + lng)}&travelmode=driving`
-    titulo   = nome ? nome : `${lat}, ${lng}`
-  } else if (nome) {
-    wazeLink = `https://ul.waze.com/ul?q=${encodeURIComponent(nome)}&navigate=yes`
-    mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome)}`
-    titulo   = nome
-  } else {
-    wazeLink = 'https://ul.waze.com/ul'
-    mapsLink = 'https://maps.google.com/'
-    titulo   = 'Google Maps'
-  }
-
-  const tituloSafe = titulo.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')
-  const wazeSafe   = wazeLink.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
-  const mapsSafe   = mapsLink.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
-  const latVal     = (lat  && lat  !== '0') ? lat  : ''
-  const lngVal     = (lng  && lng  !== '0') ? lng  : ''
-  const coords     = (latVal && lngVal) ? `${latVal}, ${lngVal}` : ''
-
-  const coordsBtn = coords
-    ? `<div class="divider"></div>
-    <button class="btn-copy" onclick="copiarCoords()">
-      <span>📋</span>
-      <span id="copy-txt">Copiar coordenadas</span>
-    </button>`
-    : ''
+  // Destino
+  const temCoords = lat && lng && lat !== '0' && lng !== '0'
+  const destino   = temCoords ? `${lat},${lng}` : ''
+  const tituloSafe = nome
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <meta name="theme-color" content="#FF6D00"/>
-  <title>Navegar até ${tituloSafe}</title>
+  <title>${tituloSafe || 'Mapa'}</title>
   <style>
-    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-         background:#f7f7f7;display:flex;align-items:center;justify-content:center;
-         min-height:100vh;padding:20px}
-    .card{max-width:360px;width:100%;background:#fff;border-radius:20px;
-          padding:28px 20px;box-shadow:0 2px 20px rgba(0,0,0,0.08);text-align:center}
-    .icon{font-size:52px;margin-bottom:16px;display:block}
-    h1{font-size:20px;font-weight:800;color:#111;margin-bottom:6px}
-    .dest{font-size:14px;color:#555;margin-bottom:22px;line-height:1.4;
-          background:#f5f5f5;padding:8px 12px;border-radius:10px}
-    .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
-           color:#aaa;margin-bottom:12px}
-    .btn-waze{display:flex;align-items:center;justify-content:center;gap:10px;
-              width:100%;background:#06C167;color:#fff;border:none;
-              padding:16px;border-radius:14px;font-size:16px;font-weight:800;
-              text-decoration:none;cursor:pointer;margin-bottom:10px;
-              box-shadow:0 3px 12px rgba(6,193,103,0.30);-webkit-appearance:none}
-    .btn-waze:active{background:#05a457;transform:scale(0.98)}
-    .btn-maps{display:flex;align-items:center;justify-content:center;gap:10px;
-              width:100%;background:#4285F4;color:#fff;border:none;
-              padding:16px;border-radius:14px;font-size:16px;font-weight:800;
-              text-decoration:none;cursor:pointer;margin-bottom:10px;
-              box-shadow:0 3px 12px rgba(66,133,244,0.30);-webkit-appearance:none}
-    .btn-maps:active{background:#3367d6;transform:scale(0.98)}
-    .divider{height:1px;background:#f0f0f0;margin:14px 0}
-    .btn-copy{display:flex;align-items:center;justify-content:center;gap:8px;
-              width:100%;background:#f5f5f5;color:#555;border:none;
-              padding:13px;border-radius:12px;font-size:14px;font-weight:600;
-              cursor:pointer;-webkit-appearance:none}
-    .btn-copy:active{background:#e8e8e8}
-    .hint{font-size:11px;color:#bbb;margin-top:16px;line-height:1.5}
-    .copied{color:#06C167!important;font-weight:700}
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;width:100%;overflow:hidden;
+              font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+    #header{position:fixed;top:0;left:0;right:0;z-index:100;
+            background:#FF6D00;color:#fff;
+            display:flex;align-items:center;gap:10px;
+            padding:12px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+    #header button{background:none;border:none;color:#fff;font-size:22px;
+                   cursor:pointer;padding:0;line-height:1;flex-shrink:0}
+    #header-info{flex:1;min-width:0}
+    #header h1{font-size:15px;font-weight:800;white-space:nowrap;
+               overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+    #header p{font-size:12px;opacity:0.85;margin-top:1px}
+    #map{position:fixed;top:56px;left:0;right:0;bottom:64px}
+    #footer{position:fixed;bottom:0;left:0;right:0;height:64px;
+            background:#fff;border-top:1px solid #eee;
+            display:flex;gap:8px;padding:10px 12px;z-index:100}
+    #btn-rota{flex:1;background:#FF6D00;color:#fff;border:none;
+              border-radius:12px;font-size:15px;font-weight:800;
+              cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+    #btn-rota:active{background:#e56200}
+    #btn-rota.calculando{background:#aaa}
+    #status{position:fixed;top:56px;left:0;right:0;z-index:200;
+            background:#1a73e8;color:#fff;font-size:13px;font-weight:600;
+            padding:8px 14px;text-align:center;display:none}
+    #painel{position:fixed;bottom:64px;left:0;right:0;z-index:150;
+            background:#fff;border-top:2px solid #FF6D00;
+            max-height:40vh;overflow-y:auto;display:none}
+    #painel-header{background:#FF6D00;color:#fff;padding:10px 14px;
+                   font-size:14px;font-weight:800;display:flex;justify-content:space-between;align-items:center}
+    #painel-header button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
+    #painel table{width:100%;border-collapse:collapse;font-size:13px}
+    #painel td{padding:8px 12px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+    #painel td:first-child{width:36px;text-align:center;color:#FF6D00;font-size:16px}
+    .dist-info{background:#f8f8f8;padding:8px 14px;font-size:13px;color:#555;
+               border-bottom:1px solid #eee;display:flex;gap:16px}
+    .dist-info span{font-weight:700;color:#111}
+    #loading{position:fixed;inset:0;background:rgba(255,255,255,0.9);
+             display:flex;flex-direction:column;align-items:center;justify-content:center;
+             z-index:500;gap:12px}
+    #loading p{font-size:15px;color:#555;font-weight:600}
+    .spinner{width:40px;height:40px;border:4px solid #eee;
+             border-top-color:#FF6D00;border-radius:50%;animation:spin 0.8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #erro{position:fixed;inset:0;background:#fff;
+          display:none;flex-direction:column;align-items:center;justify-content:center;
+          padding:32px;text-align:center;gap:16px}
+    #erro h2{font-size:20px;color:#111}
+    #erro p{font-size:14px;color:#666;line-height:1.5}
+    #erro button{background:#FF6D00;color:#fff;border:none;padding:14px 28px;
+                 border-radius:12px;font-size:15px;font-weight:700;cursor:pointer}
   </style>
 </head>
 <body>
-  <div class="card">
-    <span class="icon">🧭</span>
-    <h1>Navegar até</h1>
-    <div class="dest">${tituloSafe}</div>
-    <div class="label">Escolha o app de navegação</div>
-    <a href="${wazeSafe}" class="btn-waze">
-      <span style="font-size:20px">🚗</span> Abrir no Waze
-    </a>
-    <a href="${mapsSafe}" class="btn-maps">
-      <span style="font-size:20px">🗺️</span> Abrir no Google Maps
-    </a>
-    ${coordsBtn}
-    <p class="hint">Toque no app desejado para iniciar a navegação.</p>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Carregando mapa...</p>
+</div>
+
+<div id="erro">
+  <span style="font-size:48px">😕</span>
+  <h2>Não foi possível carregar</h2>
+  <p id="erro-msg">Verifique sua conexão e tente novamente.</p>
+  <button onclick="location.reload()">Tentar novamente</button>
+</div>
+
+<div id="header">
+  <button onclick="history.back()">&#8592;</button>
+  <div id="header-info">
+    <h1>${tituloSafe || 'Mapa'}</h1>
+    <p id="header-sub">Calculando rota...</p>
   </div>
-  <script>
-    var COORDS = ${JSON.stringify(coords)};
-    function copiarCoords() {
-      if (!COORDS) return;
-      try {
-        navigator.clipboard.writeText(COORDS).then(function() {
-          var el = document.getElementById('copy-txt');
-          if (el) { el.textContent = 'Copiado!'; el.className = 'copied'; }
-          setTimeout(function() {
-            var el2 = document.getElementById('copy-txt');
-            if (el2) { el2.textContent = 'Copiar coordenadas'; el2.className = ''; }
-          }, 2000);
+</div>
+
+<div id="status" id="status"></div>
+<div id="map"></div>
+
+<div id="painel">
+  <div id="painel-header">
+    <span>📋 Instruções de rota</span>
+    <button onclick="document.getElementById('painel').style.display='none'">✕</button>
+  </div>
+  <div class="dist-info">
+    Distância: <span id="info-dist">—</span> &nbsp;|&nbsp; Tempo: <span id="info-tempo">—</span>
+  </div>
+  <table id="painel-steps"></table>
+</div>
+
+<div id="footer">
+  <button id="btn-rota" onclick="calcularRota()">
+    <span>🧭</span> <span id="btn-txt">Traçar Rota</span>
+  </button>
+</div>
+
+<script>
+  var DESTINO_LAT  = ${JSON.stringify(lat)};
+  var DESTINO_LNG  = ${JSON.stringify(lng)};
+  var DESTINO_NOME = ${JSON.stringify(nome)};
+  var TEM_COORDS   = ${JSON.stringify(temCoords ? 'true' : 'false')};
+  var map, directionsService, directionsRenderer, marcadorDestino;
+  var rotaCalculada = false;
+
+  function showErro(msg) {
+    document.getElementById('loading').style.display = 'none';
+    var el = document.getElementById('erro');
+    el.style.display = 'flex';
+    if (msg) document.getElementById('erro-msg').textContent = msg;
+  }
+
+  function setStatus(msg) {
+    var el = document.getElementById('status');
+    if (msg) { el.textContent = msg; el.style.display = 'block'; }
+    else { el.style.display = 'none'; }
+  }
+
+  function initMap() {
+    try {
+      var centro = TEM_COORDS === 'true'
+        ? { lat: parseFloat(DESTINO_LAT), lng: parseFloat(DESTINO_LNG) }
+        : { lat: -15.7801, lng: -47.9292 }; // Brasil centro
+
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: centro,
+        zoom: TEM_COORDS === 'true' ? 14 : 5,
+        disableDefaultUI: true,
+        zoomControl: true,
+        gestureHandling: 'greedy',
+        styles: [
+          {featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]},
+          {featureType:'transit',stylers:[{visibility:'off'}]}
+        ]
+      });
+
+      directionsService  = new google.maps.DirectionsService();
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: false,
+        polylineOptions: { strokeColor: '#FF6D00', strokeWeight: 5 }
+      });
+
+      // Marcador no destino
+      if (TEM_COORDS === 'true') {
+        marcadorDestino = new google.maps.Marker({
+          position: { lat: parseFloat(DESTINO_LAT), lng: parseFloat(DESTINO_LNG) },
+          map: map,
+          title: DESTINO_NOME || 'Destino',
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">' +
+              '<path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 26 18 26S36 31.5 36 18C36 8.06 27.94 0 18 0z" fill="#FF6D00"/>' +
+              '<circle cx="18" cy="18" r="8" fill="#fff"/>' +
+              '</svg>'
+            ),
+            scaledSize: new google.maps.Size(36, 44),
+            anchor: new google.maps.Point(18, 44)
+          }
         });
-      } catch(e) {
-        window.prompt('Copie as coordenadas:', COORDS);
       }
+
+      document.getElementById('loading').style.display = 'none';
+
+      // Tentar calcular rota automaticamente com geolocalização
+      if (TEM_COORDS === 'true' && navigator.geolocation) {
+        document.getElementById('header-sub').textContent = 'Obtendo sua localização...';
+        navigator.geolocation.getCurrentPosition(
+          function(pos) { calcularRotaCom(pos.coords.latitude, pos.coords.longitude); },
+          function()    { 
+            document.getElementById('header-sub').textContent = 'Toque em "Traçar Rota" para navegar';
+            setStatus(''); 
+          },
+          { timeout: 8000, maximumAge: 30000 }
+        );
+      } else {
+        document.getElementById('header-sub').textContent = 'Toque em "Traçar Rota" para navegar';
+      }
+
+    } catch(e) {
+      showErro('Erro ao inicializar o mapa: ' + e.message);
     }
-  <\/script>
+  }
+
+  function calcularRota() {
+    if (!TEM_COORDS || TEM_COORDS === 'false') {
+      showErro('Coordenadas do posto não disponíveis.');
+      return;
+    }
+    var btn = document.getElementById('btn-rota');
+    btn.classList.add('calculando');
+    document.getElementById('btn-txt').textContent = 'Localizando...';
+
+    navigator.geolocation.getCurrentPosition(
+      function(pos) { calcularRotaCom(pos.coords.latitude, pos.coords.longitude); },
+      function(err) {
+        btn.classList.remove('calculando');
+        document.getElementById('btn-txt').textContent = 'Traçar Rota';
+        setStatus('Não foi possível obter sua localização');
+        setTimeout(function(){ setStatus(''); }, 3000);
+      },
+      { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
+    );
+  }
+
+  function calcularRotaCom(origemLat, origemLng) {
+    var btn = document.getElementById('btn-rota');
+    btn.classList.add('calculando');
+    document.getElementById('btn-txt').textContent = 'Calculando...';
+    setStatus('Calculando rota de carro...');
+
+    var origem  = new google.maps.LatLng(origemLat, origemLng);
+    var destino = new google.maps.LatLng(parseFloat(DESTINO_LAT), parseFloat(DESTINO_LNG));
+
+    directionsService.route({
+      origin:      origem,
+      destination: destino,
+      travelMode:  google.maps.TravelMode.DRIVING,
+      language:    'pt-BR'
+    }, function(result, status) {
+      btn.classList.remove('calculando');
+      setStatus('');
+
+      if (status === 'OK') {
+        directionsRenderer.setDirections(result);
+        rotaCalculada = true;
+
+        var leg = result.routes[0].legs[0];
+        document.getElementById('header-sub').textContent =
+          leg.distance.text + ' · ' + leg.duration.text;
+        document.getElementById('btn-txt').textContent = 'Ver Instruções';
+        document.getElementById('info-dist').textContent  = leg.distance.text;
+        document.getElementById('info-tempo').textContent = leg.duration.text;
+
+        // Preencher painel de instruções
+        var steps = leg.steps;
+        var html = '';
+        for (var i = 0; i < steps.length; i++) {
+          var s = steps[i];
+          var instrucao = s.instructions.replace(/<[^>]*>/g, '');
+          html += '<tr><td>' + (i+1) + '</td><td>' +
+            instrucao + '<br><small style="color:#999">' +
+            s.distance.text + '</small></td></tr>';
+        }
+        document.getElementById('painel-steps').innerHTML = html;
+
+        // Trocar botão para "Ver Instruções"
+        document.getElementById('btn-rota').onclick = function() {
+          var p = document.getElementById('painel');
+          p.style.display = p.style.display === 'block' ? 'none' : 'block';
+        };
+
+      } else {
+        document.getElementById('btn-txt').textContent = 'Traçar Rota';
+        setStatus('Não foi possível calcular a rota');
+        setTimeout(function(){ setStatus(''); }, 3000);
+      }
+    });
+  }
+
+  window.initMap = initMap;
+  window.gm_authFailure = function() {
+    showErro('Chave do Google Maps inválida ou sem quota. Entre em contato com o suporte.');
+  };
+<\/script>
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=${googleKey}&callback=initMap&libraries=geometry&language=pt-BR"
+  async defer
+  onerror="document.getElementById('loading').style.display='none'; document.getElementById('erro').style.display='flex';">
+<\/script>
 </body>
 </html>`
 
   return c.html(html)
 })
+
 
 
 // ══════════════════════════════════════════════════════
