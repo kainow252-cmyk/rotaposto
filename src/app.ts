@@ -5565,8 +5565,6 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
         _gpsJaAplicou = true;
         _aplicarLocalizacao(lat, lng, !silencioso, true);
-        if (acc <= 100) showToast('📍 GPS: ' + acc + 'm', 2000);
-        else if (acc <= 500) showToast('📍 Localização: ~' + acc + 'm', 2000);
       },
       function(err) {
         console.warn('[GPS] watchPosition erro: ' + err.code + ' — ' + err.message);
