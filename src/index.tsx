@@ -3893,9 +3893,16 @@ app.get('/ir', async (c) => {
   </button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"
-  onerror="document.getElementById('loading-overlay').style.display='none';document.getElementById('map').innerHTML='<div style=\\'padding:40px;text-align:center;color:#666\\'>Mapa indisponível.<br>Use o botão abaixo para navegar.</div>';"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js" onerror="_leafletErro()"><\/script>
 <script>
+  // Chamado se o CDN do Leaflet falhar
+  function _leafletErro() {
+    document.getElementById('loading-overlay').style.display = 'none';
+    document.getElementById('map').innerHTML =
+      '<div style="padding:40px;text-align:center;color:#666;font-size:14px">'
+      + 'Mapa indisponível.<br>Use o botão abaixo para navegar.</div>';
+  }
+
   // ── Dados do destino ──────────────────────────────────────────────────
   var DEST_LAT  = ${JSON.stringify(lat)};
   var DEST_LNG  = ${JSON.stringify(lng)};
