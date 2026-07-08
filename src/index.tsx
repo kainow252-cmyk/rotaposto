@@ -11596,28 +11596,22 @@ app.get('/admin', (c) => {
   <!-- ══ PRODUTOS & PLANOS ══ -->
   <!-- ══ PLANOS DO APP (B2C) ══ -->
   <section id="section-planos-app" style="display:none">
-    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <!-- Header -->
+    <div class="page-header" style="margin-bottom:20px">
       <div>
         <h2 style="margin:0">📱 Planos do App</h2>
-        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Edite os preços e benefícios dos planos exibidos aos usuários finais do RotaPosto</div>
-      </div>
-      <button onclick="carregarPlanosApp()" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.12);padding:9px 18px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px">
-        <i class="fas fa-sync-alt"></i> Atualizar
-      </button>
-    </div>
-
-    <!-- Aviso de contexto -->
-    <div style="background:rgba(66,165,245,0.08);border:1px solid rgba(66,165,245,0.2);border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
-      <i class="fas fa-info-circle" style="color:#42A5F5;font-size:16px;flex-shrink:0"></i>
-      <div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.6">
-        Esses planos são exibidos na tela de assinatura do app para o usuário final. Alterar o preço aqui atualiza o valor cobrado na próxima renovação e na tela de vendas. O plano <strong style="color:#fff">Gratuito</strong> não pode ser removido.
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Selecione um plano para editar · Planos exibidos na tela de assinatura do app</div>
       </div>
     </div>
 
-    <!-- Cards de planos (renderizados via JS) -->
-    <div id="planos-app-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;margin-bottom:24px">
-      <div style="color:rgba(255,255,255,0.3);padding:40px;text-align:center;grid-column:1/-1">
-        <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block"></i>Carregando planos...
+    <!-- Abas de seleção de plano -->
+    <div id="planos-app-tabs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:28px"></div>
+
+    <!-- Painel de edição do plano selecionado (tela inteira) -->
+    <div id="planos-app-panel" style="margin-bottom:28px">
+      <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);font-size:13px">
+        <i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block"></i>
+        Carregando planos...
       </div>
     </div>
 
@@ -13715,86 +13709,131 @@ async function alterarPermissao(uid, acao) {
 
 // ─── PLANOS DO APP (B2C) — edição de preços e benefícios ────────────────────
 let _planosAppData = [];
+var _planoAppTabIdx = null;
 
 async function carregarPlanosApp() {
-  const grid = document.getElementById('planos-app-grid');
-  if (!grid) return;
-  grid.innerHTML = '<div style="color:rgba(255,255,255,0.3);padding:40px;text-align:center;grid-column:1/-1"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block"></i>Carregando...</div>';
+  var panel = document.getElementById('planos-app-panel');
+  if (panel) panel.innerHTML = '<div style="color:rgba(255,255,255,0.3);padding:40px;text-align:center"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:12px;display:block"></i>Carregando...</div>';
   try {
     const res = await fetch('/api/admin/planos?key=' + encodeURIComponent(ADMIN_KEY));
     const data = await res.json();
     _planosAppData = data.planos || [];
-    renderPlanosAppGrid();
+    if (_planoAppTabIdx === null && _planosAppData.length > 0) _planoAppTabIdx = 0;
+    renderizarAbasPlanosApp();
+    renderizarPlanoAppSelecionado();
   } catch(e) {
-    grid.innerHTML = '<div style="color:#FF5252;padding:40px;text-align:center;grid-column:1/-1"><i class="fas fa-exclamation-triangle"></i> Erro ao carregar: ' + e.message + '</div>';
+    if (panel) panel.innerHTML = '<div style="color:#FF5252;padding:40px;text-align:center"><i class="fas fa-exclamation-triangle"></i> Erro ao carregar: ' + e.message + '</div>';
   }
 }
 
-function renderPlanosAppGrid() {
-  const grid = document.getElementById('planos-app-grid');
-  if (!grid || !_planosAppData.length) return;
-  const CICLO_OPTS = [
+function renderizarAbasPlanosApp() {
+  var tabs = document.getElementById('planos-app-tabs');
+  if (!tabs) return;
+  tabs.innerHTML = _planosAppData.map(function(p, i) {
+    var cor = p.cor || '#42A5F5';
+    var isAtivo = i === _planoAppTabIdx;
+    return '<div onclick="selecionarPlanoAppTab(' + i + ')" style="'
+      + 'cursor:pointer;border-radius:16px;padding:18px 12px 16px;text-align:center;'
+      + 'border:2px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.07)') + ';'
+      + 'background:' + (isAtivo ? 'rgba(' + _hexToRgb(cor) + ',0.14)' : 'rgba(255,255,255,0.03)') + ';'
+      + 'transition:all 0.2s;position:relative;overflow:hidden;'
+      + 'box-shadow:' + (isAtivo ? '0 4px 20px rgba(' + _hexToRgb(cor) + ',0.2)' : 'none') + ';'
+      + '">'
+      + '<div style="position:absolute;top:0;left:0;right:0;height:4px;background:' + cor + ';opacity:' + (isAtivo ? '1' : '0.25') + ';border-radius:16px 16px 0 0"></div>'
+      + '<div style="font-size:26px;margin-bottom:8px;margin-top:2px">' + (p.emoji || '📦') + '</div>'
+      + '<div style="font-size:12px;font-weight:800;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.45)') + ';margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">' + p.nome + '</div>'
+      + (p.destaque ? '<div style="background:' + cor + ';color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;display:inline-block;margin-bottom:2px">DESTAQUE</div>' : '<div style="height:18px"></div>')
+      + (isAtivo ? '<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:' + cor + ';opacity:0.6"></div>' : '')
+      + '</div>';
+  }).join('');
+}
+
+function selecionarPlanoAppTab(idx) {
+  _planoAppTabIdx = idx;
+  renderizarAbasPlanosApp();
+  renderizarPlanoAppSelecionado();
+}
+
+function renderizarPlanoAppSelecionado() {
+  var panel = document.getElementById('planos-app-panel');
+  if (!panel) return;
+  if (!_planosAppData.length) {
+    panel.innerHTML = '<div style="color:rgba(255,255,255,0.3);padding:40px;text-align:center">Nenhum plano encontrado.</div>';
+    return;
+  }
+  var i = (_planoAppTabIdx !== null && _planoAppTabIdx < _planosAppData.length) ? _planoAppTabIdx : 0;
+  var p = _planosAppData[i];
+  var cor = p.cor || '#42A5F5';
+  var isGratis = p.id === 'free';
+  var isProtected = ['free','premium','anual'].includes(p.id);
+  var CICLO_OPTS = [
     { v:'forever', l:'Grátis (sem cobrança)' },
     { v:'monthly', l:'Mensal' },
     { v:'yearly',  l:'Anual' },
     { v:'weekly',  l:'Semanal' }
   ];
-  grid.innerHTML = _planosAppData.map((p, i) => {
-    const isGratis = p.id === 'free';
-    const valorReais = p.valor === 0 ? '0,00' : (p.valor / 100).toFixed(2).replace('.', ',');
-    const cicloOpts = CICLO_OPTS.map(o => '<option value="' + o.v + '"' + (p.ciclo === o.v ? ' selected' : '') + '>' + o.l + '</option>').join('');
-    const featuresHtml = (p.features || []).map((f, fi) =>
-      '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
-      + '<input type="checkbox" id="paf-' + i + '-' + fi + '" ' + (f.incluido ? 'checked' : '') + ' onchange="toggleFeatureApp(' + i + ',' + fi + ',this.checked)" style="accent-color:' + p.cor + ';width:16px;height:16px;cursor:pointer;flex-shrink:0">'
-      + '<input type="text" value="' + f.texto.replace(/"/g, '&quot;') + '" oninput="editarTextoFeatureApp(' + i + ',' + fi + ',this.value)" style="background:transparent;border:none;color:rgba(255,255,255,0.75);font-size:12px;flex:1;outline:none;font-family:inherit" placeholder="Benefício...">'
-      + '<button onclick="removerFeatureApp(' + i + ',' + fi + ')" style="background:none;border:none;color:rgba(255,82,82,0.5);cursor:pointer;padding:2px;font-size:11px" title="Remover"><i class="fas fa-times"></i></button>'
-      + '</div>'
-    ).join('');
-    return '<div class="kpi-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08);position:relative">'
-      // Faixa colorida no topo
-      + '<div style="height:5px;background:' + p.cor + ';width:100%"></div>'
-      // Cabeçalho do card
-      + '<div style="padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.07)">'
-      +   '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
-      +     '<span style="font-size:26px">' + (p.emoji || '📦') + '</span>'
-      +     '<div style="flex:1">'
-      +       '<input id="pa-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g, '&quot;') + '" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:15px;font-weight:800;padding:6px 10px;width:100%;font-family:inherit;outline:none" placeholder="Nome do plano">'
-      +     '</div>'
-      +     (p.destaque ? '<span style="background:#FF6D00;color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px;flex-shrink:0">DESTAQUE</span>' : '')
-      +   '</div>'
-      +   '<input id="pa-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g, '&quot;') + '" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:rgba(255,255,255,0.55);font-size:12px;padding:7px 10px;width:100%;font-family:inherit;outline:none;box-sizing:border-box" placeholder="Descrição curta...">'
-      + '</div>'
-      // Preço
-      + '<div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
-      +   '<div style="flex:1;min-width:120px">'
-      +     '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Preço (R$ centavos)</div>'
-      +     '<div style="display:flex;align-items:center;gap:6px">'
-      +       '<span style="color:rgba(255,255,255,0.4);font-size:13px;font-weight:700">R$</span>'
-      +       '<input id="pa-valor-' + i + '" type="number" min="0" step="1" value="' + p.valor + '" ' + (isGratis ? 'disabled' : '') + ' style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:20px;font-weight:900;padding:8px 12px;width:120px;font-family:inherit;outline:none;' + (isGratis ? 'opacity:0.4;cursor:not-allowed' : '') + '">'
-      +       '<span style="color:rgba(255,255,255,0.3);font-size:11px">(ex: 990 = R$9,90)</span>'
-      +     '</div>'
-      +   '</div>'
-      +   '<div style="min-width:140px">'
-      +     '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Ciclo de cobrança</div>'
-      +     '<select id="pa-ciclo-' + i + '" ' + (isGratis ? 'disabled' : '') + ' style="background:#0A1520;border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:13px;font-weight:600;padding:9px 12px;font-family:inherit;outline:none;cursor:pointer;' + (isGratis ? 'opacity:0.4;cursor:not-allowed' : '') + '">' + cicloOpts + '</select>'
-      +   '</div>'
-      + '</div>'
-      // Benefícios / features
-      + '<div style="padding:16px 20px">'
-      +   '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Benefícios exibidos no app</div>'
-      +   '<div id="pa-features-' + i + '">' + featuresHtml + '</div>'
-      +   '<button onclick="adicionarFeatureApp(' + i + ')" style="margin-top:10px;background:rgba(255,255,255,0.05);border:1px dashed rgba(255,255,255,0.15);border-radius:8px;color:rgba(255,255,255,0.4);font-size:12px;padding:7px 14px;cursor:pointer;width:100%;font-family:inherit"><i class="fas fa-plus" style="margin-right:6px"></i>Adicionar benefício</button>'
-      + '</div>'
-      // Rodapé com botão salvar
-      + '<div style="padding:14px 20px;background:rgba(0,0,0,0.15);display:flex;justify-content:flex-end;gap:8px">'
-      +   (p.id !== 'free' && p.id !== 'premium' && p.id !== 'anual'
-          ? '<button onclick="deletarPlanoApp(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700"><i class="fas fa-trash"></i></button>'
-          : '')
-      +   '<button onclick="salvarPlanoApp(' + i + ',&apos;' + p.id + '&apos;)" style="background:' + p.cor + ';color:#fff;border:none;padding:9px 22px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer"><i class="fas fa-save" style="margin-right:6px"></i>Salvar</button>'
-      + '</div>'
+  var cicloOpts = CICLO_OPTS.map(function(o) {
+    return '<option value="' + o.v + '"' + (p.ciclo === o.v ? ' selected' : '') + '>' + o.l + '</option>';
+  }).join('');
+  var featuresHtml = (p.features || []).map(function(f, fi) {
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
+      + '<input type="checkbox" id="paf-' + i + '-' + fi + '" ' + (f.incluido ? 'checked' : '') + ' onchange="toggleFeatureApp(' + i + ',' + fi + ',this.checked)" style="accent-color:' + cor + ';width:16px;height:16px;cursor:pointer;flex-shrink:0">'
+      + '<input type="text" value="' + f.texto.replace(/"/g, '&quot;') + '" oninput="editarTextoFeatureApp(' + i + ',' + fi + ',this.value)" style="background:transparent;border:none;color:rgba(255,255,255,0.8);font-size:13px;flex:1;outline:none;font-family:inherit" placeholder="Descrição do benefício...">'
+      + '<button onclick="removerFeatureApp(' + i + ',' + fi + ')" style="background:none;border:none;color:rgba(255,82,82,0.5);cursor:pointer;padding:3px 6px;font-size:12px;border-radius:6px" title="Remover"><i class="fas fa-times"></i></button>'
       + '</div>';
   }).join('');
+
+  panel.innerHTML = '<div style="background:#0D1B2A;border:2px solid ' + cor + '44;border-radius:18px;overflow:hidden;width:100%">'
+    // Faixa colorida topo
+    + '<div style="height:5px;background:linear-gradient(90deg,' + cor + ',' + cor + '88)"></div>'
+    // Header
+    + '<div style="padding:24px 28px 20px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+    +   '<input id="pa-emoji-' + i + '" type="text" maxlength="4" value="' + (p.emoji||'📦') + '" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:26px;text-align:center;padding:8px;width:54px;font-family:inherit;outline:none">'
+    +   '<div style="flex:1;min-width:200px">'
+    +     '<input id="pa-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g, '&quot;') + '" style="width:100%;background:transparent;border:none;border-bottom:2px solid rgba(255,255,255,0.1);color:#fff;font-size:22px;font-weight:900;padding:4px 0 8px;font-family:inherit;outline:none;margin-bottom:6px" placeholder="Nome do plano">'
+    +     '<input id="pa-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g, '&quot;') + '" style="width:100%;background:transparent;border:none;border-bottom:1.5px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);font-size:13px;padding:4px 0 6px;font-family:inherit;outline:none" placeholder="Descrição curta do plano...">'
+    +   '</div>'
+    +   '<input id="pa-cor-' + i + '" type="color" value="' + cor + '" title="Cor do plano" style="width:44px;height:44px;border:2px solid rgba(255,255,255,0.12);border-radius:10px;background:rgba(255,255,255,0.04);padding:3px;cursor:pointer;flex-shrink:0">'
+    + '</div>'
+    // Preço + ciclo
+    + '<div style="padding:20px 28px;border-bottom:1px solid rgba(255,255,255,0.07);display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;align-items:start">'
+    +   '<div>'
+    +     '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Preço (centavos)</div>'
+    +     '<div style="display:flex;align-items:center;gap:8px">'
+    +       '<span style="font-size:18px;font-weight:700;color:rgba(255,255,255,0.35)">R$</span>'
+    +       '<input id="pa-valor-' + i + '" type="number" min="0" step="1" value="' + p.valor + '" ' + (isGratis ? 'disabled' : '') + ' style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:24px;font-weight:900;padding:10px 14px;width:150px;font-family:inherit;outline:none;' + (isGratis ? 'opacity:0.35;cursor:not-allowed' : '') + '">'
+    +     '</div>'
+    +     '<div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:5px">ex: 9900 = R$ 99,00</div>'
+    +   '</div>'
+    +   '<div>'
+    +     '<div style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Ciclo de Cobrança</div>'
+    +     '<select id="pa-ciclo-' + i + '" ' + (isGratis ? 'disabled' : '') + ' style="width:100%;background:#0A1520;border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:14px;font-weight:600;padding:10px 14px;font-family:inherit;outline:none;cursor:pointer;' + (isGratis ? 'opacity:0.35;cursor:not-allowed' : '') + '">' + cicloOpts + '</select>'
+    +   '</div>'
+    + '</div>'
+    // Switch destaque
+    + '<div style="padding:14px 28px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;gap:28px;flex-wrap:wrap">'
+    +   '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.7)">'
+    +     '<input id="pa-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FF6D00;width:17px;height:17px;cursor:pointer"> Plano em Destaque'
+    +   '</label>'
+    + '</div>'
+    // Benefícios / features
+    + '<div style="padding:20px 28px;border-bottom:1px solid rgba(255,255,255,0.07)">'
+    +   '<div style="font-size:11px;color:rgba(255,255,255,0.35);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px"><i class="fas fa-mobile-alt" style="color:' + cor + ';margin-right:6px"></i>Benefícios exibidos no App</div>'
+    +   '<div id="pa-features-' + i + '">' + featuresHtml + '</div>'
+    +   '<button onclick="adicionarFeatureApp(' + i + ')" style="margin-top:12px;background:rgba(255,255,255,0.04);border:1.5px dashed rgba(255,255,255,0.12);border-radius:10px;color:rgba(255,255,255,0.4);font-size:12px;font-weight:700;padding:9px 18px;cursor:pointer;width:100%;font-family:inherit"><i class="fas fa-plus" style="margin-right:6px"></i>Adicionar benefício</button>'
+    + '</div>'
+    // Rodapé
+    + '<div style="padding:16px 28px;background:rgba(0,0,0,0.2);display:flex;justify-content:space-between;align-items:center">'
+    +   '<div style="font-size:11px;color:rgba(255,255,255,0.2)">ID: ' + p.id + '</div>'
+    +   '<div style="display:flex;gap:10px">'
+    +     (!isProtected ? '<button onclick="deletarPlanoApp(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25);padding:9px 16px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700"><i class="fas fa-trash"></i> Excluir</button>' : '')
+    +     '<button onclick="salvarPlanoApp(' + i + ',&apos;' + p.id + '&apos;)" style="background:' + cor + ';color:#fff;border:none;padding:10px 28px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer"><i class="fas fa-save" style="margin-right:6px"></i>Salvar alterações</button>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
 }
+
+// renderPlanosAppGrid substituída por renderizarAbasPlanosApp + renderizarPlanoAppSelecionado
 
 function toggleFeatureApp(planoIdx, featIdx, checked) {
   if (_planosAppData[planoIdx] && _planosAppData[planoIdx].features[featIdx] !== undefined) {
@@ -13811,34 +13850,40 @@ function editarTextoFeatureApp(planoIdx, featIdx, texto) {
 function removerFeatureApp(planoIdx, featIdx) {
   if (!_planosAppData[planoIdx]) return;
   _planosAppData[planoIdx].features.splice(featIdx, 1);
-  renderPlanosAppGrid();
+  renderizarPlanoAppSelecionado();
 }
 
 function adicionarFeatureApp(planoIdx) {
   if (!_planosAppData[planoIdx]) return;
   _planosAppData[planoIdx].features.push({ texto: '', incluido: true });
-  renderPlanosAppGrid();
+  renderizarPlanoAppSelecionado();
   // Focar no novo input
-  setTimeout(() => {
-    const container = document.getElementById('pa-features-' + planoIdx);
+  setTimeout(function() {
+    var container = document.getElementById('pa-features-' + planoIdx);
     if (container) {
-      const inputs = container.querySelectorAll('input[type=text]');
+      var inputs = container.querySelectorAll('input[type=text]');
       if (inputs.length) inputs[inputs.length - 1].focus();
     }
   }, 50);
 }
 
 async function salvarPlanoApp(idx, id) {
-  const nomeEl  = document.getElementById('pa-nome-' + idx);
-  const descEl  = document.getElementById('pa-desc-' + idx);
-  const valorEl = document.getElementById('pa-valor-' + idx);
-  const cicloEl = document.getElementById('pa-ciclo-' + idx);
+  const nomeEl    = document.getElementById('pa-nome-' + idx);
+  const descEl    = document.getElementById('pa-desc-' + idx);
+  const valorEl   = document.getElementById('pa-valor-' + idx);
+  const cicloEl   = document.getElementById('pa-ciclo-' + idx);
+  const emojiEl   = document.getElementById('pa-emoji-' + idx);
+  const corEl     = document.getElementById('pa-cor-' + idx);
+  const destaqueEl= document.getElementById('pa-destaque-' + idx);
   if (!nomeEl) return;
   const body = {
     nome:     nomeEl.value.trim(),
     descricao: descEl ? descEl.value.trim() : '',
     valor:    parseInt(valorEl ? valorEl.value : '0') || 0,
     ciclo:    cicloEl ? cicloEl.value : 'monthly',
+    emoji:    emojiEl ? emojiEl.value.trim() : '',
+    cor:      corEl   ? corEl.value : '',
+    destaque: destaqueEl ? destaqueEl.checked : false,
     features: _planosAppData[idx] ? _planosAppData[idx].features : []
   };
   try {
@@ -13850,7 +13895,11 @@ async function salvarPlanoApp(idx, id) {
     const data = await res.json();
     if (data.ok) {
       mostrarToastPlanosApp('✅ Plano "' + body.nome + '" salvo com sucesso!', '#00C853');
+      var savedIdx = _planoAppTabIdx;
       await carregarPlanosApp();
+      _planoAppTabIdx = savedIdx;
+      renderizarAbasPlanosApp();
+      renderizarPlanoAppSelecionado();
     } else {
       mostrarToastPlanosApp('❌ Erro: ' + (data.erro || 'Falha ao salvar'), '#FF5252');
     }
@@ -13865,6 +13914,7 @@ async function deletarPlanoApp(id) {
     const res = await fetch('/api/admin/planos/' + encodeURIComponent(id) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
     const data = await res.json();
     if (data.ok) {
+      _planoAppTabIdx = 0;
       mostrarToastPlanosApp('🗑️ Plano removido.', '#FF6D00');
       await carregarPlanosApp();
     } else {
