@@ -1089,7 +1089,26 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
         + '&prompt=select_account'
         + '&access_type=online';
 
-      window.location.href = oauthUrl;
+      // TWA bloqueia accounts.google.com com ERR_CACHE_MISS quando navegamos
+      // dentro do frame TWA (window.location.href). Solução: abrir Chrome Custom Tab
+      // via window.open(url, '_blank') SEM terceiro argumento — Custom Tabs têm
+      // cache/cookies próprios e acesso total à internet, bypass do bloqueio TWA.
+      // O callback /auth/google/callback redireciona de volta para rotaposto.com.br
+      // que está na allowedOrigins do TWA, então fecha o Custom Tab e retorna ao app.
+      var ua = navigator.userAgent || '';
+      var isTWA = (document.referrer && document.referrer.indexOf('android-app://') === 0)
+        || (window.matchMedia('(display-mode: standalone)').matches && /Chrome/i.test(ua) && /Android/i.test(ua));
+      if (isTWA) {
+        // Custom Tab: abre accounts.google.com fora do frame TWA
+        var w = window.open(oauthUrl, '_blank');
+        if (!w) {
+          // Fallback se Custom Tab bloqueado: usar window.location dentro do TWA
+          window.location.href = oauthUrl;
+        }
+      } else {
+        // Desktop/iOS: navegação direta (sem problema de ERR_CACHE_MISS)
+        window.location.href = oauthUrl;
+      }
     }).catch(function(err) {
       console.error('[Auth] Erro ao gerar PKCE challenge:', err);
       showLoading(false);
