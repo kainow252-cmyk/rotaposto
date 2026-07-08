@@ -3416,7 +3416,7 @@ function _renderizarCardsPlanos(planos) {
       btnHtml = '<button onclick="ativarPlanoGratis()" style="width:100%;padding:13px;background:#2a2a2a;color:#aaa;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">'
         + 'Usar plano gratuito</button>';
     } else {
-      btnHtml = '<button onclick="assinarPlanoPix(\'' + p.id + '\')" style="width:100%;padding:13px;background:' + (destaque ? '#FF6D00' : '#333') + ';color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">'
+      btnHtml = '<button data-plano="' + p.id + '" onclick="assinarPlanoPix(this.dataset.plano)" style="width:100%;padding:13px;background:' + (destaque ? '#FF6D00' : '#333') + ';color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">'
         + '<i class="fas fa-qrcode"></i> Assinar via PIX</button>';
     }
 
@@ -3499,13 +3499,13 @@ async function assinarPlanoPix(planoId) {
       conteudo.innerHTML = '<div style="text-align:center;padding:24px">'
         + '<div style="font-size:32px;margin-bottom:12px">❌</div>'
         + '<p style="color:#d32f2f;font-weight:700;margin-bottom:8px">' + (d.erro || 'Erro ao gerar PIX') + '</p>'
-        + '<button onclick="assinarPlanoPix(\'' + planoId + '\')" style="margin-top:8px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Tentar novamente</button>'
+        + '<button data-plano="' + planoId + '" onclick="assinarPlanoPix(this.dataset.plano)" style="margin-top:8px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Tentar novamente</button>'
         + '</div>';
     }
   } catch(e) {
     conteudo.innerHTML = '<div style="text-align:center;padding:24px">'
       + '<p style="color:#d32f2f;font-weight:700">Erro de rede. Tente novamente.</p>'
-      + '<button onclick="assinarPlanoPix(\'' + planoId + '\')" style="margin-top:12px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Tentar novamente</button>'
+      + '<button data-plano="' + planoId + '" onclick="assinarPlanoPix(this.dataset.plano)" style="margin-top:12px;background:#FF6D00;border:none;color:white;padding:10px 24px;border-radius:10px;cursor:pointer;font-weight:800">Tentar novamente</button>'
       + '</div>';
   }
 }
