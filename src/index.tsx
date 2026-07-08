@@ -4145,55 +4145,69 @@ app.get('/ir', async (c) => {
     modoPassos = false;
   }
 
-  // Abre navegação externa até o destino
-  // No PWA Android, google.com/maps redireciona para intent:// → ERR_UNKNOWN_URL_SCHEME
-  // Solução: abrir uma nova aba HTML com links para Maps e Waze usando <a> com target="_blank"
-  // Isso sai do contexto do PWA e o Android trata o clique normalmente
+  // Abre navegação externa — bottom sheet com Google Maps e Waze
+  // Usa <a href> criado e clicado programaticamente: único método que funciona
+  // no PWA Android sem gerar intent:// (window.open e location.href falham)
   function abrirNavegacaoExterna() {
     var dest = DEST_LAT + ',' + DEST_LNG;
-    var nomeDestino = encodeURIComponent(document.title || 'Posto');
+    var urlMaps = 'https://maps.google.com/?daddr=' + dest + '&directionsmode=driving';
+    var urlWaze = 'https://waze.com/ul?ll=' + dest + '&navigate=yes&zoom=17';
 
-    // URLs de navegação
-    var urlMaps  = 'https://maps.google.com/?daddr=' + dest + '&directionsmode=driving';
-    var urlWaze  = 'https://waze.com/ul?ll=' + dest + '&navigate=yes';
-    var urlApple = 'maps://maps.apple.com/?daddr=' + dest + '&dirflg=d';
-
-    // Detectar iOS
-    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    if (isIOS) {
-      window.location.href = urlApple;
+    // iOS: Apple Maps nativo
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      var a = document.createElement('a');
+      a.href = 'maps://maps.apple.com/?daddr=' + dest + '&dirflg=d';
+      a.click();
       return;
     }
 
-    // Android/PWA: abrir bottom sheet com opção Maps ou Waze
-    // Remove sheet anterior se existir
+    // Android/PWA: bottom sheet com opções
     var old = document.getElementById('nav-sheet');
     if (old) old.remove();
 
     var sheet = document.createElement('div');
     sheet.id = 'nav-sheet';
+    sheet.style.cssText = 'position:fixed;inset:0;z-index:99999';
     sheet.innerHTML =
-      '<div onclick="document.getElementById(\'nav-sheet\').remove()" style="'
-      + 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99998"></div>'
-      + '<div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-radius:20px 20px 0 0;'
-      + 'padding:20px;z-index:99999;box-shadow:0 -4px 24px rgba(0,0,0,0.2)">'
-      + '<div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 18px"></div>'
-      + '<div style="font-size:15px;font-weight:700;color:#222;margin-bottom:16px;text-align:center">Abrir navegação em:</div>'
-      + '<a href="' + urlMaps + '" target="_blank" rel="noopener" '
-      + 'style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:12px;'
-      + 'background:#f5f5f5;margin-bottom:10px;text-decoration:none;color:#222;font-weight:700;font-size:15px">'
-      + '<img src="https://www.google.com/favicon.ico" style="width:28px;height:28px;border-radius:6px" onerror="this.style.display=\'none\'">'
-      + '<span>Google Maps</span></a>'
-      + '<a href="' + urlWaze + '" target="_blank" rel="noopener" '
-      + 'style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:12px;'
-      + 'background:#f5f5f5;margin-bottom:10px;text-decoration:none;color:#222;font-weight:700;font-size:15px">'
-      + '<img src="https://www.waze.com/favicon.ico" style="width:28px;height:28px;border-radius:6px" onerror="this.style.display=\'none\'">'
-      + '<span>Waze</span></a>'
+      // Overlay escuro
+      '<div id="nav-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.55)">'
+      + '</div>'
+      // Painel
+      + '<div style="position:absolute;bottom:0;left:0;right:0;background:#fff;'
+      + 'border-radius:20px 20px 0 0;padding:20px 16px 32px;'
+      + 'box-shadow:0 -4px 24px rgba(0,0,0,0.18)">'
+      + '<div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 18px"></div>'
+      + '<div style="font-size:16px;font-weight:800;color:#111;margin-bottom:16px;text-align:center">Abrir navegação em</div>'
+      // Google Maps
+      + '<a id="nav-maps-link" href="' + urlMaps + '" '
+      + 'style="display:flex;align-items:center;gap:14px;padding:15px 16px;border-radius:14px;'
+      + 'background:#f7f7f7;margin-bottom:10px;text-decoration:none;color:#111;'
+      + 'font-weight:700;font-size:15px;border:1px solid #eee">'
+      + '<img src="https://maps.gstatic.com/mapfiles/maps_lite/pwa/icons/maps15_bnv.ico" '
+      + 'style="width:32px;height:32px;border-radius:8px" onerror="this.src=\'https://www.google.com/favicon.ico\'">'
+      + '<div><div>Google Maps</div>'
+      + '<div style="font-size:12px;font-weight:500;color:#888;margin-top:2px">Navegação com voz</div></div></a>'
+      // Waze
+      + '<a id="nav-waze-link" href="' + urlWaze + '" '
+      + 'style="display:flex;align-items:center;gap:14px;padding:15px 16px;border-radius:14px;'
+      + 'background:#f7f7f7;margin-bottom:16px;text-decoration:none;color:#111;'
+      + 'font-weight:700;font-size:15px;border:1px solid #eee">'
+      + '<img src="https://www.waze.com/favicon.ico" '
+      + 'style="width:32px;height:32px;border-radius:8px" onerror="this.style.display=\'none\'">'
+      + '<div><div>Waze</div>'
+      + '<div style="font-size:12px;font-weight:500;color:#888;margin-top:2px">Trânsito em tempo real</div></div></a>'
+      // Cancelar
       + '<button onclick="document.getElementById(\'nav-sheet\').remove()" '
-      + 'style="width:100%;padding:13px;border:none;background:#eee;border-radius:12px;'
-      + 'font-size:14px;font-weight:700;color:#666;cursor:pointer;margin-top:4px">Cancelar</button>'
+      + 'style="width:100%;padding:14px;border:none;background:#f0f0f0;border-radius:14px;'
+      + 'font-size:15px;font-weight:700;color:#555;cursor:pointer">Cancelar</button>'
       + '</div>';
+
     document.body.appendChild(sheet);
+
+    // Fechar ao tocar no overlay
+    document.getElementById('nav-overlay').addEventListener('click', function() {
+      sheet.remove();
+    });
   }
 
   // ── Inicializar ───────────────────────────────────────────────────────
