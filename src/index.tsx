@@ -7605,11 +7605,11 @@ async function _loginGooglePKCE() {
   const verifierArr = new Uint8Array(48);
   crypto.getRandomValues(verifierArr);
   const codeVerifier = btoa(String.fromCharCode(...verifierArr))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    .replace(/[+]/g, '-').replace(/[/]/g, '_').replace(/[=]/g, '');
   const encoder = new TextEncoder();
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(codeVerifier));
   const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    .replace(/[+]/g, '-').replace(/[/]/g, '_').replace(/[=]/g, '');
 
   // Salvar no localStorage para recuperar no callback
   localStorage.setItem('google_pkce_verifier', codeVerifier);
