@@ -2695,260 +2695,419 @@ app.get('/landing', (c) => {
   return c.html(getLandingHTML())
 })
 
+
 app.get('/app/cadastrar-posto', (c) => {
   return c.html(`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <meta name="theme-color" content="#FF6D00"/>
-  <title>RotaPosto – Cadastrar Posto</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css"/>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    :root{
-      --laranja:#FF6D00;--laranja2:#FF8C00;--verde:#00C853;--azul:#42A5F5;--ouro:#FFD600;
-      --bg:#0D0D0D;--card:#161616;--card2:#1C1C1C;--borda:rgba(255,255,255,0.08);
-      --txt:#F5F5F5;--sub:rgba(255,255,255,0.45);
-      --input-bg:rgba(255,255,255,0.06);--input-borda:rgba(255,255,255,0.12);
-      --input-focus:rgba(255,109,0,0.5);--r:14px;
-    }
-    html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'Raleway',sans-serif;overflow-x:hidden}
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#FF6D00"/>
+<title>RotaPosto – Cadastrar Posto</title>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --laranja:#FF6D00;--verde:#00C853;--ouro:#FFD600;--azul:#42A5F5;--erro:#FF5252;
+  --bg:#0A0A0A;--card:#141414;--card2:#1A1A1A;
+  --borda:rgba(255,255,255,0.07);--borda2:rgba(255,255,255,0.12);
+  --txt:#F0F0F0;--sub:rgba(255,255,255,0.4);--sub2:rgba(255,255,255,0.25);
+  --inp:rgba(255,255,255,0.05);--inp-borda:rgba(255,255,255,0.1);
+  --inp-focus:rgba(255,109,0,0.45);--r:14px;--r2:10px;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--txt);font-family:'Raleway',sans-serif;overflow-x:hidden}
 
-    /* ── TOPBAR ── */
-    .topbar{position:fixed;top:0;left:0;right:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--borda);display:flex;align-items:center;gap:12px;padding:14px 18px}
-    .topbar-back{width:36px;height:36px;border-radius:50%;background:var(--input-bg);border:none;color:var(--txt);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .topbar-title{font-size:16px;font-weight:800;flex:1}
-    .topbar-logo{width:32px;height:32px;background:var(--laranja);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+/* ─── TOPBAR ─── */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  background:rgba(10,10,10,0.97);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--borda);
+  display:flex;align-items:center;padding:0 16px;height:58px;gap:12px;
+}
+.btn-back{
+  width:36px;height:36px;border-radius:50%;border:none;
+  background:var(--card2);color:var(--txt);font-size:15px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+}
+.topbar-title{font-size:15px;font-weight:800;flex:1;letter-spacing:.2px}
+.logo-icon{
+  width:34px;height:34px;border-radius:9px;background:var(--laranja);
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;
+}
 
-    /* ── PROGRESS ── */
-    .progress-wrap{position:fixed;top:65px;left:0;right:0;z-index:99;background:var(--bg);padding:10px 18px 8px}
-    .progress-steps{display:flex;gap:6px;align-items:center;margin-bottom:6px}
-    .step-dot{flex:1;height:4px;border-radius:4px;background:var(--input-bg);transition:background .35s}
-    .step-dot.active{background:var(--laranja)}
-    .step-dot.done{background:rgba(255,109,0,0.35)}
-    .progress-label{font-size:11px;color:var(--sub);font-weight:600;letter-spacing:.4px}
+/* ─── PROGRESS BAR ─── */
+.prog-wrap{
+  position:fixed;top:58px;left:0;right:0;z-index:199;
+  background:rgba(10,10,10,0.95);padding:10px 16px 8px;
+}
+.prog-track{display:flex;gap:5px;margin-bottom:5px}
+.prog-seg{
+  flex:1;height:3px;border-radius:3px;background:var(--card2);
+  transition:background .4s ease;
+}
+.prog-seg.ativo{background:var(--laranja)}
+.prog-seg.feito{background:rgba(255,109,0,.3)}
+.prog-txt{font-size:10px;color:var(--sub);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 
-    /* ── CONTENT ── */
-    .content{padding:130px 18px 100px;max-width:480px;margin:0 auto}
+/* ─── LAYOUT ─── */
+.wrap{padding:110px 16px 110px;max-width:480px;margin:0 auto}
 
-    /* ── STEP HEADER ── */
-    .step-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.25);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:800;color:var(--laranja);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px}
-    .step-title{font-size:22px;font-weight:900;line-height:1.25;margin-bottom:6px}
-    .step-sub{font-size:13px;color:var(--sub);line-height:1.5;margin-bottom:20px}
+/* ─── ETAPA HEADER ─── */
+.etapa-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,109,0,0.1);border:1px solid rgba(255,109,0,0.22);
+  border-radius:30px;padding:4px 12px;
+  font-size:10px;font-weight:900;color:var(--laranja);letter-spacing:.8px;text-transform:uppercase;
+  margin-bottom:10px;
+}
+.etapa-titulo{font-size:23px;font-weight:900;line-height:1.2;margin-bottom:5px}
+.etapa-sub{font-size:13px;color:var(--sub);line-height:1.55;margin-bottom:22px}
 
-    /* ── FORM ── */
-    .fg{margin-bottom:14px}
-    .fl{display:block;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--sub);margin-bottom:6px}
-    .fi{width:100%;padding:13px 14px;background:var(--input-bg);border:1.5px solid var(--input-borda);border-radius:var(--r);color:var(--txt);font-size:14px;font-family:'Raleway',sans-serif;outline:none;transition:border-color .2s;-webkit-appearance:none}
-    .fi::placeholder{color:rgba(255,255,255,0.2)}
-    .fi:focus{border-color:var(--input-focus);background:rgba(255,109,0,0.04)}
-    .fi.erro{border-color:#FF5252}
-    .fi:disabled{opacity:.5;cursor:not-allowed}
-    select.fi{cursor:pointer}
-    .fg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* ─── INPUTS ─── */
+.fg{margin-bottom:13px;position:relative}
+.fl{
+  display:block;font-size:10px;font-weight:900;
+  letter-spacing:.9px;text-transform:uppercase;color:var(--sub);margin-bottom:6px;
+}
+.fi{
+  width:100%;padding:13px 15px;
+  background:var(--inp);border:1.5px solid var(--inp-borda);
+  border-radius:var(--r);color:var(--txt);
+  font-size:15px;font-family:'Raleway',sans-serif;
+  outline:none;transition:border-color .2s,background .2s;
+  -webkit-appearance:none;
+}
+.fi::placeholder{color:var(--sub2)}
+.fi:focus{border-color:var(--inp-focus);background:rgba(255,109,0,0.03)}
+.fi.erro{border-color:var(--erro);background:rgba(255,82,82,0.04)}
+.fi.ok{border-color:rgba(0,200,83,.4)}
+.fi:disabled{opacity:.45;cursor:not-allowed}
+select.fi{cursor:pointer}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
-    /* ── CNPJ SEARCH BOX ── */
-    .cnpj-box{background:rgba(255,109,0,0.05);border:1.5px solid rgba(255,109,0,0.2);border-radius:var(--r);padding:18px;margin-bottom:20px;text-align:center}
-    .cnpj-icon{font-size:40px;margin-bottom:12px}
-    .cnpj-desc{font-size:13px;color:var(--sub);line-height:1.5;margin-bottom:16px}
-    .cnpj-input-row{display:flex;gap:10px}
-    .cnpj-input-row .fi{font-size:16px;font-weight:700;letter-spacing:1px;text-align:center}
-    .btn-buscar{flex-shrink:0;padding:13px 18px;background:var(--laranja);border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:800;font-family:'Raleway',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
-    .btn-buscar:disabled{opacity:.6;cursor:not-allowed}
+/* ─── CNPJ HERO ─── */
+.cnpj-hero{
+  background:linear-gradient(135deg,rgba(255,109,0,.08),rgba(255,109,0,.03));
+  border:1.5px solid rgba(255,109,0,.18);border-radius:18px;
+  padding:24px 20px;text-align:center;margin-bottom:22px;
+}
+.cnpj-hero-icon{font-size:48px;margin-bottom:14px;line-height:1}
+.cnpj-hero-title{font-size:18px;font-weight:900;margin-bottom:6px}
+.cnpj-hero-sub{font-size:12px;color:var(--sub);line-height:1.5;margin-bottom:18px}
+.cnpj-input-group{display:flex;gap:8px}
+.cnpj-input-group .fi{
+  font-size:17px;font-weight:800;letter-spacing:1px;text-align:center;flex:1;
+}
+.btn-buscar-cnpj{
+  flex-shrink:0;padding:13px 16px;
+  background:var(--laranja);border:none;border-radius:var(--r);
+  color:#fff;font-size:13px;font-weight:900;font-family:'Raleway',sans-serif;
+  cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;
+  transition:opacity .2s;
+}
+.btn-buscar-cnpj:disabled{opacity:.55;cursor:not-allowed}
 
-    /* ── DADOS ENCONTRADOS ── */
-    .dados-card{background:var(--card2);border:1px solid rgba(0,200,83,0.25);border-radius:var(--r);padding:16px;margin-bottom:18px;display:none}
-    .dados-card.show{display:block;animation:fadeUp .3s ease}
-    .dados-ok-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,200,83,0.12);border:1px solid rgba(0,200,83,0.3);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:800;color:var(--verde);margin-bottom:12px}
-    .dados-row{display:flex;gap:10px;margin-bottom:8px;font-size:13px}
-    .dados-row i{color:var(--laranja);flex-shrink:0;margin-top:2px;width:16px}
-    .dados-label{color:var(--sub);font-size:11px;font-weight:700;display:block;margin-bottom:2px}
-    .dados-val{color:var(--txt);font-weight:600}
+/* ─── CARD DADOS ENCONTRADOS ─── */
+.dados-card{
+  background:var(--card2);
+  border:1.5px solid rgba(0,200,83,.22);
+  border-radius:var(--r);padding:16px;margin-bottom:18px;
+  display:none;animation:fadeUp .3s ease;
+}
+.dados-card.show{display:block}
+.dados-ok{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.25);
+  border-radius:20px;padding:3px 10px;
+  font-size:10px;font-weight:900;color:var(--verde);letter-spacing:.5px;
+  margin-bottom:12px;
+}
+.drow{display:flex;gap:10px;margin-bottom:9px;font-size:13px;align-items:flex-start}
+.drow:last-child{margin-bottom:0}
+.drow i{color:var(--laranja);width:15px;flex-shrink:0;margin-top:2px}
+.dlabel{font-size:10px;font-weight:800;color:var(--sub);letter-spacing:.4px;display:block;margin-bottom:1px}
+.dval{color:var(--txt);font-weight:700;font-size:13px}
 
-    /* ── SECTION GROUP ── */
-    .sg{background:rgba(255,109,0,0.04);border:1px solid rgba(255,109,0,0.15);border-radius:var(--r);padding:16px;margin-bottom:14px}
-    .sg-title{font-size:10px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:var(--laranja);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+/* ─── SECAO ─── */
+.sec{
+  background:rgba(255,109,0,.03);border:1px solid rgba(255,109,0,.13);
+  border-radius:var(--r);padding:15px 15px 5px;margin-bottom:14px;
+}
+.sec-title{
+  font-size:10px;font-weight:900;letter-spacing:1.4px;
+  text-transform:uppercase;color:var(--laranja);
+  margin-bottom:13px;display:flex;align-items:center;gap:7px;
+}
 
-    /* ── GPS ── */
-    .gps-btn{width:100%;padding:12px;border-radius:var(--r);border:1.5px dashed rgba(255,109,0,0.3);background:transparent;color:var(--laranja);font-size:13px;font-weight:700;font-family:'Raleway',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
-    .gps-status{font-size:11px;color:var(--sub);text-align:center;margin-top:6px;min-height:16px}
+/* ─── GPS ─── */
+.btn-gps{
+  width:100%;padding:11px;border-radius:var(--r);
+  border:1.5px dashed rgba(255,109,0,.3);background:transparent;
+  color:var(--laranja);font-size:12px;font-weight:800;
+  font-family:'Raleway',sans-serif;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  transition:all .2s;margin-bottom:4px;
+}
+.btn-gps.capturado{border-color:var(--verde);color:var(--verde)}
+.gps-info{font-size:10px;color:var(--sub);text-align:center;min-height:14px;margin-bottom:8px}
 
-    /* ── COMBUSTÍVEIS ── */
-    .comb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .comb-btn{padding:10px 8px;border-radius:10px;border:1.5px solid var(--input-borda);background:var(--input-bg);color:var(--txt);font-size:12px;font-weight:700;font-family:'Raleway',sans-serif;cursor:pointer;transition:all .2s;text-align:center}
-    .comb-btn.sel{border-color:var(--laranja);background:rgba(255,109,0,0.12);color:var(--laranja)}
+/* ─── COMBUSTÍVEIS ─── */
+.comb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.comb-pill{
+  padding:10px 8px;border-radius:10px;
+  border:1.5px solid var(--inp-borda);background:var(--inp);
+  color:var(--txt);font-size:12px;font-weight:700;
+  font-family:'Raleway',sans-serif;cursor:pointer;
+  transition:all .2s;text-align:center;
+}
+.comb-pill.on{border-color:var(--laranja);background:rgba(255,109,0,.1);color:var(--laranja)}
 
-    /* ── SENHA ── */
-    .senha-wrap{position:relative}
-    .senha-wrap .fi{padding-right:44px}
-    .senha-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--sub);cursor:pointer;font-size:15px;padding:4px}
-    .strength-bars{display:flex;gap:4px;margin-top:8px;height:4px}
-    .strength-bar{flex:1;border-radius:4px;background:var(--input-bg);transition:background .3s}
-    .strength-bar.fraca{background:#FF5252}
-    .strength-bar.media{background:#FFD600}
-    .strength-bar.forte{background:var(--verde)}
+/* ─── SENHA ─── */
+.pw-wrap{position:relative}
+.pw-wrap .fi{padding-right:46px}
+.pw-eye{
+  position:absolute;right:13px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--sub);cursor:pointer;font-size:15px;
+}
+.strength{display:flex;gap:4px;margin-top:7px;height:3px}
+.sbar{flex:1;border-radius:3px;background:var(--card2);transition:background .3s}
+.sbar.fraca{background:var(--erro)}
+.sbar.media{background:var(--ouro)}
+.sbar.forte{background:var(--verde)}
+.sdica{font-size:10px;color:var(--sub);margin-top:5px;min-height:14px}
 
-    /* ── MSG ── */
-    .msg-err{background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#FF5252;margin-bottom:14px;display:none}
-    .msg-err.show{display:block}
-    .tip{background:rgba(255,109,0,0.06);border:1px solid rgba(255,109,0,0.18);border-radius:10px;padding:10px 12px;font-size:12px;color:rgba(255,255,255,0.55);line-height:1.5;display:flex;align-items:flex-start;gap:8px;margin-bottom:14px}
-    .tip i{color:var(--laranja);margin-top:1px;flex-shrink:0}
+/* ─── MSG ERRO ─── */
+.merr{
+  background:rgba(255,82,82,.08);border:1px solid rgba(255,82,82,.25);
+  border-radius:10px;padding:10px 13px;
+  font-size:12px;color:var(--erro);margin-bottom:14px;display:none;
+  animation:fadeUp .2s ease;
+}
+.merr.show{display:block}
 
-    /* ── BOTTOM BAR ── */
-    .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--borda);padding:14px 18px;z-index:100}
-    .btn-prox{width:100%;padding:16px;border-radius:var(--r);background:var(--laranja);border:none;color:#fff;font-size:16px;font-weight:900;font-family:'Raleway',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:opacity .2s}
-    .btn-prox:disabled{opacity:.5;cursor:not-allowed}
-    .btn-prox .spinner{width:18px;height:18px;border:2.5px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
-    .btn-prox.loading .spinner{display:block}
-    .btn-prox.loading .btn-txt{display:none}
+/* ─── TIP ─── */
+.tip{
+  background:rgba(255,109,0,.05);border:1px solid rgba(255,109,0,.15);
+  border-radius:10px;padding:10px 12px;
+  font-size:12px;color:rgba(255,255,255,.5);line-height:1.5;
+  display:flex;align-items:flex-start;gap:8px;margin-bottom:14px;
+}
+.tip i{color:var(--laranja);margin-top:1px;flex-shrink:0;font-size:13px}
 
-    /* ── SUCCESS ── */
-    .success-screen{display:none;flex-direction:column;align-items:center;text-align:center;padding:20px 0 40px}
-    .success-screen.show{display:flex;animation:fadeUp .4s ease}
-    .success-icon{width:80px;height:80px;border-radius:50%;background:rgba(0,200,83,0.12);border:2px solid rgba(0,200,83,0.4);display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:20px;animation:popIn .5s cubic-bezier(0.34,1.56,0.64,1)}
-    .success-title{font-size:24px;font-weight:900;margin-bottom:10px}
-    .success-sub{font-size:14px;color:var(--sub);line-height:1.6;margin-bottom:28px}
-    .status-card{background:var(--card2);border:1px solid var(--borda);border-radius:var(--r);padding:18px;width:100%;text-align:left;margin-bottom:16px}
-    .status-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--borda)}
-    .status-row:last-child{border-bottom:none}
-    .status-ico{font-size:16px;margin-top:2px;flex-shrink:0}
-    .status-txt strong{display:block;font-size:13px;font-weight:800;margin-bottom:2px}
-    .status-txt span{font-size:12px;color:var(--sub)}
-    .badge-pendente{display:inline-flex;align-items:center;gap:5px;background:rgba(255,214,0,0.12);border:1px solid rgba(255,214,0,0.3);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:800;color:var(--ouro);margin-top:12px}
-    .btn-voltar{width:100%;padding:14px;border-radius:var(--r);background:var(--input-bg);border:1.5px solid var(--borda);color:var(--txt);font-size:14px;font-weight:800;font-family:'Raleway',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}
+/* ─── BOTTOM BAR ─── */
+.bottom{
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:rgba(10,10,10,.97);backdrop-filter:blur(12px);
+  border-top:1px solid var(--borda);padding:14px 16px;
+}
+.btn-next{
+  width:100%;padding:16px;border-radius:var(--r);
+  background:var(--laranja);border:none;
+  color:#fff;font-size:16px;font-weight:900;
+  font-family:'Raleway',sans-serif;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:opacity .2s;
+}
+.btn-next:disabled{opacity:.45;cursor:not-allowed}
+.btn-next .spin{
+  width:18px;height:18px;
+  border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:giro .7s linear infinite;display:none;
+}
+.btn-next.loading .spin{display:block}
+.btn-next.loading .ntxt{display:none}
 
-    /* ── STEP TRANSITIONS ── */
-    .step{display:none;animation:fadeUp .3s ease}
-    .step.active{display:block}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes popIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-    .loading-dots::after{content:'...';animation:pulse 1.2s infinite}
-  </style>
+/* ─── SUCESSO ─── */
+.success-wrap{display:none;flex-direction:column;align-items:center;text-align:center;padding:10px 0 40px}
+.success-wrap.show{display:flex;animation:fadeUp .4s ease}
+
+.suc-icon{
+  width:86px;height:86px;border-radius:50%;
+  background:rgba(0,200,83,.1);border:2px solid rgba(0,200,83,.35);
+  display:flex;align-items:center;justify-content:center;
+  font-size:40px;margin-bottom:20px;
+  animation:popIn .55s cubic-bezier(.34,1.56,.64,1);
+}
+.suc-titulo{font-size:26px;font-weight:900;margin-bottom:8px}
+.suc-sub{font-size:14px;color:var(--sub);line-height:1.6;margin-bottom:24px}
+
+.badge-status{
+  display:inline-flex;align-items:center;gap:6px;
+  border-radius:30px;padding:6px 16px;
+  font-size:11px;font-weight:900;letter-spacing:.4px;margin-bottom:24px;
+}
+.badge-pendente{background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);color:var(--ouro)}
+
+.roadmap{width:100%;margin-bottom:20px}
+.road-step{
+  display:flex;gap:14px;align-items:flex-start;
+  padding:14px 0;border-bottom:1px solid var(--borda);
+}
+.road-step:last-child{border-bottom:none}
+.road-num{
+  width:32px;height:32px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:900;
+}
+.road-num.pendente{background:rgba(255,214,0,.1);border:1.5px solid rgba(255,214,0,.3);color:var(--ouro)}
+.road-num.gratis{background:rgba(0,200,83,.1);border:1.5px solid rgba(0,200,83,.3);color:var(--verde)}
+.road-num.plano{background:rgba(255,109,0,.1);border:1.5px solid rgba(255,109,0,.3);color:var(--laranja)}
+.road-txt strong{display:block;font-size:13px;font-weight:800;margin-bottom:2px}
+.road-txt span{font-size:12px;color:var(--sub);line-height:1.4}
+
+.resumo-card{
+  width:100%;background:var(--card2);border:1px solid var(--borda2);
+  border-radius:var(--r);padding:16px;text-align:left;margin-bottom:18px;
+}
+.resumo-title{font-size:10px;font-weight:900;letter-spacing:.9px;text-transform:uppercase;color:var(--sub);margin-bottom:12px}
+.resumo-linha{display:flex;align-items:center;gap:9px;font-size:13px;margin-bottom:7px}
+.resumo-linha:last-child{margin-bottom:0}
+.resumo-linha i{color:var(--laranja);width:15px;flex-shrink:0}
+.resumo-linha span{color:var(--sub)}
+.resumo-linha strong{color:var(--txt)}
+
+.btn-app{
+  width:100%;padding:14px;border-radius:var(--r);
+  background:var(--card2);border:1.5px solid var(--borda2);
+  color:var(--txt);font-size:14px;font-weight:800;
+  font-family:'Raleway',sans-serif;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+
+/* ─── STEPS ─── */
+.step{display:none}
+.step.on{display:block;animation:fadeUp .3s ease}
+
+/* ─── ANIM ─── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes giro{to{transform:rotate(360deg)}}
+</style>
 </head>
 <body>
 
 <!-- TOPBAR -->
-<div class="topbar">
-  <button class="topbar-back" onclick="voltarStep()" id="btn-back">
+<header class="topbar">
+  <button class="btn-back" id="btn-back" onclick="voltarStep()">
     <i class="fas fa-arrow-left"></i>
   </button>
   <div class="topbar-title" id="topbar-title">Cadastrar Posto</div>
-  <div class="topbar-logo">⛽</div>
-</div>
+  <div class="logo-icon">⛽</div>
+</header>
 
 <!-- PROGRESS -->
-<div class="progress-wrap" id="progress-wrap">
-  <div class="progress-steps">
-    <div class="step-dot active" id="dot-1"></div>
-    <div class="step-dot" id="dot-2"></div>
-    <div class="step-dot" id="dot-3"></div>
+<div class="prog-wrap" id="prog-wrap">
+  <div class="prog-track">
+    <div class="prog-seg ativo" id="ps1"></div>
+    <div class="prog-seg" id="ps2"></div>
+    <div class="prog-seg" id="ps3"></div>
   </div>
-  <div class="progress-label" id="progress-label">Etapa 1 de 3 — Identificação</div>
+  <div class="prog-txt" id="prog-txt">Etapa 1 de 3 — Identificação do posto</div>
 </div>
 
-<!-- CONTENT -->
-<div class="content">
+<!-- CONTEÚDO -->
+<main class="wrap">
 
   <!-- ══ STEP 1: CNPJ ══ -->
-  <div class="step active" id="step-1">
-    <div class="step-badge"><i class="fas fa-search"></i> Etapa 1</div>
-    <div class="step-title">Qual é o CNPJ do posto?</div>
-    <div class="step-sub">Digite o CNPJ e buscamos os dados automaticamente na Receita Federal.</div>
+  <section class="step on" id="s1">
+    <div class="etapa-chip"><i class="fas fa-search"></i>&nbsp;Etapa 1</div>
+    <h1 class="etapa-titulo">Qual é o CNPJ do posto?</h1>
+    <p class="etapa-sub">Buscamos os dados automaticamente para você não precisar preencher tudo.</p>
 
-    <div class="msg-err" id="err-1"></div>
+    <div class="merr" id="e1"></div>
 
-    <div class="cnpj-box">
-      <div class="cnpj-icon">🏪</div>
-      <div class="cnpj-desc">Informe o CNPJ do seu posto de combustível. Vamos preencher as informações automaticamente.</div>
-      <div class="cnpj-input-row">
-        <input class="fi" id="f-cnpj" placeholder="00.000.000/0001-00"
-          inputmode="numeric" maxlength="18"
+    <div class="cnpj-hero">
+      <div class="cnpj-hero-icon">🏪</div>
+      <div class="cnpj-hero-title">Busca automática</div>
+      <div class="cnpj-hero-sub">
+        Digite o CNPJ do posto. Vamos buscar razão social,<br/>endereço e dados cadastrais automaticamente.
+      </div>
+      <div class="cnpj-input-group">
+        <input class="fi" id="f-cnpj" inputmode="numeric" maxlength="18"
+          placeholder="00.000.000/0001-00"
           oninput="fmtCNPJ(this)" onkeydown="if(event.key==='Enter')buscarCNPJ()"/>
-        <button class="btn-buscar" id="btn-buscar" onclick="buscarCNPJ()">
+        <button class="btn-buscar-cnpj" id="btn-bc" onclick="buscarCNPJ()">
           <i class="fas fa-search"></i> Buscar
         </button>
       </div>
     </div>
 
-    <!-- Card dados encontrados -->
+    <!-- Card resultado -->
     <div class="dados-card" id="dados-card">
-      <div class="dados-ok-badge"><i class="fas fa-check-circle"></i> CNPJ Encontrado</div>
-      <div class="dados-row"><i class="fas fa-store"></i><div><span class="dados-label">Razão Social</span><span class="dados-val" id="d-razao"></span></div></div>
-      <div class="dados-row"><i class="fas fa-tag"></i><div><span class="dados-label">Nome Fantasia</span><span class="dados-val" id="d-fantasia"></span></div></div>
-      <div class="dados-row"><i class="fas fa-map-marker-alt"></i><div><span class="dados-label">Endereço</span><span class="dados-val" id="d-endereco"></span></div></div>
-      <div class="dados-row"><i class="fas fa-city"></i><div><span class="dados-label">Cidade / UF</span><span class="dados-val" id="d-cidade"></span></div></div>
+      <div class="dados-ok"><i class="fas fa-check-circle"></i>&nbsp;CNPJ encontrado!</div>
+      <div class="drow"><i class="fas fa-building"></i>
+        <div><span class="dlabel">Razão Social</span><span class="dval" id="d-razao"></span></div>
+      </div>
+      <div class="drow"><i class="fas fa-store"></i>
+        <div><span class="dlabel">Nome Fantasia</span><span class="dval" id="d-fantasia"></span></div>
+      </div>
+      <div class="drow"><i class="fas fa-map-marker-alt"></i>
+        <div><span class="dlabel">Endereço</span><span class="dval" id="d-end"></span></div>
+      </div>
+      <div class="drow"><i class="fas fa-city"></i>
+        <div><span class="dlabel">Cidade / UF</span><span class="dval" id="d-cid"></span></div>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <!-- ══ STEP 2: CONFIRMAR DADOS ══ -->
-  <div class="step" id="step-2">
-    <div class="step-badge"><i class="fas fa-store"></i> Etapa 2</div>
-    <div class="step-title">Confirme os dados</div>
-    <div class="step-sub">Verifique e complete as informações do seu posto.</div>
+  <!-- ══ STEP 2: DADOS ══ -->
+  <section class="step" id="s2">
+    <div class="etapa-chip"><i class="fas fa-store"></i>&nbsp;Etapa 2</div>
+    <h1 class="etapa-titulo">Confirme os dados</h1>
+    <p class="etapa-sub">Verifique e complete as informações. O endereço foi preenchido automaticamente.</p>
 
-    <div class="msg-err" id="err-2"></div>
+    <div class="merr" id="e2"></div>
 
     <div class="fg">
       <label class="fl">Nome do responsável *</label>
       <input class="fi" id="f-nome" placeholder="João Silva" autocomplete="name"/>
     </div>
-
     <div class="fg">
       <label class="fl">Nome do posto *</label>
       <input class="fi" id="f-posto" placeholder="Posto São João"/>
     </div>
-
     <div class="fg">
       <label class="fl">WhatsApp *</label>
-      <input class="fi" id="f-tel" placeholder="(27) 99999-9999"
-        inputmode="tel" oninput="fmtTel(this)"/>
+      <input class="fi" id="f-tel" inputmode="tel" placeholder="(27) 99999-9999" oninput="fmtTel(this)"/>
     </div>
 
-    <!-- LOCALIZAÇÃO -->
-    <div class="sg">
-      <div class="sg-title"><i class="fas fa-map-marker-alt"></i> Localização</div>
+    <!-- Localização -->
+    <div class="sec">
+      <div class="sec-title"><i class="fas fa-map-marker-alt"></i> Localização do posto</div>
 
       <div class="fg">
         <label class="fl">CEP *</label>
         <div style="display:flex;gap:8px">
-          <input class="fi" id="f-cep" placeholder="00000-000"
-            inputmode="numeric" maxlength="9"
-            oninput="fmtCEP(this)" onblur="buscarCEP()"/>
-          <button class="btn-buscar" onclick="buscarCEP()" style="padding:13px 14px">
+          <input class="fi" id="f-cep" inputmode="numeric" maxlength="9"
+            placeholder="00000-000" oninput="fmtCEP(this)" onblur="buscarCEP()" style="flex:1"/>
+          <button onclick="buscarCEP()" style="flex-shrink:0;padding:13px 14px;background:var(--card2);border:1.5px solid var(--inp-borda);border-radius:var(--r);color:var(--laranja);cursor:pointer;font-size:14px">
             <i class="fas fa-search"></i>
           </button>
         </div>
       </div>
-
       <div class="fg">
         <label class="fl">Endereço *</label>
-        <input class="fi" id="f-rua" placeholder="Av. Principal, 1234"/>
+        <input class="fi" id="f-rua" placeholder="Av. Principal"/>
       </div>
-
-      <div class="fg-row">
+      <div class="row2">
         <div class="fg">
           <label class="fl">Número *</label>
-          <input class="fi" id="f-num" placeholder="S/N" inputmode="numeric"/>
+          <input class="fi" id="f-num" placeholder="1234" inputmode="numeric"/>
         </div>
         <div class="fg">
           <label class="fl">Bairro</label>
           <input class="fi" id="f-bairro" placeholder="Centro"/>
         </div>
       </div>
-
-      <div class="fg-row">
+      <div class="row2">
         <div class="fg">
           <label class="fl">Cidade *</label>
           <input class="fi" id="f-cidade" placeholder="Vitória"/>
         </div>
         <div class="fg">
           <label class="fl">UF *</label>
-          <select class="fi" id="f-estado">
+          <select class="fi" id="f-uf">
             <option value="">UF</option>
             <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
             <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
@@ -2960,504 +3119,433 @@ app.get('/app/cadastrar-posto', (c) => {
           </select>
         </div>
       </div>
-
-      <button class="gps-btn" onclick="obterGPS()" id="btn-gps">
-        <i class="fas fa-crosshairs"></i> Usar minha localização atual
+      <button class="btn-gps" id="btn-gps" onclick="pegarGPS()">
+        <i class="fas fa-crosshairs"></i> Usar minha localização atual (GPS)
       </button>
-      <div class="gps-status" id="gps-status"></div>
+      <div class="gps-info" id="gps-info"></div>
       <input type="hidden" id="f-lat"/>
       <input type="hidden" id="f-lng"/>
     </div>
 
-    <!-- COMBUSTÍVEIS -->
+    <!-- Combustíveis -->
     <div class="fg">
       <label class="fl">Combustíveis que vende *</label>
       <div class="comb-grid">
-        <button class="comb-btn" onclick="toggleComb(this,'gasolina')">⛽ Gasolina</button>
-        <button class="comb-btn" onclick="toggleComb(this,'etanol')">🌿 Etanol</button>
-        <button class="comb-btn" onclick="toggleComb(this,'diesel')">🚛 Diesel</button>
-        <button class="comb-btn" onclick="toggleComb(this,'gnv')">💨 GNV</button>
-        <button class="comb-btn" onclick="toggleComb(this,'gasolina_aditivada')">⭐ Gas. Aditivada</button>
-        <button class="comb-btn" onclick="toggleComb(this,'diesel_s10')">🔵 Diesel S-10</button>
+        <button class="comb-pill" onclick="togComb(this,'gasolina')">⛽ Gasolina</button>
+        <button class="comb-pill" onclick="togComb(this,'etanol')">🌿 Etanol</button>
+        <button class="comb-pill" onclick="togComb(this,'diesel')">🚛 Diesel</button>
+        <button class="comb-pill" onclick="togComb(this,'gnv')">💨 GNV</button>
+        <button class="comb-pill" onclick="togComb(this,'gas_aditivada')">⭐ Aditivada</button>
+        <button class="comb-pill" onclick="togComb(this,'diesel_s10')">🔵 Diesel S-10</button>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- ══ STEP 3: LOGIN E SENHA ══ -->
-  <div class="step" id="step-3">
-    <div class="step-badge"><i class="fas fa-lock"></i> Etapa 3</div>
-    <div class="step-title">Crie seu acesso</div>
-    <div class="step-sub">Você vai usar esse e-mail e senha para entrar no painel do posto.</div>
+  <!-- ══ STEP 3: LOGIN ══ -->
+  <section class="step" id="s3">
+    <div class="etapa-chip"><i class="fas fa-lock"></i>&nbsp;Etapa 3</div>
+    <h1 class="etapa-titulo">Crie seu acesso</h1>
+    <p class="etapa-sub">Você vai usar esse e-mail e senha para entrar no painel do seu posto.</p>
 
-    <div class="msg-err" id="err-3"></div>
+    <div class="merr" id="e3"></div>
 
     <div class="tip">
       <i class="fas fa-info-circle"></i>
-      <span>Use um e-mail válido — você receberá a confirmação de aprovação e os dias de teste gratuitos por aqui.</span>
+      <span>Após a aprovação do admin você receberá um período de teste gratuito. Só depois escolhe o plano.</span>
     </div>
 
     <div class="fg">
       <label class="fl">E-mail *</label>
-      <input class="fi" id="f-email" type="email" placeholder="seu@email.com"
-        autocomplete="email" inputmode="email"/>
+      <input class="fi" id="f-email" type="email" inputmode="email"
+        placeholder="seu@email.com" autocomplete="email"/>
     </div>
 
     <div class="fg">
       <label class="fl">Senha *</label>
-      <div class="senha-wrap">
-        <input class="fi" id="f-senha" type="password" placeholder="Mínimo 6 caracteres"
-          autocomplete="new-password" oninput="checkSenha(this)"/>
-        <button class="senha-toggle" type="button" onclick="toggleSenha('f-senha','eye1')" id="eye1">
+      <div class="pw-wrap">
+        <input class="fi" id="f-pw" type="password"
+          placeholder="Mínimo 6 caracteres"
+          autocomplete="new-password" oninput="checkPw(this)"/>
+        <button class="pw-eye" type="button" onclick="togPw('f-pw','eye1')" id="eye1">
           <i class="fas fa-eye"></i>
         </button>
       </div>
-      <div class="strength-bars">
-        <div class="strength-bar" id="bar1"></div>
-        <div class="strength-bar" id="bar2"></div>
-        <div class="strength-bar" id="bar3"></div>
+      <div class="strength">
+        <div class="sbar" id="sb1"></div>
+        <div class="sbar" id="sb2"></div>
+        <div class="sbar" id="sb3"></div>
       </div>
-      <div id="senha-dica" style="font-size:11px;color:var(--sub);margin-top:5px"></div>
+      <div class="sdica" id="sdica"></div>
     </div>
 
     <div class="fg">
       <label class="fl">Confirmar senha *</label>
-      <div class="senha-wrap">
-        <input class="fi" id="f-senha2" type="password" placeholder="Repita a senha"
-          autocomplete="new-password"/>
-        <button class="senha-toggle" type="button" onclick="toggleSenha('f-senha2','eye2')" id="eye2">
+      <div class="pw-wrap">
+        <input class="fi" id="f-pw2" type="password"
+          placeholder="Repita a senha" autocomplete="new-password"/>
+        <button class="pw-eye" type="button" onclick="togPw('f-pw2','eye2')" id="eye2">
           <i class="fas fa-eye"></i>
         </button>
       </div>
     </div>
 
-    <div style="font-size:12px;color:var(--sub);line-height:1.5;margin-top:8px">
+    <p style="font-size:11px;color:var(--sub);line-height:1.5;margin-top:6px">
       Ao cadastrar você concorda com os
       <a href="https://rotaposto.com.br/termos" target="_blank" style="color:var(--laranja)">Termos de Uso</a>
-      e a
-      <a href="https://rotaposto.com.br/privacidade" target="_blank" style="color:var(--laranja)">Política de Privacidade</a>.
-    </div>
-  </div>
+      e a <a href="https://rotaposto.com.br/privacidade" target="_blank" style="color:var(--laranja)">Política de Privacidade</a>.
+    </p>
+  </section>
 
   <!-- ══ STEP 4: SUCESSO ══ -->
-  <div class="step" id="step-4">
-    <div class="success-screen show" id="success-screen">
-      <div class="success-icon">🎉</div>
-      <div class="success-title">Cadastro enviado!</div>
-      <div class="success-sub">
+  <section class="step" id="s4">
+    <div class="success-wrap show">
+      <div class="suc-icon">🎉</div>
+      <div class="suc-titulo">Cadastro enviado!</div>
+      <div class="suc-sub">
         Recebemos os dados do seu posto.<br/>
         Nossa equipe vai analisar e ativar em breve.
       </div>
 
-      <div class="badge-pendente"><i class="fas fa-clock"></i> Aguardando aprovação</div>
+      <div class="badge-status badge-pendente">
+        <i class="fas fa-clock"></i> Aguardando aprovação
+      </div>
 
-      <div class="status-card" style="margin-top:20px">
-        <div class="status-row">
-          <div class="status-ico">📧</div>
-          <div class="status-txt">
-            <strong>Confirmação por e-mail</strong>
-            <span id="confirm-email">Você receberá um e-mail com os próximos passos.</span>
-          </div>
-        </div>
-        <div class="status-row">
-          <div class="status-ico">✅</div>
-          <div class="status-txt">
+      <!-- Roadmap -->
+      <div class="roadmap">
+        <div class="road-step">
+          <div class="road-num pendente"><i class="fas fa-clock"></i></div>
+          <div class="road-txt">
             <strong>Aprovação do admin</strong>
-            <span>Nossa equipe analisa o cadastro e ativa sua conta</span>
+            <span>Nossa equipe analisa os dados e ativa seu cadastro em até 24h úteis</span>
           </div>
         </div>
-        <div class="status-row">
-          <div class="status-ico">🎁</div>
-          <div class="status-txt">
-            <strong>Dias de teste gratuitos</strong>
-            <span>Após aprovação, você ganha dias de teste com acesso completo ao painel</span>
+        <div class="road-step">
+          <div class="road-num gratis"><i class="fas fa-gift"></i></div>
+          <div class="road-txt">
+            <strong>Período de teste grátis 🎁</strong>
+            <span>Após aprovação você ganha dias de teste com acesso completo ao painel sem pagar nada</span>
           </div>
         </div>
-        <div class="status-row">
-          <div class="status-ico">👑</div>
-          <div class="status-txt">
+        <div class="road-step">
+          <div class="road-num plano"><i class="fas fa-crown"></i></div>
+          <div class="road-txt">
             <strong>Escolha seu plano</strong>
-            <span>Após o teste, escolha o plano ideal para seu posto e assine</span>
+            <span>Se gostar, assine o plano ideal para seu posto e continue usando</span>
           </div>
         </div>
       </div>
 
-      <div class="status-card" style="text-align:left">
-        <div style="font-size:11px;font-weight:800;color:var(--sub);letter-spacing:.8px;text-transform:uppercase;margin-bottom:12px">Resumo do cadastro</div>
-        <div style="font-size:13px;display:flex;flex-direction:column;gap:6px">
-          <div>⛽ <strong id="s-posto"></strong></div>
-          <div>📍 <span id="s-cidade" style="color:var(--sub)"></span></div>
-          <div>📧 <span id="s-email" style="color:var(--sub)"></span></div>
-        </div>
+      <!-- Resumo -->
+      <div class="resumo-card">
+        <div class="resumo-title">Resumo do cadastro</div>
+        <div class="resumo-linha"><i class="fas fa-gas-pump"></i><div><strong id="r-posto"></strong></div></div>
+        <div class="resumo-linha"><i class="fas fa-map-marker-alt"></i><span id="r-cidade"></span></div>
+        <div class="resumo-linha"><i class="fas fa-envelope"></i><span id="r-email"></span></div>
       </div>
 
-      <button class="btn-voltar" onclick="window.location.href='/app'">
+      <button class="btn-app" onclick="window.location.href='/app'">
         <i class="fas fa-arrow-left"></i> Voltar para o app
       </button>
     </div>
-  </div>
+  </section>
 
-</div>
+</main>
 
 <!-- BOTTOM BAR -->
-<div class="bottom-bar" id="bottom-bar">
-  <button class="btn-prox" id="btn-prox" onclick="proximoStep()">
-    <div class="spinner"></div>
-    <span class="btn-txt"><span id="btn-label">Buscar CNPJ</span> <i class="fas fa-arrow-right" id="btn-ico"></i></span>
+<div class="bottom" id="bottom-bar">
+  <button class="btn-next" id="btn-next" onclick="avancar()">
+    <div class="spin"></div>
+    <span class="ntxt" id="btn-label">Buscar CNPJ &nbsp;<i class="fas fa-arrow-right"></i></span>
   </button>
 </div>
 
 <script>
-  // ── Estado global ──
-  var step = 1;
-  var totalSteps = 3;
-  var cnpjDados = {};
-  var combustiveisSel = [];
+var step = 1;
+var combs = [];
+var cnpjInfo = {};
 
-  // ── Navegação ──
-  function irStep(n) {
-    document.getElementById('step-' + step).classList.remove('active');
-    step = n;
-    document.getElementById('step-' + step).classList.add('active');
-    atualizarUI();
-    window.scrollTo(0, 0);
+// ── Formatadores ──
+function fmtCNPJ(el){
+  var v=el.value.replace(/\D/g,'').slice(0,14);
+  if(v.length>12) v=v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5');
+  else if(v.length>8) v=v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})/,'$1.$2.$3/$4');
+  else if(v.length>5) v=v.replace(/^(\d{2})(\d{3})(\d{3})/,'$1.$2.$3');
+  else if(v.length>2) v=v.replace(/^(\d{2})(\d+)/,'$1.$2');
+  el.value=v;
+}
+function fmtTel(el){
+  var v=el.value.replace(/\D/g,'').slice(0,11);
+  if(v.length>10) v=v.replace(/^(\d{2})(\d{5})(\d{4})$/,'($1) $2-$3');
+  else if(v.length>6) v=v.replace(/^(\d{2})(\d{4,5})(\d{0,4})/,'($1) $2-$3');
+  else if(v.length>2) v=v.replace(/^(\d{2})(\d+)/,'($1) $2');
+  el.value=v;
+}
+function fmtCEP(el){
+  var v=el.value.replace(/\D/g,'').slice(0,8);
+  if(v.length>5) v=v.replace(/^(\d{5})(\d+)/,'$1-$2');
+  el.value=v;
+}
+
+// ── Navegação ──
+function irStep(n){
+  document.getElementById('s'+step).classList.remove('on');
+  step=n;
+  document.getElementById('s'+step).classList.add('on');
+  window.scrollTo(0,0);
+  syncUI();
+}
+function voltarStep(){
+  if(step===1){ history.back(); return; }
+  if(step<=4) irStep(step-1);
+}
+function syncUI(){
+  var segs=['ps1','ps2','ps3'];
+  segs.forEach(function(id,i){
+    var el=document.getElementById(id);
+    el.className='prog-seg';
+    if(i+1<step) el.classList.add('feito');
+    else if(i+1===step) el.classList.add('ativo');
+  });
+  var labels={1:'Etapa 1 de 3 — Identificação do posto',2:'Etapa 2 de 3 — Dados e localização',3:'Etapa 3 de 3 — Criar acesso',4:'Concluído'};
+  var bLabel={1:'Buscar CNPJ',2:'Continuar',3:'Enviar cadastro'};
+  document.getElementById('prog-txt').textContent=labels[step]||'';
+  var bl=document.getElementById('btn-label');
+  var bar=document.getElementById('bottom-bar');
+  var prog=document.getElementById('prog-wrap');
+  var back=document.getElementById('btn-back');
+  if(step===4){
+    bar.style.display='none';prog.style.display='none';back.style.display='none';
+  } else {
+    bar.style.display='';prog.style.display='';back.style.display='';
+    var ico=step===3?'<i class="fas fa-check"></i>':'<i class="fas fa-arrow-right"></i>';
+    bl.innerHTML=(bLabel[step]||'Continuar')+'&nbsp;'+ico;
   }
+}
 
-  function voltarStep() {
-    if (step === 1) { history.back(); return; }
-    if (step > 4) return;
-    irStep(step - 1);
+function avancar(){
+  if(step===1) buscarCNPJ();
+  else if(step===2) validar2();
+  else if(step===3) enviar();
+}
+
+// ── Buscar CNPJ ──
+async function buscarCNPJ(){
+  var cnpj=document.getElementById('f-cnpj').value.replace(/\D/g,'');
+  var e=document.getElementById('e1');
+  e.className='merr';
+  if(cnpj.length!==14){
+    e.textContent='Digite o CNPJ completo (14 dígitos).';
+    e.className='merr show'; return;
   }
+  var btn=document.getElementById('btn-bc');
+  var btnN=document.getElementById('btn-next');
+  btn.disabled=true; btnN.classList.add('loading');
+  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+  try {
+    var dados=null;
+    // BrasilAPI
+    var r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+cnpj);
+    if(r.ok){ dados=await r.json(); }
+    // Fallback ReceitaWS
+    if(!dados||dados.message){
+      try{
+        var r2=await fetch('https://receitaws.com.br/v1/cnpj/'+cnpj);
+        if(r2.ok){ dados=await r2.json(); }
+      }catch(ex){}
+    }
+    if(!dados||dados.status==='ERROR'||(!dados.razao_social&&!dados.nome)){
+      throw new Error('CNPJ não encontrado na Receita Federal. Verifique e tente novamente.');
+    }
+    cnpjInfo=dados;
+    // Exibir card
+    var razao=dados.razao_social||dados.nome||'';
+    var fantasia=dados.nome_fantasia||dados.fantasia||razao;
+    var num=dados.numero||'';
+    var logr=dados.logradouro||'';
+    if(dados.descricao_tipo_logradouro) logr=dados.descricao_tipo_logradouro+' '+logr;
+    var bairro=dados.bairro||'';
+    var cidade=dados.municipio||dados.municipio||'';
+    var uf=dados.uf||'';
+    var cep=(dados.cep||'').replace(/\D/g,'');
 
-  function atualizarUI() {
-    var dots = ['dot-1','dot-2','dot-3'];
-    dots.forEach(function(id, i) {
-      var el = document.getElementById(id);
-      el.className = 'step-dot';
-      if (i + 1 < step) el.classList.add('done');
-      else if (i + 1 === step) el.classList.add('active');
-    });
+    document.getElementById('d-razao').textContent=razao||'—';
+    document.getElementById('d-fantasia').textContent=fantasia||'—';
+    document.getElementById('d-end').textContent=[logr,num].filter(Boolean).join(', ')||'—';
+    document.getElementById('d-cid').textContent=[cidade,uf].filter(Boolean).join(' / ')||'—';
+    document.getElementById('dados-card').className='dados-card show';
 
-    var labels = {
-      1: 'Etapa 1 de 3 — Identificação',
-      2: 'Etapa 2 de 3 — Dados do posto',
-      3: 'Etapa 3 de 3 — Criar acesso',
-      4: 'Cadastro concluído'
+    // Pré-preencher step 2
+    document.getElementById('f-posto').value=fantasia||razao;
+    if(logr) document.getElementById('f-rua').value=logr+(num?', '+num:'');
+    if(num&&!logr) document.getElementById('f-num').value=num;
+    if(num&&logr) document.getElementById('f-num').value=num;
+    if(bairro) document.getElementById('f-bairro').value=bairro;
+    if(cidade) document.getElementById('f-cidade').value=cidade;
+    if(uf) document.getElementById('f-uf').value=uf;
+    if(cep){ document.getElementById('f-cep').value=cep.slice(0,5)+'-'+cep.slice(5); }
+
+    setTimeout(function(){ irStep(2); },1100);
+  } catch(err){
+    e.textContent=err.message||'Erro ao buscar CNPJ. Tente novamente.';
+    e.className='merr show';
+  } finally {
+    btn.disabled=false; btnN.classList.remove('loading');
+    btn.innerHTML='<i class="fas fa-search"></i> Buscar';
+  }
+}
+
+// ── Buscar CEP ──
+async function buscarCEP(){
+  var cep=document.getElementById('f-cep').value.replace(/\D/g,'');
+  if(cep.length!==8) return;
+  try{
+    var r=await fetch('https://viacep.com.br/ws/'+cep+'/json/');
+    var d=await r.json();
+    if(d.erro) return;
+    if(d.logradouro) document.getElementById('f-rua').value=d.logradouro;
+    if(d.bairro) document.getElementById('f-bairro').value=d.bairro;
+    if(d.localidade) document.getElementById('f-cidade').value=d.localidade;
+    if(d.uf) document.getElementById('f-uf').value=d.uf;
+  }catch(ex){}
+}
+
+// ── GPS ──
+function pegarGPS(){
+  var btn=document.getElementById('btn-gps');
+  var info=document.getElementById('gps-info');
+  if(!navigator.geolocation){ info.textContent='GPS não disponível.'; return; }
+  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Obtendo localização...';
+  btn.disabled=true;
+  navigator.geolocation.getCurrentPosition(function(p){
+    document.getElementById('f-lat').value=p.coords.latitude;
+    document.getElementById('f-lng').value=p.coords.longitude;
+    btn.className='btn-gps capturado';
+    btn.innerHTML='<i class="fas fa-check-circle"></i> Localização capturada!';
+    info.textContent=p.coords.latitude.toFixed(5)+', '+p.coords.longitude.toFixed(5);
+    info.style.color='var(--verde)';
+    btn.disabled=false;
+  },function(){
+    btn.disabled=false;
+    btn.innerHTML='<i class="fas fa-crosshairs"></i> Usar minha localização atual (GPS)';
+    info.textContent='Permissão negada. Ative o GPS nas configurações.';
+    info.style.color='var(--erro)';
+  });
+}
+
+// ── Combustíveis ──
+function togComb(el,v){
+  el.classList.toggle('on');
+  var i=combs.indexOf(v);
+  if(i>=0) combs.splice(i,1); else combs.push(v);
+}
+
+// ── Validar step 2 ──
+function validar2(){
+  var e=document.getElementById('e2'); e.className='merr';
+  var campos=[
+    [document.getElementById('f-nome'),'Nome do responsável obrigatório.'],
+    [document.getElementById('f-posto'),'Nome do posto obrigatório.'],
+    [document.getElementById('f-tel'),'WhatsApp obrigatório (com DDD).'],
+    [document.getElementById('f-rua'),'Endereço obrigatório.'],
+    [document.getElementById('f-num'),'Número do endereço obrigatório.'],
+    [document.getElementById('f-cidade'),'Cidade obrigatória.'],
+    [document.getElementById('f-uf'),'Selecione o estado.'],
+  ];
+  for(var i=0;i<campos.length;i++){
+    var val=campos[i][0].value.trim();
+    if(!val||(campos[i][0].id==='f-tel'&&val.length<14)){
+      e.textContent=campos[i][1]; e.className='merr show';
+      campos[i][0].focus(); return;
+    }
+  }
+  if(combs.length===0){
+    e.textContent='Selecione pelo menos um combustível que o posto vende.';
+    e.className='merr show'; return;
+  }
+  irStep(3);
+}
+
+// ── Força de senha ──
+function checkPw(el){
+  var v=el.value;
+  var bars=['sb1','sb2','sb3'];
+  bars.forEach(function(id){ document.getElementById(id).className='sbar'; });
+  var d=document.getElementById('sdica');
+  if(!v){ d.textContent=''; return; }
+  var s=0;
+  if(v.length>=6) s++;
+  if(v.length>=8&&/[A-Z]/.test(v)&&/[0-9]/.test(v)) s++;
+  if(v.length>=10&&/[!@#$%^&*_\-]/.test(v)) s++;
+  if(s>=1){ document.getElementById('sb1').className='sbar fraca'; d.textContent='Senha fraca'; d.style.color='var(--erro)'; }
+  if(s>=2){ document.getElementById('sb2').className='sbar media'; d.textContent='Senha média'; d.style.color='var(--ouro)'; }
+  if(s>=3){ document.getElementById('sb3').className='sbar forte'; d.textContent='Senha forte ✓'; d.style.color='var(--verde)'; }
+}
+function togPw(id,bid){
+  var el=document.getElementById(id);
+  el.type=el.type==='password'?'text':'password';
+  document.getElementById(bid).innerHTML=el.type==='password'
+    ?'<i class="fas fa-eye"></i>':'<i class="fas fa-eye-slash"></i>';
+}
+
+// ── Enviar cadastro ──
+async function enviar(){
+  var e=document.getElementById('e3'); e.className='merr';
+  var email=document.getElementById('f-email').value.trim();
+  var pw=document.getElementById('f-pw').value;
+  var pw2=document.getElementById('f-pw2').value;
+  if(!email||!email.includes('@')||!email.includes('.')){ e.textContent='Informe um e-mail válido.'; e.className='merr show'; document.getElementById('f-email').focus(); return; }
+  if(!pw||pw.length<6){ e.textContent='A senha deve ter no mínimo 6 caracteres.'; e.className='merr show'; document.getElementById('f-pw').focus(); return; }
+  if(pw!==pw2){ e.textContent='As senhas não coincidem. Verifique.'; e.className='merr show'; document.getElementById('f-pw2').focus(); return; }
+
+  var btn=document.getElementById('btn-next'); btn.classList.add('loading'); btn.disabled=true;
+
+  try{
+    var cnpj=document.getElementById('f-cnpj').value.replace(/\D/g,'');
+    var cidade=document.getElementById('f-cidade').value.trim();
+    var uf=document.getElementById('f-uf').value;
+    var payload={
+      cnpj:cnpj,
+      nome:document.getElementById('f-nome').value.trim(),
+      nomePosto:document.getElementById('f-posto').value.trim(),
+      whatsapp:document.getElementById('f-tel').value.trim(),
+      email:email, senha:pw,
+      cep:document.getElementById('f-cep').value.trim(),
+      endereco:document.getElementById('f-rua').value.trim(),
+      numero:document.getElementById('f-num').value.trim(),
+      bairro:document.getElementById('f-bairro').value.trim(),
+      cidade:cidade, estado:uf,
+      lat:document.getElementById('f-lat').value,
+      lng:document.getElementById('f-lng').value,
+      combustiveis:combs,
+      plano:'posto_gratis',
+      origem:'app_android'
     };
-    var btnLabels = { 1: 'Buscar CNPJ', 2: 'Continuar', 3: 'Enviar cadastro' };
-
-    document.getElementById('progress-label').textContent = labels[step] || '';
-    var lblEl = document.getElementById('btn-label');
-    var icoEl = document.getElementById('btn-ico');
-    var bar = document.getElementById('bottom-bar');
-    var prog = document.getElementById('progress-wrap');
-
-    if (step === 4) {
-      bar.style.display = 'none';
-      prog.style.display = 'none';
-      document.getElementById('btn-back').style.display = 'none';
-    } else {
-      bar.style.display = 'block';
-      prog.style.display = 'block';
-      document.getElementById('btn-back').style.display = '';
-      if (lblEl) lblEl.textContent = btnLabels[step] || 'Continuar';
-      if (icoEl) icoEl.className = step === 3 ? 'fas fa-check' : 'fas fa-arrow-right';
+    var r=await fetch('/api/parceiros/cadastro',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    var data=await r.json();
+    if(!r.ok||!data.ok){
+      var msg=data.erro||'Erro ao enviar cadastro.';
+      if(msg.includes('CNPJ já cadastrado')) msg='Este CNPJ já possui cadastro. Acesse o painel com seu e-mail e senha.';
+      e.textContent=msg; e.className='merr show';
+      btn.classList.remove('loading'); btn.disabled=false; return;
     }
+    // Sucesso
+    document.getElementById('r-posto').textContent=document.getElementById('f-posto').value.trim();
+    document.getElementById('r-cidade').textContent=cidade+(uf?' / '+uf:'');
+    document.getElementById('r-email').textContent=email;
+    irStep(4);
+  }catch(ex){
+    e.textContent='Erro de conexão. Verifique sua internet.';
+    e.className='merr show';
+    btn.classList.remove('loading'); btn.disabled=false;
   }
-
-  function proximoStep() {
-    if (step === 1) { buscarCNPJ(); return; }
-    if (step === 2) { validarStep2(); return; }
-    if (step === 3) { enviarCadastro(); return; }
-  }
-
-  // ── Formatadores ──
-  function fmtCNPJ(el) {
-    var v = el.value.replace(/\D/g, '').slice(0, 14);
-    if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
-    else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})/, '$1.$2.$3/$4');
-    else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{3})/, '$1.$2.$3');
-    else if (v.length > 2) v = v.replace(/^(\d{2})(\d{3})/, '$1.$2');
-    el.value = v;
-  }
-  function fmtTel(el) {
-    var v = el.value.replace(/\D/g, '').slice(0, 11);
-    if (v.length > 10) v = v.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
-    else if (v.length > 6) v = v.replace(/^(\d{2})(\d{4,5})(\d{0,4})/, '($1) $2-$3');
-    else if (v.length > 2) v = v.replace(/^(\d{2})(\d+)/, '($1) $2');
-    el.value = v;
-  }
-  function fmtCEP(el) {
-    var v = el.value.replace(/\D/g, '').slice(0, 8);
-    if (v.length > 5) v = v.replace(/^(\d{5})(\d{3})/, '$1-$2');
-    el.value = v;
-  }
-
-  // ── Buscar CNPJ (BrasilAPI) ──
-  async function buscarCNPJ() {
-    var cnpj = document.getElementById('f-cnpj').value.replace(/\D/g, '');
-    var err = document.getElementById('err-1');
-    var btn = document.getElementById('btn-buscar');
-    var btnP = document.getElementById('btn-prox');
-
-    err.className = 'msg-err';
-    if (cnpj.length !== 14) {
-      err.textContent = 'Digite um CNPJ válido com 14 dígitos.';
-      err.className = 'msg-err show';
-      return;
-    }
-
-    btn.disabled = true;
-    btnP.disabled = true;
-    btnP.classList.add('loading');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
-
-    try {
-      // Tenta BrasilAPI primeiro
-      var res = await fetch('https://brasilapi.com.br/api/cnpj/v1/' + cnpj);
-      var dados = null;
-
-      if (res.ok) {
-        dados = await res.json();
-      } else {
-        // Fallback: ReceitaWS
-        var res2 = await fetch('https://receitaws.com.br/v1/cnpj/' + cnpj);
-        if (res2.ok) dados = await res2.json();
-      }
-
-      if (!dados || dados.status === 'ERROR' || dados.message) {
-        throw new Error(dados?.message || 'CNPJ não encontrado na Receita Federal.');
-      }
-
-      // Montar dados
-      cnpjDados = dados;
-      var razao = dados.razao_social || dados.nome || '';
-      var fantasia = dados.nome_fantasia || dados.fantasia || '';
-      var logradouro = dados.logradouro || dados.descricao_tipo_logradouro && (dados.descricao_tipo_logradouro + ' ' + dados.logradouro) || '';
-      var numero = dados.numero || dados.numero || '';
-      var bairro = dados.bairro || '';
-      var municipio = dados.municipio || dados.municipio || '';
-      var uf = dados.uf || dados.uf || '';
-      var cep = (dados.cep || '').replace(/\D/g, '');
-
-      // Mostrar card de dados encontrados
-      document.getElementById('d-razao').textContent = razao || '—';
-      document.getElementById('d-fantasia').textContent = fantasia || razao || '—';
-      document.getElementById('d-endereco').textContent = [logradouro, numero].filter(Boolean).join(', ') || '—';
-      document.getElementById('d-cidade').textContent = [municipio, uf].filter(Boolean).join(' / ') || '—';
-      document.getElementById('dados-card').className = 'dados-card show';
-
-      // Pré-preencher step 2
-      document.getElementById('f-posto').value = fantasia || razao;
-      if (logradouro) document.getElementById('f-rua').value = logradouro + (numero ? ', ' + numero : '');
-      if (bairro) document.getElementById('f-bairro').value = bairro;
-      if (municipio) document.getElementById('f-cidade').value = municipio;
-      if (uf) document.getElementById('f-estado').value = uf;
-      if (cep) {
-        var cepFmt = cep.slice(0,5) + '-' + cep.slice(5);
-        document.getElementById('f-cep').value = cepFmt;
-      }
-      if (numero) document.getElementById('f-num').value = numero;
-
-      // Avançar automaticamente após 1.2s
-      setTimeout(function() { irStep(2); }, 1200);
-
-    } catch(e) {
-      err.textContent = e.message || 'Erro ao buscar CNPJ. Verifique e tente novamente.';
-      err.className = 'msg-err show';
-    } finally {
-      btn.disabled = false;
-      btnP.disabled = false;
-      btnP.classList.remove('loading');
-      btn.innerHTML = '<i class="fas fa-search"></i> Buscar';
-    }
-  }
-
-  // ── Buscar CEP (ViaCEP) ──
-  async function buscarCEP() {
-    var cep = document.getElementById('f-cep').value.replace(/\D/g, '');
-    if (cep.length !== 8) return;
-    try {
-      var r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
-      var d = await r.json();
-      if (d.erro) return;
-      if (d.logradouro) document.getElementById('f-rua').value = d.logradouro;
-      if (d.bairro) document.getElementById('f-bairro').value = d.bairro;
-      if (d.localidade) document.getElementById('f-cidade').value = d.localidade;
-      if (d.uf) document.getElementById('f-estado').value = d.uf;
-    } catch(e) {}
-  }
-
-  // ── GPS ──
-  function obterGPS() {
-    var btn = document.getElementById('btn-gps');
-    var status = document.getElementById('gps-status');
-    if (!navigator.geolocation) { status.textContent = 'GPS não disponível neste dispositivo.'; return; }
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obtendo localização...';
-    btn.disabled = true;
-    status.textContent = '';
-    navigator.geolocation.getCurrentPosition(
-      function(pos) {
-        document.getElementById('f-lat').value = pos.coords.latitude;
-        document.getElementById('f-lng').value = pos.coords.longitude;
-        btn.innerHTML = '<i class="fas fa-check-circle"></i> Localização capturada!';
-        btn.style.borderColor = 'var(--verde)';
-        btn.style.color = 'var(--verde)';
-        status.textContent = pos.coords.latitude.toFixed(6) + ', ' + pos.coords.longitude.toFixed(6);
-        status.style.color = 'var(--verde)';
-        setTimeout(function() {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-crosshairs"></i> Localização atualizada';
-        }, 2000);
-      },
-      function(e) {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-crosshairs"></i> Usar minha localização';
-        status.textContent = 'Permissão negada. Ative o GPS e tente novamente.';
-        status.style.color = '#FF5252';
-      }
-    );
-  }
-
-  // ── Toggle combustível ──
-  function toggleComb(btn, val) {
-    btn.classList.toggle('sel');
-    var idx = combustiveisSel.indexOf(val);
-    if (idx >= 0) combustiveisSel.splice(idx, 1);
-    else combustiveisSel.push(val);
-  }
-
-  // ── Validar step 2 ──
-  function validarStep2() {
-    var err = document.getElementById('err-2');
-    err.className = 'msg-err';
-    var nome = document.getElementById('f-nome').value.trim();
-    var posto = document.getElementById('f-posto').value.trim();
-    var tel = document.getElementById('f-tel').value.trim();
-    var rua = document.getElementById('f-rua').value.trim();
-    var num = document.getElementById('f-num').value.trim();
-    var cidade = document.getElementById('f-cidade').value.trim();
-    var estado = document.getElementById('f-estado').value;
-
-    if (!nome) { err.textContent = 'Informe o nome do responsável.'; err.className='msg-err show'; document.getElementById('f-nome').focus(); return; }
-    if (!posto) { err.textContent = 'Informe o nome do posto.'; err.className='msg-err show'; document.getElementById('f-posto').focus(); return; }
-    if (!tel || tel.length < 14) { err.textContent = 'Informe um WhatsApp válido com DDD.'; err.className='msg-err show'; document.getElementById('f-tel').focus(); return; }
-    if (!rua) { err.textContent = 'Informe o endereço do posto.'; err.className='msg-err show'; document.getElementById('f-rua').focus(); return; }
-    if (!num) { err.textContent = 'Informe o número do endereço.'; err.className='msg-err show'; document.getElementById('f-num').focus(); return; }
-    if (!cidade) { err.textContent = 'Informe a cidade.'; err.className='msg-err show'; document.getElementById('f-cidade').focus(); return; }
-    if (!estado) { err.textContent = 'Selecione o estado.'; err.className='msg-err show'; return; }
-    if (combustiveisSel.length === 0) { err.textContent = 'Selecione pelo menos um combustível.'; err.className='msg-err show'; return; }
-
-    irStep(3);
-  }
-
-  // ── Check força de senha ──
-  function checkSenha(el) {
-    var v = el.value;
-    var b1 = document.getElementById('bar1');
-    var b2 = document.getElementById('bar2');
-    var b3 = document.getElementById('bar3');
-    var dica = document.getElementById('senha-dica');
-    b1.className='strength-bar'; b2.className='strength-bar'; b3.className='strength-bar';
-    if (v.length === 0) { dica.textContent=''; return; }
-    var score = 0;
-    if (v.length >= 6) score++;
-    if (v.length >= 8 && /[A-Z]/.test(v) && /[0-9]/.test(v)) score++;
-    if (v.length >= 10 && /[!@#$%^&*]/.test(v)) score++;
-    if (score >= 1) { b1.className='strength-bar fraca'; dica.textContent='Senha fraca'; dica.style.color='#FF5252'; }
-    if (score >= 2) { b2.className='strength-bar media'; dica.textContent='Senha média'; dica.style.color='var(--ouro)'; }
-    if (score >= 3) { b3.className='strength-bar forte'; dica.textContent='Senha forte ✓'; dica.style.color='var(--verde)'; }
-  }
-
-  // ── Toggle olho senha ──
-  function toggleSenha(id, btnId) {
-    var el = document.getElementById(id);
-    var btn = document.getElementById(btnId);
-    if (el.type === 'password') {
-      el.type = 'text';
-      btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
-    } else {
-      el.type = 'password';
-      btn.innerHTML = '<i class="fas fa-eye"></i>';
-    }
-  }
-
-  // ── Enviar cadastro ──
-  async function enviarCadastro() {
-    var err = document.getElementById('err-3');
-    err.className = 'msg-err';
-    var email = document.getElementById('f-email').value.trim();
-    var senha = document.getElementById('f-senha').value;
-    var senha2 = document.getElementById('f-senha2').value;
-
-    if (!email || !email.includes('@')) { err.textContent = 'Informe um e-mail válido.'; err.className='msg-err show'; document.getElementById('f-email').focus(); return; }
-    if (!senha || senha.length < 6) { err.textContent = 'A senha deve ter no mínimo 6 caracteres.'; err.className='msg-err show'; document.getElementById('f-senha').focus(); return; }
-    if (senha !== senha2) { err.textContent = 'As senhas não coincidem.'; err.className='msg-err show'; document.getElementById('f-senha2').focus(); return; }
-
-    var btnP = document.getElementById('btn-prox');
-    btnP.classList.add('loading');
-    btnP.disabled = true;
-
-    try {
-      var cnpj = document.getElementById('f-cnpj').value.replace(/\D/g, '');
-      var payload = {
-        cnpj: cnpj,
-        nome: document.getElementById('f-nome').value.trim(),
-        nomePosto: document.getElementById('f-posto').value.trim(),
-        whatsapp: document.getElementById('f-tel').value.trim(),
-        email: email,
-        senha: senha,
-        cep: document.getElementById('f-cep').value.trim(),
-        endereco: document.getElementById('f-rua').value.trim(),
-        numero: document.getElementById('f-num').value.trim(),
-        bairro: document.getElementById('f-bairro').value.trim(),
-        cidade: document.getElementById('f-cidade').value.trim(),
-        estado: document.getElementById('f-estado').value,
-        lat: document.getElementById('f-lat').value,
-        lng: document.getElementById('f-lng').value,
-        combustiveis: combustiveisSel,
-        plano: 'posto_gratis',
-        bandeira: cnpjDados.descricao_motivo_situacao_cadastral || 'Independente',
-        origem: 'app_android'
-      };
-
-      var r = await fetch('/api/parceiros/cadastro', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      var data = await r.json();
-
-      if (!r.ok || !data.ok) {
-        var msg = data.erro || 'Erro ao enviar cadastro. Tente novamente.';
-        if (data.erro && data.erro.includes('CNPJ já cadastrado')) {
-          msg = 'Este CNPJ já está cadastrado. Acesse o painel com seu e-mail e senha.';
-        }
-        err.textContent = msg;
-        err.className = 'msg-err show';
-        btnP.classList.remove('loading');
-        btnP.disabled = false;
-        return;
-      }
-
-      // Sucesso — preencher tela final
-      document.getElementById('confirm-email').textContent = email;
-      document.getElementById('s-posto').textContent = document.getElementById('f-posto').value.trim();
-      document.getElementById('s-cidade').textContent = document.getElementById('f-cidade').value.trim() + ' / ' + document.getElementById('f-estado').value;
-      document.getElementById('s-email').textContent = email;
-      irStep(4);
-
-    } catch(e) {
-      err.textContent = 'Erro de conexão. Verifique sua internet e tente novamente.';
-      err.className = 'msg-err show';
-      btnP.classList.remove('loading');
-      btnP.disabled = false;
-    }
-  }
+}
 </script>
 </body>
 </html>`)
 })
-
 
 app.get('/app', (c) => {
   // Se abrindo via domínio antigo (pages.dev), redirecionar para rotaposto.com.br
