@@ -4147,8 +4147,10 @@ app.get('/ir', async (c) => {
 
   // Abre Google Maps externo com navegação até o destino
   function abrirNavegacaoExterna() {
-    var url = 'https://www.google.com/maps/dir/?api=1&destination=' + DEST_LAT + ',' + DEST_LNG + '&travelmode=driving';
-    window.open(url, '_blank');
+    var dest = DEST_LAT + ',' + DEST_LNG;
+    // No PWA Android, window.open gera intent:// que quebra.
+    // Usar location.href abre o Maps no Chrome externo corretamente.
+    window.location.href = 'https://www.google.com/maps/dir/?api=1&destination=' + dest + '&travelmode=driving';
   }
 
   // ── Inicializar ───────────────────────────────────────────────────────
