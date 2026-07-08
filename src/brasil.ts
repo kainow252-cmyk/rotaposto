@@ -3524,7 +3524,7 @@ export function getMapaBrasilHTML(): string {
 //  MAPA BRASIL – RotaPosto
 // ═══════════════════════════════════════════════════════════════════════
 
-// Preços reais ANP por UF (27 estados) — semana ${ANP_SEMANA.inicio} a ${ANP_SEMANA.fim}
+// Preços reais ANP por UF (27 estados)
 // Cada produto: { media, min, max, postos }
 const PRECOS_UF_RAW = ${JSON.stringify(PRECOS_ANP_POR_UF)};
 // Compatibilidade: mapa simples uf -> { gasolina: number, ... }
