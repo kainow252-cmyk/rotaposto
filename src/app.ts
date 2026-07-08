@@ -2239,16 +2239,25 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     if (viewId === 'planejar') {
       renderPlanCarTabs();
-      // Tem destino livre digitado?
-      if (!mapPlan && planDestLat && planDestLng) {
+      var postoId = selectedPosto ? (selectedPosto.id || selectedPosto.nome) : null;
+      var destinoLivreAtivo = planDestLat && planDestLng;
+      // Se tem destino livre digitado manualmente, usa ele
+      if (!mapPlan && destinoLivreAtivo) {
         tracarRotaPlan(planDestLat, planDestLng, planDestNome || 'Destino', '');
       } else if (!mapPlan && selectedPosto) {
         initMapPlan();
+        _lastPlanPostoId = postoId;
       } else if (mapPlan) {
-        var dist = planDestLat ? calcHaversinePlan(userLat, userLng, planDestLat, planDestLng)
-          : (selectedPosto?.distancia || 1.2);
-        var preco = selectedPosto?.preco || selectedPosto?.precos?.[selectedFuel] || 0;
-        atualizarCustoPlan(dist, preco);
+        // Posto diferente do anterior E não tem destino livre → refaz rota com posto correto
+        if (!destinoLivreAtivo && postoId && postoId !== _lastPlanPostoId && selectedPosto) {
+          _lastPlanPostoId = postoId;
+          tracarRotaPlan(selectedPosto.lat, selectedPosto.lng, selectedPosto.nome, selectedPosto.endereco || '');
+        } else {
+          var dist = planDestLat ? calcHaversinePlan(userLat, userLng, planDestLat, planDestLng)
+            : (selectedPosto?.distancia || 1.2);
+          var preco = selectedPosto?.preco || selectedPosto?.precos?.[selectedFuel] || 0;
+          atualizarCustoPlan(dist, preco);
+        }
       }
     }
     if (viewId === 'lista') renderLista();
@@ -2827,6 +2836,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   var planDestLng = null;
   var planDestNome = null;
   var planDestTimer = null;
+  var _lastPlanPostoId = null; // rastreia qual posto foi usado no planejar
 
   // Abre o overlay fullscreen de busca
   function abrirBuscaDestino() {
