@@ -1055,7 +1055,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     var verifierArr = new Uint8Array(48);
     crypto.getRandomValues(verifierArr);
     var codeVerifier = btoa(String.fromCharCode.apply(null, verifierArr))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+      .split('+').join('-').split('/').join('_').split('=').join('');
 
     // Gerar state (CSRF) e nonce (OpenID)
     var stateArr = new Uint8Array(16);
@@ -1075,7 +1075,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     var encoder = new TextEncoder();
     crypto.subtle.digest('SHA-256', encoder.encode(codeVerifier)).then(function(digest) {
       var codeChallenge = btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        .split('+').join('-').split('/').join('_').split('=').join('');
 
       var oauthUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
         + '?client_id=' + encodeURIComponent(CLIENT_ID)
