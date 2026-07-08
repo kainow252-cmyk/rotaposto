@@ -214,7 +214,7 @@ interface XlsxCell {
 function parseWorksheet(xml: string, sharedStrings: string[]): string[][] {
   const rows: string[][] = []
   // Extrair linhas: <row r="N">...</row>
-  const rowRe = /<row[^>]+r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g
+  const rowRe = /<row[^>]+r="([0-9]+)"[^>]*>([\s\S]*?)<\/row>/g
   let rm
   while ((rm = rowRe.exec(xml)) !== null) {
     const rowIdx = parseInt(rm[1]) - 1
@@ -222,7 +222,7 @@ function parseWorksheet(xml: string, sharedStrings: string[]): string[][] {
     const cells: Record<number, string> = {}
 
     // Extrair células: <c r="A1" t="s"><v>0</v></c>
-    const cellRe = /<c\s+r="([A-Z]+)(\d+)"([^>]*)>\s*(?:<v>([^<]*)<\/v>)?\s*<\/c>/g
+    const cellRe = /<c\s+r="([A-Z]+)([0-9]+)"([^>]*)>\s*(?:<v>([^<]*)<\/v>)?\s*<\/c>/g
     let cm
     while ((cm = cellRe.exec(rowXml)) !== null) {
       const colStr = cm[1]
@@ -285,7 +285,7 @@ export async function processarXlsxAnp(
     const row = rows[i]
     if (!row || !row[COL_CNPJ]) continue
 
-    const cnpjRaw = row[COL_CNPJ].replace(/\D/g, '').padStart(14, '0')
+    const cnpjRaw = row[COL_CNPJ].replace(/[^0-9]/g, '').padStart(14, '0')
     if (cnpjRaw.length !== 14 || cnpjRaw === '00000000000000') continue
 
     const produtoRaw = (row[COL_PRODUTO] || '').toUpperCase().trim()

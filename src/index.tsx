@@ -967,7 +967,7 @@ app.get('/api/postos/brasil', async (c) => {
     // 4. Montar resposta com preços reais quando disponíveis
     const postosComPrecos = postos.map(p => {
       // CNPJ do posto: tentar match com dados do KV
-      const cnpjLimpo = (p.cnpj || '').replace(/\D/g, '').padStart(14, '0')
+      const cnpjLimpo = (p.cnpj || '').replace(/[^0-9]/g, '').padStart(14, '0')
       const precoKV = precosPorCNPJ[cnpjLimpo]
 
       // Converter campos comprimidos do KV → formato padrão
@@ -1093,7 +1093,7 @@ app.get('/api/precos/municipio', (c) => {
 // ─── API: Preços por posto (CNPJ) — do KV ────────────────────────────────────
 // GET /api/precos/posto?cnpj=12345678000195&uf=SP
 app.get('/api/precos/posto', async (c) => {
-  const cnpj = (c.req.query('cnpj') || '').replace(/\D/g, '').padStart(14, '0')
+  const cnpj = (c.req.query('cnpj') || '').replace(/[^0-9]/g, '').padStart(14, '0')
   const uf   = (c.req.query('uf') || '').toUpperCase()
 
   if (!cnpj || cnpj.length < 14) {
@@ -1359,7 +1359,7 @@ app.post('/api/pix/assinar', async (c) => {
     }
 
     const planoValido = plano in PLANOS ? plano : 'premium'
-    const cpfLimpo = (cpf || '').replace(/\D/g, '')
+    const cpfLimpo = (cpf || '').replace(/[^0-9]/g, '')
     // CPF é obrigatório na Woovi — retornar erro amigável se não fornecido
     if (cpfLimpo.length !== 11) {
       return c.json({ sucesso: false, mensagem: 'Informe seu CPF para gerar o PIX.', precisaCPF: true }, 400)
@@ -1518,7 +1518,7 @@ app.post('/api/pix/gerar-manual', async (c) => {
     const { nome, email, cpf, plano, userId } = body
 
     const planoValido = plano in PLANOS ? plano : 'premium'
-    const cpfLimpo = (cpf || '').replace(/\D/g, '')
+    const cpfLimpo = (cpf || '').replace(/[^0-9]/g, '')
     const kv = getKV(c.env)
 
     const resultado = await criarAssinaturaPIX(c.env as any, nome || 'Usuario', email || '', cpfLimpo, planoValido)
@@ -1594,7 +1594,7 @@ app.post('/api/pix/renovar', async (c) => {
     }
 
     const planoId = assin.plano && assin.plano !== 'free' ? assin.plano : 'premium'
-    const cpfFinal = (cpf || assin.cpf || '').replace(/\D/g, '')
+    const cpfFinal = (cpf || assin.cpf || '').replace(/[^0-9]/g, '')
     if (cpfFinal.length !== 11) {
       return c.json({ sucesso: false, mensagem: 'CPF obrigatório para gerar PIX', precisaCPF: true }, 400)
     }
@@ -2061,7 +2061,7 @@ app.post('/api/pagamento/assinar', async (c) => {
         userId,
         nome,
         email,
-        cpf: (cpf || '').replace(/\D/g, ''),
+        cpf: (cpf || '').replace(/[^0-9]/g, ''),
         plano: planoValido,
         status: resultado.status === 'authorized' ? 'ACTIVE' : 'PENDING',
         subscriptionId: resultado.subscriptionId!,
@@ -2339,7 +2339,7 @@ app.post('/api/usuario/dados', async (c) => {
   const { uid, telefone, cep, cidade, estado, nome, email, cpf } = body
   if (!uid) return c.json({ ok: false, error: 'uid obrigatório' }, 400)
   // Validar CPF se fornecido
-  if (cpf !== undefined && cpf !== '' && cpf.replace(/\D/g, '').length !== 11) {
+  if (cpf !== undefined && cpf !== '' && cpf.replace(/[^0-9]/g, '').length !== 11) {
     return c.json({ ok: false, error: 'CPF inválido' }, 400)
   }
   try {
@@ -2348,7 +2348,7 @@ app.post('/api/usuario/dados', async (c) => {
       const raw = await kv.get(`profile:${uid}`)
       if (raw) perfil = JSON.parse(raw)
     } catch {}
-    const cpfLimpo = cpf !== undefined ? cpf.replace(/\D/g, '') : undefined
+    const cpfLimpo = cpf !== undefined ? cpf.replace(/[^0-9]/g, '') : undefined
     const atualizado = {
       ...perfil,
       uid,
@@ -3337,23 +3337,23 @@ var cnpjInfo = {};
 
 // ── Formatadores ──
 function fmtCNPJ(el){
-  var v=el.value.replace(/\D/g,'').slice(0,14);
-  if(v.length>12) v=v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5');
-  else if(v.length>8) v=v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})/,'$1.$2.$3/$4');
-  else if(v.length>5) v=v.replace(/^(\d{2})(\d{3})(\d{3})/,'$1.$2.$3');
-  else if(v.length>2) v=v.replace(/^(\d{2})(\d+)/,'$1.$2');
+  var v=el.value.replace(/[^0-9]/g,'').slice(0,14);
+  if(v.length>12) v=v.replace(/^([0-9]{2})([0-9]{3})([0-9]{3})([0-9]{4})([0-9]{2})$/,'$1.$2.$3/$4-$5');
+  else if(v.length>8) v=v.replace(/^([0-9]{2})([0-9]{3})([0-9]{3})([0-9]{4})/,'$1.$2.$3/$4');
+  else if(v.length>5) v=v.replace(/^([0-9]{2})([0-9]{3})([0-9]{3})/,'$1.$2.$3');
+  else if(v.length>2) v=v.replace(/^([0-9]{2})([0-9]+)/,'$1.$2');
   el.value=v;
 }
 function fmtTel(el){
-  var v=el.value.replace(/\D/g,'').slice(0,11);
-  if(v.length>10) v=v.replace(/^(\d{2})(\d{5})(\d{4})$/,'($1) $2-$3');
-  else if(v.length>6) v=v.replace(/^(\d{2})(\d{4,5})(\d{0,4})/,'($1) $2-$3');
-  else if(v.length>2) v=v.replace(/^(\d{2})(\d+)/,'($1) $2');
+  var v=el.value.replace(/[^0-9]/g,'').slice(0,11);
+  if(v.length>10) v=v.replace(/^([0-9]{2})([0-9]{5})([0-9]{4})$/,'($1) $2-$3');
+  else if(v.length>6) v=v.replace(/^([0-9]{2})([0-9]{4,5})([0-9]{0,4})/,'($1) $2-$3');
+  else if(v.length>2) v=v.replace(/^([0-9]{2})([0-9]+)/,'($1) $2');
   el.value=v;
 }
 function fmtCEP(el){
-  var v=el.value.replace(/\D/g,'').slice(0,8);
-  if(v.length>5) v=v.replace(/^(\d{5})(\d+)/,'$1-$2');
+  var v=el.value.replace(/[^0-9]/g,'').slice(0,8);
+  if(v.length>5) v=v.replace(/^([0-9]{5})([0-9]+)/,'$1-$2');
   el.value=v;
 }
 
@@ -3401,7 +3401,7 @@ function avancar(){
 
 // ── Buscar CNPJ ──
 async function buscarCNPJ(){
-  var cnpj=document.getElementById('f-cnpj').value.replace(/\D/g,'');
+  var cnpj=document.getElementById('f-cnpj').value.replace(/[^0-9]/g,'');
   var e=document.getElementById('e1');
   e.className='merr';
   if(cnpj.length!==14){
@@ -3437,7 +3437,7 @@ async function buscarCNPJ(){
     var bairro=dados.bairro||'';
     var cidade=dados.municipio||dados.municipio||'';
     var uf=dados.uf||'';
-    var cep=(dados.cep||'').replace(/\D/g,'');
+    var cep=(dados.cep||'').replace(/[^0-9]/g,'');
 
     document.getElementById('d-razao').textContent=razao||'—';
     document.getElementById('d-fantasia').textContent=fantasia||'—';
@@ -3467,7 +3467,7 @@ async function buscarCNPJ(){
 
 // ── Buscar CEP ──
 async function buscarCEP(){
-  var cep=document.getElementById('f-cep').value.replace(/\D/g,'');
+  var cep=document.getElementById('f-cep').value.replace(/[^0-9]/g,'');
   if(cep.length!==8) return;
   try{
     var r=await fetch('https://viacep.com.br/ws/'+cep+'/json/');
@@ -3571,7 +3571,7 @@ async function enviar(){
   var btn=document.getElementById('btn-next'); btn.classList.add('loading'); btn.disabled=true;
 
   try{
-    var cnpj=document.getElementById('f-cnpj').value.replace(/\D/g,'');
+    var cnpj=document.getElementById('f-cnpj').value.replace(/[^0-9]/g,'');
     var cidade=document.getElementById('f-cidade').value.trim();
     var uf=document.getElementById('f-uf').value;
     var payload={
@@ -5667,7 +5667,7 @@ app.get('/app_old', (c) => {
       <label style="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:6px;">📮 CEP <span style="font-weight:400;color:#AAA;">(opcional)</span></label>
       <div style="display:flex;gap:8px;margin-bottom:14px;">
         <input id="cp-cep" type="text" placeholder="00000-000" maxlength="8"
-          oninput="this.value=this.value.replace(/\D/g,'').slice(0,8)"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,8)"
           onblur="this.value=_fmtCep(this.value)"
           style="flex:1;padding:13px;border:1.5px solid #E0E0E0;border-radius:12px;font-size:15px;box-sizing:border-box;font-family:inherit;">
         <button onclick="buscarCEP()" style="padding:13px 16px;background:#FF6D00;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Buscar</button>
@@ -7437,7 +7437,7 @@ function _getPerfilExtra(uid) {
 }
 
 function formatarTelefone(input) {
-  let v = input.value.replace(/\D/g,'');
+  let v = input.value.replace(/[^0-9]/g,'');
   if (v.length > 11) v = v.slice(0,11);
   if (v.length > 7)      input.value = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
   else if (v.length > 2) input.value = '(' + v.slice(0,2) + ') ' + v.slice(2);
@@ -7446,13 +7446,13 @@ function formatarTelefone(input) {
 
 function formatarCEP(input) {
   // oninput: só filtra dígitos; onblur formata
-  input.value = input.value.replace(/\D/g,'').slice(0,8);
+  input.value = input.value.replace(/[^0-9]/g,'').slice(0,8);
 }
 
 async function buscarCEP() {
   const cepEl = document.getElementById('cp-cep');
   if (!cepEl) return;
-  const cep = cepEl.value.replace(/\D/g,'');
+  const cep = cepEl.value.replace(/[^0-9]/g,'');
   if (cep.length !== 8) { mostrarToast('CEP inválido'); return; }
   try {
     const r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
@@ -9220,7 +9220,7 @@ app.post('/api/pix/posto/assinar', async (c) => {
     }
 
     // CPF/CNPJ para Woovi — usar CNPJ como taxID ou gerar fallback
-    const docLimpo = (cnpj || '').replace(/\D/g, '') || postoId.replace(/\D/g, '').slice(0, 14).padEnd(11, '0')
+    const docLimpo = (cnpj || '').replace(/[^0-9]/g, '') || postoId.replace(/[^0-9]/g, '').slice(0, 14).padEnd(11, '0')
     const emailFinal = (email || '').trim() || `posto-${postoId.slice(-8)}@rotaposto.app`
 
     const resultado = await criarAssinaturaPIX(c.env as any, nomeFantasia, emailFinal, docLimpo.slice(0, 11), plano)
@@ -9265,7 +9265,7 @@ app.post('/api/pix/posto/renovar', async (c) => {
 
     const planosConfig = await getPlanosPostoConfig(kv)
     const planoInfo = planosConfig.find((p: any) => p.id === assin.plano) || planosConfig.find((p: any) => p.id === 'posto_basico')
-    const docLimpo = (assin.cnpj || postoId.replace(/\D/g, '').slice(0, 11).padEnd(11, '0'))
+    const docLimpo = (assin.cnpj || postoId.replace(/[^0-9]/g, '').slice(0, 11).padEnd(11, '0'))
 
     const resultado = await criarAssinaturaPIX(c.env as any, assin.nomeFantasia, assin.email, docLimpo.slice(0, 11), assin.plano)
     if (!resultado.sucesso) return c.json({ sucesso: false, mensagem: resultado.error || 'Erro ao gerar PIX' }, 500)
@@ -9714,9 +9714,9 @@ app.get('/api/admin/anp-busca', async (c) => {
     const postosReais = await buscarPostosANP(uf, municipio, 1, kv ?? undefined)
 
     const postos = postosReais.map(p => {
-      const cnpjNorm = (p.cnpj || '').replace(/\D/g, '').padStart(14, '0')
+      const cnpjNorm = (p.cnpj || '').replace(/[^0-9]/g, '').padStart(14, '0')
       // Formatar CNPJ para exibição: XX.XXX.XXX/XXXX-XX
-      const cnpjFmt = cnpjNorm.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+      const cnpjFmt = cnpjNorm.replace(/^([0-9]{2})([0-9]{3})([0-9]{3})([0-9]{4})([0-9]{2})$/, '$1.$2.$3/$4-$5')
       return {
         cnpj: cnpjNorm,
         cnpjFmt,
@@ -10605,11 +10605,11 @@ app.get('/admin', (c) => {
           </div>
           <div class="form-group">
             <label>WhatsApp / Tel Principal</label>
-            <input id="ep-tel" type="text" placeholder="(27) 99999-9999" maxlength="11" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)" onblur="this.value=_fmtTel(this.value)"/>
+            <input id="ep-tel" type="text" placeholder="(27) 99999-9999" maxlength="11" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,11)" onblur="this.value=_fmtTel(this.value)"/>
           </div>
           <div class="form-group">
             <label>Tel Telemarketing / Comercial</label>
-            <input id="ep-telTelemarketing" type="text" placeholder="(27) 3000-0000" maxlength="11" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)" onblur="this.value=_fmtTel(this.value)"/>
+            <input id="ep-telTelemarketing" type="text" placeholder="(27) 3000-0000" maxlength="11" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,11)" onblur="this.value=_fmtTel(this.value)"/>
           </div>
           <div class="form-group">
             <label>CNPJ</label>
@@ -11581,7 +11581,7 @@ function _auProviderBadge(p) {
 
 function _auMaskCpf(cpf) {
   if (!cpf) return '—';
-  const c = cpf.replace(/\D/g, '');
+  const c = cpf.replace(/[^0-9]/g, '');
   if (c.length !== 11) return cpf;
   return c.substring(0, 3) + '.***.***-' + c.substring(9);
 }
@@ -11643,7 +11643,7 @@ function filtrarAppUsuarios() {
     lista = lista.filter(u =>
       (u.nome || '').toLowerCase().includes(q) ||
       (u.email || '').toLowerCase().includes(q) ||
-      (u.cpf || '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+      (u.cpf || '').replace(/[^0-9]/g, '').includes(q.replace(/[^0-9]/g, '')) ||
       (u.cidade || '').toLowerCase().includes(q) ||
       (u.uid || '').toLowerCase().includes(q)
     );
@@ -11710,7 +11710,7 @@ function verDetalheUsuario(uid) {
   const fmtDate = (v) => { if (!v || v === '—') return '—'; try { return new Date(v).toLocaleString('pt-BR'); } catch { return v; } };
   const assin = u.assinatura;
   const veiculo = u.veiculo;
-  const cpfFull = u.cpf ? u.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—';
+  const cpfFull = u.cpf ? u.cpf.replace(/([0-9]{3})([0-9]{3})([0-9]{3})([0-9]{2})/, '$1.$2.$3-$4') : '—';
   const localidade = [u.cidade, u.estado].filter(Boolean).join(' / ') || '—';
   document.getElementById('modal-detalhe-body').innerHTML = \`
     <div style="display:grid;gap:10px;font-size:13px">
@@ -11981,7 +11981,7 @@ function filtrarAssinaturas() {
     lista = lista.filter(a =>
       (a.nome || '').toLowerCase().includes(q) ||
       (a.email || '').toLowerCase().includes(q) ||
-      (a.cpf || '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+      (a.cpf || '').replace(/[^0-9]/g, '').includes(q.replace(/[^0-9]/g, '')) ||
       (a.uid || '').toLowerCase().includes(q)
     );
   }
@@ -12332,28 +12332,28 @@ function abrirModalEditarParceiro(id) {
 // oninput: APENAS filtra não-dígitos — sem reformatar durante digitação
 // onblur:  aplica máscara completa — sem bug de cursor
 function _fmtCnpj(raw) {
-  const v = (raw||'').replace(/\D/g,'').slice(0,14);
+  const v = (raw||'').replace(/[^0-9]/g,'').slice(0,14);
   if (v.length === 14) return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
   return v;
 }
 function _fmtCep(raw) {
-  const v = (raw||'').replace(/\D/g,'').slice(0,8);
+  const v = (raw||'').replace(/[^0-9]/g,'').slice(0,8);
   return v.length === 8 ? v.slice(0,5)+'-'+v.slice(5) : v;
 }
 function _fmtTel(raw) {
-  const v = (raw||'').replace(/\D/g,'').slice(0,11);
+  const v = (raw||'').replace(/[^0-9]/g,'').slice(0,11);
   if (v.length === 11) return '('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
   if (v.length === 10) return '('+v.slice(0,2)+') '+v.slice(2,6)+'-'+v.slice(6);
   return v;
 }
 // oninput — só dígitos, sem reformatar
-function epMaskCnpj(inp) { inp.value = inp.value.replace(/\D/g,'').slice(0,14); }
+function epMaskCnpj(inp) { inp.value = inp.value.replace(/[^0-9]/g,'').slice(0,14); }
 function epBlurCnpj(inp)  { inp.value = _fmtCnpj(inp.value); }
-function epMaskCep(inp)   { inp.value = inp.value.replace(/\D/g,'').slice(0,8); }
+function epMaskCep(inp)   { inp.value = inp.value.replace(/[^0-9]/g,'').slice(0,8); }
 function epBlurCep(inp)   { inp.value = _fmtCep(inp.value); }
 
 async function epBuscarCep() {
-  const cep = (document.getElementById('ep-cep').value||'').replace(/\D/g,'');
+  const cep = (document.getElementById('ep-cep').value||'').replace(/[^0-9]/g,'');
   if (cep.length !== 8) return;
   const stat = document.getElementById('ep-geo-status');
   stat.textContent = '🔍 Buscando CEP...';
@@ -14403,7 +14403,7 @@ app.post('/api/parceiros/cadastro', async (c) => {
     }
 
     // Verificar se CNPJ já cadastrado
-    const cnpjKey = cnpj.replace(/\D/g, '')
+    const cnpjKey = cnpj.replace(/[^0-9]/g, '')
     const existente = await kvGetParceiro(kv, `cnpj_${cnpjKey}`, r2)
     if (existente) {
       return c.json({ ok: false, erro: 'CNPJ já cadastrado. Faça login no painel.' }, 409)
@@ -14849,7 +14849,7 @@ app.post('/api/parceiros/cupons/validar', async (c) => {
       return c.json({ valido: false, mensagem: 'Código inválido. Digite os 6 dígitos.' }, 400)
     }
 
-    const codigoLimpo = codigo.replace(/\D/g, '').padStart(6, '0').slice(-6)
+    const codigoLimpo = codigo.replace(/[^0-9]/g, '').padStart(6, '0').slice(-6)
     const cupom = await kvGetCupom(kv, codigoLimpo, r2) as Record<string, unknown> | null
 
     if (!cupom) {

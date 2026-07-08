@@ -3978,12 +3978,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // Carregar dados extras de perfil
     var perfilExtra = {};
     try { perfilExtra = JSON.parse(localStorage.getItem('rp_perfil_extra_' + u.uid) || '{}'); } catch {}
-    var tel    = (perfilExtra['telefone'] || '').replace(/\D/g,'').slice(0,11);
-    var cep    = (perfilExtra['cep']      || '').replace(/\D/g,'').slice(0,8);
+    var tel    = (perfilExtra['telefone'] || '').replace(/[^0-9]/g,'').slice(0,11);
+    var cep    = (perfilExtra['cep']      || '').replace(/[^0-9]/g,'').slice(0,8);
     var rua    = perfilExtra['rua']      || '';
     var cidade = perfilExtra['cidade']   || '';
     var estado = perfilExtra['estado']   || '';
-    var cpfRaw = (perfilExtra['cpf'] || localStorage.getItem('rp_cpf') || '').replace(/\D/g,'').slice(0,11);
+    var cpfRaw = (perfilExtra['cpf'] || localStorage.getItem('rp_cpf') || '').replace(/[^0-9]/g,'').slice(0,11);
     // Nunca pré-formatar no value= — o script abaixo aplica a máscara após render
 
     // Banner de alerta CPF (mostrado quando chamado a partir do fluxo PIX)
@@ -4053,12 +4053,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function salvarContaConta() {
     var u = currentUser || {};
     var cpfEl  = document.getElementById('mc-cpf') || {};
-    var cpfDigitado = (cpfEl.value || '').replace(/\D/g,'');
+    var cpfDigitado = (cpfEl.value || '').replace(/[^0-9]/g,'');
     var cpf    = cpfDigitado || (cpfEl.getAttribute ? (cpfEl.getAttribute('data-cpf-salvo') || '') : '');
     var telEl  = document.getElementById('mc-telefone') || {};
-    var tel    = (telEl.value || '').replace(/\D/g,'') || (telEl.getAttribute ? (telEl.getAttribute('data-tel-salvo') || '') : '');
+    var tel    = (telEl.value || '').replace(/[^0-9]/g,'') || (telEl.getAttribute ? (telEl.getAttribute('data-tel-salvo') || '') : '');
     var cepEl2 = document.getElementById('mc-cep') || {};
-    var cep    = (cepEl2.value || '').replace(/\D/g,'') || (cepEl2.getAttribute ? (cepEl2.getAttribute('data-cep-salvo') || '') : '');
+    var cep    = (cepEl2.value || '').replace(/[^0-9]/g,'') || (cepEl2.getAttribute ? (cepEl2.getAttribute('data-cep-salvo') || '') : '');
     var rua    = (document.getElementById('mc-rua')      || {}).value || '';
     var cidade = (document.getElementById('mc-cidade')   || {}).value || '';
     var estado = (document.getElementById('mc-estado')   || {}).value || '';
@@ -4091,13 +4091,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   function formatarTelefoneConta(input) {
-    var v = input.value.replace(/\D/g,'').slice(0,11);
+    var v = input.value.replace(/[^0-9]/g,'').slice(0,11);
     input.value = v;
     try { input.setSelectionRange(v.length, v.length); } catch(e) {}
   }
 
   function formatarCEPConta(input) {
-    var v = input.value.replace(/\D/g,'').slice(0,8);
+    var v = input.value.replace(/[^0-9]/g,'').slice(0,8);
     input.value = v;
     try { input.setSelectionRange(v.length, v.length); } catch(e) {}
   }
@@ -4105,7 +4105,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function buscarCEPConta() {
     var cepEl = document.getElementById('mc-cep');
     if (!cepEl) return;
-    var cep = cepEl.value.replace(/\D/g,'');
+    var cep = cepEl.value.replace(/[^0-9]/g,'');
     if (cep.length !== 8) { showToast('CEP inválido'); return; }
     fetch('https://viacep.com.br/ws/' + cep + '/json/')
       .then(function(r) { return r.json(); })
@@ -4711,7 +4711,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         var perfilRes = await fetch('/api/usuario/perfil/' + userId);
         if (perfilRes.ok) {
           var perfilData = await perfilRes.json();
-          cpfDoServidor = (perfilData && perfilData.cpf) ? String(perfilData.cpf).replace(/\D/g,'') : '';
+          cpfDoServidor = (perfilData && perfilData.cpf) ? String(perfilData.cpf).replace(/[^0-9]/g,'') : '';
         }
       } catch (e) {
         console.warn('[PIX] Nao foi possivel buscar CPF do servidor:', e);
@@ -4720,7 +4720,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       if (!cpfDoServidor) {
         var perfilLocal = {};
         try { perfilLocal = JSON.parse(localStorage.getItem('rp_perfil_extra_' + userId) || '{}'); } catch {}
-        cpfDoServidor = (perfilLocal['cpf'] || '').replace(/\D/g,'');
+        cpfDoServidor = (perfilLocal['cpf'] || '').replace(/[^0-9]/g,'');
       }
 
       const body = {
@@ -4766,7 +4766,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // Máscara CPF global — só dígitos, sem formatação durante digitação
   window._mascaraCPF = function(el) {
-    var v = el.value.replace(/\D/g, '').slice(0, 11);
+    var v = el.value.replace(/[^0-9]/g, '').slice(0, 11);
     el.value = v;
     try { el.setSelectionRange(v.length, v.length); } catch(e) {}
   };
@@ -5207,7 +5207,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       if (jaViu) return;
       var perfilExtra = {};
       try { perfilExtra = JSON.parse(localStorage.getItem('rp_perfil_extra_' + uid) || '{}'); } catch {}
-      var cpfOk = (perfilExtra['cpf'] || '').replace(/\D/g,'').length === 11;
+      var cpfOk = (perfilExtra['cpf'] || '').replace(/[^0-9]/g,'').length === 11;
       if (cpfOk) return; // já tem dados, não mostrar
       // Marcar como visto para não mostrar toda vez
       localStorage.setItem('rp_dados_popup_' + uid, '1');

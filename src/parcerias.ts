@@ -830,33 +830,33 @@ export function getParceriasLandingHTML(): string {
   }
   function mTel(i){
     // só dígitos enquanto digita, máscara no blur
-    i.value = i.value.replace(/\D/g,'').slice(0,11);
+    i.value = i.value.replace(/[^0-9]/g,'').slice(0,11);
   }
   function blurTel(i){
-    const v=i.value.replace(/\D/g,'').slice(0,11);
+    const v=i.value.replace(/[^0-9]/g,'').slice(0,11);
     if(v.length>7) i.value='('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
     else if(v.length>2) i.value='('+v.slice(0,2)+') '+v.slice(2);
     else if(v.length) i.value='('+v;
     else i.value=v;
   }
   function mCNPJ(i){
-    i.value = i.value.replace(/\D/g,'').slice(0,14);
+    i.value = i.value.replace(/[^0-9]/g,'').slice(0,14);
   }
   function blurCNPJForm(i){
-    const v=i.value.replace(/\D/g,'').slice(0,14);
+    const v=i.value.replace(/[^0-9]/g,'').slice(0,14);
     if(v.length===14) i.value=v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
     else i.value=v;
   }
   function mCEP(i){
-    i.value = i.value.replace(/\D/g,'').slice(0,8);
+    i.value = i.value.replace(/[^0-9]/g,'').slice(0,8);
   }
   function blurCEPForm(i){
-    const v=i.value.replace(/\D/g,'').slice(0,8);
+    const v=i.value.replace(/[^0-9]/g,'').slice(0,8);
     if(v.length===8){ i.value=v.slice(0,5)+'-'+v.slice(5); buscarCEP(); }
     else i.value=v;
   }
   async function buscarCEP(){
-    const cep=document.getElementById('f-cep').value.replace(/\D/g,'');
+    const cep=document.getElementById('f-cep').value.replace(/[^0-9]/g,'');
     if(cep.length!==8){
       document.getElementById('geo-status').textContent='CEP inválido.';return;
     }
@@ -1780,7 +1780,7 @@ export function getPainelEmpresaHTML(): string {
             </div>
             <div>
               <label class="perf-label">WhatsApp / Telefone</label>
-              <input id="perf-tel" class="login-input" type="tel" style="margin-bottom:0" placeholder="(27) 99999-9999" oninput="this.value=this.value.replace(/\D/g,'').slice(0,11)" onblur="this.value=_fmtTel(this.value)"/>
+              <input id="perf-tel" class="login-input" type="tel" style="margin-bottom:0" placeholder="(27) 99999-9999" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,11)" onblur="this.value=_fmtTel(this.value)"/>
             </div>
             <div>
               <label class="perf-label">E-mail de contato</label>
@@ -2635,7 +2635,7 @@ async function carregarPerfil() {
   document.getElementById('perf-horario').value = _sessao?.horario || '';
   document.getElementById('perf-email').value   = _sessao?.email || '';
   const cnpjInp = document.getElementById('perf-cnpj');
-  { const r = (_sessao?.cnpj||'').replace(/\D/g,'').slice(0,14);
+  { const r = (_sessao?.cnpj||'').replace(/[^0-9]/g,'').slice(0,14);
     cnpjInp.value = r.length===14 ? r.slice(0,2)+'.'+r.slice(2,5)+'.'+r.slice(5,8)+'/'+r.slice(8,12)+'-'+r.slice(12) : ''; }
   // Endereço
   const end = _sessao?.endereco || {};
@@ -2669,7 +2669,7 @@ async function carregarPerfil() {
     document.getElementById('perf-horario').value = p.horario || '';
     document.getElementById('perf-email').value   = p.email   || '';
     const ci = document.getElementById('perf-cnpj');
-    { const r = (p.cnpj||'').replace(/\D/g,'').slice(0,14);
+    { const r = (p.cnpj||'').replace(/[^0-9]/g,'').slice(0,14);
       console.log('[perfil] cnpj KV raw:', JSON.stringify(p.cnpj), '→ digits:', r);
       ci.value = r.length===14 ? r.slice(0,2)+'.'+r.slice(2,5)+'.'+r.slice(5,8)+'/'+r.slice(8,12)+'-'+r.slice(12) : ''; }
     const pe = p.endereco || {};
@@ -2695,16 +2695,16 @@ async function carregarPerfil() {
 
 // ── Helpers de formatação (aplicados no onblur) ─────────
 function _fmtCnpj(raw) {
-  const v = (raw||'').replace(/\D/g,'').slice(0,14);
+  const v = (raw||'').replace(/[^0-9]/g,'').slice(0,14);
   if (v.length === 14) return v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
   return v;
 }
 function _fmtCep(raw) {
-  const v = (raw||'').replace(/\D/g,'').slice(0,8);
+  const v = (raw||'').replace(/[^0-9]/g,'').slice(0,8);
   return v.length === 8 ? v.slice(0,5)+'-'+v.slice(5) : v;
 }
 function _fmtTel(raw) {
-  const v = (raw||'').replace(/\D/g,'').slice(0,11);
+  const v = (raw||'').replace(/[^0-9]/g,'').slice(0,11);
   if (v.length === 11) return '('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
   if (v.length === 10) return '('+v.slice(0,2)+') '+v.slice(2,6)+'-'+v.slice(6);
   return v;
@@ -2714,18 +2714,18 @@ function _cnpjKey(e, inp) {
   // Permite: dígitos, Backspace, Delete, Tab, Enter, setas, Ctrl/Cmd+A/C/V/X
   const allow = ['Backspace','Delete','Tab','Enter','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
   if (allow.includes(e.key) || (e.ctrlKey||e.metaKey)) return;
-  if (!/^\d$/.test(e.key)) { e.preventDefault(); return; }
+  if (!/^[0-9]$/.test(e.key)) { e.preventDefault(); return; }
   inp.dataset.edited = '1';
 }
-function mCNPJ(inp) { inp.value = inp.value.replace(/\D/g,'').slice(0,14); }
+function mCNPJ(inp) { inp.value = inp.value.replace(/[^0-9]/g,'').slice(0,14); }
 function blurCNPJ(inp) { inp.value = _fmtCnpj(inp.value); }
-function mCEP(inp)  { inp.value = inp.value.replace(/\D/g,'').slice(0,8); }
+function mCEP(inp)  { inp.value = inp.value.replace(/[^0-9]/g,'').slice(0,8); }
 
 // ── Busca CNPJ via BrasilAPI ────────────────────────────
 async function perfBuscarCnpj() {
   const inp = document.getElementById('perf-cnpj');
   // Sempre normaliza o campo antes de qualquer coisa
-  const raw = (inp.value||'').replace(/\D/g,'');
+  const raw = (inp.value||'').replace(/[^0-9]/g,'');
   if (raw.length === 14) {
     inp.value = raw.slice(0,2)+'.'+raw.slice(2,5)+'.'+raw.slice(5,8)+'/'+raw.slice(8,12)+'-'+raw.slice(12);
   }
@@ -2757,7 +2757,7 @@ async function perfBuscarCnpj() {
     if (d.municipio) document.getElementById('perf-cidade').value = d.municipio;
     if (d.uf)       document.getElementById('perf-estado').value = d.uf;
     if (d.cep) {
-      let cepFmt = d.cep.replace(/\D/g,'');
+      let cepFmt = d.cep.replace(/[^0-9]/g,'');
       if (cepFmt.length === 8) cepFmt = cepFmt.slice(0,5) + '-' + cepFmt.slice(5);
       document.getElementById('perf-cep').value = cepFmt;
     }
@@ -2794,7 +2794,7 @@ async function perfBuscarCnpj() {
 }
 
 async function perfBuscarCep() {
-  const cep = (document.getElementById('perf-cep').value||'').replace(/\D/g,'');
+  const cep = (document.getElementById('perf-cep').value||'').replace(/[^0-9]/g,'');
   if (cep.length !== 8) return;
   try {
     const r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
@@ -2866,7 +2866,7 @@ async function salvarPerfil() {
   const tel     = document.getElementById('perf-tel').value.trim();
   const horario = document.getElementById('perf-horario').value.trim();
   const email   = document.getElementById('perf-email').value.trim();
-  const cnpjRaw  = document.getElementById('perf-cnpj').value.replace(/\D/g,'').slice(0,14);
+  const cnpjRaw  = document.getElementById('perf-cnpj').value.replace(/[^0-9]/g,'').slice(0,14);
   const cnpj     = cnpjRaw; // sempre salva só dígitos no KV
   const bandeira= document.getElementById('perf-bandeira').value;
   const cep     = document.getElementById('perf-cep').value.trim();
@@ -2883,8 +2883,8 @@ async function salvarPerfil() {
   btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
   msg.style.display = 'none';
 
-  const telRaw   = tel.replace(/\D/g,'').slice(0,11);
-  const cepRaw   = cep.replace(/\D/g,'').slice(0,8);
+  const telRaw   = tel.replace(/[^0-9]/g,'').slice(0,11);
+  const cepRaw   = cep.replace(/[^0-9]/g,'').slice(0,8);
   const payload = {
     nome, tel: telRaw, horario, email, cnpj, bandeira,
     endereco: { cep: cepRaw, rua, numero: num, bairro, cidade, estado },

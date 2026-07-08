@@ -1636,7 +1636,7 @@ function getMP(){
 async function pagar(){
   const nome=document.getElementById('pay-nome').value.trim();
   const email=document.getElementById('pay-email').value.trim();
-  const cpf=document.getElementById('pay-cpf').value.replace(/\D/g,'');
+  const cpf=document.getElementById('pay-cpf').value.replace(/[^0-9]/g,'');
   const card=document.getElementById('pay-card').value.replace(/\s/g,'');
   const val=document.getElementById('pay-val').value;
   const cvv=document.getElementById('pay-cvv').value;
