@@ -13128,9 +13128,9 @@ function renderPlanosAppGrid() {
       // Rodapé com botão salvar
       + '<div style="padding:14px 20px;background:rgba(0,0,0,0.15);display:flex;justify-content:flex-end;gap:8px">'
       +   (p.id !== 'free' && p.id !== 'premium' && p.id !== 'anual'
-          ? '<button onclick="deletarPlanoApp(' + JSON.stringify(p.id) + ')" style="background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700"><i class="fas fa-trash"></i></button>'
+          ? '<button onclick="deletarPlanoApp(\'' + p.id + '\')" style="background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700"><i class="fas fa-trash"></i></button>'
           : '')
-      +   '<button onclick="salvarPlanoApp(' + i + ',' + JSON.stringify(p.id) + ')" style="background:' + p.cor + ';color:#fff;border:none;padding:9px 22px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer"><i class="fas fa-save" style="margin-right:6px"></i>Salvar</button>'
+      +   '<button onclick="salvarPlanoApp(' + i + ',\'' + p.id + '\')" style="background:' + p.cor + ';color:#fff;border:none;padding:9px 22px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer"><i class="fas fa-save" style="margin-right:6px"></i>Salvar</button>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -13364,8 +13364,8 @@ function renderizarPlanosGrid() {
       + '</div>'
       // Rodapé salvar/excluir
       + '<div style="padding:12px 18px;background:rgba(0,0,0,0.15);display:flex;justify-content:flex-end;gap:8px">'
-      +   (!isProtected ? '<button onclick="deletarPlanoPostoInline(' + JSON.stringify(p.id) + ')" style="background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700"><i class="fas fa-trash"></i></button>' : '')
-      +   '<button onclick="salvarPlanoPostoInline(' + i + ',' + JSON.stringify(p.id) + ')" style="background:' + cor + ';color:#fff;border:none;padding:8px 22px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer"><i class="fas fa-save" style="margin-right:6px"></i>Salvar</button>'
+      +   (!isProtected ? '<button onclick="deletarPlanoPostoInline(\'' + p.id + '\')" style="background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700"><i class="fas fa-trash"></i></button>' : '')
+      +   '<button onclick="salvarPlanoPostoInline(' + i + ',\'' + p.id + '\')" style="background:' + cor + ';color:#fff;border:none;padding:8px 22px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer"><i class="fas fa-save" style="margin-right:6px"></i>Salvar</button>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -13724,7 +13724,7 @@ function renderMenuAppItens(itens) {
       + '</div>'
       + '<div style="display:flex;align-items:center;gap:10px">'
       +   '<span style="font-size:11px;font-weight:700;color:' + statusColor + ';min-width:40px;text-align:right;transition:color 0.2s" id="menu-status-' + id + '">' + statusText + '</span>'
-      +   '<div onclick="toggleMenuitem(' + JSON.stringify(id) + ')" id="menu-track-' + id + '"'
+      +   '<div onclick="toggleMenuitem(\'' + id + '\')" id="menu-track-' + id + '"'
       +     ' style="position:relative;width:46px;height:26px;border-radius:13px;background:' + trackBg + ';cursor:pointer;transition:background 0.25s;flex-shrink:0">'
       +     '<div id="menu-knob-' + id + '"'
       +       ' style="position:absolute;top:3px;left:' + knobLeft + ';width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);transition:left 0.25s;pointer-events:none"></div>'
