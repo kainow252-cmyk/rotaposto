@@ -2387,11 +2387,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       // Botão Ir até lá (abre Google Maps com destino)
       var coordsLat = s.lat || '';
       var coordsLng = s.lng || '';
-      // split/join em vez de regex — evita que /'/g quebre ao ser emitido como HTML
-      var nomeSeguro = (s.nome || '').split("'").join('');
+      // Usar Q=String.fromCharCode(39) para aspa simples — evita que \' perca o backslash no template literal
+      var Q = String.fromCharCode(39);
+      var nomeSeguro = (s.nome || '').split(Q).join('');
       var btnIrLa = (coordsLat && coordsLng)
-        ? '<a href="#" class="sos-btn-irla" onclick="_abrirNavegacaoExterna(' + coordsLat + ',' + coordsLng + ',\'' + nomeSeguro + '\');return false;">🗺️ Ir até lá</a>'
-        : '<a href="#" class="sos-btn-irla" onclick="_abrirNavegacaoExterna(0,0,\'' + encodeURIComponent(s.nome + ' ' + (s.endereco || '')) + '\');return false;">🗺️ Ir até lá</a>';
+        ? '<a href="#" class="sos-btn-irla" onclick="_abrirNavegacaoExterna(' + coordsLat + ',' + coordsLng + ',' + Q + nomeSeguro + Q + ');return false;">🗺️ Ir até lá</a>'
+        : '<a href="#" class="sos-btn-irla" onclick="_abrirNavegacaoExterna(0,0,' + Q + encodeURIComponent(s.nome + ' ' + (s.endereco || '')) + Q + ');return false;">🗺️ Ir até lá</a>';
       return '<div class="sos-card">'
         + '<div class="sos-card-emoji">' + s.emoji + '</div>'
         + '<div class="sos-card-info">'
