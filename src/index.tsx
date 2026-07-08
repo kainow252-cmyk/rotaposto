@@ -10623,6 +10623,22 @@ app.get('/admin', (c) => {
     .nav-item:hover{color:#fff;background:rgba(255,255,255,0.06)}
     .nav-item.active{color:#FF6D00;background:rgba(255,109,0,0.10);border-left-color:#FF6D00}
     .nav-item i{width:16px;text-align:center;font-size:13px;flex-shrink:0}
+    /* Grupo colapsável (ex: Planos & Produtos) */
+    .nav-group-header{display:flex;align-items:center;gap:9px;padding:9px 16px;color:rgba(255,255,255,0.35);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;cursor:pointer;transition:all 0.2s;user-select:none;white-space:nowrap}
+    .nav-group-header:hover{color:rgba(255,255,255,0.65)}
+    .nav-group-header i.nav-group-icon{width:16px;text-align:center;font-size:12px;flex-shrink:0;color:rgba(255,255,255,0.25)}
+    .nav-group-header .nav-group-chevron{margin-left:auto;font-size:10px;color:rgba(255,255,255,0.2);transition:transform 0.2s;flex-shrink:0}
+    .nav-group-header.open .nav-group-chevron{transform:rotate(90deg);color:rgba(255,255,255,0.4)}
+    .nav-group-header.has-active{color:rgba(255,109,0,0.8)}
+    .nav-group-header.has-active .nav-group-icon{color:rgba(255,109,0,0.6)}
+    .nav-group-body{overflow:hidden;max-height:0;transition:max-height 0.22s ease}
+    .nav-group-body.open{max-height:200px}
+    .nav-subitem{display:flex;align-items:center;gap:8px;padding:7px 16px 7px 38px;color:rgba(255,255,255,0.4);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;border-left:3px solid transparent;white-space:nowrap;position:relative}
+    .nav-subitem::before{content:'';position:absolute;left:22px;top:50%;width:6px;height:1px;background:rgba(255,255,255,0.15)}
+    .nav-subitem:hover{color:#fff;background:rgba(255,255,255,0.04)}
+    .nav-subitem.active{color:#FF6D00;background:rgba(255,109,0,0.08);border-left-color:#FF6D00;font-weight:700}
+    .nav-subitem.active::before{background:rgba(255,109,0,0.4)}
+    .nav-subitem i{width:14px;text-align:center;font-size:11px;flex-shrink:0}
     .nav-item-sair{display:flex;align-items:center;gap:9px;padding:9px 16px;color:rgba(255,82,82,0.7);font-size:12.5px;font-weight:700;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent;white-space:nowrap}
     .nav-item-sair:hover{color:#FF5252;background:rgba(255,82,82,0.08);border-left-color:#FF5252}
     .nav-item-sair i{width:16px;text-align:center;font-size:13px;flex-shrink:0}
@@ -10745,10 +10761,17 @@ app.get('/admin', (c) => {
     <div class="nav-item" id="nav-app-usuarios" onclick="showSection('app-usuarios',this)"><i class="fas fa-mobile-alt"></i>Usuários do App</div>
     <div class="nav-item" id="nav-dados-usuarios" onclick="showSection('dados-usuarios',this)"><i class="fas fa-id-card"></i>Dados & Contatos</div>
     <div class="nav-item" id="nav-assinaturas" onclick="showSection('assinaturas',this)"><i class="fas fa-crown"></i>Assinaturas</div>
-    <div class="nav-section">Planos & Produtos</div>
-    <div class="nav-item" id="nav-planos-app" onclick="showSection('planos-app',this)"><i class="fas fa-mobile-alt"></i>Planos do App</div>
-    <div class="nav-item" id="nav-planos" onclick="showSection('planos',this)"><i class="fas fa-box-open"></i>Planos dos Postos</div>
-    <div class="nav-item" id="nav-menu-app" onclick="showSection('menu-app',this)"><i class="fas fa-sliders-h"></i>Menu do App</div>
+    <!-- Grupo colapsável: Planos & Produtos -->
+    <div class="nav-group-header" id="navg-planos" onclick="toggleNavGroup('navg-planos','navgb-planos')">
+      <i class="fas fa-layer-group nav-group-icon"></i>
+      Planos & Produtos
+      <i class="fas fa-chevron-right nav-group-chevron"></i>
+    </div>
+    <div class="nav-group-body" id="navgb-planos">
+      <div class="nav-subitem" id="nav-planos-app" onclick="showSection('planos-app',this)"><i class="fas fa-mobile-alt"></i>Planos do App</div>
+      <div class="nav-subitem" id="nav-planos" onclick="showSection('planos',this)"><i class="fas fa-store"></i>Planos dos Postos</div>
+      <div class="nav-subitem" id="nav-menu-app" onclick="showSection('menu-app',this)"><i class="fas fa-sliders-h"></i>Menu do App</div>
+    </div>
     <div class="nav-section">Postos & Dados</div>
     <div class="nav-item" id="nav-postos-parceiros" onclick="showSection('postos-parceiros',this)"><i class="fas fa-star"></i>Postos Parceiros</div>
     <div class="nav-item" id="nav-postos" onclick="showSection('postos',this)"><i class="fas fa-gas-pump"></i>Postos (Mapa)</div>
@@ -12118,12 +12141,47 @@ document.addEventListener('click', function(e) {
   }
 });
 
+// ── Grupo colapsável do sidebar ─────────────────────────────────────────────
+function toggleNavGroup(headerId, bodyId) {
+  var h = document.getElementById(headerId);
+  var b = document.getElementById(bodyId);
+  if (!h || !b) return;
+  var isOpen = b.classList.contains('open');
+  b.classList.toggle('open', !isOpen);
+  h.classList.toggle('open', !isOpen);
+}
+
+function _openNavGroup(bodyId) {
+  var b = document.getElementById(bodyId);
+  var h = b ? b.previousElementSibling : null;
+  if (b) b.classList.add('open');
+  if (h) h.classList.add('open');
+}
+
+// Itens que pertencem a cada grupo: subitem-id → grupo-body-id
+var _navGroups = {
+  'nav-planos-app': 'navgb-planos',
+  'nav-planos':     'navgb-planos',
+  'nav-menu-app':   'navgb-planos'
+};
+
 function showSection(name, el) {
   document.querySelectorAll('main section').forEach(s => s.style.display = 'none');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nav-item, .nav-subitem').forEach(n => n.classList.remove('active'));
+  // Remover has-active de todos os grupos
+  document.querySelectorAll('.nav-group-header').forEach(h => h.classList.remove('has-active'));
   const sec = document.getElementById('section-' + name);
   if (sec) sec.style.display = 'block';
-  if (el) el.classList.add('active');
+  if (el) {
+    el.classList.add('active');
+    // Se for subitem, abrir o grupo e marcar header como has-active
+    var groupBodyId = _navGroups[el.id];
+    if (groupBodyId) {
+      _openNavGroup(groupBodyId);
+      var groupHeader = document.getElementById(groupBodyId)?.previousElementSibling;
+      if (groupHeader) groupHeader.classList.add('has-active');
+    }
+  }
   currentSection = name;
   if (name === 'mapa') iniciarMapaAdmin(false);
   if (name === 'postos') carregarPostos();
