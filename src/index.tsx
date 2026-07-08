@@ -13663,27 +13663,36 @@ async function carregarMenuApp() {
 }
 
 function renderMenuAppItens(itens) {
-  const el = document.getElementById('menu-app-itens');
+  var el = document.getElementById('menu-app-itens');
   if (!el) return;
-  el.innerHTML = itens.map(item => \`
-    <div style="display:flex;align-items:center;justify-content:space-between;background:#0A1520;border-radius:12px;padding:14px 18px;border:1px solid rgba(255,255,255,\${item.ativo?'0.12':'0.05'});transition:border-color 0.2s" id="menu-row-\${item.id}">
-      <div style="display:flex;align-items:center;gap:12px">
-        <span style="font-size:22px;opacity:\${item.ativo?'1':'0.35'};transition:opacity 0.2s" id="menu-icone-\${item.id}">\${item.icone}</span>
-        <div>
-          <div style="font-size:14px;font-weight:700;color:\${item.ativo?'#fff':'rgba(255,255,255,0.35)'};transition:color 0.2s" id="menu-label-\${item.id}">\${item.label}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:2px">ID: \${item.id}</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:11px;font-weight:700;color:\${item.ativo?'#FF6D00':'rgba(255,255,255,0.25)'};min-width:40px;text-align:right;transition:color 0.2s" id="menu-status-\${item.id}">\${item.ativo?'Visível':'Oculto'}</span>
-        <div onclick="toggleMenuitem('\${item.id}')" id="menu-track-\${item.id}"
-          style="position:relative;width:46px;height:26px;border-radius:13px;background:\${item.ativo?'#FF6D00':'rgba(255,255,255,0.1)'};cursor:pointer;transition:background 0.25s;flex-shrink:0">
-          <div id="menu-knob-\${item.id}"
-            style="position:absolute;top:3px;left:\${item.ativo?'23px':'3px'};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);transition:left 0.25s;pointer-events:none"></div>
-        </div>
-      </div>
-    </div>
-  \`).join('');
+  el.innerHTML = itens.map(function(item) {
+    var a = item.ativo;
+    var id = item.id;
+    var borderOpacity = a ? '0.12' : '0.05';
+    var opacity = a ? '1' : '0.35';
+    var labelColor = a ? '#fff' : 'rgba(255,255,255,0.35)';
+    var statusColor = a ? '#FF6D00' : 'rgba(255,255,255,0.25)';
+    var statusText = a ? 'Visivel' : 'Oculto';
+    var trackBg = a ? '#FF6D00' : 'rgba(255,255,255,0.1)';
+    var knobLeft = a ? '23px' : '3px';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;background:#0A1520;border-radius:12px;padding:14px 18px;border:1px solid rgba(255,255,255,' + borderOpacity + ');transition:border-color 0.2s" id="menu-row-' + id + '">'
+      + '<div style="display:flex;align-items:center;gap:12px">'
+      +   '<span style="font-size:22px;opacity:' + opacity + ';transition:opacity 0.2s" id="menu-icone-' + id + '">' + item.icone + '</span>'
+      +   '<div>'
+      +     '<div style="font-size:14px;font-weight:700;color:' + labelColor + ';transition:color 0.2s" id="menu-label-' + id + '">' + item.label + '</div>'
+      +     '<div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:2px">ID: ' + id + '</div>'
+      +   '</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:10px">'
+      +   '<span style="font-size:11px;font-weight:700;color:' + statusColor + ';min-width:40px;text-align:right;transition:color 0.2s" id="menu-status-' + id + '">' + statusText + '</span>'
+      +   '<div onclick="toggleMenuitem(' + JSON.stringify(id) + ')" id="menu-track-' + id + '"'
+      +     ' style="position:relative;width:46px;height:26px;border-radius:13px;background:' + trackBg + ';cursor:pointer;transition:background 0.25s;flex-shrink:0">'
+      +     '<div id="menu-knob-' + id + '"'
+      +       ' style="position:absolute;top:3px;left:' + knobLeft + ';width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);transition:left 0.25s;pointer-events:none"></div>'
+      +   '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
 }
 
 function toggleMenuitem(id) {
@@ -14134,14 +14143,15 @@ app.get('/api/admin/equipe', async (c) => {
 
 // ─── POST /api/admin/equipe — criar/atualizar funcionário ─────────────────────
 app.post('/api/admin/equipe', async (c) => {
-  const key = c.req.query('key') || ''
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
-  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
   const kv = getKV(c.env)
   if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
 
   try {
     const body = await c.req.json() as Record<string, unknown>
+    // Aceita key tanto na query string quanto no body JSON (frontend envia no body)
+    const key = (c.req.query('key') || (body.key as string) || '').trim()
+    if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
     const { email, nome, senha, role, permissoes, ativo } = body as {
       email: string; nome: string; senha?: string; role: string;
       permissoes: Record<string,boolean>; ativo: boolean
