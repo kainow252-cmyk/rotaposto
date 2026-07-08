@@ -2488,13 +2488,19 @@ app.post('/api/auth/google-code', async (c) => {
 
     const clientId = '1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com'
     // Client secret do OAuth Web Client (necessário para troca de code)
+    // Configure via: npx wrangler secret put GOOGLE_CLIENT_SECRET --config wrangler-worker.jsonc
     const clientSecret = (c.env as any)?.GOOGLE_CLIENT_SECRET as string || ''
 
+    if (!clientSecret) {
+      return c.json({ error: 'client_secret_missing', detail: 'GOOGLE_CLIENT_SECRET não configurado no servidor. Configure via Cloudflare Secrets.' }, 503)
+    }
+
+    const finalRedirectUri = redirect_uri || 'https://rotaposto.com.br/auth/google/callback'
     const body = new URLSearchParams({
       code,
       client_id: clientId,
       client_secret: clientSecret,
-      redirect_uri: redirect_uri || 'https://rotaposto.com.br/auth/google/callback',
+      redirect_uri: finalRedirectUri,
       grant_type: 'authorization_code',
       code_verifier,
     })
@@ -2546,35 +2552,83 @@ app.get('/auth/google/callback', (c) => {
       var el = document.getElementById('erro');
       el.textContent = msg;
       el.style.display = 'block';
-      setTimeout(function(){ window.location.href = '/'; }, 4000);
+      setTimeout(function(){ window.location.href = '/'; }, 5000);
     }
 
-    // Google envia id_token no FRAGMENT (#) — não nos query params
-    // Ex: /auth/google/callback#access_token=...&id_token=JWT&token_type=Bearer
-    var fragment = window.location.hash.substring(1); // remove o '#'
-    var params = {};
-    fragment.split('&').forEach(function(part) {
-      var eq = part.indexOf('=');
-      if (eq > 0) params[decodeURIComponent(part.substring(0,eq))] = decodeURIComponent(part.substring(eq+1));
-    });
-
-    // Também verificar erros nos query params (Google às vezes manda erro ali)
+    // Ler query params (Google envia code= e state= aqui no fluxo PKCE)
     var queryParams = {};
     window.location.search.substring(1).split('&').forEach(function(part) {
       var eq = part.indexOf('=');
       if (eq > 0) queryParams[decodeURIComponent(part.substring(0,eq))] = decodeURIComponent(part.substring(eq+1));
     });
 
-    var idToken = params['id_token'];
-    var erro = params['error'] || queryParams['error'];
+    // Ler fragment (fluxo implícito legado: id_token no #)
+    var fragment = window.location.hash.substring(1);
+    var fragParams = {};
+    fragment.split('&').forEach(function(part) {
+      var eq = part.indexOf('=');
+      if (eq > 0) fragParams[decodeURIComponent(part.substring(0,eq))] = decodeURIComponent(part.substring(eq+1));
+    });
 
+    var erro = queryParams['error'] || fragParams['error'];
+    var code  = queryParams['code'];      // Fluxo PKCE (Authorization Code)
+    var state = queryParams['state'];
+    var idTokenFrag = fragParams['id_token']; // Fluxo implícito legado
+
+    // Verificar erro do Google
     if (erro) {
       mostrarErro('Google recusou: ' + erro);
-    } else if (!idToken) {
-      mostrarErro('Token não recebido. Tente novamente.');
-    } else {
+    }
+    // ── Fluxo PKCE: Google retornou code ──────────────────────────────────────
+    else if (code) {
+      // Verificar state CSRF
+      var savedState = localStorage.getItem('google_pkce_state');
+      if (savedState && state !== savedState) {
+        mostrarErro('Erro de segurança (state inválido). Tente novamente.');
+      } else {
+        var codeVerifier = localStorage.getItem('google_pkce_verifier');
+        localStorage.removeItem('google_pkce_verifier');
+        localStorage.removeItem('google_pkce_state');
+        localStorage.removeItem('google_pkce_nonce');
+
+        if (!codeVerifier) {
+          mostrarErro('Sessão expirada. Tente fazer login novamente.');
+        } else {
+          // Trocar code + code_verifier por id_token via nosso servidor (evita expor client_secret)
+          fetch('/api/auth/google-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              code: code,
+              code_verifier: codeVerifier,
+              redirect_uri: 'https://rotaposto.com.br/auth/google/callback'
+            })
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error === 'client_secret_missing') {
+              // GOOGLE_CLIENT_SECRET não está configurado — mostrar instrução
+              mostrarErro('Configuração pendente: entre em contato com o suporte. (client_secret não configurado)');
+              return;
+            }
+            if (data.error) { mostrarErro('Erro ao trocar código: ' + data.error + (data.detail ? ' — ' + data.detail : '')); return; }
+            _finalizarLoginComIdToken(data.id_token);
+          })
+          .catch(function(e) { mostrarErro('Erro de rede: ' + e.message); });
+        }
+      }
+    }
+    // ── Fluxo implícito legado: id_token no fragment ──────────────────────────
+    else if (idTokenFrag) {
       localStorage.removeItem('google_oauth_nonce');
-      // Aguardar Firebase carregar e fazer signInWithCredential
+      _finalizarLoginComIdToken(idTokenFrag);
+    }
+    else {
+      mostrarErro('Resposta inesperada do Google. Tente novamente.');
+    }
+
+    // Fazer signInWithCredential Firebase com o id_token e redirecionar para /app
+    function _finalizarLoginComIdToken(idToken) {
       var tentativas = 0;
       var t = setInterval(function() {
         tentativas++;
@@ -2609,7 +2663,7 @@ app.get('/auth/google/callback', (c) => {
               });
             })
             .catch(function(err){ mostrarErro('Erro Firebase: ' + (err.code||err.message)); });
-        } else if (tentativas > 60) {
+        } else if (tentativas > 80) {
           clearInterval(t);
           mostrarErro('Firebase não carregou. Tente novamente.');
         }
@@ -6513,7 +6567,7 @@ function _isTWAouWebView() {
   // Modo standalone: PWA instalada ou TWA (display: standalone no manifest)
   if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
   // iOS standalone (Safari)
-  if (window.navigator.standalone === true) return true;
+  if ((window.navigator as any).standalone === true) return true;
   // WebView Android com flag wv no UA
   var ua = navigator.userAgent || '';
   if (/wv/.test(ua) && /Android/.test(ua)) return true;
@@ -6521,53 +6575,109 @@ function _isTWAouWebView() {
 }
 
 // Detecta qualquer ambiente Android (TWA, Chrome, WebView, etc.)
-// Chrome TWA NÃO tem "wv" no UA — usa Chrome completo sem WebView flag
 function _isAndroid() {
   var ua = navigator.userAgent || '';
   return /Android/.test(ua);
 }
 
+// ─── Login Google via OAuth próprio (Android/TWA) ─────────────────────────────
+// Fluxo: window.location.href → Google OAuth → /auth/google/callback → Firebase credential
+// Usa redirect_uri = https://rotaposto.com.br/auth/google/callback (cadastrado no Google Cloud)
+// Evita completamente o Firebase handler /__/auth/* e resolve o redirect_uri_mismatch no TWA.
+//
+// response_type: tentamos primeiro "code" com PKCE (mais seguro).
+// Se o client_secret não estiver configurado no servidor, o callback faz fallback
+// para "token id_token" (hybrid implícito) que retorna id_token no fragment diretamente.
+// O callback em /auth/google/callback trata AMBOS os casos.
+async function _loginGooglePKCE() {
+  const CLIENT_ID = '1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com';
+  const REDIRECT_URI = 'https://rotaposto.com.br/auth/google/callback';
+
+  // Gerar nonce para segurança do id_token (OpenID Connect)
+  const nonceArr = new Uint8Array(16);
+  crypto.getRandomValues(nonceArr);
+  const nonce = Array.from(nonceArr).map(b => b.toString(16).padStart(2,'0')).join('');
+
+  // Gerar state para CSRF
+  const stateArr = new Uint8Array(16);
+  crypto.getRandomValues(stateArr);
+  const state = Array.from(stateArr).map(b => b.toString(16).padStart(2,'0')).join('');
+
+  // Gerar PKCE code_verifier e code_challenge
+  const verifierArr = new Uint8Array(48);
+  crypto.getRandomValues(verifierArr);
+  const codeVerifier = btoa(String.fromCharCode(...verifierArr))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(codeVerifier));
+  const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+  // Salvar no localStorage para recuperar no callback
+  localStorage.setItem('google_pkce_verifier', codeVerifier);
+  localStorage.setItem('google_pkce_state', state);
+  localStorage.setItem('google_pkce_nonce', nonce);
+
+  // Montar URL do Google OAuth 2.0 com PKCE
+  // response_type=code: retorna code nos query params, trocado por id_token no servidor
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state: state,
+    nonce: nonce,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+    prompt: 'select_account',
+    access_type: 'online',
+  });
+
+  // Navegar para o Google OAuth (Android Chrome abre uma Custom Tab → retorna ao callback)
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+
 async function loginGoogle() {
-  if (!window._fbSignInWithPopup || !window._fbGoogleProvider || !_firebaseAuth) {
-    mostrarToast('⏳ Carregando Firebase...');
-    setTimeout(loginGoogle, 800);
-    return;
-  }
-  const btn = document.getElementById('btn-google-login');
+  const btn = document.getElementById('btn-google-login') as HTMLButtonElement | null;
+  const SVG_GOOGLE = \`<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continuar com Google\`;
+
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;margin:0 auto"></div>';
   }
 
-  // Android (TWA, Chrome, WebView) OU qualquer ambiente standalone:
-  // → SEMPRE usar signInWithRedirect para evitar redirect_uri_mismatch.
-  // No Chrome TWA, o UA não tem "wv" mas ainda é Android — detectamos por /Android/.
-  // Com authDomain = rotaposto-32e33.firebaseapp.com (padrão Firebase),
-  // o redirect_uri usado é https://rotaposto-32e33.firebaseapp.com/__/auth/handler
-  // que o Firebase cadastra automaticamente no Google OAuth Console.
+  // ── Android/TWA: usa fluxo PKCE próprio (evita Firebase handler que causa redirect_uri_mismatch) ──
+  // O Firebase signInWithRedirect no TWA passa por nosso proxy /__/auth/* em rotaposto.com.br
+  // e o handler.js usa window.location.host (rotaposto.com.br) → mas o redirect_uri que
+  // o Google recebe pode ser /__/auth/handler do Firebase em vez do nosso domínio → mismatch.
+  // Solução: usar fluxo PKCE direto (redirect_uri = /auth/google/callback no nosso domínio).
   if (_isAndroid() || _isTWAouWebView()) {
     try {
-      await window._fbSignInWithRedirect(_firebaseAuth, window._fbGoogleProvider);
-      // A página vai recarregar após o Google OAuth.
-      // getRedirectResult() em _configurarAuth() captura o resultado.
+      await _loginGooglePKCE();
+      // _loginGooglePKCE() faz window.location.href → página sai, não tem return
     } catch (err) {
-      _mostrarErroAuth(err);
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = \`<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continuar com Google\`;
-      }
+      console.error('[Auth] Erro PKCE:', err);
+      mostrarToast('❌ Erro ao iniciar login. Tente novamente.');
+      if (btn) { btn.disabled = false; btn.innerHTML = SVG_GOOGLE; }
     }
     return;
   }
 
-  // Desktop/iOS browser: usar popup (melhor UX sem sair da página)
+  // ── Desktop / iOS / Chrome mobile: usar popup Firebase (melhor UX) ──
+  if (!window._fbSignInWithPopup || !window._fbGoogleProvider || !_firebaseAuth) {
+    mostrarToast('⏳ Carregando Firebase...');
+    setTimeout(loginGoogle, 800);
+    if (btn) { btn.disabled = false; btn.innerHTML = SVG_GOOGLE; }
+    return;
+  }
+
   try {
-    const result = await window._fbSignInWithPopup(_firebaseAuth, window._fbGoogleProvider);
-  } catch (err) {
-    // Se popup foi bloqueado, tentar redirect como fallback
+    await window._fbSignInWithPopup(_firebaseAuth, window._fbGoogleProvider);
+  } catch (err: any) {
+    // Popup bloqueado → fallback para PKCE redirect
     if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user')) {
       try {
-        await window._fbSignInWithRedirect(_firebaseAuth, window._fbGoogleProvider);
+        await _loginGooglePKCE();
         return;
       } catch (err2) {
         _mostrarErroAuth(err2);
@@ -6575,10 +6685,7 @@ async function loginGoogle() {
     } else {
       _mostrarErroAuth(err);
     }
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = \`<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continuar com Google\`;
-    }
+    if (btn) { btn.disabled = false; btn.innerHTML = SVG_GOOGLE; }
   }
 }
 
