@@ -3763,6 +3763,45 @@ app.get('/manifest.json', (c) => {
   })
 })
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  /ir — Redirecionamento server-side para Google Maps (Round 6 Maps fix)
+// ══════════════════════════════════════════════════════════════════════════════
+//
+//  PROBLEMA: TWA bloqueia TODAS as tentativas client-side de abrir Maps:
+//    - geo:       → ERR_UNKNOWN_URL_SCHEME
+//    - intent://  → ERR_UNKNOWN_URL_SCHEME (todos os schemes)
+//    - window.open(maps.google.com) → Chrome converte para intent:// → bloqueado
+//    - window.open sem features → Custom Tab, mas TWA pode bloquear
+//
+//  SOLUÇÃO: Redirect HTTP 302 server-side
+//    1. JS chama window.location.href = '/ir?lat=X&lng=Y' (URL PRÓPRIO domínio)
+//    2. TWA aceita navegar dentro de rotaposto.com.br (está no scope)
+//    3. Worker retorna 302 Location: https://maps.google.com/maps?daddr=X,Y
+//    4. TWA segue o redirect HTTP → agora o Android tem maps.google.com
+//    5. Android resolve App Link via PackageManager (fora do Chrome/TWA)
+//    6. Google Maps app abre nativamente com a rota
+//
+app.get('/ir', (c) => {
+  const lat = c.req.query('lat')
+  const lng = c.req.query('lng')
+  const nome = c.req.query('nome') || ''
+
+  let mapsUrl: string
+  if (lat && lng && lat !== '0' && lng !== '0') {
+    // Coordenadas disponíveis: navegação direta turn-by-turn
+    mapsUrl = `https://maps.google.com/maps?daddr=${encodeURIComponent(lat + ',' + lng)}&directionsmode=driving`
+  } else if (nome) {
+    // Sem coordenadas: busca por nome/endereço
+    mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome)}`
+  } else {
+    // Sem parâmetros: abrir Maps na tela inicial
+    mapsUrl = 'https://maps.google.com/'
+  }
+
+  // 302 (não 301) para não ser cacheado — cada posto tem coordenadas diferentes
+  return c.redirect(mapsUrl, 302)
+})
+
 // ══════════════════════════════════════════════════════
 //  Service Worker — servido pelo Worker (evita cache Pages)
 // ══════════════════════════════════════════════════════

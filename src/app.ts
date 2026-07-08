@@ -3572,42 +3572,39 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     document.getElementById('month-label').textContent = MONTHS_FULL[currentMonthIdx] + ' 2024';
   }
 
-  // Abre navegação no Google Maps — Round 5
+  // Abre navegação no Google Maps — Round 6 (server-side redirect)
   // ─────────────────────────────────────────────────────────────────────────
-  // HISTÓRICO DE FALHAS (todas as abordagens anteriores bloqueadas pelo TWA):
-  //   R1: geo:LAT,LNG                     → ERR_UNKNOWN_URL_SCHEME (scheme geo: bloqueado)
-  //   R2: window.open(maps.google.com, '_blank', 'noopener') → Chrome converte para intent:// → bloqueado
-  //   R3: <a target="_blank">.click()     → Chrome App Links intercepta → intent:// → bloqueado
-  //   R4: window.location.href = 'intent://navigation/now#Intent;scheme=google.navigation' → ERR_UNKNOWN_URL_SCHEME
+  // HISTÓRICO DE FALHAS (todas as abordagens client-side bloqueadas pelo TWA):
+  //   R1: geo:LAT,LNG                     → ERR_UNKNOWN_URL_SCHEME
+  //   R2: window.open(maps.google.com, '_blank', 'noopener') → intent:// → bloqueado
+  //   R3: <a target="_blank">.click()     → App Links → intent:// → bloqueado
+  //   R4: window.location.href = 'intent://navigation/now#Intent;...' → ERR_UNKNOWN_URL_SCHEME
+  //   R5: window.open(maps.google.com, '_blank') sem features → Custom Tab, mas
+  //       TWA intercepts window.open para domínios externos → intent:// → bloqueado
   //
-  // SOLUÇÃO R5: window.open(url, '_blank') SEM terceiro argumento
-  //   - Sem features = Chrome Custom Tab (processo separado do TWA frame)
-  //   - Custom Tabs não são WebView — eles suportam App Links nativamente
-  //   - O Android intercepta maps.google.com como App Link e abre o Maps app
-  //   - Fallback: modal copiável se window.open retornar null (popup blocker)
+  // SOLUÇÃO R6: Redirect HTTP 302 server-side via endpoint /ir
+  //   1. JS navega para '/ir?lat=X&lng=Y' (URL PRÓPRIO domínio — TWA aceita)
+  //   2. Servidor retorna 302 → https://maps.google.com/maps?daddr=X,Y
+  //   3. TWA segue redirect → Android resolve App Link via PackageManager
+  //   4. Google Maps app abre nativamente sem passar pelo Chrome/WebView
   // ─────────────────────────────────────────────────────────────────────────
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
-    var mapsUrl;
+    var irUrl;
 
     if (temCoords) {
-      // Com coordenadas: direção direta + modo dirigindo
-      mapsUrl = 'https://maps.google.com/maps?daddr=' + lat + ',' + lng + '&directionsmode=driving';
+      // Coordenadas disponíveis: redirect server-side para navegação direta
+      irUrl = '/ir?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng);
+      if (nome) irUrl += '&nome=' + encodeURIComponent(nome);
     } else {
-      // Sem coordenadas: busca por nome/endereço
-      mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(nome || '');
+      // Sem coordenadas: redirect server-side para busca por nome
+      irUrl = '/ir?nome=' + encodeURIComponent(nome || '');
     }
 
-    // window.open SEM terceiro argumento → Chrome Custom Tab no Android
-    // Custom Tab é processo externo ao TWA, suporta App Links (abre Maps app)
-    // Com terceiro argumento (features) → fica no frame TWA → App Links bloqueados
-    var w = window.open(mapsUrl, '_blank');
-
-    // Se window.open retornou null (popup blocker ou TWA bloqueou Custom Tab),
-    // exibir modal de fallback com endereço copiável
-    if (!w) {
-      _mostrarFallbackMaps(lat, lng, nome, mapsUrl);
-    }
+    // Navega para /ir (domínio próprio) → servidor faz 302 para maps.google.com
+    // O TWA permite navegação dentro de rotaposto.com.br (scope "/")
+    // O redirect HTTP é seguido pelo TWA → Android abre Maps via App Links do SO
+    window.location.href = irUrl;
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado
