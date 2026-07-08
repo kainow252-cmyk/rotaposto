@@ -1077,6 +1077,12 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       var codeChallenge = btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
         .split('+').join('-').split('/').join('_').split('=').join('');
 
+      // prompt=consent: pede confirmação apenas na 1ª vez
+      // NÃO usar prompt=select_account — faz abrir tela de login do zero
+      // NÃO usar Custom Tab (window.open '_blank') — Custom Tab não compartilha
+      // contas do Google salvas no Chrome do celular (abre Chrome limpo sem conta)
+      // USAR window.location.href direto — o TWA aceita navegar para accounts.google.com
+      // porque é https:// e o callback volta para rotaposto.com.br (no scope do TWA)
       var oauthUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
         + '?client_id=' + encodeURIComponent(CLIENT_ID)
         + '&redirect_uri=' + encodeURIComponent(REDIRECT_URI)
@@ -1086,29 +1092,11 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
         + '&nonce=' + encodeURIComponent(nonce)
         + '&code_challenge=' + encodeURIComponent(codeChallenge)
         + '&code_challenge_method=S256'
-        + '&prompt=select_account'
         + '&access_type=online';
-
-      // TWA bloqueia accounts.google.com com ERR_CACHE_MISS quando navegamos
-      // dentro do frame TWA (window.location.href). Solução: abrir Chrome Custom Tab
-      // via window.open(url, '_blank') SEM terceiro argumento — Custom Tabs têm
-      // cache/cookies próprios e acesso total à internet, bypass do bloqueio TWA.
-      // O callback /auth/google/callback redireciona de volta para rotaposto.com.br
-      // que está na allowedOrigins do TWA, então fecha o Custom Tab e retorna ao app.
-      var ua = navigator.userAgent || '';
-      var isTWA = (document.referrer && document.referrer.indexOf('android-app://') === 0)
-        || (window.matchMedia('(display-mode: standalone)').matches && /Chrome/i.test(ua) && /Android/i.test(ua));
-      if (isTWA) {
-        // Custom Tab: abre accounts.google.com fora do frame TWA
-        var w = window.open(oauthUrl, '_blank');
-        if (!w) {
-          // Fallback se Custom Tab bloqueado: usar window.location dentro do TWA
-          window.location.href = oauthUrl;
-        }
-      } else {
-        // Desktop/iOS: navegação direta (sem problema de ERR_CACHE_MISS)
-        window.location.href = oauthUrl;
-      }
+      // Navega dentro do TWA — o Google usa a conta já logada no Android
+      // sem pedir login novamente. Após autorizar, redireciona para
+      // rotaposto.com.br/auth/google/callback (dentro do scope do TWA).
+      window.location.href = oauthUrl;
     }).catch(function(err) {
       console.error('[Auth] Erro ao gerar PKCE challenge:', err);
       showLoading(false);

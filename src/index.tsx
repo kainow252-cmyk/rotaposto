@@ -3764,42 +3764,127 @@ app.get('/manifest.json', (c) => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  /ir — Redirecionamento server-side para Google Maps (Round 6 Maps fix)
+//  /ir — Página HTML com link direto para Google Maps (Round 7 Maps fix)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-//  PROBLEMA: TWA bloqueia TODAS as tentativas client-side de abrir Maps:
-//    - geo:       → ERR_UNKNOWN_URL_SCHEME
-//    - intent://  → ERR_UNKNOWN_URL_SCHEME (todos os schemes)
-//    - window.open(maps.google.com) → Chrome converte para intent:// → bloqueado
-//    - window.open sem features → Custom Tab, mas TWA pode bloquear
+//  HISTÓRICO DE FALHAS:
+//    R1-R5: client-side (geo:, intent://, window.open) → todos bloqueados pelo TWA
+//    R6: server-side 302 → maps.google.com → Android converte para intent:// via
+//        App Links → ERR_UNKNOWN_URL_SCHEME (TWA tem delegate_permission/common.handle_all_urls)
 //
-//  SOLUÇÃO: Redirect HTTP 302 server-side
-//    1. JS chama window.location.href = '/ir?lat=X&lng=Y' (URL PRÓPRIO domínio)
-//    2. TWA aceita navegar dentro de rotaposto.com.br (está no scope)
-//    3. Worker retorna 302 Location: https://maps.google.com/maps?daddr=X,Y
-//    4. TWA segue o redirect HTTP → agora o Android tem maps.google.com
-//    5. Android resolve App Link via PackageManager (fora do Chrome/TWA)
-//    6. Google Maps app abre nativamente com a rota
+//  SOLUÇÃO R7: Página HTML intermediária com <a href="comgooglemaps://...">
+//    - comgooglemaps:// é deep link nativo registrado no AndroidManifest do Maps
+//    - NÃO passa pelo sistema de App Links do Chrome (é scheme custom, não https://)
+//    - O TWA permite abrir apps externos via deep links em elementos <a> clicados pelo usuário
+//    - Fallback: link https:// para Maps web caso o app não esteja instalado
 //
 app.get('/ir', (c) => {
   const lat = c.req.query('lat')
   const lng = c.req.query('lng')
   const nome = c.req.query('nome') || ''
 
-  let mapsUrl: string
+  let deepLink: string
+  let webLink: string
+  let titulo: string
+
   if (lat && lng && lat !== '0' && lng !== '0') {
-    // Coordenadas disponíveis: navegação direta turn-by-turn
-    mapsUrl = `https://maps.google.com/maps?daddr=${encodeURIComponent(lat + ',' + lng)}&directionsmode=driving`
+    // comgooglemaps:// — deep link nativo do Google Maps para navegação turn-by-turn
+    // Não passa pelo App Links / Chrome → não vira intent:// → não bloqueia no TWA
+    deepLink = `comgooglemaps://?daddr=${encodeURIComponent(lat + ',' + lng)}&directionsmode=driving`
+    webLink  = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + ',' + lng)}&travelmode=driving`
+    titulo   = nome ? nome : `${lat}, ${lng}`
   } else if (nome) {
-    // Sem coordenadas: busca por nome/endereço
-    mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome)}`
+    deepLink = `comgooglemaps://?q=${encodeURIComponent(nome)}`
+    webLink  = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome)}`
+    titulo   = nome
   } else {
-    // Sem parâmetros: abrir Maps na tela inicial
-    mapsUrl = 'https://maps.google.com/'
+    deepLink = `comgooglemaps://`
+    webLink  = `https://maps.google.com/`
+    titulo   = 'Google Maps'
   }
 
-  // 302 (não 301) para não ser cacheado — cada posto tem coordenadas diferentes
-  return c.redirect(mapsUrl, 302)
+  // Página intermediária: tenta abrir comgooglemaps:// automaticamente via JS,
+  // se falhar (app não instalado) mostra botão com link web fallback
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="theme-color" content="#FF6D00"/>
+  <title>Abrindo Google Maps…</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+         background:#fff;display:flex;align-items:center;justify-content:center;
+         min-height:100vh;padding:24px}
+    .card{max-width:340px;width:100%;text-align:center}
+    .icon{font-size:56px;margin-bottom:16px}
+    h1{font-size:20px;font-weight:800;color:#1a1a1a;margin-bottom:8px}
+    p{font-size:14px;color:#666;margin-bottom:24px;line-height:1.5}
+    .btn{display:block;width:100%;background:#FF6D00;color:#fff;border:none;
+         padding:16px;border-radius:14px;font-size:16px;font-weight:700;
+         text-decoration:none;cursor:pointer;margin-bottom:12px}
+    .btn-sec{display:block;width:100%;background:#f5f5f5;color:#333;
+             padding:14px;border-radius:14px;font-size:14px;font-weight:600;
+             text-decoration:none;cursor:pointer;border:1px solid #ddd}
+    .spinner{width:32px;height:32px;border:3px solid #FF6D0033;
+             border-top-color:#FF6D00;border-radius:50%;animation:spin .8s linear infinite;
+             margin:0 auto 16px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #status{font-size:13px;color:#999;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="card" id="loading-card">
+    <div class="spinner"></div>
+    <h1>Abrindo Google Maps…</h1>
+    <p>Redirecionando para <strong>${titulo.replace(/</g,'&lt;')}</strong></p>
+    <div id="status">Aguarde…</div>
+  </div>
+  <div class="card" id="fallback-card" style="display:none">
+    <div class="icon">🗺️</div>
+    <h1>Abrir Google Maps</h1>
+    <p>Toque no botão para navegar até <strong>${titulo.replace(/</g,'&lt;')}</strong></p>
+    <a href="${deepLink}" class="btn" id="btn-deep">
+      📍 Abrir no Google Maps App
+    </a>
+    <a href="${webLink}" class="btn-sec" target="_blank">
+      🌐 Abrir no Maps Web
+    </a>
+  </div>
+  <script>
+    // Tenta abrir comgooglemaps:// automaticamente
+    // Se o app não estiver instalado, o link falha silenciosamente e mostramos fallback
+    var deepLink = ${JSON.stringify(deepLink)};
+    var tried = false;
+
+    function mostrarFallback() {
+      document.getElementById('loading-card').style.display = 'none';
+      document.getElementById('fallback-card').style.display = 'block';
+    }
+
+    // Método 1: iframe com deep link (não navega a página, só tenta abrir o app)
+    try {
+      var iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = deepLink;
+      document.body.appendChild(iframe);
+      tried = true;
+    } catch(e) {}
+
+    // Método 2: window.location após pequeno delay (fallback do iframe)
+    setTimeout(function() {
+      if (!tried) {
+        try { window.location.href = deepLink; } catch(e) {}
+      }
+      // Após 2s sem abrir o app, mostrar o card de fallback
+      setTimeout(mostrarFallback, 2000);
+    }, 300);
+  <\/script>
+</body>
+</html>`
+
+  return c.html(html)
 })
 
 // ══════════════════════════════════════════════════════
@@ -7666,11 +7751,14 @@ async function _loginGooglePKCE() {
     nonce: nonce,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
-    prompt: 'select_account',
     access_type: 'online',
+    // NÃO incluir prompt=select_account: faz abrir tela de login do zero,
+    // ignorando a conta já logada no Android. Sem prompt, o Google usa a
+    // conta padrão do dispositivo automaticamente (One Tap behavior).
   };
 
-  // Se usuário já fez login antes, pré-seleciona a conta (elimina tela de escolha)
+  // Se usuário já fez login antes, pré-seleciona a conta via login_hint
+  // (elimina tela de escolha de conta completamente)
   const savedUser = localStorage.getItem('rp_user');
   if (savedUser) {
     try {
