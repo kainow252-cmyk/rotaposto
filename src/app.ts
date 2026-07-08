@@ -33,6 +33,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
   ${firebaseScripts}
+  <!-- Google One Tap: registrar callback ANTES do GSI carregar (async defer) -->
+  <script>
+    // Proxy imediato: garante que window.onGoogleOneTapCredential exista quando
+    // o GSI client verificar o data-callback, mesmo antes do script principal rodar.
+    // A função real substitui este proxy assim que o script inline executa.
+    window.onGoogleOneTapCredential = function(response) {
+      // Enfileira a chamada caso a função real ainda não esteja pronta
+      window._pendingOneTapResponse = response;
+    };
+  <\/script>
   <!-- Google Identity Services — One Tap (reconhece conta automaticamente no Android) -->
   <script src="https://accounts.google.com/gsi/client" async defer><\/script>
   <style>
@@ -3795,9 +3805,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     // PKCE
     var va = new Uint8Array(48); crypto.getRandomValues(va);
-    var verifier = btoa(String.fromCharCode.apply(null, Array.from(va))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    var verifier = btoa(String.fromCharCode.apply(null, Array.from(va))).replace(/[+]/g,'-').replace(/[/]/g,'_').replace(/[=]/g,'');
     var digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-    var challenge = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    var challenge = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest)))).replace(/[+]/g,'-').replace(/[/]/g,'_').replace(/[=]/g,'');
     var sa = new Uint8Array(16); crypto.getRandomValues(sa);
     var state = Array.from(sa).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
 
@@ -3866,6 +3876,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   // ── Google One Tap callback (chamado pelo GSI automaticamente) ─────────────
+  // Substitui o proxy do <head> pela função real e processa resposta pendente
   window['onGoogleOneTapCredential'] = async function(response) {
     if (!response || !response.credential) return;
     showToast('🔄 Verificando conta Google...');
@@ -3893,6 +3904,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       showToast('❌ Erro de rede. Tente novamente.');
     }
   };
+  // Processar resposta pendente caso o GSI tenha disparado antes deste script
+  if (window['_pendingOneTapResponse']) {
+    var _pending = window['_pendingOneTapResponse'];
+    window['_pendingOneTapResponse'] = null;
+    window['onGoogleOneTapCredential'](_pending);
+  }
 
   // ── Atualizar UI após login ────────────────────────────────────────────────
   function _atualizarUIUsuario(user) {
