@@ -251,35 +251,35 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     #map-card {
       position: absolute; bottom: 0; left: 0; right: 0;
       background: var(--navy-card);
-      border-radius: 24px 24px 0 0;
+      border-radius: 16px 16px 0 0;
       box-shadow: 0 -4px 32px rgba(0,0,0,0.4);
-      padding: 10px 16px calc(var(--sab) + 8px);
+      padding: 6px 12px calc(var(--sab) + 4px);
       z-index: 500;
       border-top: 1px solid var(--navy-border);
     }
 
     .map-card-label {
-      font-size: 11px; font-weight: 700;
+      font-size: 10px; font-weight: 700;
       color: rgba(255,255,255,0.45);
       text-transform: uppercase; letter-spacing: 0.8px;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       display: flex; align-items: center; justify-content: space-between;
     }
     .btn-close-card {
-      width: 28px; height: 28px;
+      width: 22px; height: 22px;
       background: rgba(255,255,255,0.1); border: none; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; color: rgba(255,255,255,0.5);
     }
 
     .map-posto-row {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 8px;
     }
 
     .posto-logo-circle {
-      width: 38px; height: 38px; border-radius: 10px;
+      width: 28px; height: 28px; border-radius: 7px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px; flex-shrink: 0;
+      font-size: 13px; flex-shrink: 0;
       border: 1px solid rgba(255,255,255,0.12);
       overflow: hidden; background: rgba(255,255,255,0.08);
     }
@@ -289,24 +289,24 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     .map-posto-info { flex: 1; min-width: 0; overflow: hidden; }
     .map-posto-nome {
-      font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.55);
-      margin-bottom: 1px;
+      font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.55);
+      margin-bottom: 0;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       text-transform: uppercase; letter-spacing: 0.5px;
     }
     .map-posto-preco {
-      font-size: 15px; font-weight: 800; color: #fff;
-      margin-bottom: 1px; line-height: 1.1;
+      font-size: 13px; font-weight: 800; color: #fff;
+      margin-bottom: 0; line-height: 1.2;
     }
     .map-posto-dist {
       font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 500;
     }
 
     .btn-ir-ata-la {
-      padding: 9px 14px;
-      background: var(--orange); border: none; border-radius: 12px;
+      padding: 7px 12px;
+      background: var(--orange); border: none; border-radius: 10px;
       color: #fff; font-family: 'Inter', sans-serif;
-      font-size: 13px; font-weight: 700;
+      font-size: 12px; font-weight: 700;
       cursor: pointer; flex-shrink: 0;
       transition: opacity 0.2s; white-space: nowrap;
       box-shadow: var(--shadow-orange);
