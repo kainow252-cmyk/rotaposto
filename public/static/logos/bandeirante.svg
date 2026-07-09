@@ -1,31 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <rect width="200" height="200" fill="#1A1A1A"/>
-  <!-- Padrão xadrez de bandeira -->
-  <defs>
-    <pattern id="checker" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
-      <rect x="0" y="0" width="16" height="16" fill="white"/>
-      <rect x="16" y="16" width="16" height="16" fill="white"/>
-      <rect x="16" y="0" width="16" height="16" fill="#333"/>
-      <rect x="0" y="16" width="16" height="16" fill="#333"/>
-    </pattern>
-  </defs>
-  <!-- Faixa xadrez na parte superior -->
-  <rect x="0" y="0" width="200" height="80" fill="url(#checker)"/>
-  <!-- Faixa preta na parte inferior -->
-  <rect x="0" y="80" width="200" height="120" fill="#1A1A1A"/>
-  <!-- BANDEIRANTE em branco -->
-  <text x="100" y="146"
-    text-anchor="middle"
-    font-size="26"
-    font-weight="900"
-    font-family="'Arial Black', Arial, sans-serif"
-    fill="white"
-    letter-spacing="0">BANDEI</text>
-  <text x="100" y="176"
-    text-anchor="middle"
-    font-size="26"
-    font-weight="900"
-    font-family="'Arial Black', Arial, sans-serif"
-    fill="white"
-    letter-spacing="0">RANTE</text>
+  <rect width="200" height="200" fill="#111"/>
+  <!-- Grade xadrez estilizada 5x5 -->
+  <rect x="10" y="10" width="36" height="36" fill="white" opacity="0.9"/>
+  <rect x="46" y="10" width="36" height="36" fill="#333"/>
+  <rect x="82" y="10" width="36" height="36" fill="white" opacity="0.9"/>
+  <rect x="118" y="10" width="36" height="36" fill="#333"/>
+  <rect x="154" y="10" width="36" height="36" fill="white" opacity="0.9"/>
+
+  <rect x="10" y="46" width="36" height="36" fill="#333"/>
+  <rect x="46" y="46" width="36" height="36" fill="white" opacity="0.9"/>
+  <rect x="82" y="46" width="36" height="36" fill="#333"/>
+  <rect x="118" y="46" width="36" height="36" fill="white" opacity="0.9"/>
+  <rect x="154" y="46" width="36" height="36" fill="#333"/>
+
+  <rect x="10" y="82" width="36" height="36" fill="white" opacity="0.9"/>
+  <rect x="46" y="82" width="36" height="36" fill="#333"/>
+  <rect x="82" y="82" width="36" height="36" fill="white" opacity="0.9"/>
+  <rect x="118" y="82" width="36" height="36" fill="#333"/>
+  <rect x="154" y="82" width="36" height="36" fill="white" opacity="0.9"/>
+
+  <!-- Faixa preta com texto -->
+  <rect x="0" y="130" width="200" height="70" fill="#111"/>
+  <text x="100" y="175" text-anchor="middle" font-size="20" font-weight="900"
+        font-family="Arial Black, sans-serif" fill="white" letter-spacing="0">BANDEIRANTE</text>
 </svg>

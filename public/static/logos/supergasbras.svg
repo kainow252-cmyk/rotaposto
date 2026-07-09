@@ -1,19 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <rect width="200" height="200" fill="#E53935"/>
-  <!-- Chama estilizada branca no centro -->
-  <path d="M100,30 C100,30 70,60 70,90 C70,110 82,118 100,120
-           C118,118 130,110 130,90 C130,60 100,30 100,30Z" fill="white" opacity="0.25"/>
-  <text x="100" y="80"
-    text-anchor="middle" font-size="28" font-weight="900"
-    font-family="'Arial Black', Arial, sans-serif" fill="white"
-    letter-spacing="-1">SUPER</text>
-  <text x="100" y="118"
-    text-anchor="middle" font-size="28" font-weight="900"
-    font-family="'Arial Black', Arial, sans-serif" fill="white"
-    letter-spacing="-1">GAS</text>
-  <text x="100" y="156"
-    text-anchor="middle" font-size="28" font-weight="900"
-    font-family="'Arial Black', Arial, sans-serif" fill="white"
-    letter-spacing="-1">BRÁS</text>
-  <rect x="20" y="170" width="160" height="3" rx="1.5" fill="white" opacity="0.4"/>
+  <rect width="200" height="200" fill="#D32F2F"/>
+  <!-- Faixa branca no topo -->
+  <rect x="0" y="0" width="200" height="48" fill="white"/>
+  <!-- SUPER em vermelho no topo branco -->
+  <text x="100" y="36" text-anchor="middle" font-size="26" font-weight="900"
+        font-family="Arial Black, sans-serif" fill="#D32F2F" letter-spacing="2">SUPER</text>
+  <!-- GAS BRÁS em branco na parte vermelha -->
+  <text x="100" y="108" text-anchor="middle" font-size="38" font-weight="900"
+        font-family="Arial Black, sans-serif" fill="white" letter-spacing="1">GÁS</text>
+  <text x="100" y="155" text-anchor="middle" font-size="34" font-weight="900"
+        font-family="Arial Black, sans-serif" fill="white" letter-spacing="1">BRÁS</text>
 </svg>

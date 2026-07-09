@@ -1,14 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <rect width="200" height="200" fill="#0067B3"/>
-  <!-- Símbolo chama de gás (cilindro) -->
-  <ellipse cx="100" cy="62" rx="32" ry="16" fill="#FFD700" opacity="0.9"/>
-  <rect x="68" y="62" width="64" height="74" rx="4" fill="#FFD700" opacity="0.9"/>
-  <ellipse cx="100" cy="136" rx="32" ry="14" fill="#E8B800" opacity="0.9"/>
-  <!-- COPA em branco -->
-  <text x="100" y="168"
-    text-anchor="middle" font-size="38" font-weight="900"
-    font-family="'Arial Black', Arial, sans-serif" fill="white">COPA</text>
-  <text x="100" y="194"
-    text-anchor="middle" font-size="26" font-weight="700"
-    font-family="Arial, sans-serif" fill="white" letter-spacing="4">GAZ</text>
+  <rect width="200" height="200" fill="white"/>
+  <!-- Fundo azul quadrado arredondado -->
+  <rect x="4" y="4" width="192" height="192" rx="14" fill="#0077C8"/>
+  <!-- Botijão de gás estilizado (amarelo) -->
+  <ellipse cx="100" cy="82" rx="32" ry="42" fill="#FFD700"/>
+  <ellipse cx="100" cy="46" rx="18" ry="10" fill="#FFD700"/>
+  <rect x="88" y="36" width="24" height="14" rx="6" fill="#FFA000"/>
+  <!-- Texto COPAGAZ branco -->
+  <text x="100" y="152" text-anchor="middle" font-size="26" font-weight="900"
+        font-family="Arial Black, sans-serif" fill="white" letter-spacing="1">COPAGAZ</text>
 </svg>
