@@ -4832,15 +4832,38 @@ app.get('/api/posto/enriquecer-bandeira', async (c) => {
     const cached = await kv.get('posto:band:' + postoId)
     if (cached) {
       const parsed = JSON.parse(cached)
-      // Cache hit: retornar se bandeira conhecida E cacheada há menos de 30 dias
-      if (parsed.bandeira && parsed.bandeira !== 'independente') {
+      // Cache hit: retornar se bandeira conhecida E já tem fotoUrl
+      if (parsed.bandeira && parsed.bandeira !== 'independente' && parsed.fotoUrl) {
+        return c.json({ ok: true, fonte: 'cache', ...parsed })
+      }
+      // Tem bandeira mas não tem foto → re-buscar só foto (não gastar quota desnecessária)
+      if (parsed.bandeira && parsed.bandeira !== 'independente' && !parsed.fotoUrl && placeId) {
+        // Buscar apenas a foto
+        try {
+          const fotoRes = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+            headers: {
+              'X-Goog-Api-Key': googleKey,
+              'X-Goog-FieldMask': 'photos',
+              'Accept-Language': 'pt-BR'
+            },
+            signal: AbortSignal.timeout(4000)
+          })
+          if (fotoRes.ok) {
+            const fd = await fotoRes.json() as any
+            if (fd.photos && fd.photos.length > 0) {
+              const fotoUrl = `https://places.googleapis.com/v1/${fd.photos[0].name}/media?maxWidthPx=400&key=${googleKey}`
+              const atualizado = { ...parsed, fotoUrl, fotoTs: new Date().toISOString() }
+              if (kv) await kv.put('posto:band:' + postoId, JSON.stringify(atualizado), { expirationTtl: 60 * 60 * 24 * 365 })
+              return c.json({ ok: true, fonte: 'cache+foto', ...atualizado })
+            }
+          }
+        } catch {}
         return c.json({ ok: true, fonte: 'cache', ...parsed })
       }
       // Se era 'independente' e cacheado há mais de 7 dias → re-consultar Google
       const ts = parsed.ts ? new Date(parsed.ts).getTime() : 0
       const diasAntigo = (Date.now() - ts) / (1000 * 60 * 60 * 24)
       if (diasAntigo < 7) {
-        // Independente recente — respeitar cache, não gastar quota do Google
         return c.json({ ok: true, fonte: 'cache', ...parsed })
       }
       // Independente antigo (>7 dias) → re-consultar abaixo
@@ -4851,20 +4874,26 @@ app.get('/api/posto/enriquecer-bandeira', async (c) => {
     let website = ''
     let nomeGoogle = nomePosto
 
-    // 2. Se temos placeId → buscar detalhes reais no Google Places
+    // 2. Se temos placeId → buscar detalhes reais no Google Places (+ foto)
+    let fotoUrl = ''
     if (placeId) {
       const detailsUrl = `https://places.googleapis.com/v1/places/${placeId}`
       const detailsRes = await fetch(detailsUrl, {
         headers: {
           'X-Goog-Api-Key': googleKey,
-          'X-Goog-FieldMask': 'displayName,websiteUri,types',
+          'X-Goog-FieldMask': 'displayName,websiteUri,types,photos',
           'Accept-Language': 'pt-BR'
         }
       })
       if (detailsRes.ok) {
         const d = await detailsRes.json() as any
-        website   = d.websiteUri || ''
+        website    = d.websiteUri || ''
         nomeGoogle = d.displayName?.text || nomePosto
+        // Pegar primeira foto do Google Places
+        if (d.photos && d.photos.length > 0) {
+          const photoName = d.photos[0].name
+          fotoUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=400&key=${googleKey}`
+        }
       }
     }
 
@@ -4881,15 +4910,110 @@ app.get('/api/posto/enriquecer-bandeira', async (c) => {
         bandeira: chave,
         bandeiraNome,
         website,
+        fotoUrl,
         info,
         ts: new Date().toISOString()
       }), { expirationTtl: 60 * 60 * 24 * 365 })
     }
 
-    return c.json({ ok: true, fonte: 'google', bandeira: chave, bandeiraNome, website, info })
+    return c.json({ ok: true, fonte: 'google', bandeira: chave, bandeiraNome, website, fotoUrl, info })
   } catch(e) {
     return c.json({ ok: false, erro: String(e) }, 500)
   }
+})
+
+// ── GET /api/admin/enriquecer-fotos — busca fotos em lote para todos os postos ──
+// Uso: GET /api/admin/enriquecer-fotos?secret=ADMIN_SECRET&limit=50&cursor=xxx
+app.get('/api/admin/enriquecer-fotos', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false, erro: 'KV não disponível' }, 500)
+
+  const secret = c.req.query('secret') || ''
+  const adminSecret = (c.env as any)?.ADMIN_SECRET as string || 'rotaposto-admin-2025'
+  if (secret !== adminSecret) return c.json({ ok: false, erro: 'Não autorizado' }, 401)
+
+  const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+  if (!googleKey) return c.json({ ok: false, erro: 'Google API key não configurada' }, 500)
+
+  const limit = Math.min(parseInt(c.req.query('limit') || '30'), 50)
+  const cursor = c.req.query('cursor') || undefined
+  const somenteVazias = c.req.query('somente_vazias') !== 'false' // default: só sem foto
+
+  // Listar chaves posto:band:*
+  const list = await kv.list({ prefix: 'posto:band:', limit, cursor })
+
+  let processados = 0, atualizados = 0, erros = 0
+  const resultados: any[] = []
+
+  for (const key of list.keys) {
+    const raw = await kv.get(key.name)
+    if (!raw) continue
+    let dado: any
+    try { dado = JSON.parse(raw) } catch { continue }
+
+    // Pular se já tem foto (a menos que somente_vazias=false)
+    if (somenteVazias && dado.fotoUrl) {
+      resultados.push({ postoId: dado.postoId, status: 'ja_tem_foto' })
+      continue
+    }
+
+    // Precisamos do placeId — está no postoId (formato: google-ChIJ...)
+    const postoId = dado.postoId || key.name.replace('posto:band:', '')
+    const placeId = postoId.startsWith('google-') ? postoId.replace('google-', '') : null
+    if (!placeId) {
+      resultados.push({ postoId, status: 'sem_placeId' })
+      continue
+    }
+
+    processados++
+    try {
+      // Buscar foto no Google Places
+      const detailsRes = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+        headers: {
+          'X-Goog-Api-Key': googleKey,
+          'X-Goog-FieldMask': 'photos',
+          'Accept-Language': 'pt-BR'
+        },
+        signal: AbortSignal.timeout(5000)
+      })
+
+      if (!detailsRes.ok) {
+        erros++
+        resultados.push({ postoId, status: 'erro_google', http: detailsRes.status })
+        continue
+      }
+
+      const d = await detailsRes.json() as any
+      let fotoUrl = dado.fotoUrl || ''
+
+      if (d.photos && d.photos.length > 0) {
+        const photoName = d.photos[0].name
+        fotoUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=400&key=${googleKey}`
+        // Atualizar no KV com a foto
+        await kv.put(key.name, JSON.stringify({ ...dado, fotoUrl, fotoTs: new Date().toISOString() }), {
+          expirationTtl: 60 * 60 * 24 * 365
+        })
+        atualizados++
+        resultados.push({ postoId, status: 'foto_salva', fotoUrl })
+      } else {
+        resultados.push({ postoId, status: 'sem_foto_google' })
+      }
+
+      // Pausa para não estourar rate limit
+      await new Promise(r => setTimeout(r, 100))
+    } catch (e) {
+      erros++
+      resultados.push({ postoId, status: 'erro', msg: String(e) })
+    }
+  }
+
+  return c.json({
+    ok: true,
+    processados, atualizados, erros,
+    total_chaves: list.keys.length,
+    cursor_proximo: list.list_complete ? null : (list as any).cursor,
+    resultados
+  })
 })
 
 // ── GET /api/posto/:id — dados públicos do posto ──────────────────────────────

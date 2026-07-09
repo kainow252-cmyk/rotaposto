@@ -2919,10 +2919,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         const res = await fetch('/api/posto/enriquecer-bandeira?' + params.toString());
         if (!res.ok) continue;
         const json = await res.json();
-        if (json.ok && json.bandeiraNome && json.bandeiraNome !== 'Independente') {
-          // Atualizar o posto localmente com a bandeira real
-          p.bandeira = json.bandeiraNome;
-          mudou = true;
+        if (json.ok) {
+          // Atualizar bandeira
+          if (json.bandeiraNome && json.bandeiraNome !== 'Independente') {
+            p.bandeira = json.bandeiraNome;
+            mudou = true;
+          }
+          // Atualizar foto se veio do Google Places e posto ainda não tem
+          if (json.fotoUrl && !p.fotoUrl) {
+            p.fotoUrl = json.fotoUrl;
+            mudou = true;
+          }
         }
       } catch(e) {
         // silencioso — enriquecimento é best-effort
