@@ -3785,26 +3785,26 @@ app.get('/ir', async (c) => {
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;overflow:hidden;background:#0f172a;
+  html,body{width:100%;height:100%;overflow:hidden;background:#e8e8e8;
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 
   #map{position:absolute;inset:0;z-index:0}
 
   /* overlay */
-  #overlay{position:fixed;inset:0;background:#0f172a;
+  #overlay{position:fixed;inset:0;background:#f1f5f9;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     z-index:9999;transition:opacity .5s}
   #overlay.hide{opacity:0;pointer-events:none}
   .spin{width:44px;height:44px;border:3px solid rgba(255,255,255,.1);
     border-top-color:#f97316;border-radius:50%;animation:spin .85s linear infinite;margin-bottom:14px}
   @keyframes spin{to{transform:rotate(360deg)}}
-  #status-txt{color:#fff;font-size:15px;font-weight:600;text-align:center;padding:0 32px;margin-bottom:5px}
-  #sub-txt{color:rgba(255,255,255,.4);font-size:13px;text-align:center;padding:0 32px}
+  #status-txt{color:#1e293b;font-size:15px;font-weight:600;text-align:center;padding:0 32px;margin-bottom:5px}
+  #sub-txt{color:#64748b;font-size:13px;text-align:center;padding:0 32px}
 
   /* topo */
   #top-bar{
     position:absolute;top:0;left:0;right:0;z-index:200;
-    background:linear-gradient(to bottom,rgba(10,15,28,.95) 55%,transparent);
+    background:linear-gradient(to bottom,rgba(255,255,255,.97) 55%,transparent);
     padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 32px;
     pointer-events:none;
     display:flex;align-items:flex-start;gap:10px}
@@ -3812,18 +3812,18 @@ app.get('/ir', async (c) => {
     pointer-events:all;
     flex-shrink:0;
     width:36px;height:36px;
-    background:rgba(255,255,255,.15);backdrop-filter:blur(8px);
-    border:1.5px solid rgba(255,255,255,.25);
-    border-radius:50%;color:#fff;font-size:18px;
+    background:#fff;backdrop-filter:blur(8px);
+    border:1.5px solid rgba(0,0,0,.10);
+    border-radius:50%;color:#1e293b;font-size:18px;
     cursor:pointer;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 2px 8px rgba(0,0,0,.4);line-height:1;
+    box-shadow:0 2px 8px rgba(0,0,0,.15);line-height:1;
     margin-top:1px}
-  #btn-back:active{transform:scale(.9);background:rgba(255,255,255,.25)}
+  #btn-back:active{transform:scale(.9);background:#f1f5f9}
   #top-bar-info{flex:1;min-width:0}
-  #top-bar h1{color:#fff;font-size:15px;font-weight:700;
+  #top-bar h1{color:#0B1426;font-size:15px;font-weight:700;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    text-shadow:0 1px 6px rgba(0,0,0,.8)}
-  #rota-info{color:rgba(255,255,255,.7);font-size:13px;font-weight:500;margin-top:4px;
+    text-shadow:none}
+  #rota-info{color:#475569;font-size:13px;font-weight:500;margin-top:4px;
     display:flex;align-items:center;gap:8px}
   #rota-info .badge{
     background:rgba(249,115,22,.25);border:1px solid rgba(249,115,22,.5);
@@ -3841,16 +3841,16 @@ app.get('/ir', async (c) => {
   #bottom-bar{
     position:absolute;bottom:0;left:0;right:0;z-index:200;
     padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));
-    background:linear-gradient(to top,rgba(10,15,28,.98) 65%,transparent)}
+    background:linear-gradient(to top,rgba(255,255,255,.98) 65%,transparent)}
 
   /* card de rota */
   #rota-card{
-    display:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+    display:none;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);
     border-radius:14px;padding:10px 14px;margin-bottom:10px;
     display:flex;align-items:center;gap:10px}
   #rota-card .rc-icon{font-size:22px}
-  #rota-card .rc-dist{color:#fff;font-size:16px;font-weight:800}
-  #rota-card .rc-dur{color:rgba(255,255,255,.55);font-size:13px;margin-top:1px}
+  #rota-card .rc-dist{color:#0B1426;font-size:16px;font-weight:800}
+  #rota-card .rc-dur{color:#64748b;font-size:13px;margin-top:1px}
 
   /* botão principal — Traçar Rota */
   #btn-rota{
@@ -3936,13 +3936,13 @@ app.get('/ir', async (c) => {
   /* Chegou! overlay */
   #chegou-banner{
     display:none;position:fixed;inset:0;z-index:9000;
-    background:rgba(10,15,28,.92);
+    background:rgba(255,255,255,.96);
     flex-direction:column;align-items:center;justify-content:center;gap:16px}
   #chegou-banner.visible{display:flex}
   #chegou-icon{font-size:64px;animation:bounce .6s ease infinite alternate}
   @keyframes bounce{from{transform:scale(.9)}to{transform:scale(1.05)}}
-  #chegou-titulo{color:#fff;font-size:22px;font-weight:800;text-align:center}
-  #chegou-sub{color:rgba(255,255,255,.55);font-size:14px;text-align:center;padding:0 32px}
+  #chegou-titulo{color:#0B1426;font-size:22px;font-weight:800;text-align:center}
+  #chegou-sub{color:#64748b;font-size:14px;text-align:center;padding:0 32px}
   #btn-fechar-chegou{
     margin-top:8px;padding:14px 36px;border:none;border-radius:16px;
     background:linear-gradient(135deg,#f97316,#ea580c);
@@ -4224,8 +4224,8 @@ app.get('/ir', async (c) => {
     _map = L.map('map',{center:center,zoom:zoom,
       zoomControl:false,attributionControl:false});
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-      maxZoom:19, subdomains:'abcd'
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19
     }).addTo(_map);
 
     // Marcador do posto destino
