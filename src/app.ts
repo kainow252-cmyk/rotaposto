@@ -5327,7 +5327,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
             btn.classList.add('dragging');
           }
           if (!_sosDragging) return;
-          ev.preventDefault();
+          if (ev.cancelable) ev.preventDefault();
           // Converter para top% relativo à janela, limitando à tela
           var newTop = Math.max(56, Math.min(window.innerHeight - 56, startBtnTop + dy));
           // Usar top em px para arrastar, ignorar transform
@@ -5406,7 +5406,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
             btn.classList.add('dragging');
           }
           if (!_gpsDragging) return;
-          ev.preventDefault();
+          if (ev.cancelable) ev.preventDefault();
           var newTop = Math.max(56, Math.min(window.innerHeight - 56, startBtnTop + dy));
           btn.style.transform = 'none';
           btn.style.top = newTop + 'px';
