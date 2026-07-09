@@ -3006,7 +3006,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     const bandInfo = getBandeiraCor(p.bandeira || p.nome);
     const logoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
     if (logoUrl) {
-      logoEl.innerHTML = '<img src="'+logoUrl+'" style="width:100%;height:100%;object-fit:contain;" onerror="this.parentElement.textContent=\''+bandInfo.emoji+'\'" alt="">';
+      var _imgCard = document.createElement('img');
+      _imgCard.src = logoUrl;
+      _imgCard.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+      _imgCard.alt = '';
+      _imgCard.onerror = function() { logoEl.textContent = bandInfo.emoji; logoEl.style.background = bandInfo.bg; };
+      logoEl.innerHTML = '';
+      logoEl.appendChild(_imgCard);
       logoEl.style.background = '#fff';
       logoEl.style.borderColor = bandInfo.border;
     } else {
@@ -3089,11 +3095,18 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       const preco = dest.preco || dest.precos?.[selectedFuel] || 0;
       var planLogoEl = document.getElementById('plan-logo');
       var planLogoUrl = getBandeiraLogoUrl(dest.bandeira || dest.nome);
+      var _planEmoji = getEmoji(dest.bandeira || dest.nome);
       if (planLogoUrl) {
-        planLogoEl.innerHTML = '<img src="'+planLogoUrl+'" style="width:100%;height:100%;object-fit:contain;border-radius:6px;" onerror="this.parentElement.textContent=\''+getEmoji(dest.bandeira||dest.nome)+'\'" alt="">';
+        var _imgPlan = document.createElement('img');
+        _imgPlan.src = planLogoUrl;
+        _imgPlan.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:6px;';
+        _imgPlan.alt = '';
+        _imgPlan.onerror = function() { planLogoEl.textContent = _planEmoji; };
+        planLogoEl.innerHTML = '';
+        planLogoEl.appendChild(_imgPlan);
         planLogoEl.style.background = '#fff';
       } else {
-        planLogoEl.textContent = getEmoji(dest.bandeira || dest.nome);
+        planLogoEl.textContent = _planEmoji;
       }
       document.getElementById('plan-nome').textContent = dest.nome;
       document.getElementById('plan-end').textContent = dest.endereco || dest.nome;
@@ -3925,11 +3938,18 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     var detLogoEl = document.getElementById('det-logo-badge');
     var detLogoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
+    var _detEmoji = getEmoji(p.bandeira || p.nome);
     if (detLogoUrl) {
-      detLogoEl.innerHTML = '<img src="'+detLogoUrl+'" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" onerror="this.parentElement.textContent=\''+getEmoji(p.bandeira||p.nome)+'\'" alt="">';
+      var _imgDet = document.createElement('img');
+      _imgDet.src = detLogoUrl;
+      _imgDet.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:8px;';
+      _imgDet.alt = '';
+      _imgDet.onerror = function() { detLogoEl.textContent = _detEmoji; };
+      detLogoEl.innerHTML = '';
+      detLogoEl.appendChild(_imgDet);
       detLogoEl.style.background = '#fff';
     } else {
-      detLogoEl.textContent = getEmoji(p.bandeira || p.nome);
+      detLogoEl.textContent = _detEmoji;
     }
     document.getElementById('det-nome').textContent = p.nome;
     document.getElementById('det-endereco').textContent = (p.endereco || '') + (p.bairro ? ' - ' + p.bairro : '') + ', ' + (p.cidade || '') + (p.estado ? ' - ' + p.estado : '');
