@@ -4813,6 +4813,85 @@ app.get('/parcerias/empresa', (c) => {
 })
 app.get('/parcerias/validar', (c) => c.html(getValidadorHTML()))
 
+// GET /api/posto/enriquecer-bandeira?placeId=xxx&postoId=yyy&nome=zzz
+// Busca dados reais do Google Places (website, nome oficial) para detectar bandeira
+// e salva no KV para uso futuro
+app.get('/api/posto/enriquecer-bandeira', async (c) => {
+  const kv = getKV(c.env as any)
+  const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+  if (!googleKey) return c.json({ ok: false, erro: 'API key não configurada' }, 500)
+
+  const placeId  = c.req.query('placeId')  || ''
+  const postoId  = c.req.query('postoId')  || ''
+  const nomePosto = c.req.query('nome')    || ''
+
+  if (!placeId && !nomePosto) return c.json({ ok: false, erro: 'placeId ou nome obrigatório' }, 400)
+
+  // 1. Se já temos no KV — retornar direto sem chamar Google
+  if (kv && postoId) {
+    const cached = await kv.get('posto:band:' + postoId)
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      // Cache hit: retornar se bandeira conhecida E cacheada há menos de 30 dias
+      if (parsed.bandeira && parsed.bandeira !== 'independente') {
+        return c.json({ ok: true, fonte: 'cache', ...parsed })
+      }
+      // Se era 'independente' e cacheado há mais de 7 dias → re-consultar Google
+      const ts = parsed.ts ? new Date(parsed.ts).getTime() : 0
+      const diasAntigo = (Date.now() - ts) / (1000 * 60 * 60 * 24)
+      if (diasAntigo < 7) {
+        // Independente recente — respeitar cache, não gastar quota do Google
+        return c.json({ ok: true, fonte: 'cache', ...parsed })
+      }
+      // Independente antigo (>7 dias) → re-consultar abaixo
+    }
+  }
+
+  try {
+    let website = ''
+    let nomeGoogle = nomePosto
+
+    // 2. Se temos placeId → buscar detalhes reais no Google Places
+    if (placeId) {
+      const detailsUrl = `https://places.googleapis.com/v1/places/${placeId}`
+      const detailsRes = await fetch(detailsUrl, {
+        headers: {
+          'X-Goog-Api-Key': googleKey,
+          'X-Goog-FieldMask': 'displayName,websiteUri,types',
+          'Accept-Language': 'pt-BR'
+        }
+      })
+      if (detailsRes.ok) {
+        const d = await detailsRes.json() as any
+        website   = d.websiteUri || ''
+        nomeGoogle = d.displayName?.text || nomePosto
+      }
+    }
+
+    // 3. Detectar bandeira: website primeiro, depois nome
+    const { normalizarBandeira } = await import('./apis')
+    const bandeiraNome = normalizarBandeira(nomeGoogle, website)
+    const chave = bandeiraNome.toLowerCase().replace(/[^a-z]/g,'')
+    const info  = BANDEIRAS_DB[chave] || BANDEIRAS_DB['independente'] || null
+
+    // 4. Salvar no KV para cache futuro (1 ano)
+    if (kv && postoId) {
+      await kv.put('posto:band:' + postoId, JSON.stringify({
+        postoId, postoNome: nomeGoogle,
+        bandeira: chave,
+        bandeiraNome,
+        website,
+        info,
+        ts: new Date().toISOString()
+      }), { expirationTtl: 60 * 60 * 24 * 365 })
+    }
+
+    return c.json({ ok: true, fonte: 'google', bandeira: chave, bandeiraNome, website, info })
+  } catch(e) {
+    return c.json({ ok: false, erro: String(e) }, 500)
+  }
+})
+
 // ── GET /api/posto/:id — dados públicos do posto ──────────────────────────────
 app.get('/api/posto/:id', async (c) => {
   try {
@@ -9874,84 +9953,6 @@ app.get('/api/posto/bandeira/:id', async (c) => {
   return c.json({ ok: true, ...JSON.parse(val) })
 })
 
-// GET /api/posto/enriquecer-bandeira?placeId=xxx&postoId=yyy&nome=zzz
-// Busca dados reais do Google Places (website, nome oficial) para detectar bandeira
-// e salva no KV para uso futuro
-app.get('/api/posto/enriquecer-bandeira', async (c) => {
-  const kv = getKV(c.env as any)
-  const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
-  if (!googleKey) return c.json({ ok: false, erro: 'API key não configurada' }, 500)
-
-  const placeId  = c.req.query('placeId')  || ''
-  const postoId  = c.req.query('postoId')  || ''
-  const nomePosto = c.req.query('nome')    || ''
-
-  if (!placeId && !nomePosto) return c.json({ ok: false, erro: 'placeId ou nome obrigatório' }, 400)
-
-  // 1. Se já temos no KV — retornar direto sem chamar Google
-  if (kv && postoId) {
-    const cached = await kv.get('posto:band:' + postoId)
-    if (cached) {
-      const parsed = JSON.parse(cached)
-      // Cache hit: retornar se bandeira conhecida E cacheada há menos de 30 dias
-      if (parsed.bandeira && parsed.bandeira !== 'independente') {
-        return c.json({ ok: true, fonte: 'cache', ...parsed })
-      }
-      // Se era 'independente' e cacheado há mais de 7 dias → re-consultar Google
-      const ts = parsed.ts ? new Date(parsed.ts).getTime() : 0
-      const diasAntigo = (Date.now() - ts) / (1000 * 60 * 60 * 24)
-      if (diasAntigo < 7) {
-        // Independente recente — respeitar cache, não gastar quota do Google
-        return c.json({ ok: true, fonte: 'cache', ...parsed })
-      }
-      // Independente antigo (>7 dias) → re-consultar abaixo
-    }
-  }
-
-  try {
-    let website = ''
-    let nomeGoogle = nomePosto
-
-    // 2. Se temos placeId → buscar detalhes reais no Google Places
-    if (placeId) {
-      const detailsUrl = `https://places.googleapis.com/v1/places/${placeId}`
-      const detailsRes = await fetch(detailsUrl, {
-        headers: {
-          'X-Goog-Api-Key': googleKey,
-          'X-Goog-FieldMask': 'displayName,websiteUri,types',
-          'Accept-Language': 'pt-BR'
-        }
-      })
-      if (detailsRes.ok) {
-        const d = await detailsRes.json() as any
-        website   = d.websiteUri || ''
-        nomeGoogle = d.displayName?.text || nomePosto
-      }
-    }
-
-    // 3. Detectar bandeira: website primeiro, depois nome
-    const { normalizarBandeira } = await import('./apis')
-    const bandeiraNome = normalizarBandeira(nomeGoogle, website)
-    const chave = bandeiraNome.toLowerCase().replace(/[^a-z]/g,'')
-    const info  = BANDEIRAS_DB[chave] || BANDEIRAS_DB['independente'] || null
-
-    // 4. Salvar no KV para cache futuro (1 ano)
-    if (kv && postoId) {
-      await kv.put('posto:band:' + postoId, JSON.stringify({
-        postoId, postoNome: nomeGoogle,
-        bandeira: chave,
-        bandeiraNome,
-        website,
-        info,
-        ts: new Date().toISOString()
-      }), { expirationTtl: 60 * 60 * 24 * 365 })
-    }
-
-    return c.json({ ok: true, fonte: 'google', bandeira: chave, bandeiraNome, website, info })
-  } catch(e) {
-    return c.json({ ok: false, erro: String(e) }, 500)
-  }
-})
 
 // ─── GET /api/admin/assinaturas — lista todas as assinaturas ──────────────────
 app.get('/api/admin/assinaturas', async (c) => {

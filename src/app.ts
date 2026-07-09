@@ -3004,9 +3004,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     const logoEl = document.getElementById('map-card-logo');
     const bandInfo = getBandeiraCor(p.bandeira || p.nome);
-    logoEl.textContent = bandInfo.emoji;
-    logoEl.style.background = bandInfo.bg;
-    logoEl.style.borderColor = bandInfo.border;
+    const logoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
+    if (logoUrl) {
+      logoEl.innerHTML = '<img src="'+logoUrl+'" style="width:100%;height:100%;object-fit:contain;" onerror="this.parentElement.textContent=\''+bandInfo.emoji+'\'" alt="">';
+      logoEl.style.background = '#fff';
+      logoEl.style.borderColor = bandInfo.border;
+    } else {
+      logoEl.textContent = bandInfo.emoji;
+      logoEl.style.background = bandInfo.bg;
+      logoEl.style.borderColor = bandInfo.border;
+    }
     const nomeEl = document.getElementById('map-card-nome');
     nomeEl.textContent = p.nome;
     nomeEl.style.cursor = 'pointer';
@@ -3080,7 +3087,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // Atualizar info do card posto
     if (dest) {
       const preco = dest.preco || dest.precos?.[selectedFuel] || 0;
-      document.getElementById('plan-logo').textContent = getEmoji(dest.bandeira || dest.nome);
+      var planLogoEl = document.getElementById('plan-logo');
+      var planLogoUrl = getBandeiraLogoUrl(dest.bandeira || dest.nome);
+      if (planLogoUrl) {
+        planLogoEl.innerHTML = '<img src="'+planLogoUrl+'" style="width:100%;height:100%;object-fit:contain;border-radius:6px;" onerror="this.parentElement.textContent=\''+getEmoji(dest.bandeira||dest.nome)+'\'" alt="">';
+        planLogoEl.style.background = '#fff';
+      } else {
+        planLogoEl.textContent = getEmoji(dest.bandeira || dest.nome);
+      }
       document.getElementById('plan-nome').textContent = dest.nome;
       document.getElementById('plan-end').textContent = dest.endereco || dest.nome;
       document.getElementById('plan-preco').innerHTML = preco
@@ -3837,7 +3851,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
       return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
         // Logo da bandeira
-        + '<div class="posto-brand-logo" style="background:'+bandInfo.cor+'">' + logoHtml + '</div>'
+        + '<div class="posto-brand-logo" style="background:'+(logoSvg ? '#fff' : bandInfo.cor)+';border:1px solid #eee;">' + logoHtml + '</div>'
         // Info central
         + '<div class="posto-item-info">'
         +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px;">'
@@ -3909,7 +3923,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var isColab = p.fontePreco === 'colaborativo';
     var isEstimado = !isReal && !isColab;
 
-    document.getElementById('det-logo-badge').textContent = getEmoji(p.bandeira || p.nome);
+    var detLogoEl = document.getElementById('det-logo-badge');
+    var detLogoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
+    if (detLogoUrl) {
+      detLogoEl.innerHTML = '<img src="'+detLogoUrl+'" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" onerror="this.parentElement.textContent=\''+getEmoji(p.bandeira||p.nome)+'\'" alt="">';
+      detLogoEl.style.background = '#fff';
+    } else {
+      detLogoEl.textContent = getEmoji(p.bandeira || p.nome);
+    }
     document.getElementById('det-nome').textContent = p.nome;
     document.getElementById('det-endereco').textContent = (p.endereco || '') + (p.bairro ? ' - ' + p.bairro : '') + ', ' + (p.cidade || '') + (p.estado ? ' - ' + p.estado : '');
 
