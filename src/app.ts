@@ -313,18 +313,18 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     .btn-ir-ata-la:active { opacity: 0.85; }
 
-    /* ── Balloon com bandeira no mapa ── */
+    /* ── Balloon com bandeira no mapa (estilo 99Abastece) ── */
     .map-balloon {
-      display: flex; align-items: center; gap: 5px;
-      padding: 5px 9px 5px 5px;
-      border-radius: 22px;
+      display: flex; align-items: center; gap: 0;
+      border-radius: 10px;
       background: #fff;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.22), 0 1px 4px rgba(0,0,0,0.12);
+      box-shadow: 0 3px 14px rgba(0,0,0,0.22), 0 1px 4px rgba(0,0,0,0.1);
       cursor: pointer; white-space: nowrap;
-      border: 1.5px solid rgba(0,0,0,0.06);
+      border: 1.5px solid rgba(0,0,0,0.07);
       font-family: 'Inter', sans-serif;
       transform-origin: center bottom;
       position: relative;
+      overflow: hidden;
     }
     .map-balloon::after {
       content: '';
@@ -334,27 +334,27 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       border-left: 6px solid transparent;
       border-right: 6px solid transparent;
       border-top: 7px solid #fff;
-      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.15));
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
     }
     .map-balloon.best {
-      background: #fff;
       border-color: #00A651;
-      box-shadow: 0 4px 16px rgba(0,166,81,0.35), 0 1px 4px rgba(0,0,0,0.1);
-      transform: scale(1.12);
+      box-shadow: 0 4px 18px rgba(0,166,81,0.38), 0 1px 4px rgba(0,0,0,0.1);
+      transform: scale(1.1);
     }
-    .map-balloon.best::after { border-top-color: #fff; }
-    .map-balloon-logo {
-      width: 26px; height: 26px; border-radius: 50%;
+    /* Tira colorida da bandeira (esquerda) */
+    .map-balloon-strip {
+      width: 32px; height: 36px;
       display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; overflow: hidden;
-      background: #f5f5f5;
+      flex-shrink: 0;
     }
-    .map-balloon-logo img {
-      width: 26px; height: 26px; object-fit: contain; border-radius: 50%;
+    .map-balloon-strip img {
+      width: 28px; height: 28px; object-fit: contain;
     }
+    /* Preço (direita) */
     .map-balloon-preco {
       font-size: 13px; font-weight: 800;
       color: #1a1a1a; line-height: 1;
+      padding: 0 9px 0 4px;
     }
     .map-balloon.best .map-balloon-preco { color: #00A651; }
 
@@ -370,74 +370,80 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     /* TELA 8: LISTA DE POSTOS */
     #view-lista {
-      background: var(--gray-bg);
+      background: #F2F3F5;
     }
 
     #lista-container {
-      padding: 12px 14px calc(var(--sab) + 80px);
-      display: flex; flex-direction: column; gap: 10px;
+      padding: 10px 12px calc(var(--sab) + 80px);
+      display: flex; flex-direction: column; gap: 8px;
     }
 
+    /* ── Card de posto (estilo 99Abastece) ── */
     .posto-item {
-      display: flex; align-items: center; gap: 14px;
-      padding: 16px;
-      border-radius: var(--radius);
-      background: var(--white);
-      box-shadow: var(--shadow);
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 14px 12px;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.08), 0 0px 2px rgba(0,0,0,0.04);
       cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s;
-      border: none;
+      transition: transform 0.12s, box-shadow 0.12s;
+      border: 1px solid #F0F0F0;
     }
-    .posto-item:active { transform: scale(0.98); box-shadow: var(--shadow-strong); }
+    .posto-item:active { transform: scale(0.98); box-shadow: 0 3px 14px rgba(0,0,0,0.13); }
 
+    /* Logo da bandeira */
     .posto-brand-logo {
-      width: 52px; height: 52px; border-radius: 14px;
+      width: 46px; height: 46px; border-radius: 12px;
       flex-shrink: 0; overflow: hidden;
-      border: 1px solid var(--border);
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; background: var(--gray-bg);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .posto-brand-logo img { width: 46px; height: 46px; object-fit: contain; border-radius: 12px; }
+    .posto-brand-logo-txt {
+      font-size: 11px; font-weight: 900; letter-spacing: -0.3px;
+      text-align: center; line-height: 1.1; padding: 2px;
     }
 
     .posto-item-info { flex: 1; min-width: 0; }
     .posto-item-nome {
-      font-size: 14px; font-weight: 700; color: var(--black);
-      margin-bottom: 4px;
+      font-size: 14px; font-weight: 700; color: #1A1A1A;
+      margin-bottom: 2px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      letter-spacing: 0.2px;
     }
     .posto-item-rating {
       display: flex; align-items: center; gap: 5px;
-      font-size: 12px; color: var(--gray);
+      font-size: 12px; color: #888;
     }
     .star-icon { color: #FFC107; font-size: 12px; }
-    .rating-val { font-weight: 600; color: var(--gray-dark); }
+    .rating-val { font-weight: 600; color: #555; }
     .green-dot {
       width: 7px; height: 7px; border-radius: 50%;
-      background: var(--green); flex-shrink: 0;
+      background: #00A651; flex-shrink: 0;
+    }
+    .posto-distancia-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 11px; color: #888; margin-top: 4px;
     }
 
     .posto-item-preco {
       text-align: right; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: flex-end;
     }
     .posto-item-preco .preco-val {
-      font-size: 16px; font-weight: 800; color: var(--orange);
-      white-space: nowrap;
-      line-height: 1.1;
+      font-size: 28px; font-weight: 900; color: #1A1A1A;
+      white-space: nowrap; line-height: 1; letter-spacing: -0.5px;
     }
     .posto-item-preco .preco-rs {
-      font-size: 11px; font-weight: 600; color: var(--orange);
-      vertical-align: top; margin-top: 3px; display: inline-block;
+      font-size: 13px; font-weight: 700;
+      vertical-align: super; margin-right: 1px;
     }
     .posto-item-preco .preco-unit {
-      font-size: 11px; font-weight: 500; color: var(--gray);
+      font-size: 11px; color: #888; margin-top: 2px;
     }
     .posto-item-preco .dist-txt {
-      font-size: 11px; color: var(--gray);
-      margin-top: 4px;
+      font-size: 11px; color: #888; margin-top: 2px;
     }
-    .posto-item-preco .preco-estimado {
-      color: #bbb;
-    }
+    .posto-item-preco .preco-estimado { color: #bbb; }
 
     /* TELA 9: DETALHES DO POSTO */
     #view-detalhes {
@@ -2874,20 +2880,21 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       const logoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
       const bestClass = isBest ? ' best' : '';
 
-      // Balloon moderno: logo circular + preço (estilo da screenshot)
-      const logoHtml = logoUrl
-        ? '<div class="map-balloon-logo"><img src="'+logoUrl+'" alt=""/></div>'
-        : '<div class="map-balloon-logo" style="background:#eee;font-size:14px;text-align:center;line-height:26px;">⛽</div>';
+      // Balloon estilo 99Abastece: tira colorida da bandeira + preço
+      const bandInfo2 = getBandeiraCor(p.bandeira || p.nome);
+      const stripStyle = 'background:'+bandInfo2.cor+';';
+      const logoImg = logoUrl
+        ? '<img src="'+logoUrl+'" style="width:26px;height:26px;object-fit:contain;" alt="">'
+        : '<span style="font-size:9px;font-weight:900;color:'+bandInfo2.corTxt+';">'+bandInfo2.sigla+'</span>';
 
       const balloonHtml =
         '<div class="map-balloon'+bestClass+'">'
-        + logoHtml
+        + '<div class="map-balloon-strip" style="'+stripStyle+'">' + logoImg + '</div>'
         + '<span class="map-balloon-preco">'+precoFmt+'</span>'
         + '</div>';
 
-      // iconSize: width = logo(26) + gap(5) + texto(~70) + padding(14) = ~115
-      // anchorY = altura balloon(36) + seta(7) = 43
-      const w = isBest ? 122 : 110;
+      // w: strip(32) + preco(~72) = 104; com best: 110
+      const w = isBest ? 112 : 100;
       const icon = L.divIcon({
         className: '',
         html: balloonHtml,
@@ -3734,24 +3741,48 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       // Endereço em caixa alta estilo CompletaÍ
       const endStr = (p.endereco ? p.endereco.toUpperCase() : '') + (p.bairro ? ' - ' + p.bairro.toUpperCase() : '');
 
+      // Logo da bandeira: SVG inline com cores oficiais
+      const logoSvg = getBandeiraLogoUrl(p.bandeira || p.nome);
+      const logoHtml = logoSvg
+        ? '<img src="'+logoSvg+'" style="width:44px;height:44px;border-radius:10px;object-fit:contain;" alt="'+bandInfo.bandNome+'">'
+        : '<div class="posto-brand-logo-txt" style="color:'+bandInfo.corTxt+'">'+bandInfo.sigla+'</div>';
+
+      // Distância com ícone de pin (estilo 99Abastece)
+      const distPin = p.distancia
+        ? '<span class="posto-distancia-badge">📍 ' + dist + '</span>'
+        : '';
+
+      // Avaliação estrela (canto superior direito do nome)
+      const ratingRight = p.rating
+        ? '<span style="font-size:12px;color:#F59E0B;font-weight:700;flex-shrink:0;">★ '+p.rating.toFixed(1)+'</span>'
+        : '';
+
+      // Preço com "R$" menor em superscript
+      const precoHtml = preco
+        ? '<div class="preco-val" style="color:'+corPreco+'"><span class="preco-rs">R$</span>'+preco.toFixed(2).replace('.',',')+'</div>'
+          + '<div class="preco-unit">/Litro</div>'
+          + '<div class="dist-txt">' + tempo + '</div>'
+        : '<div style="font-size:11px;color:#bbb;font-weight:600;text-align:right;line-height:1.4;">Sem<br>preço</div>';
+
       return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
-        + '<div class="posto-brand-logo" style="background:' + bandInfo.bg + ';border-color:' + bandInfo.border + ';font-size:20px">' + emoji + '</div>'
+        // Logo da bandeira
+        + '<div class="posto-brand-logo" style="background:'+bandInfo.cor+'">' + logoHtml + '</div>'
+        // Info central
         + '<div class="posto-item-info">'
-        +   '<div class="posto-item-nome">' + p.nome + distBadge + '</div>'
-        +   (endStr ? '<div style="font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400;">' + endStr + '</div>' : '')
-        +   '<div style="display:flex;align-items:center;gap:3px;margin-top:3px;">'
-        +     (isBest ? '<span style="font-size:10px;background:#E8F5E9;color:#00A651;font-weight:700;padding:1px 5px;border-radius:4px;">MELHOR PREÇO</span>' : '')
-        +     badgeFonte + abertoStr + ratingStr
+        +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px;">'
+        +     '<div class="posto-item-nome">' + p.nome + '</div>'
+        +     ratingRight
         +   '</div>'
+        +   (endStr ? '<div style="font-size:11px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + endStr + '</div>' : '')
+        +   '<div style="display:flex;align-items:center;gap:4px;margin-top:5px;flex-wrap:wrap;">'
+        +     (isBest ? '<span style="font-size:10px;background:#E8F5E9;color:#00A651;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #C8E6C9;">✓ Melhor preço</span>' : '')
+        +     abertoStr
+        +     badgeFonte
+        +   '</div>'
+        +   distPin
         + '</div>'
-        + '<div class="posto-item-preco">'
-        +   (precoFmt !== '-'
-            ? '<div class="preco-val" style="color:' + corPreco + '"><span style="font-size:12px;font-weight:700;vertical-align:top;margin-top:2px;display:inline-block">R$</span>' + fonteSufixo + precoFmt + '</div>'
-              + '<div class="preco-unit">/L</div>'
-              + '<div class="dist-txt">' + tempo + '</div>'
-            : '<div style="font-size:11px;color:#999;font-weight:600;text-align:right;line-height:1.4">Sem<br>atualização</div>'
-          )
-        + '</div>'
+        // Preço (direita)
+        + '<div class="posto-item-preco">' + precoHtml + '</div>'
         + '</div>';
     }).join('');
 
@@ -4031,25 +4062,48 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     return '⛽';
   }
 
+  // Retorna info completa da bandeira: cor de fundo, cor do texto, sigla, nome oficial
   function getBandeiraCor(nome) {
-    if (!nome) return { emoji: '⛽', bg: '#F5F5F5', border: '#E0E0E0' };
+    if (!nome) return { emoji:'⛽', bg:'#F5F5F5', border:'#E0E0E0', cor:'#607D8B', corTxt:'#fff', sigla:'IND', bandNome:'Independente' };
     const n = nome.toUpperCase();
-    if (n.includes('SHELL'))       return { emoji: '🐚', bg: '#FFF3E0', border: '#FFB300' };
-    if (n.includes('IPIRANGA'))    return { emoji: '🔵', bg: '#E3F2FD', border: '#1565C0' };
-    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR' || n.includes('PETRO BR'))
-                                   return { emoji: '🟢', bg: '#E8F5E9', border: '#2E7D32' };
-    if (n.includes('RAIZEN') || n.includes('RAÍZEN') || n.includes('RAIZ'))
-                                   return { emoji: '⛽', bg: '#F3E5F5', border: '#7B1FA2' };
-    // ALE: testar apenas se a palavra inteira for ALE ou conter ALÉZEA, ALÉ — evitar falso match em YAHOO AUTO POSTO etc.
-    if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes(' ALE') || n.includes('ALEPOSTO'))
-                                   return { emoji: '⛽', bg: '#FFEBEE', border: '#E53935' };
-    if (n.includes('TEXACO'))      return { emoji: '⭐', bg: '#FFFDE7', border: '#F9A825' };
-    if (n.includes('ESSO'))        return { emoji: '⛽', bg: '#E3F2FD', border: '#1565C0' };
-    if (n.includes('BANDEIRANTE')) return { emoji: '🏁', bg: '#F5F5F5', border: '#616161' };
-    if (n.includes('ULTRAGAZ') || n.includes('ULTRA GAZ')) return { emoji: '🟤', bg: '#FFF8E1', border: '#FF8F00' };
-    if (n.includes('VIBRA') || n.includes('VIBRA EN')) return { emoji: '🟡', bg: '#FFFDE7', border: '#F9A825' };
-    // Independente / não reconhecido — ícone neutro
-    return { emoji: '⛽', bg: '#F5F5F5', border: '#9E9E9E' };
+    // Shell
+    if (n.includes('SHELL'))
+      return { emoji:'🐚', bg:'#FFD100', border:'#DD1D21', cor:'#FFD100', corTxt:'#DD1D21', sigla:'Shell', bandNome:'Shell' };
+    // Petrobras / BR
+    if (n.includes('PETROBRAS') || /\bBR\b/.test(n) || n.includes('PETRO BR'))
+      return { emoji:'🟢', bg:'#009B3A', border:'#FEDF00', cor:'#009B3A', corTxt:'#FEDF00', sigla:'BR', bandNome:'BR Petrobras' };
+    // Ipiranga
+    if (n.includes('IPIRANGA'))
+      return { emoji:'🔵', bg:'#003087', border:'#FF6600', cor:'#003087', corTxt:'#FF6600', sigla:'Ipiranga', bandNome:'Ipiranga' };
+    // Raízen
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN'))
+      return { emoji:'⛽', bg:'#6A0DAD', border:'#A855F7', cor:'#6A0DAD', corTxt:'#fff', sigla:'Raízen', bandNome:'Raízen' };
+    // Ale
+    if (/\bALE\b/.test(n) || n.includes('ALEPOSTO'))
+      return { emoji:'⛽', bg:'#E53935', border:'#EF9A9A', cor:'#E53935', corTxt:'#fff', sigla:'Ale', bandNome:'Ale' };
+    // Texaco
+    if (n.includes('TEXACO'))
+      return { emoji:'⭐', bg:'#CC0000', border:'#FFD700', cor:'#CC0000', corTxt:'#FFD700', sigla:'Texaco', bandNome:'Texaco' };
+    // Esso
+    if (n.includes('ESSO'))
+      return { emoji:'⛽', bg:'#003DA5', border:'#CC0000', cor:'#003DA5', corTxt:'#fff', sigla:'Esso', bandNome:'Esso' };
+    // Vibra
+    if (n.includes('VIBRA'))
+      return { emoji:'🟡', bg:'#F4C400', border:'#E0A800', cor:'#F4C400', corTxt:'#333', sigla:'Vibra', bandNome:'Vibra' };
+    // Bandeirante
+    if (n.includes('BANDEIRANTE'))
+      return { emoji:'🏁', bg:'#424242', border:'#757575', cor:'#424242', corTxt:'#fff', sigla:'Band.', bandNome:'Bandeirante' };
+    // Ultragaz / Ultra
+    if (n.includes('ULTRAGAZ') || n.includes('ULTRA GAZ') || n.includes('ULTRA '))
+      return { emoji:'🟤', bg:'#FF8F00', border:'#FFB300', cor:'#FF8F00', corTxt:'#fff', sigla:'Ultra', bandNome:'Ultragaz' };
+    // Copagaz
+    if (n.includes('COPAGAZ'))
+      return { emoji:'⛽', bg:'#0288D1', border:'#81D4FA', cor:'#0288D1', corTxt:'#fff', sigla:'Copa', bandNome:'Copagaz' };
+    // SuperGasBrás
+    if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS'))
+      return { emoji:'⛽', bg:'#FF5722', border:'#FFAB91', cor:'#FF5722', corTxt:'#fff', sigla:'SGB', bandNome:'SuperGasBrás' };
+    // Independente
+    return { emoji:'⛽', bg:'#607D8B', border:'#90A4AE', cor:'#607D8B', corTxt:'#fff', sigla:'IND', bandNome:'Independente' };
   }
 
   function getDemoPostos() {

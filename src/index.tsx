@@ -9612,6 +9612,88 @@ app.post('/api/push/unsubscribe', async (c) => {
   }
 })
 
+// ─── Bandeiras de Postos ─────────────────────────────────────────────────────
+
+// Mapa de bandeiras com detecção por palavras-chave no nome do posto
+const BANDEIRAS_DB: Record<string, {nome:string, cor:string, corTexto:string, sigla:string}> = {
+  'shell':      { nome:'Shell',      cor:'#FFD100', corTexto:'#DD1D21', sigla:'SHL' },
+  'petrobras':  { nome:'Petrobras',  cor:'#009B3A', corTexto:'#FEDF00', sigla:'PBR' },
+  'br':         { nome:'BR',         cor:'#009B3A', corTexto:'#FEDF00', sigla:'BR'  },
+  'ipiranga':   { nome:'Ipiranga',   cor:'#003087', corTexto:'#FF6600', sigla:'IPI' },
+  'ale':        { nome:'Ale',        cor:'#E53935', corTexto:'#FFFFFF', sigla:'ALE' },
+  'raizen':     { nome:'Raízen',     cor:'#6A0DAD', corTexto:'#FFFFFF', sigla:'RZN' },
+  'raízen':     { nome:'Raízen',     cor:'#6A0DAD', corTexto:'#FFFFFF', sigla:'RZN' },
+  'texaco':     { nome:'Texaco',     cor:'#CC0000', corTexto:'#FFFFFF', sigla:'TEX' },
+  'esso':       { nome:'Esso',       cor:'#003DA5', corTexto:'#FFFFFF', sigla:'ESO' },
+  'vibra':      { nome:'Vibra',      cor:'#F4C400', corTexto:'#333333', sigla:'VBR' },
+  'bandeirante':{ nome:'Bandeirante',cor:'#424242', corTexto:'#FFFFFF', sigla:'BND' },
+  'ultra':      { nome:'Ultragaz',   cor:'#FF8F00', corTexto:'#FFFFFF', sigla:'ULT' },
+  'copagaz':    { nome:'Copagaz',    cor:'#0288D1', corTexto:'#FFFFFF', sigla:'CPG' },
+  'liquigas':   { nome:'Liquigás',   cor:'#E91E63', corTexto:'#FFFFFF', sigla:'LQG' },
+  'supergasbras':{ nome:'SuperGasBrás', cor:'#FF5722', corTexto:'#FFFFFF', sigla:'SGB' },
+}
+
+function detectarBandeira(nome: string): string | null {
+  if (!nome) return null
+  const n = nome.toLowerCase()
+  // Ordem importa: testar mais específico primeiro
+  if (n.includes('petrobras') || (n.includes(' br ') || n === 'br' || n.startsWith('br ') || n.endsWith(' br'))) return 'br'
+  if (n.includes('shell'))      return 'shell'
+  if (n.includes('ipiranga'))   return 'ipiranga'
+  if (n.includes('raízen') || n.includes('raizen')) return 'raizen'
+  if (n.includes('texaco'))     return 'texaco'
+  if (n.includes('esso'))       return 'esso'
+  if (n.includes('vibra'))      return 'vibra'
+  if (n.includes('bandeirante')) return 'bandeirante'
+  if (n.includes('ultra'))      return 'ultra'
+  if (n.includes('copagaz'))    return 'copagaz'
+  if (n.includes('liquigas') || n.includes('liquigás')) return 'liquigas'
+  if (n.includes('supergasbras') || n.includes('super gas')) return 'supergasbras'
+  // ALE: só palavra inteira para não pegar "ALE" no meio de outros nomes
+  if (/\bale\b/i.test(nome))  return 'ale'
+  return null
+}
+
+// GET /api/bandeiras — lista todas as bandeiras cadastradas
+app.get('/api/bandeiras', (c) => {
+  return c.json({ bandeiras: BANDEIRAS_DB, total: Object.keys(BANDEIRAS_DB).length })
+})
+
+// POST /api/posto/bandeira — detecta e salva bandeira de um posto no KV
+app.post('/api/posto/bandeira', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+  try {
+    const { postoId, postoNome, bandeira: bandeiraSugerida } = await c.req.json() as any
+    if (!postoId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+
+    // Detectar bandeira: usar sugerida (usuário) ou auto-detect pelo nome
+    const chave = bandeiraSugerida?.toLowerCase() || detectarBandeira(postoNome)
+    const info = chave ? BANDEIRAS_DB[chave] : null
+
+    await kv.put('posto:band:' + postoId, JSON.stringify({
+      postoId, postoNome,
+      bandeira: chave || 'independente',
+      info: info || { nome: 'Independente', cor: '#607D8B', corTexto: '#FFFFFF', sigla: 'IND' },
+      ts: new Date().toISOString()
+    }), { expirationTtl: 60 * 60 * 24 * 365 }) // 1 ano
+
+    return c.json({ ok: true, bandeira: chave, info })
+  } catch(e) {
+    return c.json({ ok: false, erro: String(e) }, 500)
+  }
+})
+
+// GET /api/posto/bandeira/:id — consulta bandeira salva de um posto
+app.get('/api/posto/bandeira/:id', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false }, 500)
+  const id = c.req.param('id')
+  const val = await kv.get('posto:band:' + id)
+  if (!val) return c.json({ ok: false, bandeira: null })
+  return c.json({ ok: true, ...JSON.parse(val) })
+})
+
 // ─── GET /api/admin/assinaturas — lista todas as assinaturas ──────────────────
 app.get('/api/admin/assinaturas', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
