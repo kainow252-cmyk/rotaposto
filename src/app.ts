@@ -53,10 +53,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       --orange-dark: #E65100;
       --orange-light: #FFF3E0;
       --black: #1A1A1A;
+      --navy: #0B1426;
+      --navy-card: #162033;
+      --navy-border: rgba(255,255,255,0.08);
       --gray-dark: #444;
       --gray: #777;
       --gray-light: #BBB;
-      --gray-bg: #F5F5F5;
+      --gray-bg: #F4F6FA;
       --gray-card: #FAFAFA;
       --white: #FFFFFF;
       --green: #00C853;
@@ -65,21 +68,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       --red: #E53935;
       --red-bg: #FFEBEE;
       --blue: #1565C0;
-      --border: #E0E0E0;
-      --shadow: 0 2px 12px rgba(0,0,0,0.08);
-      --shadow-strong: 0 4px 24px rgba(0,0,0,0.15);
-      --radius: 16px;
-      --radius-sm: 10px;
+      --border: #E8ECF0;
+      --shadow: 0 2px 16px rgba(0,0,0,0.07);
+      --shadow-strong: 0 6px 28px rgba(0,0,0,0.14);
+      --shadow-orange: 0 4px 20px rgba(255,109,0,0.35);
+      --radius: 18px;
+      --radius-sm: 12px;
+      --radius-xs: 8px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --nav-h: 64px;
-      --header-h: 110px;
+      --nav-h: 68px;
+      --header-h: 116px;
     }
 
     html, body {
       width: 100%; height: 100%;
-      background: #F5F5F5;
-      font-family: 'Roboto', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--gray-bg);
       overflow: hidden;
     }
@@ -91,53 +95,53 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; flex-direction: column;
       background: var(--white);
       overflow: hidden;
-      /* Espaço para o bottom-nav fixo */
       padding-bottom: calc(var(--nav-h) + var(--sab));
     }
 
     /* ══════════════════════════════════════════════
-       HEADER FIXO (Telas 7 e 8)
+       HEADER FIXO (Telas Mapa e Lista)
     ══════════════════════════════════════════════ */
     #app-header {
-      background: var(--white);
-      padding: calc(var(--sat) + 14px) 20px 0;
-      border-bottom: 1px solid var(--border);
+      background: var(--navy);
+      padding: calc(var(--sat) + 14px) 18px 0;
       position: relative; z-index: 200;
     }
 
     .header-row-1 {
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
 
     .btn-menu {
       width: 40px; height: 40px;
       display: flex; flex-direction: column; justify-content: center; gap: 5px;
-      background: none; border: none; cursor: pointer; padding: 4px;
+      background: rgba(255,255,255,0.1); border: none; border-radius: 10px;
+      cursor: pointer; padding: 8px;
     }
     .btn-menu span {
-      display: block; width: 22px; height: 2px;
-      background: var(--black); border-radius: 2px;
+      display: block; width: 20px; height: 2px;
+      background: #fff; border-radius: 2px;
     }
 
     .header-logo {
       font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
-      font-family: 'Roboto', sans-serif;
+      font-family: 'Inter', sans-serif;
     }
-    .header-logo .rota { color: var(--black); }
+    .header-logo .rota { color: #fff; }
     .header-logo .posto { color: var(--orange); }
 
     .btn-bell {
       width: 40px; height: 40px;
       display: flex; align-items: center; justify-content: center;
-      background: none; border: none; cursor: pointer; color: var(--black);
+      background: rgba(255,255,255,0.1); border: none; border-radius: 10px;
+      cursor: pointer; color: #fff;
       position: relative;
     }
-    .btn-bell svg { width: 22px; height: 22px; }
+    .btn-bell svg { width: 20px; height: 20px; }
     .bell-dot {
-      position: absolute; top: 7px; right: 7px;
+      position: absolute; top: 8px; right: 8px;
       width: 8px; height: 8px; border-radius: 50%;
-      background: var(--orange); border: 1.5px solid var(--white);
+      background: var(--orange); border: 2px solid var(--navy);
     }
 
     /* Barra de busca */
@@ -149,31 +153,32 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .search-wrap svg {
       position: absolute; left: 13px; top: 50%;
       transform: translateY(-50%);
-      width: 18px; height: 18px; color: var(--gray);
+      width: 17px; height: 17px; color: var(--gray);
     }
     .search-input {
-      width: 100%; padding: 11px 12px 11px 38px;
-      background: var(--gray-bg);
-      border: 1px solid var(--border);
+      width: 100%; padding: 12px 12px 12px 38px;
+      background: var(--white);
+      border: none;
       border-radius: 12px;
       font-family: 'Inter', sans-serif;
       font-size: 14px; color: var(--black);
       outline: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
     }
     .search-input::placeholder { color: var(--gray-light); }
     .btn-filter {
       flex-shrink: 0; position: relative;
       display: flex; align-items: center; justify-content: center; gap: 5px;
-      background: #F5F5F5; border: 1.5px solid var(--border);
-      border-radius: 20px; cursor: pointer; color: var(--gray-dark);
-      padding: 0 14px; height: 42px; font-size: 13px; font-weight: 600;
-      font-family: 'Raleway', sans-serif; white-space: nowrap;
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      background: rgba(255,255,255,0.15); border: 1.5px solid rgba(255,255,255,0.2);
+      border-radius: 12px; cursor: pointer; color: #fff;
+      padding: 0 14px; height: 44px; font-size: 13px; font-weight: 600;
+      font-family: 'Inter', sans-serif; white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
     }
-    .btn-filter:hover { background: #EEEEEE; border-color: #BDBDBD; }
+    .btn-filter:active { background: rgba(255,255,255,0.25); }
     .btn-filter.ativo {
       border-color: var(--orange); color: var(--orange);
-      background: #FFF5EE; font-weight: 700;
+      background: rgba(255,109,0,0.15); font-weight: 700;
     }
     .btn-filter-count {
       display: inline-flex; align-items: center; justify-content: center;
@@ -187,21 +192,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .chips-row {
       display: flex; gap: 8px;
       overflow-x: auto; scrollbar-width: none;
-      padding-bottom: 12px;
+      padding-bottom: 14px;
     }
     .chips-row::-webkit-scrollbar { display: none; }
     .chip-fuel {
-      padding: 7px 16px; border-radius: 20px;
-      border: 1.5px solid var(--border);
-      background: var(--white);
+      padding: 7px 18px; border-radius: 20px;
+      border: 1.5px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
       font-family: 'Inter', sans-serif;
       font-size: 13px; font-weight: 600;
-      color: var(--gray-dark); cursor: pointer;
+      color: rgba(255,255,255,0.7); cursor: pointer;
       white-space: nowrap; flex-shrink: 0;
       transition: all 0.2s;
     }
     .chip-fuel.active {
-      background: var(--black); border-color: var(--black); color: var(--white);
+      background: var(--orange); border-color: var(--orange); color: #fff;
+      box-shadow: var(--shadow-orange);
     }
 
     /* ══════════════════════════════════════════════
@@ -209,33 +215,26 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     ══════════════════════════════════════════════ */
     #app-content {
       flex: 1 1 0;
-      min-height: 0;   /* permite shrink correto no flex column */
+      min-height: 0;
       overflow: hidden; position: relative;
-      /* overflow:hidden necessário para o mapa Leaflet não vazar */
-      /* O nav está em position:fixed, então o app-content usa todo o espaço disponível */
     }
 
-    .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; overflow: hidden; background: var(--white); }
+    .view { display: none; width: 100%; height: 100%; position: absolute; inset: 0; overflow: hidden; background: var(--gray-bg); }
     .view.active { display: flex; flex-direction: column; z-index: 10; }
-    /* Views com scroll simples (página inteira faz scroll) */
     #view-lista.active,
     #view-relatorios.active,
     #view-planejar.active,
     #view-detalhes.active { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
-    /* SOS tem header fixo + body scrollável internamente — NÃO usar overflow na view */
     #view-sos.active { overflow: hidden; }
 
-    /* ══════════════════════════════════════════════
-       TELA 7: MAPA
-    ══════════════════════════════════════════════ */
+    /* TELA 7: MAPA */
     #view-mapa {
       position: relative;
       display: flex;
       flex-direction: column;
       height: 100%;
+      background: var(--navy);
     }
-    /* Quando o mapa NÃO está ativo, esconder todos os panes do Leaflet
-       para evitar tiles vazando sobre outras views */
     #view-mapa:not(.active) .leaflet-pane,
     #view-mapa:not(.active) .leaflet-control,
     #view-mapa:not(.active) .leaflet-top,
@@ -246,42 +245,43 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     #map-leaflet {
       flex: 1; width: 100%;
       min-height: 0;
-      /* Garantir que o Leaflet sempre tenha altura calculável */
       height: 100%;
     }
 
-    /* Card inferior: Melhor posto próximo */
     #map-card {
       position: absolute; bottom: 0; left: 0; right: 0;
-      background: var(--white);
-      border-radius: var(--radius) var(--radius) 0 0;
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-      padding: 12px 16px calc(var(--sab) + 12px);
+      background: var(--navy-card);
+      border-radius: 24px 24px 0 0;
+      box-shadow: 0 -4px 32px rgba(0,0,0,0.4);
+      padding: 16px 18px calc(var(--sab) + 14px);
       z-index: 500;
+      border-top: 1px solid var(--navy-border);
     }
 
     .map-card-label {
-      font-size: 11px; font-weight: 600;
-      color: var(--gray); margin-bottom: 8px;
+      font-size: 11px; font-weight: 700;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 12px;
       display: flex; align-items: center; justify-content: space-between;
     }
     .btn-close-card {
-      width: 26px; height: 26px;
-      background: var(--gray-bg); border: none; border-radius: 50%;
+      width: 28px; height: 28px;
+      background: rgba(255,255,255,0.1); border: none; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; color: var(--gray);
+      cursor: pointer; color: rgba(255,255,255,0.5);
     }
 
     .map-posto-row {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 12px;
     }
 
     .posto-logo-circle {
-      width: 42px; height: 42px; border-radius: 10px;
+      width: 46px; height: 46px; border-radius: 12px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
-      border: 1.5px solid var(--border);
-      overflow: hidden; background: var(--gray-bg);
+      font-size: 22px; flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.12);
+      overflow: hidden; background: rgba(255,255,255,0.08);
     }
     .posto-logo-circle img {
       width: 100%; height: 100%; object-fit: contain;
@@ -289,83 +289,82 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     .map-posto-info { flex: 1; min-width: 0; overflow: hidden; }
     .map-posto-nome {
-      font-size: 12px; font-weight: 700; color: var(--black);
+      font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.55);
       margin-bottom: 2px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      text-transform: uppercase; letter-spacing: 0.3px;
-      font-family: 'Roboto', sans-serif;
+      text-transform: uppercase; letter-spacing: 0.5px;
     }
     .map-posto-preco {
-      font-size: 20px; font-weight: 900; color: #1A237E;
-      margin-bottom: 1px; line-height: 1.1;
-      font-family: 'Roboto', sans-serif;
+      font-size: 26px; font-weight: 900; color: #fff;
+      margin-bottom: 2px; line-height: 1.1;
     }
     .map-posto-dist {
-      font-size: 11px; color: var(--gray); font-weight: 500;
+      font-size: 12px; color: rgba(255,255,255,0.4); font-weight: 500;
     }
 
     .btn-ir-ata-la {
-      padding: 10px 14px;
-      background: var(--orange); border: none; border-radius: 10px;
-      color: var(--white); font-family: 'Inter', sans-serif;
+      padding: 13px 18px;
+      background: var(--orange); border: none; border-radius: 14px;
+      color: #fff; font-family: 'Inter', sans-serif;
       font-size: 13px; font-weight: 700;
       cursor: pointer; flex-shrink: 0;
       transition: opacity 0.2s; white-space: nowrap;
+      box-shadow: var(--shadow-orange);
     }
     .btn-ir-ata-la:active { opacity: 0.85; }
 
-    /* Balões de preço no mapa */
     .price-balloon {
-      padding: 5px 10px; border-radius: 6px;
+      padding: 5px 10px; border-radius: 8px;
       font-size: 13px; font-weight: 700; color: white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
       cursor: pointer; white-space: nowrap;
     }
     .price-balloon.green { background: #00A651; }
     .price-balloon.orange { background: #FF6D00; }
     .price-balloon.red { background: #E53935; }
 
-    /* ══════════════════════════════════════════════
-       TELA 8: LISTA DE POSTOS
-    ══════════════════════════════════════════════ */
+    /* TELA 8: LISTA DE POSTOS */
     #view-lista {
-      /* overflow-y gerenciado pelo seletor .active acima */
+      background: var(--gray-bg);
     }
 
     #lista-container {
-      padding: 8px 0 calc(var(--sab) + 80px);
+      padding: 12px 14px calc(var(--sab) + 80px);
+      display: flex; flex-direction: column; gap: 10px;
     }
 
     .posto-item {
       display: flex; align-items: center; gap: 14px;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer; background: var(--white);
-      transition: background 0.15s;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: var(--white);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      border: none;
     }
-    .posto-item:active { background: var(--gray-bg); }
+    .posto-item:active { transform: scale(0.98); box-shadow: var(--shadow-strong); }
 
     .posto-brand-logo {
-      width: 50px; height: 50px; border-radius: 50%;
+      width: 52px; height: 52px; border-radius: 14px;
       flex-shrink: 0; overflow: hidden;
       border: 1px solid var(--border);
       display: flex; align-items: center; justify-content: center;
-      font-size: 24px; background: var(--white);
+      font-size: 26px; background: var(--gray-bg);
     }
 
     .posto-item-info { flex: 1; min-width: 0; }
     .posto-item-nome {
-      font-size: 14px; font-weight: 700; color: var(--black);
-      margin-bottom: 3px;
+      font-size: 14px; font-weight: 800; color: var(--black);
+      margin-bottom: 4px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      text-transform: uppercase; letter-spacing: 0.3px;
-      font-family: 'Roboto', sans-serif;
+      letter-spacing: 0.2px;
     }
     .posto-item-rating {
       display: flex; align-items: center; gap: 5px;
-      font-size: 13px; color: var(--gray-dark);
+      font-size: 12px; color: var(--gray);
     }
-    .star-icon { color: #FFC107; font-size: 13px; }
+    .star-icon { color: #FFC107; font-size: 12px; }
     .rating-val { font-weight: 600; color: var(--gray-dark); }
     .green-dot {
       width: 7px; height: 7px; border-radius: 50%;
@@ -376,12 +375,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       text-align: right; flex-shrink: 0;
     }
     .posto-item-preco .preco-val {
-      font-size: 22px; font-weight: 900; color: #1A237E;
-      white-space: nowrap; font-family: 'Roboto', sans-serif;
+      font-size: 22px; font-weight: 900; color: var(--orange);
+      white-space: nowrap;
       line-height: 1.1;
     }
     .posto-item-preco .preco-rs {
-      font-size: 13px; font-weight: 700; color: #1A237E;
+      font-size: 13px; font-weight: 700; color: var(--orange);
       vertical-align: top; margin-top: 3px; display: inline-block;
     }
     .posto-item-preco .preco-unit {
@@ -392,142 +391,143 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       margin-top: 4px;
     }
     .posto-item-preco .preco-estimado {
-      color: #999;
+      color: #bbb;
     }
 
-    /* ══════════════════════════════════════════════
-       TELA 9: DETALHES DO POSTO
-    ══════════════════════════════════════════════ */
+    /* TELA 9: DETALHES DO POSTO */
     #view-detalhes {
-      /* overflow-y gerenciado pelo seletor .active acima */
-      background: var(--white);
+      background: var(--gray-bg);
     }
 
     #det-header {
-      position: relative; height: 220px; flex-shrink: 0;
-      background: linear-gradient(135deg, #1A1A2E, #2D2D44);
+      position: relative; height: 230px; flex-shrink: 0;
+      background: linear-gradient(160deg, var(--navy) 0%, #1a2a4a 100%);
       overflow: hidden;
     }
 
     #det-hero-img {
-      width: 100%; height: 100%; object-fit: cover; opacity: 0.7;
+      width: 100%; height: 100%; object-fit: cover; opacity: 0.45;
     }
 
     .det-overlay-btns {
-      position: absolute; top: calc(var(--sat) + 12px); left: 0; right: 0;
+      position: absolute; top: calc(var(--sat) + 14px); left: 0; right: 0;
       padding: 0 16px;
       display: flex; justify-content: space-between; align-items: center;
     }
     .det-btn-icon {
-      width: 38px; height: 38px; border-radius: 50%;
-      background: rgba(0,0,0,0.35); border: none;
+      width: 40px; height: 40px; border-radius: 12px;
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.1);
       display: flex; align-items: center; justify-content: center;
-      color: white; cursor: pointer; backdrop-filter: blur(4px);
+      color: white; cursor: pointer; backdrop-filter: blur(8px);
     }
     .det-btn-group { display: flex; gap: 8px; }
 
     #det-logo-badge {
-      position: absolute; bottom: -24px; left: 20px;
-      width: 52px; height: 52px; border-radius: 50%;
+      position: absolute; bottom: -26px; left: 20px;
+      width: 56px; height: 56px; border-radius: 16px;
       background: white; border: 3px solid white;
-      box-shadow: var(--shadow);
+      box-shadow: var(--shadow-strong);
       display: flex; align-items: center; justify-content: center;
-      font-size: 24px; overflow: hidden;
+      font-size: 26px; overflow: hidden;
     }
 
     #det-body {
-      padding: 36px 20px calc(var(--sab) + 80px);
+      padding: 38px 18px calc(var(--sab) + 80px);
     }
 
     #det-nome {
-      font-size: 22px; font-weight: 800; color: var(--black);
-      margin-bottom: 4px;
+      font-size: 22px; font-weight: 900; color: var(--black);
+      margin-bottom: 5px; letter-spacing: -0.3px;
     }
     #det-endereco {
       font-size: 13px; color: var(--gray); line-height: 1.5;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
 
     #det-info-row {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
       margin-bottom: 18px;
     }
     .det-stars { display: flex; gap: 2px; }
     .det-star { color: #FFC107; font-size: 15px; }
     .det-rating-count { font-size: 13px; color: var(--gray); }
     .badge-aberto {
-      padding: 3px 10px; border-radius: 100px;
+      padding: 4px 12px; border-radius: 100px;
       background: var(--green-bg); color: var(--green-text);
       font-size: 12px; font-weight: 700;
     }
 
-    /* Card preço destaque */
     #det-preco-destaque {
-      background: var(--green-bg);
-      border: 1px solid rgba(0,200,83,0.2);
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      margin-bottom: 16px;
+      background: linear-gradient(135deg, var(--navy) 0%, #1a2a4a 100%);
+      border: none;
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 14px;
       display: flex; align-items: center; justify-content: space-between;
+      box-shadow: var(--shadow-strong);
     }
-    .det-comb-nome { font-size: 13px; font-weight: 600; color: var(--green-text); }
-    .det-comb-preco { font-size: 22px; font-weight: 900; color: var(--green-text); }
-    .det-arrow svg { width: 18px; height: 18px; color: var(--green-text); }
+    .det-comb-nome { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.5px; }
+    .det-comb-preco { font-size: 30px; font-weight: 900; color: #fff; margin-top: 2px; }
+    .det-arrow svg { width: 20px; height: 20px; color: rgba(255,255,255,0.4); }
 
-    /* Lista combustíveis */
-    .det-fuel-list { margin-bottom: 20px; }
+    .det-fuel-list {
+      background: var(--white); border-radius: var(--radius);
+      padding: 0 16px; margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
     .det-fuel-row {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 0;
+      padding: 14px 0;
       border-bottom: 1px solid var(--border);
     }
     .det-fuel-row:last-child { border-bottom: none; }
     .det-fuel-nome { font-size: 14px; color: var(--gray-dark); font-weight: 500; }
-    .det-fuel-price { font-size: 14px; font-weight: 700; color: var(--black); }
+    .det-fuel-price { font-size: 15px; font-weight: 800; color: var(--black); }
 
-    /* Botões ação */
     .det-btns {
-      display: flex; gap: 10px; margin-bottom: 28px;
+      display: flex; gap: 10px; margin-bottom: 24px;
     }
     .btn-como-chegar {
-      flex: 1; padding: 14px;
-      background: var(--white); border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm);
+      flex: 1; padding: 15px;
+      background: var(--white); border: 2px solid var(--border);
+      border-radius: var(--radius);
       display: flex; align-items: center; justify-content: center; gap: 8px;
       font-family: 'Inter', sans-serif;
       font-size: 14px; font-weight: 700; color: var(--black);
-      cursor: pointer; transition: background 0.15s;
+      cursor: pointer; transition: all 0.15s;
+      box-shadow: var(--shadow);
     }
     .btn-como-chegar:active { background: var(--gray-bg); }
     .btn-ir-la {
-      flex: 1; padding: 14px;
+      flex: 1; padding: 15px;
       background: var(--orange); border: none;
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius);
       display: flex; align-items: center; justify-content: center; gap: 8px;
       font-family: 'Inter', sans-serif;
-      font-size: 14px; font-weight: 700; color: var(--white);
+      font-size: 14px; font-weight: 700; color: #fff;
       cursor: pointer; transition: opacity 0.2s;
+      box-shadow: var(--shadow-orange);
     }
     .btn-ir-la:active { opacity: 0.85; }
 
-    /* Avaliações */
     .det-section-title {
       display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 14px;
     }
-    .det-section-title h3 { font-size: 16px; font-weight: 800; color: var(--black); }
+    .det-section-title h3 { font-size: 17px; font-weight: 800; color: var(--black); }
     .link-ver-todas { font-size: 13px; font-weight: 600; color: var(--orange); background: none; border: none; cursor: pointer; }
 
     .review-card {
-      background: var(--gray-card);
-      border-radius: var(--radius-sm);
-      padding: 14px;
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
     }
     .review-header {
       display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
     }
     .review-avatar {
-      width: 38px; height: 38px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 50%;
       object-fit: cover; flex-shrink: 0;
       background: #DDD;
     }
@@ -536,117 +536,118 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .review-stars { color: #FFC107; font-size: 14px; margin-bottom: 6px; }
     .review-text { font-size: 13px; color: var(--gray-dark); line-height: 1.5; }
 
-    /* ══════════════════════════════════════════════
-       TELA 10: PLANEJAR ROTA
-    ══════════════════════════════════════════════ */
+    /* TELA 10: PLANEJAR ROTA */
     #view-planejar {
-      background: var(--white);
-      /* overflow-y gerenciado pelo seletor .active acima */
+      background: var(--gray-bg);
     }
 
     #plan-header {
       display: flex; align-items: center; gap: 14px;
-      padding: calc(var(--sat) + 16px) 20px 16px;
-      border-bottom: 1px solid var(--border);
-      background: var(--white);
+      padding: calc(var(--sat) + 16px) 18px 16px;
+      background: var(--navy);
       position: sticky; top: 0; z-index: 10;
       flex-shrink: 0;
     }
     #plan-title {
-      font-size: 18px; font-weight: 800; color: var(--black);
+      font-size: 18px; font-weight: 800; color: #fff;
     }
     .btn-back-plan {
       width: 38px; height: 38px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      background: none; border: none; cursor: pointer; color: var(--black);
+      background: rgba(255,255,255,0.15); border: none; border-radius: 10px;
+      cursor: pointer; color: #fff;
     }
 
-    #plan-body { padding: 20px 20px calc(var(--sab) + 80px); }
+    #plan-body { padding: 18px 16px calc(var(--sab) + 80px); }
 
-    /* Campos de rota */
     .route-fields {
-      background: var(--gray-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      overflow: hidden; margin-bottom: 16px;
+      background: var(--white);
+      border: none;
+      border-radius: var(--radius);
+      overflow: hidden; margin-bottom: 14px;
+      box-shadow: var(--shadow);
     }
     .route-field {
       display: flex; align-items: center; gap: 12px;
-      padding: 12px 16px; min-height: 56px;
+      padding: 14px 16px; min-height: 58px;
     }
     .route-field + .route-field {
       border-top: 1px solid var(--border);
     }
     .route-dot-origin {
-      width: 14px; height: 14px; border-radius: 50%;
+      width: 12px; height: 12px; border-radius: 50%;
       background: #1565C0; flex-shrink: 0;
+      box-shadow: 0 0 0 3px rgba(21,101,192,0.15);
     }
     .route-dot-dest {
-      width: 14px; height: 14px; border-radius: 50%;
-      background: var(--red); flex-shrink: 0;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--orange); flex-shrink: 0;
+      box-shadow: 0 0 0 3px rgba(255,109,0,0.15);
     }
     .route-field-content { flex: 1; }
-    .route-field-label { font-size: 11px; color: var(--gray); font-weight: 500; }
+    .route-field-label { font-size: 11px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
     .route-field-val { font-size: 14px; font-weight: 600; color: var(--black); }
     .btn-target {
-      width: 32px; height: 32px;
+      width: 34px; height: 34px;
       display: flex; align-items: center; justify-content: center;
-      background: none; border: none; cursor: pointer; color: var(--gray);
+      background: var(--gray-bg); border: none; border-radius: 10px;
+      cursor: pointer; color: var(--gray);
     }
 
-    /* Badge melhor rota */
     .route-stats-badge {
-      background: var(--gray-bg);
-      border-radius: var(--radius-sm);
-      padding: 10px 16px;
-      margin-bottom: 16px;
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .route-stats-label { font-size: 11px; color: var(--gray); font-weight: 500; margin-bottom: 6px; }
+    .route-stats-label { font-size: 11px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
     .route-stats-vals {
       display: flex; align-items: center; gap: 16px;
     }
     .route-stat {
-      font-size: 20px; font-weight: 800; color: var(--black);
+      font-size: 22px; font-weight: 900; color: var(--black);
     }
-    .route-stat-sep { width: 1px; height: 24px; background: var(--border); }
+    .route-stat-sep { width: 1px; height: 28px; background: var(--border); }
 
-    /* Mapa da rota */
     #plan-map {
-      height: 240px; border-radius: var(--radius-sm);
-      overflow: hidden; margin-bottom: 16px;
-      border: 1px solid var(--border);
+      height: 220px; border-radius: var(--radius);
+      overflow: hidden; margin-bottom: 14px;
+      box-shadow: var(--shadow);
     }
 
-    /* Card posto destino */
     .plan-posto-card {
       display: flex; align-items: center; gap: 14px;
-      background: var(--gray-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      margin-bottom: 20px;
+      background: var(--white);
+      border: none;
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
     }
     .plan-posto-logo {
-      width: 44px; height: 44px; border-radius: 50%;
+      width: 48px; height: 48px; border-radius: 14px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
+      font-size: 24px; flex-shrink: 0;
+      background: var(--gray-bg);
       border: 1px solid var(--border);
     }
     .plan-posto-info { flex: 1; }
-    .plan-posto-nome { font-size: 14px; font-weight: 700; color: var(--black); margin-bottom: 2px; }
+    .plan-posto-nome { font-size: 14px; font-weight: 800; color: var(--black); margin-bottom: 2px; }
     .plan-posto-end { font-size: 12px; color: var(--gray); }
-    .plan-posto-preco { font-size: 15px; font-weight: 800; color: var(--black); }
+    .plan-posto-preco { font-size: 17px; font-weight: 900; color: var(--orange); }
     .plan-preco-unit { font-size: 11px; color: var(--gray); font-weight: 500; }
 
     .btn-iniciar-nav {
-      width: 100%; padding: 17px;
-      background: var(--orange); border: none; border-radius: 14px;
-      color: var(--white); font-family: 'Inter', sans-serif;
-      font-size: 17px; font-weight: 700;
+      width: 100%; padding: 18px;
+      background: var(--orange); border: none; border-radius: var(--radius);
+      color: #fff; font-family: 'Inter', sans-serif;
+      font-size: 16px; font-weight: 800;
       cursor: pointer; transition: all 0.2s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      box-shadow: 0 4px 16px rgba(255,109,0,0.4);
-      margin-top: 4px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      box-shadow: var(--shadow-orange);
+      letter-spacing: 0.2px;
     }
     .btn-iniciar-nav:active { opacity: 0.85; transform: scale(0.98); }
 
@@ -665,15 +666,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .plan-car-tab {
       flex: 1; display: flex; align-items: center; gap: 9px;
       padding: 11px 13px;
-      background: var(--gray-card);
-      border: 1.5px solid var(--border);
-      border-radius: 12px;
+      background: var(--white);
+      border: 1.5px solid var(--navy-border);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
       cursor: pointer; transition: all 0.18s;
       text-align: left;
     }
     .plan-car-tab.active {
       border-color: var(--orange);
-      background: var(--orange-light);
+      background: var(--white);
+      box-shadow: 0 2px 12px rgba(255,109,0,0.18);
     }
     .plan-car-tab-icon { font-size: 22px; flex-shrink: 0; }
     .plan-car-tab-info { flex: 1; overflow: hidden; }
@@ -685,20 +688,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .plan-car-add {
       width: 52px; height: 52px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      background: var(--gray-card); border: 1.5px dashed var(--border);
-      border-radius: 12px; font-size: 22px; cursor: pointer;
-      color: var(--gray);
+      background: var(--white); border: 1.5px dashed rgba(255,109,0,0.35);
+      border-radius: var(--radius-sm); font-size: 22px; cursor: pointer;
+      color: var(--orange);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
-    /* ── Painel custo estimado ── */
+    /* Painel custo estimado */
     #plan-custo-panel {
-      background: linear-gradient(135deg, #FF6D00 0%, #E65100 100%);
-      border-radius: 14px; padding: 16px 18px;
+      background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
+      border-radius: var(--radius); padding: 18px 20px;
       margin-bottom: 14px; color: #fff;
+      box-shadow: var(--shadow-orange);
     }
     #plan-custo-panel .pcp-titulo {
-      font-size: 12px; font-weight: 600; opacity: 0.85;
-      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+      font-size: 11px; font-weight: 700; opacity: 0.75;
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;
     }
     #plan-custo-panel .pcp-grid {
       display: grid; grid-template-columns: 1fr 1fr 1fr;
@@ -708,17 +713,18 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       text-align: center; padding: 4px 0;
     }
     #plan-custo-panel .pcp-item + .pcp-item {
-      border-left: 1px solid rgba(255,255,255,0.25);
+      border-left: 1px solid rgba(255,255,255,0.2);
     }
     #plan-custo-panel .pcp-val {
-      font-size: 19px; font-weight: 900; line-height: 1.1;
+      font-size: 20px; font-weight: 900; line-height: 1.1;
     }
     #plan-custo-panel .pcp-label {
-      font-size: 10px; opacity: 0.8; margin-top: 2px;
+      font-size: 10px; opacity: 0.75; margin-top: 3px;
     }
     #plan-custo-panel.sem-veiculo {
-      background: var(--gray-card);
-      border: 1.5px dashed var(--border);
+      background: var(--white);
+      border: 2px dashed var(--border);
+      box-shadow: none;
     }
     #plan-custo-panel.sem-veiculo .pcp-titulo,
     #plan-custo-panel.sem-veiculo .pcp-val,
@@ -841,12 +847,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     /* ── Lista de veículos em Meus Veículos ── */
     .veh-list-item {
       display: flex; align-items: center; gap: 14px;
-      padding: 14px 0;
+      padding: 14px 16px;
+      background: var(--white);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      margin-bottom: 8px;
     }
-    .veh-list-item + .veh-list-item { border-top: 1px solid var(--border); }
+    .veh-list-item + .veh-list-item { border-top: none; }
     .veh-list-icon {
       width: 50px; height: 50px; border-radius: 14px;
-      background: var(--orange-light); display: flex; align-items: center;
+      background: rgba(255,109,0,0.12); display: flex; align-items: center;
       justify-content: center; font-size: 26px; flex-shrink: 0;
     }
     .veh-list-info { flex: 1; }
@@ -855,159 +865,158 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .veh-list-btns { display: flex; gap: 6px; }
     .veh-list-btn-edit {
       padding: 7px 14px; font-size: 13px; font-weight: 600;
-      background: none; border: 1.5px solid var(--border);
+      background: none; border: 1.5px solid var(--navy-border);
       border-radius: 9px; cursor: pointer; color: var(--black);
     }
     .veh-slot-add {
       display: flex; align-items: center; gap: 14px;
-      padding: 16px 0; cursor: pointer; opacity: 0.7;
+      padding: 14px 16px; cursor: pointer;
+      background: var(--white); border-radius: var(--radius-sm);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      border: 1.5px dashed rgba(255,109,0,0.3);
     }
     .veh-slot-add-icon {
       width: 50px; height: 50px; border-radius: 14px;
-      border: 2px dashed var(--border);
+      border: 2px dashed rgba(255,109,0,0.4);
       display: flex; align-items: center; justify-content: center;
-      font-size: 24px; flex-shrink: 0;
+      font-size: 24px; flex-shrink: 0; color: var(--orange);
     }
-    .veh-slot-add-label { font-size: 14px; font-weight: 600; color: var(--gray); }
+    .veh-slot-add-label { font-size: 14px; font-weight: 600; color: var(--orange); }
 
-    /* ══════════════════════════════════════════════
-       TELA 11: RELATÓRIOS
-    ══════════════════════════════════════════════ */
+    /* TELA 11: RELATÓRIOS */
     #view-relatorios {
-      /* overflow-y gerenciado pelo seletor .active acima */
-      background: var(--white);
+      background: var(--gray-bg);
     }
 
     #rel-header {
-      padding: calc(var(--sat) + 20px) 20px 0;
-      text-align: center;
-      background: var(--white);
+      padding: calc(var(--sat) + 0px) 0 0;
+      background: var(--navy);
       position: sticky; top: 0; z-index: 10;
     }
     #rel-title {
-      font-size: 20px; font-weight: 800; color: var(--black);
-      margin-bottom: 16px;
+      font-size: 20px; font-weight: 900; color: #fff;
+      padding: 20px 18px 0;
     }
 
-    /* Tabs período */
     .period-tabs {
-      display: flex; background: var(--gray-bg);
-      border-radius: 10px; padding: 3px;
-      margin-bottom: 20px;
+      display: flex; background: rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 4px;
+      margin: 14px 18px 0;
     }
     .period-tab {
-      flex: 1; padding: 8px;
-      border: none; border-radius: 8px;
+      flex: 1; padding: 9px;
+      border: none; border-radius: 9px;
       background: none; font-family: 'Inter', sans-serif;
-      font-size: 14px; font-weight: 600; color: var(--gray);
+      font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.55);
       cursor: pointer; transition: all 0.2s; text-align: center;
     }
     .period-tab.active {
-      background: var(--white); color: var(--black);
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      background: var(--orange); color: #fff;
+      box-shadow: var(--shadow-orange);
     }
 
-    /* Navegação mês */
     .month-nav {
       display: flex; align-items: center; justify-content: center; gap: 20px;
-      margin-bottom: 24px;
+      padding: 14px 18px;
     }
     .btn-month {
-      width: 32px; height: 32px;
-      background: none; border: none; cursor: pointer;
-      color: var(--gray-dark); font-size: 18px;
+      width: 34px; height: 34px;
+      background: rgba(255,255,255,0.12); border: none; border-radius: 10px;
+      cursor: pointer; color: #fff; font-size: 18px;
       display: flex; align-items: center; justify-content: center;
     }
-    .month-label { font-size: 15px; font-weight: 600; color: var(--black); }
+    .month-label { font-size: 15px; font-weight: 700; color: #fff; }
 
-    /* Valor total economizado */
     #rel-total {
-      text-align: center; margin-bottom: 20px;
+      text-align: center; padding: 20px 18px 24px;
+      background: var(--navy);
     }
     .rel-total-val {
-      font-size: 42px; font-weight: 900; color: var(--green);
-      line-height: 1; margin-bottom: 4px;
+      font-size: 48px; font-weight: 900; color: #00E676;
+      line-height: 1; margin-bottom: 6px;
+      text-shadow: 0 0 20px rgba(0,230,118,0.3);
     }
-    .rel-total-label { font-size: 14px; color: var(--gray); font-weight: 500; }
+    .rel-total-label { font-size: 13px; color: rgba(255,255,255,0.55); font-weight: 500; }
 
-    /* Cards de stats */
     .rel-cards-grid {
       display: grid; grid-template-columns: 1fr 1fr;
-      gap: 10px; padding: 0 20px; margin-bottom: 10px;
+      gap: 10px; padding: 16px 14px 0;
     }
     .rel-stat-card {
-      background: var(--gray-card); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); padding: 14px;
+      background: var(--white); border: none;
+      border-radius: var(--radius); padding: 16px;
+      box-shadow: var(--shadow);
     }
-    .rel-stat-label { font-size: 12px; color: var(--gray); font-weight: 500; margin-bottom: 6px; }
-    .rel-stat-val { font-size: 22px; font-weight: 800; color: var(--black); }
+    .rel-stat-label { font-size: 12px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px; }
+    .rel-stat-val { font-size: 24px; font-weight: 900; color: var(--black); }
 
     .rel-econ-litro {
-      margin: 0 20px 24px;
-      background: var(--gray-card); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); padding: 14px 16px;
+      margin: 10px 14px 0;
+      background: var(--white); border: none;
+      border-radius: var(--radius); padding: 16px;
       display: flex; align-items: center; justify-content: space-between;
+      box-shadow: var(--shadow);
     }
-    .rel-econ-label { font-size: 12px; color: var(--gray); font-weight: 500; margin-bottom: 4px; }
-    .rel-econ-val { font-size: 18px; font-weight: 800; color: var(--black); }
+    .rel-econ-label { font-size: 12px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
+    .rel-econ-val { font-size: 20px; font-weight: 900; color: var(--black); }
 
-    /* Postos mais abastecidos */
-    .rel-section { padding: 0 20px; }
-    .rel-section-title { font-size: 15px; font-weight: 800; color: var(--black); margin-bottom: 14px; }
+    .rel-section { padding: 16px 14px 0; }
+    .rel-section-title { font-size: 16px; font-weight: 800; color: var(--black); margin-bottom: 10px; }
 
     .rel-posto-row {
       display: flex; align-items: center; gap: 12px;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      background: var(--white);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      box-shadow: var(--shadow);
     }
-    .rel-posto-row:last-child { border-bottom: none; }
     .rel-posto-logo {
-      width: 38px; height: 38px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 12px;
       display: flex; align-items: center; justify-content: center;
       font-size: 20px; flex-shrink: 0;
+      background: var(--gray-bg);
       border: 1px solid var(--border);
     }
-    .rel-posto-nome { flex: 1; font-size: 14px; font-weight: 600; color: var(--black); }
-    .rel-posto-vezes { font-size: 13px; color: var(--gray); font-weight: 500; }
+    .rel-posto-nome { flex: 1; font-size: 14px; font-weight: 700; color: var(--black); }
+    .rel-posto-vezes { font-size: 13px; color: var(--orange); font-weight: 700; }
 
-    /* ══════════════════════════════════════════════
-       TELA 12: PERFIL / MENU
-    ══════════════════════════════════════════════ */
-    /* Header dark perfil */
+    /* TELA 12: PERFIL / MENU */
     #perfil-header {
-      background: #1A1A2E;
-      padding: calc(var(--sat) + 28px) 20px 28px;
+      background: linear-gradient(160deg, var(--navy) 0%, #1a2a4a 100%);
+      padding: calc(var(--sat) + 28px) 20px 32px;
       display: flex; align-items: center; gap: 16px;
     }
 
-    /* ── Avatar de perfil com botão câmera ── */
     #perfil-avatar-wrap {
       position: relative; flex-shrink: 0;
-      width: 72px; height: 72px;
+      width: 76px; height: 76px;
       cursor: pointer;
     }
     #perfil-avatar {
-      width: 72px; height: 72px; border-radius: 50%;
+      width: 76px; height: 76px; border-radius: 50%;
       object-fit: cover;
       background: #333;
-      border: 3px solid rgba(255,255,255,0.2);
+      border: 3px solid rgba(255,255,255,0.25);
       display: block;
     }
     #perfil-avatar-inicial {
-      width: 72px; height: 72px; border-radius: 50%;
-      background: var(--orange);
+      width: 76px; height: 76px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
       display: flex; align-items: center; justify-content: center;
-      font-size: 30px; font-weight: 800; color: #fff;
+      font-size: 32px; font-weight: 900; color: #fff;
       border: 3px solid rgba(255,255,255,0.2);
       flex-shrink: 0;
+      box-shadow: var(--shadow-orange);
     }
     #perfil-avatar-cam {
       position: absolute; bottom: 0; right: 0;
       width: 26px; height: 26px; border-radius: 50%;
       background: var(--orange);
-      border: 2px solid #1A1A2E;
+      border: 2px solid var(--navy);
       display: flex; align-items: center; justify-content: center;
       pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
     #perfil-avatar-cam svg { width: 13px; height: 13px; fill: #fff; }
 
@@ -1050,8 +1059,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     #rp-perfil.aberto { transform: translateX(0); }
 
     #rp-perfil #perfil-header {
-      background: #1A1A2E;
-      padding: calc(var(--sat) + 28px) 56px 28px 20px;
+      background: linear-gradient(160deg, var(--navy) 0%, #1a2a4a 100%);
+      padding: calc(var(--sat) + 28px) 56px 32px 20px;
       display: flex; align-items: center; gap: 16px;
       flex-shrink: 0; position: relative;
     }
@@ -1077,10 +1086,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     #rp-subtela.aberta { transform: translateX(0); }
 
     #rp-subtela-header {
-      background: var(--orange);
+      background: linear-gradient(135deg, var(--navy) 0%, #1a2d4a 100%);
       padding: calc(var(--sat) + 16px) 16px 16px;
       display: flex; align-items: center; gap: 12px;
       flex-shrink: 0;
+      border-bottom: 1px solid var(--navy-border);
     }
     #rp-subtela-back {
       width: 38px; height: 38px; border-radius: 50%;
@@ -1101,39 +1111,44 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     /* Cards internos da subtela */
     .st-card {
-      background: var(--white); border-radius: 16px;
-      padding: 16px; margin-bottom: 12px;
+      background: var(--white); border-radius: var(--radius);
+      padding: 18px; margin-bottom: 12px;
       box-shadow: var(--shadow);
+      border: none;
     }
     .st-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 0; border-bottom: 1px solid var(--border);
+      padding: 14px 0; border-bottom: 1px solid #F0F3F7;
     }
     .st-row:last-child { border-bottom: none; }
-    .st-label { font-size: 14px; color: var(--gray); }
-    .st-value { font-size: 14px; font-weight: 600; color: var(--black); }
+    .st-label { font-size: 14px; color: var(--gray); font-weight: 500; }
+    .st-value { font-size: 14px; font-weight: 700; color: var(--black); }
     .st-btn {
-      width: 100%; padding: 15px;
+      width: 100%; padding: 16px;
       background: var(--orange); color: #fff;
-      border: none; border-radius: 14px;
+      border: none; border-radius: var(--radius);
       font-size: 15px; font-weight: 700; cursor: pointer;
-      margin-top: 8px; transition: background .15s;
+      margin-top: 8px; transition: opacity .15s;
+      box-shadow: var(--shadow-orange);
     }
-    .st-btn:active { background: var(--orange-dark); }
+    .st-btn:active { opacity: 0.85; }
     .st-btn-ghost {
       background: var(--gray-bg); color: var(--black);
+      box-shadow: none;
     }
     .st-btn-danger {
       background: var(--red-bg); color: var(--red);
+      box-shadow: none;
     }
     .st-section-title {
-      font-size: 12px; font-weight: 700; color: var(--gray);
-      text-transform: uppercase; letter-spacing: 0.5px;
-      margin: 0 0 10px;
+      font-size: 11px; font-weight: 800; color: var(--gray);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin: 0 0 10px; padding-left: 2px;
     }
     .st-faq details {
-      border: 1.5px solid var(--border); border-radius: 14px;
-      margin-bottom: 8px; overflow: hidden; background: #fff;
+      border: none; border-radius: var(--radius);
+      margin-bottom: 8px; overflow: hidden; background: var(--white);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
     }
     .st-faq summary {
       padding: 14px 16px; font-size: 14px; font-weight: 600;
@@ -1146,50 +1161,54 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     #perfil-info { flex: 1; }
     #perfil-ola {
-      font-size: 20px; font-weight: 800; color: var(--white);
-      margin-bottom: 6px;
+      font-size: 22px; font-weight: 900; color: var(--white);
+      margin-bottom: 6px; letter-spacing: -0.3px;
     }
     .badge-premium {
       display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px 10px; border-radius: 100px;
-      background: rgba(255,193,7,0.2); color: #FFC107;
-      font-size: 12px; font-weight: 700; margin-bottom: 4px;
+      padding: 4px 12px; border-radius: 100px;
+      background: rgba(255,193,7,0.25); color: #FFD600;
+      font-size: 12px; font-weight: 800; margin-bottom: 4px;
+      border: 1px solid rgba(255,193,7,0.3);
+      box-shadow: 0 2px 8px rgba(255,193,7,0.15);
     }
     #perfil-validade { font-size: 12px; color: rgba(255,255,255,0.55); }
 
     /* Lista de menu */
     #perfil-menu-list {
-      background: var(--white);
+      background: var(--gray-bg);
       margin: 0; border-radius: 0;
+      padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 8px;
     }
 
     .menu-item {
       display: flex; align-items: center; gap: 14px;
-      padding: 17px 20px;
-      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      border-bottom: none;
+      border-radius: var(--radius-sm);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
       cursor: pointer; background: var(--white);
-      transition: background 0.15s;
+      transition: background 0.15s, box-shadow 0.15s;
     }
-    .menu-item:active { background: var(--gray-bg); }
+    .menu-item:active { background: #F8F9FB; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
     .menu-item:last-child { border-bottom: none; }
 
     .menu-item-icon {
-      width: 22px; height: 22px;
+      width: 38px; height: 38px;
       display: flex; align-items: center; justify-content: center;
-      color: var(--gray); flex-shrink: 0;
+      background: var(--gray-bg); border-radius: 10px;
+      color: var(--gray-dark); flex-shrink: 0;
     }
-    .menu-item-icon svg { width: 20px; height: 20px; }
-    .menu-item-label { flex: 1; font-size: 15px; font-weight: 500; color: var(--black); }
-    .menu-item-arrow { color: var(--gray-light); }
+    .menu-item-icon svg { width: 18px; height: 18px; }
+    .menu-item-label { flex: 1; font-size: 15px; font-weight: 600; color: var(--black); }
+    .menu-item-arrow { color: #D0D8E4; }
     .menu-item-arrow svg { width: 16px; height: 16px; }
 
-    /* Sair */
-    .menu-item-sair .menu-item-icon { color: var(--red); }
+    .menu-item-sair .menu-item-icon { background: #FFEBEE; color: var(--red); }
     .menu-item-sair .menu-item-label { color: var(--red); }
 
-    /* ══════════════════════════════════════════════
-       BOTTOM NAV
-    ══════════════════════════════════════════════ */
+    /* BOTTOM NAV */
     #bottom-nav {
       background: var(--white);
       border-top: 1px solid var(--border);
@@ -1197,31 +1216,31 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       padding-bottom: var(--sab);
       height: calc(var(--nav-h) + var(--sab));
       min-height: calc(var(--nav-h) + var(--sab));
-      /* position:fixed garante que o nav SEMPRE aparece no Android/TWA
-         independente de 100dvh ser calculado diferente */
       position: fixed;
       bottom: 0; left: 0; right: 0;
       z-index: 500;
       flex-shrink: 0;
       flex-grow: 0;
+      box-shadow: 0 -2px 16px rgba(0,0,0,0.06);
     }
 
     .nav-item {
       flex: 1; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 3px;
+      align-items: center; justify-content: center; gap: 4px;
       padding: 8px 4px;
       background: none; border: none; cursor: pointer;
-      color: var(--gray-light); font-family: 'Inter', sans-serif;
+      color: #C0C8D4; font-family: 'Inter', sans-serif;
       font-size: 10px; font-weight: 600;
       letter-spacing: 0.2px;
       transition: color 0.2s;
     }
     .nav-item svg { width: 22px; height: 22px; }
-    .nav-item .nav-label { display: none; }        /* só Melhor tem label */
+    .nav-item .nav-label { display: none; }
     .nav-item#nav-melhor .nav-label { display: block; font-size: 9px; font-weight: 700; color: inherit; }
-    .nav-icon-only { gap: 0; }                      /* sem espaço extra ícone puro */
-    .nav-icon-only svg { width: 25px; height: 25px; }
+    .nav-icon-only { gap: 0; }
+    .nav-icon-only svg { width: 24px; height: 24px; }
     .nav-item.active { color: var(--orange); }
+    .nav-item.active svg { filter: drop-shadow(0 0 4px rgba(255,109,0,0.35)); }
 
     /* ══════════════════════════════════════════════
        BOTÃO SOS FLUTUANTE
@@ -1257,21 +1276,24 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       background: var(--gray-bg);
     }
     #sos-header {
-      background: #D32F2F;
-      padding: calc(var(--sat) + 14px) 16px 14px;
+      background: linear-gradient(135deg, #B71C1C 0%, #D32F2F 100%);
+      padding: calc(var(--sat) + 14px) 16px 16px;
       display: flex; align-items: center; gap: 12px;
       flex-shrink: 0;
+      box-shadow: 0 2px 12px rgba(211,47,47,0.3);
     }
     #sos-back {
-      width: 36px; height: 36px; border-radius: 50%;
+      width: 38px; height: 38px; border-radius: 12px;
       background: rgba(255,255,255,0.18); border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
     #sos-back svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
-    #sos-titulo { font-size: 18px; font-weight: 800; color: #fff; flex: 1; }
+    #sos-titulo { font-size: 18px; font-weight: 900; color: #fff; flex: 1; }
     #sos-badge-premium {
-      font-size: 11px; font-weight: 700; color: #FFD600;
-      background: rgba(0,0,0,0.25); border-radius: 100px; padding: 3px 10px;
+      font-size: 11px; font-weight: 800; color: #FFD600;
+      background: rgba(0,0,0,0.30); border-radius: 100px; padding: 5px 13px;
+      border: 1px solid rgba(255,214,0,0.25);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
     #sos-body {
       flex: 1; overflow-y: auto;
@@ -1287,9 +1309,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       flex: 1;
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 16px; border-radius: 100px;
-      background: #D32F2F; border: none;
+      background: linear-gradient(135deg, #C62828 0%, #D32F2F 100%);
+      border: none;
       font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
       transition: background 0.15s; gap: 8px;
+      box-shadow: 0 3px 12px rgba(211,47,47,0.35);
     }
     .sos-chip-todos svg {
       width: 18px; height: 18px; stroke: #fff; fill: none;
@@ -1355,23 +1379,24 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .sos-cat-item.ativo .sos-cat-nome { color: #D32F2F; }
     /* Card de serviço */
     .sos-card {
-      background: #fff; border-radius: 16px;
+      background: var(--white); border-radius: var(--radius);
       padding: 14px 16px; margin-bottom: 10px;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      box-shadow: 0 3px 14px rgba(0,0,0,0.08);
       display: flex; gap: 12px; align-items: flex-start;
+      border: none;
     }
     .sos-card-emoji {
-      width: 44px; height: 44px; border-radius: 12px;
-      background: #FFF3E0; display: flex; align-items: center;
+      width: 46px; height: 46px; border-radius: 13px;
+      background: rgba(255,109,0,0.10); display: flex; align-items: center;
       justify-content: center; font-size: 22px; flex-shrink: 0;
     }
     .sos-card-info { flex: 1; min-width: 0; }
     .sos-card-nome {
-      font-size: 15px; font-weight: 700; color: #1A1A1A;
+      font-size: 15px; font-weight: 700; color: var(--black);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .sos-card-end {
-      font-size: 12px; color: #888; margin-top: 2px;
+      font-size: 12px; color: var(--gray); margin-top: 2px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .sos-card-meta {
@@ -1379,16 +1404,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       flex-wrap: wrap;
     }
     .sos-dist {
-      font-size: 12px; font-weight: 600; color: #FF6D00;
-      background: #FFF3E0; padding: 2px 8px; border-radius: 100px;
+      font-size: 12px; font-weight: 700; color: var(--orange);
+      background: rgba(255,109,0,0.10); padding: 3px 9px; border-radius: 100px;
     }
     .sos-aberto {
-      font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 100px;
+      font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 100px;
     }
     .sos-aberto.sim { background: #E8F5E9; color: #2E7D32; }
     .sos-aberto.nao { background: #FFEBEE; color: #C62828; }
     .sos-rating {
-      font-size: 12px; color: #888;
+      font-size: 12px; color: var(--gray);
     }
     .sos-card-btns {
       display: flex; gap: 6px; flex-direction: column;
@@ -1399,18 +1424,21 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       border: none; border-radius: 10px; font-size: 12px; font-weight: 700;
       cursor: pointer; white-space: nowrap; text-decoration: none;
       text-align: center; display: block;
+      box-shadow: 0 2px 8px rgba(211,47,47,0.30);
     }
     .sos-btn-whats {
       padding: 8px 12px; background: #25D366; color: #fff;
       border: none; border-radius: 10px; font-size: 12px; font-weight: 700;
       cursor: pointer; white-space: nowrap; text-decoration: none;
       text-align: center; display: block;
+      box-shadow: 0 2px 8px rgba(37,211,102,0.25);
     }
     .sos-btn-irla {
       padding: 8px 12px; background: #1565C0; color: #fff;
       border: none; border-radius: 10px; font-size: 12px; font-weight: 700;
       cursor: pointer; white-space: nowrap; text-decoration: none;
       text-align: center; display: block;
+      box-shadow: 0 2px 8px rgba(21,101,192,0.25);
     }
     /* Drag handle do botão SOS flutuante */
     #btn-sos-float.dragging { opacity: 0.85; transition: none; }
@@ -1448,18 +1476,21 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     #app-toast {
       position: fixed; bottom: calc(var(--sab) + var(--nav-h) + 14px);
       left: 50%; transform: translateX(-50%) translateY(20px);
-      background: #333; color: white;
-      padding: 10px 20px; border-radius: 100px;
+      background: var(--navy); color: white;
+      padding: 11px 22px; border-radius: 100px;
       font-size: 13px; font-weight: 600;
       opacity: 0; transition: opacity 0.3s, transform 0.3s;
       z-index: 9999; pointer-events: none; white-space: nowrap;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      border: 1px solid var(--navy-border);
     }
     #app-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     #app-loading {
-      position: fixed; inset: 0; background: rgba(255,255,255,0.9);
+      position: fixed; inset: 0; background: rgba(11,20,38,0.85);
       display: none; align-items: center; justify-content: center;
       flex-direction: column; gap: 14px; z-index: 9999;
+      backdrop-filter: blur(4px);
     }
     #app-loading.show { display: flex; }
     @keyframes pulse-dot {
@@ -1478,8 +1509,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .empty-state {
       padding: 60px 30px; text-align: center;
     }
-    .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
-    .empty-state h3 { font-size: 18px; font-weight: 800; color: var(--black); margin-bottom: 8px; }
+    .empty-state-icon {
+      font-size: 52px; margin-bottom: 18px;
+      filter: drop-shadow(0 4px 12px rgba(255,109,0,0.15));
+    }
+    .empty-state h3 { font-size: 18px; font-weight: 900; color: var(--black); margin-bottom: 8px; }
     .empty-state p { font-size: 14px; color: var(--gray); line-height: 1.6; }
 
     /* Leaflet overrides */
