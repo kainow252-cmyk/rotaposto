@@ -2866,7 +2866,35 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // Enriquece bandeiras dos postos "Independente" via Google Places em background.
   // Atualiza postosData e re-renderiza se mudou algo.
   async function _enriquecerBandeirasBackground(postos) {
-    // Só enriquecer postos com googlePlaceId e bandeira não identificada
+    // Pré-passo: detectar bandeiras conhecidas pelo nome do próprio posto
+    // (sem precisar chamar Google — ex: "Posto PitStop X" já revela a rede)
+    for (const p of postos) {
+      if (!p.bandeira || p.bandeira === 'Independente' || p.bandeira === 'independente') {
+        const n = (p.nome || '').toUpperCase();
+        if (n.includes('PITSTOP') || n.includes('PIT STOP') || n.includes('PIT-STOP')) {
+          p.bandeira = 'PitStop';
+        } else if (n.includes('SHELL')) {
+          p.bandeira = 'Shell';
+        } else if (n.includes('PETROBRAS') || /\bBR\b/.test(n)) {
+          p.bandeira = 'BR';
+        } else if (n.includes('IPIRANGA')) {
+          p.bandeira = 'Ipiranga';
+        } else if (n.includes('RAIZEN') || n.includes('RAÍZEN')) {
+          p.bandeira = 'Raízen';
+        } else if (n.includes('ESSO')) {
+          p.bandeira = 'Esso';
+        } else if (n.includes('TEXACO')) {
+          p.bandeira = 'Texaco';
+        } else if (/\bALE\b/.test(n) || n.includes('ALEPOSTO')) {
+          p.bandeira = 'Ale';
+        } else if (n.includes('VIBRA')) {
+          p.bandeira = 'Vibra';
+        } else if (n.includes('BANDEIRANTE')) {
+          p.bandeira = 'Bandeirante';
+        }
+      }
+    }
+    // Só enriquecer postos com googlePlaceId e bandeira ainda não identificada
     const semBandeira = postos.filter(p =>
       p.googlePlaceId && (!p.bandeira || p.bandeira === 'Independente' || p.bandeira === 'independente')
     ).slice(0, 8); // máx 8 por vez para não estourar rate limit
@@ -4015,7 +4043,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     );
 
     // Petrobras BR — verde #009B3A com losango amarelo #FEDF00
-    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR' || n.includes('PETRO BR'))
+    if (n.includes('PETROBRAS') || /\bBR\b/.test(n) || n.includes('PETRO BR'))
       return 'data:image/svg+xml;utf8,' + encodeURIComponent(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
         +'<circle cx="50" cy="50" r="50" fill="#009B3A"/>'
@@ -4081,6 +4109,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         +'</svg>'
       );
 
+    // PitStop — azul escuro #1A2744 com texto PIT laranja #FF6B00
+    if (n.includes('PITSTOP') || n.includes('PIT STOP') || n.includes('PIT-STOP'))
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        +'<rect width="100" height="100" rx="12" fill="#1A2744"/>'
+        +'<text x="50" y="44" text-anchor="middle" font-size="26" font-weight="900" font-family="Arial Black,sans-serif" fill="white">PIT</text>'
+        +'<text x="50" y="70" text-anchor="middle" font-size="22" font-weight="900" font-family="Arial Black,sans-serif" fill="#FF6B00">STOP</text>'
+        +'</svg>'
+      );
+
     // Genérico — cinza com bomba
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
@@ -4095,13 +4133,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     const n = nome.toUpperCase();
     if (n.includes('SHELL')) return '🐚';
     if (n.includes('IPIRANGA')) return '🔵';
-    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR' || n.includes('PETRO BR')) return '🟢';
+    if (n.includes('PETROBRAS') || /\bBR\b/.test(n) || n.includes('PETRO BR')) return '🟢';
     if (n.includes('RAIZEN') || n.includes('RAÍZEN')) return '⛽';
     if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes(' ALE') || n.includes('ALEPOSTO')) return '🔴';
     if (n.includes('TEXACO')) return '⭐';
     if (n.includes('ESSO')) return '🔷';
     if (n.includes('BANDEIRANTE')) return '🏁';
     if (n.includes('VIBRA')) return '🟡';
+    if (n.includes('PITSTOP') || n.includes('PIT STOP') || n.includes('PIT-STOP')) return '🔵';
     return '⛽';
   }
 
@@ -4145,6 +4184,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // SuperGasBrás
     if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS'))
       return { emoji:'⛽', bg:'#FF5722', border:'#FFAB91', cor:'#FF5722', corTxt:'#fff', sigla:'SGB', bandNome:'SuperGasBrás' };
+    // PitStop
+    if (n.includes('PITSTOP') || n.includes('PIT STOP') || n.includes('PIT-STOP'))
+      return { emoji:'⛽', bg:'#1A2744', border:'#FF6B00', cor:'#1A2744', corTxt:'#FF6B00', sigla:'PitStop', bandNome:'PitStop' };
     // Independente
     return { emoji:'⛽', bg:'#607D8B', border:'#90A4AE', cor:'#607D8B', corTxt:'#fff', sigla:'IND', bandNome:'Independente' };
   }

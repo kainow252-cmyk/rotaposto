@@ -90,6 +90,8 @@ export function normalizarBandeira(str: string, website?: string): string {
     if (w.includes('copagaz'))       return 'Copagaz'
     if (w.includes('liquigas') || w.includes('liquigás')) return 'Liquigás'
     if (w.includes('supergasbras'))  return 'SuperGasBrás'
+    if (w.includes('pitstop'))        return 'PitStop'
+    if (w.includes('grupopitstop') || w.includes('pit-stop') || w.includes('pit_stop')) return 'PitStop'
   }
 
   // 2. Detectar pelo nome do posto/distribuidora
@@ -108,6 +110,8 @@ export function normalizarBandeira(str: string, website?: string): string {
   if (s.includes('SUPERGASBRAS') || s.includes('SUPER GAS')) return 'SuperGasBrás'
   // ALE: palavra inteira para não pegar "CAVALETE", "UALE" etc.
   if (/\bALE\b|\bALÉ\b/.test(s) || s.includes('ALEPOSTO')) return 'Ale'
+  if (s.includes('PITSTOP') || s.includes('PIT STOP') || s.includes('PIT-STOP')) return 'PitStop'
+  if (s.includes('BANDEIRANTE')) return 'Bandeirante'
   if (s.includes('BANDEIRA BRANCA') || s.includes('INDEPEND')) return 'Independente'
   // Se não reconhecido — retorna o nome original (independente)
   return 'Independente'

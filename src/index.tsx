@@ -9713,9 +9713,18 @@ app.get('/api/posto/enriquecer-bandeira', async (c) => {
     const cached = await kv.get('posto:band:' + postoId)
     if (cached) {
       const parsed = JSON.parse(cached)
+      // Cache hit: retornar se bandeira conhecida E cacheada há menos de 30 dias
       if (parsed.bandeira && parsed.bandeira !== 'independente') {
         return c.json({ ok: true, fonte: 'cache', ...parsed })
       }
+      // Se era 'independente' e cacheado há mais de 7 dias → re-consultar Google
+      const ts = parsed.ts ? new Date(parsed.ts).getTime() : 0
+      const diasAntigo = (Date.now() - ts) / (1000 * 60 * 60 * 24)
+      if (diasAntigo < 7) {
+        // Independente recente — respeitar cache, não gastar quota do Google
+        return c.json({ ok: true, fonte: 'cache', ...parsed })
+      }
+      // Independente antigo (>7 dias) → re-consultar abaixo
     }
   }
 
