@@ -286,6 +286,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .posto-logo-circle img {
       width: 100%; height: 100%; object-fit: contain;
     }
+    /* Foto do posto no card inferior do mapa */
+    .map-card-foto {
+      width: 56px; height: 56px; border-radius: 10px;
+      flex-shrink: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.08);
+    }
 
     .map-posto-info { flex: 1; min-width: 0; overflow: hidden; }
     .map-posto-nome {
@@ -1838,7 +1845,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
           </button>
         </div>
         <div class="map-posto-row">
-          <div class="posto-logo-circle" id="map-card-logo">🐚</div>
+          <div class="map-card-foto" id="map-card-logo"></div>
           <div class="map-posto-info">
             <div class="map-posto-nome" id="map-card-nome">Posto Shell</div>
             <div class="map-posto-preco" id="map-card-preco">R$ 5,67 /L</div>
@@ -2951,16 +2958,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       const logoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
       const bestClass = isBest ? ' best' : '';
 
-      // Balloon estilo 99Abastece: tira colorida da bandeira + preço
+      // Balloon simples: ícone fixo de posto + preço
       const bandInfo2 = getBandeiraCor(p.bandeira || p.nome);
-      const stripStyle = 'background:'+bandInfo2.cor+';';
-      const logoImg = logoUrl
-        ? '<img src="'+logoUrl+'" style="width:26px;height:26px;object-fit:contain;" alt="">'
-        : '<span style="font-size:9px;font-weight:900;color:'+bandInfo2.corTxt+';">'+bandInfo2.sigla+'</span>';
-
+      const pumpIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M18 4l2 2v11h-2V6l-2-2H6L4 6v14H2V4l2-2h12zm-4 4H8v6h6V8zm-2 4H10v-2h2v2zM7 18h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>';
       const balloonHtml =
         '<div class="map-balloon'+bestClass+'">'
-        + '<div class="map-balloon-strip" style="'+stripStyle+'">' + logoImg + '</div>'
+        + '<div class="map-balloon-strip" style="background:'+bandInfo2.cor+'">' + pumpIcon + '</div>'
         + '<span class="map-balloon-preco">'+precoFmt+'</span>'
         + '</div>';
 
@@ -3004,21 +3007,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     const logoEl = document.getElementById('map-card-logo');
     const bandInfo = getBandeiraCor(p.bandeira || p.nome);
-    const logoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
-    if (logoUrl) {
-      var _imgCard = document.createElement('img');
-      _imgCard.src = logoUrl;
-      _imgCard.style.cssText = 'width:100%;height:100%;object-fit:contain;';
-      _imgCard.alt = '';
-      _imgCard.onerror = function() { logoEl.textContent = bandInfo.emoji; logoEl.style.background = bandInfo.bg; };
+    // Mostrar foto do posto no card, com fallback para ícone de bomba
+    if (p.fotoUrl) {
+      var _imgFoto = document.createElement('img');
+      _imgFoto.src = p.fotoUrl;
+      _imgFoto.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:10px;';
+      _imgFoto.alt = '';
+      _imgFoto.onerror = function() {
+        logoEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="'+bandInfo.corTxt+'"><path d="M18 4l2 2v11h-2V6l-2-2H6L4 6v14H2V4l2-2h12zm-4 4H8v6h6V8zm-2 4H10v-2h2v2zM7 18h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>';
+        logoEl.style.background = bandInfo.bg;
+      };
       logoEl.innerHTML = '';
-      logoEl.appendChild(_imgCard);
-      logoEl.style.background = '#fff';
-      logoEl.style.borderColor = bandInfo.border;
+      logoEl.appendChild(_imgFoto);
+      logoEl.style.background = 'transparent';
     } else {
-      logoEl.textContent = bandInfo.emoji;
+      logoEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="'+bandInfo.corTxt+'"><path d="M18 4l2 2v11h-2V6l-2-2H6L4 6v14H2V4l2-2h12zm-4 4H8v6h6V8zm-2 4H10v-2h2v2zM7 18h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>';
       logoEl.style.background = bandInfo.bg;
-      logoEl.style.borderColor = bandInfo.border;
     }
     const nomeEl = document.getElementById('map-card-nome');
     nomeEl.textContent = p.nome;
