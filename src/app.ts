@@ -253,7 +253,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       background: var(--navy-card);
       border-radius: 24px 24px 0 0;
       box-shadow: 0 -4px 32px rgba(0,0,0,0.4);
-      padding: 16px 18px calc(var(--sab) + 14px);
+      padding: 10px 16px calc(var(--sab) + 8px);
       z-index: 500;
       border-top: 1px solid var(--navy-border);
     }
@@ -262,7 +262,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       font-size: 11px; font-weight: 700;
       color: rgba(255,255,255,0.45);
       text-transform: uppercase; letter-spacing: 0.8px;
-      margin-bottom: 12px;
+      margin-bottom: 6px;
       display: flex; align-items: center; justify-content: space-between;
     }
     .btn-close-card {
@@ -273,13 +273,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     .map-posto-row {
-      display: flex; align-items: center; gap: 12px;
+      display: flex; align-items: center; gap: 10px;
     }
 
     .posto-logo-circle {
-      width: 46px; height: 46px; border-radius: 12px;
+      width: 38px; height: 38px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
+      font-size: 16px; flex-shrink: 0;
       border: 1px solid rgba(255,255,255,0.12);
       overflow: hidden; background: rgba(255,255,255,0.08);
     }
@@ -289,22 +289,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     .map-posto-info { flex: 1; min-width: 0; overflow: hidden; }
     .map-posto-nome {
-      font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.55);
-      margin-bottom: 2px;
+      font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.55);
+      margin-bottom: 1px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       text-transform: uppercase; letter-spacing: 0.5px;
     }
     .map-posto-preco {
-      font-size: 16px; font-weight: 800; color: #fff;
-      margin-bottom: 2px; line-height: 1.1;
+      font-size: 15px; font-weight: 800; color: #fff;
+      margin-bottom: 1px; line-height: 1.1;
     }
     .map-posto-dist {
       font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 500;
     }
 
     .btn-ir-ata-la {
-      padding: 13px 18px;
-      background: var(--orange); border: none; border-radius: 14px;
+      padding: 9px 14px;
+      background: var(--orange); border: none; border-radius: 12px;
       color: #fff; font-family: 'Inter', sans-serif;
       font-size: 13px; font-weight: 700;
       cursor: pointer; flex-shrink: 0;
