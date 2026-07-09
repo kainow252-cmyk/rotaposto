@@ -4025,107 +4025,25 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   //  HELPERS
   // ══════════════════════════════════════════════════════
   // Retorna URL do logo da bandeira — SVGs fiéis às cores oficiais de cada rede
+  // Retorna URL do arquivo de logo estático em /static/logos/
+  // Os arquivos SVG ficam em public/static/logos/ servidos via Cloudflare Pages
   function getBandeiraLogoUrl(nome) {
-    if (!nome) return null;
+    if (!nome) return '/static/logos/independente.svg';
     const n = nome.toUpperCase();
-
-    // Shell — concha vermelha/amarela (cores oficiais #FFD100 e #DD1D21)
-    if (n.includes('SHELL')) return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-      +'<circle cx="50" cy="50" r="50" fill="#FFD100"/>'
-      +'<path d="M50 15 C35 15 20 28 18 44 L50 44 Z" fill="#DD1D21"/>'
-      +'<path d="M18 44 C16 56 22 68 32 75 L44 50 Z" fill="#DD1D21"/>'
-      +'<path d="M68 75 C78 68 84 56 82 44 L56 50 Z" fill="#DD1D21"/>'
-      +'<path d="M82 44 C80 28 65 15 50 15 L50 44 Z" fill="#DD1D21"/>'
-      +'<path d="M32 75 C38 80 44 82 50 82 C56 82 62 80 68 75 L50 50 Z" fill="#DD1D21"/>'
-      +'<ellipse cx="50" cy="50" rx="18" ry="18" fill="#FFD100"/>'
-      +'</svg>'
-    );
-
-    // Petrobras BR — verde #009B3A com losango amarelo #FEDF00
-    if (n.includes('PETROBRAS') || /\bBR\b/.test(n) || n.includes('PETRO BR'))
-      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-        +'<circle cx="50" cy="50" r="50" fill="#009B3A"/>'
-        +'<polygon points="50,18 82,50 50,82 18,50" fill="#FEDF00"/>'
-        +'<circle cx="50" cy="50" r="20" fill="#009B3A"/>'
-        +'<text x="50" y="55" text-anchor="middle" font-size="16" font-weight="900" font-family="Arial,sans-serif" fill="#FEDF00">BR</text>'
-        +'</svg>'
-      );
-
-    // Ipiranga — "i" laranja em fundo azul escuro #003087 + laranja #FF6600
-    if (n.includes('IPIRANGA'))
-      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-        +'<circle cx="50" cy="50" r="50" fill="#003087"/>'
-        +'<rect x="42" y="20" width="16" height="14" rx="3" fill="#FF6600"/>'
-        +'<rect x="42" y="38" width="16" height="44" rx="3" fill="#FF6600"/>'
-        +'</svg>'
-      );
-
-    // Raízen — roxo com texto
-    if (n.includes('RAIZEN') || n.includes('RAÍZEN') || n.includes('RAIZ'))
-      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-        +'<circle cx="50" cy="50" r="50" fill="#6A0DAD"/>'
-        +'<text x="50" y="56" text-anchor="middle" font-size="19" font-weight="900" font-family="Arial,sans-serif" fill="white">RAÍZEN</text>'
-        +'</svg>'
-      );
-
-    // Ale — vermelho #E53935 com texto branco
-    if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes('ALEPOSTO'))
-      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-        +'<circle cx="50" cy="50" r="50" fill="#E53935"/>'
-        +'<text x="50" y="58" text-anchor="middle" font-size="30" font-weight="900" font-family="Arial,sans-serif" fill="white">ALE</text>'
-        +'</svg>'
-      );
-
-    // Texaco — estrela/vermelho #CC0000
-    if (n.includes('TEXACO'))
-      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-        +'<circle cx="50" cy="50" r="50" fill="#CC0000"/>'
-        +'<polygon points="50,20 56,38 75,38 60,50 66,68 50,57 34,68 40,50 25,38 44,38" fill="#FFD700"/>'
-        +'</svg>'
-      );
-
-    // Vibra — amarelo-ouro
-    if (n.includes('VIBRA'))
-      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-        +'<circle cx="50" cy="50" r="50" fill="#F4C400"/>'
-        +'<text x="50" y="56" text-anchor="middle" font-size="17" font-weight="900" font-family="Arial,sans-serif" fill="#333">VIBRA</text>'
-        +'</svg>'
-      );
-
-    // Esso — azul/vermelho
-    if (n.includes('ESSO'))
-      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-        +'<circle cx="50" cy="50" r="50" fill="#003DA5"/>'
-        +'<rect x="18" y="42" width="64" height="16" rx="4" fill="#CC0000"/>'
-        +'<text x="50" y="55" text-anchor="middle" font-size="13" font-weight="900" font-family="Arial,sans-serif" fill="white">ESSO</text>'
-        +'</svg>'
-      );
-
-    // PitStop — azul escuro #1A2744 com texto PIT laranja #FF6B00
-    if (n.includes('PITSTOP') || n.includes('PIT STOP') || n.includes('PIT-STOP'))
-      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-        +'<rect width="100" height="100" rx="12" fill="#1A2744"/>'
-        +'<text x="50" y="44" text-anchor="middle" font-size="26" font-weight="900" font-family="Arial Black,sans-serif" fill="white">PIT</text>'
-        +'<text x="50" y="70" text-anchor="middle" font-size="22" font-weight="900" font-family="Arial Black,sans-serif" fill="#FF6B00">STOP</text>'
-        +'</svg>'
-      );
-
-    // Genérico — cinza com bomba
-    return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-      +'<circle cx="50" cy="50" r="50" fill="#78909C"/>'
-      +'<text x="50" y="58" text-anchor="middle" font-size="38" font-family="sans-serif">⛽</text>'
-      +'</svg>'
-    );
+    if (n.includes('SHELL'))                                          return '/static/logos/shell.svg';
+    if (n.includes('PETROBRAS') || /\bBR\b/.test(n) || n.includes('PETRO BR')) return '/static/logos/br.svg';
+    if (n.includes('IPIRANGA'))                                       return '/static/logos/ipiranga.svg';
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN') || n.includes('RAIZ')) return '/static/logos/raizen.svg';
+    if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes('ALEPOSTO') || /\bALE\b/.test(n)) return '/static/logos/ale.svg';
+    if (n.includes('TEXACO'))                                         return '/static/logos/texaco.svg';
+    if (n.includes('VIBRA'))                                          return '/static/logos/vibra.svg';
+    if (n.includes('ESSO'))                                           return '/static/logos/esso.svg';
+    if (n.includes('PITSTOP') || n.includes('PIT STOP') || n.includes('PIT-STOP')) return '/static/logos/pitstop.svg';
+    if (n.includes('BANDEIRANTE'))                                    return '/static/logos/bandeirante.svg';
+    if (n.includes('COPAGAZ'))                                        return '/static/logos/copagaz.svg';
+    if (n.includes('ULTRAGAZ') || n.includes('ULTRA GAZ'))           return '/static/logos/ultragaz.svg';
+    if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS'))       return '/static/logos/supergasbras.svg';
+    return '/static/logos/independente.svg';
   }
 
   function getEmoji(nome) {

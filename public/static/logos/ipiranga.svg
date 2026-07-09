@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#ffffff"/>
+  <!-- Símbolo "i" estilizado da Ipiranga (azul #0043BC) -->
+  <!-- Forma do símbolo Ipiranga: como um "i" com gancho no topo -->
+  <path d="M32,5 C32,5 10,5 10,32 L10,62 C10,62 30,80 50,95 C70,80 90,62 90,62 L90,32 C90,5 68,5 68,5 Z" 
+        fill="#0043BC" opacity="0.08"/>
+  <!-- Logo Ipiranga simplificado mas fiel -->
+  <!-- O "i" principal -->
+  <rect x="44" y="18" width="12" height="10" rx="2" fill="#0043BC"/>
+  <rect x="44" y="32" width="12" height="38" rx="2" fill="#0043BC"/>
+  <!-- Curva base do "i" Ipiranga -->
+  <path d="M35,70 Q50,82 65,70" stroke="#0043BC" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Ponto acima (gancho) -->
+  <path d="M44,30 Q40,22 36,18 Q44,14 50,18" fill="#0043BC" opacity="0.3"/>
+  <!-- Texto Ipiranga pequeno -->
+  <text x="50" y="94"
+        text-anchor="middle"
+        font-size="9"
+        font-weight="700"
+        font-family="Arial, sans-serif"
+        fill="#0043BC">IPIRANGA</text>
+</svg>

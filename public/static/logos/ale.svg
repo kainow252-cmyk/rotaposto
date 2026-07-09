@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#E0001B"/>
+  <!-- Faixa branca fina no topo (estilo Ale real) -->
+  <rect x="0" y="0" width="100" height="4" fill="white" opacity="0.3"/>
+  <!-- Texto ALE branco grande bold -->
+  <text x="50" y="65"
+        text-anchor="middle"
+        font-size="44"
+        font-weight="900"
+        font-family="Arial Black, Impact, sans-serif"
+        fill="white"
+        letter-spacing="-2">ALE</text>
+</svg>

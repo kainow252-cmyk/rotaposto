@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#009B3A"/>
+  <!-- Losango amarelo Petrobras -->
+  <polygon points="50,8 92,50 50,92 8,50" fill="#FEDF00"/>
+  <!-- Círculo azul interno -->
+  <circle cx="50" cy="50" r="26" fill="#009B3A"/>
+  <!-- Arco azul da Terra (estilo real) -->
+  <path d="M28,48 Q50,36 72,48" stroke="#1565C0" stroke-width="4" fill="none"/>
+  <!-- Texto BR amarelo bold -->
+  <text x="50" y="60"
+        text-anchor="middle"
+        font-size="24"
+        font-weight="900"
+        font-family="Arial Black, Arial, sans-serif"
+        fill="#FEDF00"
+        letter-spacing="-1">BR</text>
+</svg>
