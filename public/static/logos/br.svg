@@ -1,17 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#009B3A"/>
-  <!-- Losango amarelo Petrobras -->
-  <polygon points="50,8 92,50 50,92 8,50" fill="#FEDF00"/>
-  <!-- Círculo azul interno -->
-  <circle cx="50" cy="50" r="26" fill="#009B3A"/>
-  <!-- Arco azul da Terra (estilo real) -->
-  <path d="M28,48 Q50,36 72,48" stroke="#1565C0" stroke-width="4" fill="none"/>
-  <!-- Texto BR amarelo bold -->
-  <text x="50" y="60"
-        text-anchor="middle"
-        font-size="24"
-        font-weight="900"
-        font-family="Arial Black, Arial, sans-serif"
-        fill="#FEDF00"
-        letter-spacing="-1">BR</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <clipPath id="clip-br"><rect width="200" height="200" rx="8"/></clipPath>
+  </defs>
+  <!-- Fundo branco com borda arredondada -->
+  <rect width="200" height="200" rx="8" fill="white"/>
+  <!-- Faixa amarela no topo (aprox 26% da altura) -->
+  <rect x="0" y="0" width="200" height="52" rx="0" fill="#FDC813" clip-path="url(#clip-br)"/>
+  <rect x="0" y="0" width="200" height="52" fill="#FDC813"/>
+  <!-- Fundo verde (corpo principal) -->
+  <rect x="0" y="52" width="200" height="148" fill="#00824A"/>
+  <!-- Arredondar cantos do svg inteiro -->
+  <rect width="200" height="200" rx="8" fill="none" stroke="white" stroke-width="0"/>
+  <!-- Letras BR brancas em itálico bold — exatamente como a logo Petrobras Distribuidora -->
+  <text
+    x="104"
+    y="172"
+    text-anchor="middle"
+    font-size="122"
+    font-weight="900"
+    font-style="italic"
+    font-family="'Arial Black', 'Arial Bold', Arial, Helvetica, sans-serif"
+    fill="white"
+    letter-spacing="-6">BR</text>
 </svg>

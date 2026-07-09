@@ -1,18 +1,67 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#FFD100"/>
-  <!-- Concha Shell com 7 segmentos reais -->
-  <g transform="translate(50,52) scale(0.72)">
-    <!-- Segmentos vermelhos da concha Shell -->
-    <path d="M0,-55 L-18,0 L18,0 Z" fill="#DD1D21"/>
-    <path d="M-18,0 C-52,-10 -58,-35 -48,-52 L-18,-20 Z" fill="#DD1D21"/>
-    <path d="M18,0 C52,-10 58,-35 48,-52 L18,-20 Z" fill="#DD1D21"/>
-    <path d="M-48,-52 C-30,-62 -10,-58 0,-55 L-18,-20 Z" fill="#DD1D21"/>
-    <path d="M48,-52 C30,-62 10,-58 0,-55 L18,-20 Z" fill="#DD1D21"/>
-    <path d="M-18,0 C-30,12 -28,28 -18,38 L0,20 Z" fill="#DD1D21"/>
-    <path d="M18,0 C30,12 28,28 18,38 L0,20 Z" fill="#DD1D21"/>
-    <!-- Faixa amarela central -->
-    <ellipse cx="0" cy="-10" rx="22" ry="26" fill="#FFD100"/>
-    <!-- Ponto inferior arredondado -->
-    <ellipse cx="0" cy="32" rx="18" ry="10" fill="#DD1D21"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 195">
+  <rect width="200" height="195" fill="white"/>
+  <!-- ==========================================
+       Shell Pecten Logo — baseado na imagem real
+       13 raios convergindo para a base,
+       amarelo FFD500 com borda DD1D21
+       ========================================== -->
+  <g transform="translate(100, 100)">
+    <!-- Silhoueta externa vermelha (borda da concha) -->
+    <path d="M0,-85
+      C-10,-85 -22,-83 -34,-77
+      C-54,-67 -68,-48 -74,-26
+      C-80,-4 -76,20 -64,40
+      C-52,60 -32,74 -10,78
+      C-4,79 0,80 4,79
+      C26,75 46,61 58,41
+      C70,21 74,-3 68,-25
+      C62,-47 48,-66 28,-76
+      C16,-82 8,-85 0,-85Z"
+      fill="#DD1D21"/>
+    <!-- Raios amarelos da concha (13 raios) convergindo para baixo -->
+    <!-- Raio central (0°) -->
+    <line x1="0" y1="77" x2="0" y2="-82" stroke="#FFD500" stroke-width="10.5" stroke-linecap="butt"/>
+    <!-- Raio 1L (-14°) -->
+    <line x1="0" y1="77" x2="-20" y2="-80" stroke="#FFD500" stroke-width="10" stroke-linecap="butt"/>
+    <!-- Raio 1R (+14°) -->
+    <line x1="0" y1="77" x2="20" y2="-80" stroke="#FFD500" stroke-width="10" stroke-linecap="butt"/>
+    <!-- Raio 2L (-28°) -->
+    <line x1="0" y1="77" x2="-38" y2="-73" stroke="#FFD500" stroke-width="9.5" stroke-linecap="butt"/>
+    <!-- Raio 2R (+28°) -->
+    <line x1="0" y1="77" x2="38" y2="-73" stroke="#FFD500" stroke-width="9.5" stroke-linecap="butt"/>
+    <!-- Raio 3L (-42°) -->
+    <line x1="0" y1="77" x2="-54" y2="-58" stroke="#FFD500" stroke-width="9" stroke-linecap="butt"/>
+    <!-- Raio 3R (+42°) -->
+    <line x1="0" y1="77" x2="54" y2="-58" stroke="#FFD500" stroke-width="9" stroke-linecap="butt"/>
+    <!-- Raio 4L (-55°) -->
+    <line x1="0" y1="77" x2="-66" y2="-38" stroke="#FFD500" stroke-width="8.5" stroke-linecap="butt"/>
+    <!-- Raio 4R (+55°) -->
+    <line x1="0" y1="77" x2="66" y2="-38" stroke="#FFD500" stroke-width="8.5" stroke-linecap="butt"/>
+    <!-- Raio 5L (-67°) -->
+    <line x1="0" y1="77" x2="-73" y2="-14" stroke="#FFD500" stroke-width="8" stroke-linecap="butt"/>
+    <!-- Raio 5R (+67°) -->
+    <line x1="0" y1="77" x2="73" y2="-14" stroke="#FFD500" stroke-width="8" stroke-linecap="butt"/>
+    <!-- Raio 6L (-78°) — quase horizontal -->
+    <line x1="0" y1="77" x2="-74" y2="14" stroke="#FFD500" stroke-width="7.5" stroke-linecap="butt"/>
+    <!-- Raio 6R (+78°) — quase horizontal -->
+    <line x1="0" y1="77" x2="74" y2="14" stroke="#FFD500" stroke-width="7.5" stroke-linecap="butt"/>
+    <!-- Separadores vermelhos entre raios (linhas finas) -->
+    <line x1="0" y1="77" x2="-10" y2="-81" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="10" y2="-81" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-29" y2="-77" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="29" y2="-77" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-46" y2="-66" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="46" y2="-66" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-60" y2="-48" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="60" y2="-48" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-70" y2="-26" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="70" y2="-26" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-75" y2="0" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="75" y2="0" stroke="#DD1D21" stroke-width="1.8"/>
+    <!-- Borda vermelha nas laterais (visível sobre os raios) -->
+    <path d="M-74,14 C-82,40 -70,62 -48,72 L-44,65 C-62,57 -72,38 -65,16Z" fill="#DD1D21"/>
+    <path d="M74,14 C82,40 70,62 48,72 L44,65 C62,57 72,38 65,16Z" fill="#DD1D21"/>
+    <!-- Base vermelha inferior (tab/bico da concha) -->
+    <path d="M-12,77 C-14,84 -8,88 0,88 C8,88 14,84 12,77Z" fill="#DD1D21"/>
   </g>
 </svg>

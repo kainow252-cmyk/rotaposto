@@ -1,13 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#E0001B"/>
-  <!-- Faixa branca fina no topo (estilo Ale real) -->
-  <rect x="0" y="0" width="100" height="4" fill="white" opacity="0.3"/>
-  <!-- Texto ALE branco grande bold -->
-  <text x="50" y="65"
-        text-anchor="middle"
-        font-size="44"
-        font-weight="900"
-        font-family="Arial Black, Impact, sans-serif"
-        fill="white"
-        letter-spacing="-2">ALE</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <!-- Logo ALE real: fundo branco com "ALE" em vermelho grande e barra vermelha -->
+  <!-- Retângulo vermelho superior (header) -->
+  <rect x="0" y="0" width="200" height="60" fill="#E0001B"/>
+  <!-- Barra branca fina separadora -->
+  <rect x="0" y="60" width="200" height="6" fill="white"/>
+  <!-- Área vermelha inferior -->
+  <rect x="0" y="66" width="200" height="134" fill="#E0001B"/>
+  <!-- ALE branco grande e itálico -->
+  <text x="100" y="168"
+    text-anchor="middle"
+    font-size="118"
+    font-weight="900"
+    font-style="italic"
+    font-family="'Arial Black', Arial, Helvetica, sans-serif"
+    fill="white"
+    letter-spacing="-6">ALE</text>
+  <!-- Detalhe: linha branca fina abaixo das letras -->
+  <rect x="20" y="178" width="160" height="4" rx="2" fill="white" opacity="0.5"/>
 </svg>

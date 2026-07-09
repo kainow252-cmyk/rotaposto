@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#F5A800"/>
-  <!-- V grande da Vibra -->
-  <polygon points="12,18 28,18 50,68 72,18 88,18 56,88 44,88" fill="#1A1A1A"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <!-- Logo Vibra Energia: V grande amarelo com texto VIBRA azul -->
+  <!-- Forma "V" estilizada — baseada no logo real -->
+  <path d="M14,16 L56,16 L100,138 L144,16 L186,16 L118,184 L82,184 Z"
+        fill="#F5A800"/>
+  <!-- Barra horizontal no V (detalhe do logo) -->
+  <rect x="14" y="32" width="172" height="8" fill="white" opacity="0.2"/>
+  <!-- VIBRA abaixo em azul (como no logo real) -->
 </svg>

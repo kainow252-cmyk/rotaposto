@@ -101,237 +101,297 @@ app.use('/icons/*', async (c) => {
 // ─── GET /static/logos/:nome.svg — logos de bandeiras embutidas no Worker ────
 // SVGs servidos diretamente sem depender de Pages Assets ou CDN externo
 const LOGOS_SVG: Record<string, string> = {
-  'ale': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#E0001B"/>
-  <!-- Faixa branca fina no topo (estilo Ale real) -->
-  <rect x="0" y="0" width="100" height="4" fill="white" opacity="0.3"/>
-  <!-- Texto ALE branco grande bold -->
-  <text x="50" y="65"
-        text-anchor="middle"
-        font-size="44"
-        font-weight="900"
-        font-family="Arial Black, Impact, sans-serif"
-        fill="white"
-        letter-spacing="-2">ALE</text>
+  'ale': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <!-- Logo ALE real: fundo branco com "ALE" em vermelho grande e barra vermelha -->
+  <!-- Retângulo vermelho superior (header) -->
+  <rect x="0" y="0" width="200" height="60" fill="#E0001B"/>
+  <!-- Barra branca fina separadora -->
+  <rect x="0" y="60" width="200" height="6" fill="white"/>
+  <!-- Área vermelha inferior -->
+  <rect x="0" y="66" width="200" height="134" fill="#E0001B"/>
+  <!-- ALE branco grande e itálico -->
+  <text x="100" y="168"
+    text-anchor="middle"
+    font-size="118"
+    font-weight="900"
+    font-style="italic"
+    font-family="'Arial Black', Arial, Helvetica, sans-serif"
+    fill="white"
+    letter-spacing="-6">ALE</text>
+  <!-- Detalhe: linha branca fina abaixo das letras -->
+  <rect x="20" y="178" width="160" height="4" rx="2" fill="white" opacity="0.5"/>
 </svg>`,
-  'bandeirante': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#1C1C1C"/>
+  'bandeirante': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#1A1A1A"/>
   <!-- Padrão xadrez de bandeira -->
-  <rect x="18" y="12" width="16" height="16" fill="white"/>
-  <rect x="34" y="12" width="16" height="16" fill="#444"/>
-  <rect x="50" y="12" width="16" height="16" fill="white"/>
-  <rect x="66" y="12" width="16" height="16" fill="#444"/>
-  <rect x="18" y="28" width="16" height="16" fill="#444"/>
-  <rect x="34" y="28" width="16" height="16" fill="white"/>
-  <rect x="50" y="28" width="16" height="16" fill="#444"/>
-  <rect x="66" y="28" width="16" height="16" fill="white"/>
-  <rect x="18" y="44" width="16" height="16" fill="white"/>
-  <rect x="34" y="44" width="16" height="16" fill="#444"/>
-  <rect x="50" y="44" width="16" height="16" fill="white"/>
-  <rect x="66" y="44" width="16" height="16" fill="#444"/>
-  <text x="50" y="78"
-        text-anchor="middle"
-        font-size="10"
-        font-weight="700"
-        font-family="Arial, sans-serif"
-        fill="white">BANDEIRANTE</text>
+  <defs>
+    <pattern id="checker" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="16" height="16" fill="white"/>
+      <rect x="16" y="16" width="16" height="16" fill="white"/>
+      <rect x="16" y="0" width="16" height="16" fill="#333"/>
+      <rect x="0" y="16" width="16" height="16" fill="#333"/>
+    </pattern>
+  </defs>
+  <!-- Faixa xadrez na parte superior -->
+  <rect x="0" y="0" width="200" height="80" fill="url(#checker)"/>
+  <!-- Faixa preta na parte inferior -->
+  <rect x="0" y="80" width="200" height="120" fill="#1A1A1A"/>
+  <!-- BANDEIRANTE em branco -->
+  <text x="100" y="146"
+    text-anchor="middle"
+    font-size="26"
+    font-weight="900"
+    font-family="'Arial Black', Arial, sans-serif"
+    fill="white"
+    letter-spacing="0">BANDEI</text>
+  <text x="100" y="176"
+    text-anchor="middle"
+    font-size="26"
+    font-weight="900"
+    font-family="'Arial Black', Arial, sans-serif"
+    fill="white"
+    letter-spacing="0">RANTE</text>
 </svg>`,
-  'br': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#009B3A"/>
-  <!-- Losango amarelo Petrobras -->
-  <polygon points="50,8 92,50 50,92 8,50" fill="#FEDF00"/>
-  <!-- Círculo azul interno -->
-  <circle cx="50" cy="50" r="26" fill="#009B3A"/>
-  <!-- Arco azul da Terra (estilo real) -->
-  <path d="M28,48 Q50,36 72,48" stroke="#1565C0" stroke-width="4" fill="none"/>
-  <!-- Texto BR amarelo bold -->
-  <text x="50" y="60"
-        text-anchor="middle"
-        font-size="24"
-        font-weight="900"
-        font-family="Arial Black, Arial, sans-serif"
-        fill="#FEDF00"
-        letter-spacing="-1">BR</text>
+  'br': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <clipPath id="clip-br"><rect width="200" height="200" rx="8"/></clipPath>
+  </defs>
+  <!-- Fundo branco com borda arredondada -->
+  <rect width="200" height="200" rx="8" fill="white"/>
+  <!-- Faixa amarela no topo (aprox 26% da altura) -->
+  <rect x="0" y="0" width="200" height="52" rx="0" fill="#FDC813" clip-path="url(#clip-br)"/>
+  <rect x="0" y="0" width="200" height="52" fill="#FDC813"/>
+  <!-- Fundo verde (corpo principal) -->
+  <rect x="0" y="52" width="200" height="148" fill="#00824A"/>
+  <!-- Arredondar cantos do svg inteiro -->
+  <rect width="200" height="200" rx="8" fill="none" stroke="white" stroke-width="0"/>
+  <!-- Letras BR brancas em itálico bold — exatamente como a logo Petrobras Distribuidora -->
+  <text
+    x="104"
+    y="172"
+    text-anchor="middle"
+    font-size="122"
+    font-weight="900"
+    font-style="italic"
+    font-family="'Arial Black', 'Arial Bold', Arial, Helvetica, sans-serif"
+    fill="white"
+    letter-spacing="-6">BR</text>
 </svg>`,
-  'copagaz': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#0077C8"/>
-  <circle cx="50" cy="44" rx="24" ry="24" fill="none" stroke="white" stroke-width="3" opacity="0.4"/>
-  <text x="50" y="43"
-        text-anchor="middle"
-        font-size="16"
-        font-weight="900"
-        font-family="Arial Black, sans-serif"
-        fill="white">COPA</text>
-  <text x="50" y="62"
-        text-anchor="middle"
-        font-size="16"
-        font-weight="900"
-        font-family="Arial Black, sans-serif"
-        fill="white">GAZ</text>
-  <rect x="20" y="68" width="60" height="3" rx="1.5" fill="white" opacity="0.5"/>
+  'copagaz': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#0067B3"/>
+  <!-- Símbolo chama de gás (cilindro) -->
+  <ellipse cx="100" cy="62" rx="32" ry="16" fill="#FFD700" opacity="0.9"/>
+  <rect x="68" y="62" width="64" height="74" rx="4" fill="#FFD700" opacity="0.9"/>
+  <ellipse cx="100" cy="136" rx="32" ry="14" fill="#E8B800" opacity="0.9"/>
+  <!-- COPA em branco -->
+  <text x="100" y="168"
+    text-anchor="middle" font-size="38" font-weight="900"
+    font-family="'Arial Black', Arial, sans-serif" fill="white">COPA</text>
+  <text x="100" y="194"
+    text-anchor="middle" font-size="26" font-weight="700"
+    font-family="Arial, sans-serif" fill="white" letter-spacing="4">GAZ</text>
 </svg>`,
-  'esso': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#ffffff"/>
-  <!-- Oval vermelho grande Esso -->
-  <ellipse cx="50" cy="52" rx="44" ry="30" fill="#CC0000"/>
-  <!-- Oval menor interno branco (efeito 3D) -->
-  <ellipse cx="50" cy="50" rx="42" ry="28" fill="#CC0000"/>
-  <!-- Faixa azul no topo -->
-  <rect x="6" y="24" width="88" height="8" rx="4" fill="#003DA5"/>
-  <!-- Texto ESSO branco grande -->
-  <text x="50" y="62"
-        text-anchor="middle"
-        font-size="30"
-        font-weight="900"
-        font-family="Arial Black, Impact, sans-serif"
-        fill="white"
-        letter-spacing="2">ESSO</text>
+  'esso': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <!-- Oval vermelha Esso -->
+  <ellipse cx="100" cy="106" rx="90" ry="54" fill="#CC0000"/>
+  <!-- Faixa azul no topo (detalhe visual Esso real) -->
+  <rect x="10" y="60" width="180" height="14" rx="4" fill="#003DA5"/>
+  <!-- Texto ESSO branco bold -->
+  <text x="100" y="126"
+    text-anchor="middle"
+    font-size="66"
+    font-weight="900"
+    font-family="'Arial Black', Arial, sans-serif"
+    fill="white"
+    letter-spacing="2">ESSO</text>
 </svg>`,
-  'independente': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#607D8B"/>
-  <!-- Ícone de bomba de combustível estilizado -->
-  <!-- Corpo da bomba -->
-  <rect x="25" y="28" width="35" height="48" rx="3" fill="white" opacity="0.9"/>
-  <!-- Janela de display -->
-  <rect x="30" y="34" width="25" height="16" rx="2" fill="#607D8B"/>
+  'independente': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#546E7A"/>
+  <!-- Bomba de combustível estilizada -->
+  <!-- Corpo principal da bomba -->
+  <rect x="44" y="50" width="80" height="112" rx="8" fill="white" opacity="0.95"/>
+  <!-- Visor/display da bomba -->
+  <rect x="56" y="64" width="56" height="36" rx="4" fill="#90A4AE"/>
+  <!-- Números no display -->
+  <text x="84" y="88"
+    text-anchor="middle" font-size="20" font-weight="700"
+    font-family="'Courier New', monospace" fill="white">R$</text>
   <!-- Mangueira -->
-  <rect x="60" y="28" width="6" height="5" rx="1" fill="white" opacity="0.9"/>
-  <rect x="62" y="33" width="4" height="22" rx="2" fill="white" opacity="0.9"/>
-  <rect x="58" y="51" width="8" height="5" rx="2" fill="white" opacity="0.7"/>
-  <!-- Logotipo "P" no centro -->
-  <text x="43" y="65"
-        text-anchor="middle"
-        font-size="20"
-        font-weight="900"
-        font-family="Arial Black, sans-serif"
-        fill="#607D8B">P</text>
+  <path d="M124,80 Q148,80 148,100 Q148,130 136,140"
+    stroke="white" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.9"/>
+  <!-- Bico da mangueira -->
+  <rect x="128" y="138" width="16" height="8" rx="4" fill="white" opacity="0.85"/>
+  <!-- Botões abaixo do display -->
+  <circle cx="66" cy="116" r="8" fill="#78909C"/>
+  <circle cx="84" cy="116" r="8" fill="#78909C"/>
+  <circle cx="102" cy="116" r="8" fill="#78909C"/>
+  <!-- INDEPENDENTE -->
+  <text x="100" y="186"
+    text-anchor="middle" font-size="11" font-weight="700"
+    font-family="Arial, sans-serif" fill="white" letter-spacing="0.5">INDEPENDENTE</text>
 </svg>`,
-  'ipiranga': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#ffffff"/>
-  <!-- Símbolo "i" estilizado da Ipiranga (azul #0043BC) -->
-  <!-- Forma do símbolo Ipiranga: como um "i" com gancho no topo -->
-  <path d="M32,5 C32,5 10,5 10,32 L10,62 C10,62 30,80 50,95 C70,80 90,62 90,62 L90,32 C90,5 68,5 68,5 Z" 
-        fill="#0043BC" opacity="0.08"/>
-  <!-- Logo Ipiranga simplificado mas fiel -->
-  <!-- O "i" principal -->
-  <rect x="44" y="18" width="12" height="10" rx="2" fill="#0043BC"/>
-  <rect x="44" y="32" width="12" height="38" rx="2" fill="#0043BC"/>
-  <!-- Curva base do "i" Ipiranga -->
-  <path d="M35,70 Q50,82 65,70" stroke="#0043BC" stroke-width="4" fill="none" stroke-linecap="round"/>
-  <!-- Ponto acima (gancho) -->
-  <path d="M44,30 Q40,22 36,18 Q44,14 50,18" fill="#0043BC" opacity="0.3"/>
-  <!-- Texto Ipiranga pequeno -->
-  <text x="50" y="94"
-        text-anchor="middle"
-        font-size="9"
-        font-weight="700"
-        font-family="Arial, sans-serif"
-        fill="#0043BC">IPIRANGA</text>
-</svg>`,
-  'pitstop': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#0D1B3E"/>
-  <!-- Faixas laranja características do PitStop -->
-  <rect x="0" y="0" width="100" height="9" fill="#FF6200"/>
-  <rect x="0" y="91" width="100" height="9" fill="#FF6200"/>
-  <!-- Texto PIT branco -->
-  <text x="50" y="50"
-        text-anchor="middle"
-        font-size="30"
-        font-weight="900"
-        font-family="Arial Black, Impact, sans-serif"
-        fill="white"
-        letter-spacing="-1">PIT</text>
-  <!-- Texto STOP laranja -->
-  <text x="50" y="76"
-        text-anchor="middle"
-        font-size="24"
-        font-weight="900"
-        font-family="Arial Black, Impact, sans-serif"
-        fill="#FF6200"
-        letter-spacing="1">STOP</text>
-</svg>`,
-  'raizen': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#5B1B6E"/>
-  <!-- Símbolo folha/semente da Raízen -->
-  <path d="M50,18 C50,18 30,32 28,52 C26,68 36,80 50,82 C64,80 74,68 72,52 C70,32 50,18 50,18Z"
-        fill="#9333EA" opacity="0.5"/>
-  <path d="M50,26 C50,26 35,38 33,55 C31,67 40,76 50,77 C60,76 69,67 67,55 C65,38 50,26 50,26Z"
-        fill="white" opacity="0.2"/>
-  <!-- Haste da folha -->
-  <line x1="50" y1="77" x2="50" y2="90" stroke="white" stroke-width="2.5" opacity="0.7"/>
-  <!-- Texto RAÍZEN -->
-  <text x="50" y="98"
-        text-anchor="middle"
-        font-size="11"
-        font-weight="900"
-        font-family="Arial Black, Arial, sans-serif"
-        fill="white">RAÍZEN</text>
-</svg>`,
-  'shell': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#FFD100"/>
-  <!-- Concha Shell com 7 segmentos reais -->
-  <g transform="translate(50,52) scale(0.72)">
-    <!-- Segmentos vermelhos da concha Shell -->
-    <path d="M0,-55 L-18,0 L18,0 Z" fill="#DD1D21"/>
-    <path d="M-18,0 C-52,-10 -58,-35 -48,-52 L-18,-20 Z" fill="#DD1D21"/>
-    <path d="M18,0 C52,-10 58,-35 48,-52 L18,-20 Z" fill="#DD1D21"/>
-    <path d="M-48,-52 C-30,-62 -10,-58 0,-55 L-18,-20 Z" fill="#DD1D21"/>
-    <path d="M48,-52 C30,-62 10,-58 0,-55 L18,-20 Z" fill="#DD1D21"/>
-    <path d="M-18,0 C-30,12 -28,28 -18,38 L0,20 Z" fill="#DD1D21"/>
-    <path d="M18,0 C30,12 28,28 18,38 L0,20 Z" fill="#DD1D21"/>
-    <!-- Faixa amarela central -->
-    <ellipse cx="0" cy="-10" rx="22" ry="26" fill="#FFD100"/>
-    <!-- Ponto inferior arredondado -->
-    <ellipse cx="0" cy="32" rx="18" ry="10" fill="#DD1D21"/>
+  'ipiranga': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <g transform="translate(20.0,77.8) scale(1.1111,1.1111)">
+    <path d="M31.5108 6.01918L23.6725 13.5731C23.3094 13.9363 22.9873 14.0562 22.703 14.0562C22.2165 14.0562 21.8945 13.7342 21.7335 13.2066L19.5512 5.77253C19.5101 5.61151 19.469 5.4505 19.469 5.28606C19.469 4.7208 19.8321 4.31655 20.4796 4.31655H31.1442C31.5896 4.31655 31.9938 4.63858 31.9938 5.12504C31.9938 5.36828 31.8328 5.6903 31.5108 6.01576M36.074 0.404248C35.0634 0.284344 26.9442 0 23.0661 0C15.1901 0 9.33196 0.0411099 4.76533 4.80644C0 9.77732 0 16.3207 0 26.903V32.7612C0 33.6485 0.486468 34.2549 1.45255 34.2549C2.01781 34.2549 2.46317 34.0939 3.27167 33.2854L20.3186 16.8037C20.6029 16.5194 20.9661 16.3583 21.247 16.3583C21.8123 16.3583 22.2987 16.8037 22.2987 17.4478V33.0421C22.2987 33.7684 22.7441 34.2549 23.4293 34.2549H23.9534C26.0123 34.2549 30.0137 33.4053 33.3642 29.8527C37.4443 25.5704 37.6465 20.8839 37.6465 11.9973V2.02124C37.6465 1.13052 37.0401 0.527578 36.0706 0.404248" fill="#0043BC"/>
+<path d="M50.2329 16.3613H47.5128C47.2113 16.3613 47.0605 16.5121 47.0605 16.8135V33.8433C47.0605 34.1448 47.2113 34.2956 47.5128 34.2956H50.2329C50.5343 34.2956 50.6851 34.1448 50.6851 33.8433V16.8135C50.6851 16.5121 50.5343 16.3613 50.2329 16.3613Z" fill="#0043BC"/>
+<path d="M58.8079 31.7676C58.2426 31.7676 57.7116 31.6923 57.2217 31.5415V28.6707C57.2217 25.2723 58.8079 23.8368 60.6579 23.8368C62.5078 23.8368 63.378 25.0838 63.378 27.1222C63.378 30.1061 61.3396 31.7676 58.8079 31.7676M61.4903 20.8906C59.1882 20.8906 57.5643 22.0828 56.8449 23.7067L56.355 21.7231C56.242 21.2709 56.0912 21.1578 55.7898 21.1578H54.2413C53.9398 21.1578 53.7891 21.3086 53.7891 21.6101V39.2839C53.7891 39.51 53.9775 39.6984 54.2036 39.6984H56.8106C57.0368 39.6984 57.2252 39.51 57.2252 39.2839V34.4124C57.7527 34.5254 58.4345 34.6008 58.8867 34.6008C63.7959 34.6008 66.9682 31.5038 66.9682 27.0468C66.9682 23.3469 64.7791 20.8906 61.4938 20.8906" fill="#0043BC"/>
+<path d="M108.009 20.8906C105.933 20.8906 104.234 21.8362 103.364 23.5354L102.912 21.7231C102.799 21.2709 102.648 21.1578 102.346 21.1578H100.798C100.496 21.1578 100.346 21.3086 100.346 21.6101V33.8437C100.346 34.1452 100.496 34.2959 100.798 34.2959H103.367C103.669 34.2959 103.819 34.1452 103.819 33.8437V27.5744C103.819 25.1969 105.33 23.9122 107.105 23.9122C108.503 23.9122 109.52 24.8201 109.52 26.3651V33.8437C109.52 34.1452 109.671 34.2959 109.972 34.2959H112.542C112.843 34.2959 112.994 34.1452 112.994 33.8437V26.1767C112.994 22.8913 111.182 20.8906 108.009 20.8906" fill="#0043BC"/>
+<path d="M140.448 26.5193C140.448 29.9177 139.051 31.6546 137.012 31.6546C135.313 31.6546 134.142 30.483 134.142 28.3692C134.142 25.6491 136.105 23.7238 138.825 23.7238C139.352 23.7238 139.959 23.7992 140.448 23.9499V26.5193V26.5193ZM143.508 21.7985C142.638 21.4216 140.825 20.8906 138.9 20.8906C133.576 20.8906 130.555 24.3267 130.555 28.4446C130.555 32.1445 132.97 34.6008 136.218 34.6008C138.438 34.6008 140.219 33.4668 140.932 31.634L141.315 33.3538C141.504 34.1828 141.617 34.2993 142.148 34.2993H143.432C143.734 34.2993 143.885 34.1486 143.885 33.8471V22.4048C143.885 22.1411 143.772 21.9149 143.508 21.8019" fill="#0043BC"/>
+<path d="M121.603 31.2773C119.866 31.2773 118.694 29.9926 118.694 28.0296C118.694 25.5356 120.62 23.7233 123.377 23.7233C123.905 23.7233 124.511 23.7987 125.001 23.9494V26.2516C125.001 29.6123 123.566 31.2738 121.603 31.2738M128.06 21.7946C127.42 21.4554 125.303 20.8867 123.189 20.8867C118.054 20.8867 115.107 24.0967 115.107 28.1358C115.107 32.1748 117.865 33.9528 120.808 33.9528C122.778 33.9528 124.237 33.0861 124.96 31.798V33.2368C124.96 35.7274 123.412 36.899 120.883 36.899C119.373 36.899 118.088 36.4845 116.769 35.9946C116.505 35.8816 116.166 35.9193 116.166 36.2961V38.1461C116.166 38.4852 116.279 38.7867 116.731 39.0162C117.978 39.6568 119.715 39.9994 121.377 39.9994C126.474 39.9994 128.437 36.9778 128.437 33.0895V22.4044C128.437 22.1783 128.324 21.9522 128.06 21.8014" fill="#0043BC"/>
+<path d="M94.3411 26.5193C94.3411 29.9177 92.9433 31.6546 90.905 31.6546C89.2057 31.6546 88.0341 30.483 88.0341 28.3692C88.0341 25.6491 89.9971 23.7238 92.7172 23.7238C93.2448 23.7238 93.8512 23.7992 94.3411 23.9499V26.5193V26.5193ZM97.4003 21.7985C96.5302 21.4216 94.7179 20.8906 92.7926 20.8906C87.4688 20.8906 84.4473 24.3267 84.4473 28.4446C84.4473 32.1445 86.8625 34.6008 90.1102 34.6008C92.3301 34.6008 94.1115 33.4668 94.8241 31.634L95.2078 33.3538C95.3962 34.1828 95.5093 34.2993 96.0368 34.2993H97.3969C97.6607 34.2993 97.7737 34.1109 97.7737 33.9225V22.4048C97.7737 22.1411 97.6607 21.9149 97.3969 21.8019" fill="#0043BC"/>
+<path d="M83.5013 21.0414C83.2375 20.9283 82.7065 20.8906 82.2919 20.8906C80.6304 20.8906 78.7428 21.9115 78.1398 23.7238L77.6499 21.7231C77.5369 21.2709 77.3861 21.1578 77.0847 21.1578H75.5362C75.2347 21.1578 75.084 21.3086 75.084 21.6101V33.8437C75.084 34.1452 75.2347 34.2959 75.5362 34.2959H78.1056C78.407 34.2959 78.5578 34.1452 78.5578 33.8437V27.917C78.5578 25.3853 79.6917 24.1417 81.8431 24.1417C82.22 24.1417 82.5591 24.1794 83.0901 24.2548C83.6177 24.3302 83.8438 24.2925 83.8438 23.8403V21.6888C83.8438 21.3874 83.8438 21.1989 83.5047 21.0482" fill="#0043BC"/>
+<path d="M72.1368 21.1582H69.5674C69.266 21.1582 69.1152 21.3089 69.1152 21.6104V33.8441C69.1152 34.1455 69.266 34.2963 69.5674 34.2963H72.1368C72.4383 34.2963 72.589 34.1455 72.589 33.8441V21.6104C72.589 21.3089 72.4383 21.1582 72.1368 21.1582Z" fill="#0043BC"/>
   </g>
 </svg>`,
-  'supergasbras': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#E53935"/>
-  <text x="50" y="42"
-        text-anchor="middle"
-        font-size="13"
-        font-weight="900"
-        font-family="Arial Black, sans-serif"
-        fill="white">SUPER</text>
-  <text x="50" y="58"
-        text-anchor="middle"
-        font-size="11"
-        font-weight="900"
-        font-family="Arial Black, sans-serif"
-        fill="white">GAS</text>
-  <text x="50" y="73"
-        text-anchor="middle"
-        font-size="11"
-        font-weight="900"
-        font-family="Arial Black, sans-serif"
-        fill="white">BRÁS</text>
+  'pitstop': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Fundo azul marinho -->
+  <rect width="200" height="200" fill="#0D1B3E"/>
+  <!-- Faixas laranja no topo e base -->
+  <rect x="0" y="0" width="200" height="18" fill="#FF6200"/>
+  <rect x="0" y="182" width="200" height="18" fill="#FF6200"/>
+  <!-- Checkered flag mini (canto sup esq) -->
+  <rect x="4" y="22" width="10" height="10" fill="white"/>
+  <rect x="14" y="22" width="10" height="10" fill="#0D1B3E"/>
+  <rect x="4" y="32" width="10" height="10" fill="#0D1B3E"/>
+  <rect x="14" y="32" width="10" height="10" fill="white"/>
+  <!-- PIT em branco grande -->
+  <text x="100" y="108"
+    text-anchor="middle"
+    font-size="74"
+    font-weight="900"
+    font-family="'Arial Black', Impact, Arial, sans-serif"
+    fill="white"
+    letter-spacing="-2">PIT</text>
+  <!-- STOP em laranja -->
+  <text x="100" y="162"
+    text-anchor="middle"
+    font-size="56"
+    font-weight="900"
+    font-family="'Arial Black', Impact, Arial, sans-serif"
+    fill="#FF6200"
+    letter-spacing="2">STOP</text>
 </svg>`,
-  'texaco': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#ffffff"/>
-  <!-- Círculo vermelho Texaco -->
-  <circle cx="38" cy="50" r="34" fill="#CC0000"/>
-  <!-- Estrela branca (5 pontas) -->
-  <polygon points="38,20 43,36 60,36 46,46 51,62 38,52 25,62 30,46 16,36 33,36"
-           fill="white"/>
-  <!-- Texto TEXACO em vermelho -->
-  <text x="72" y="44"
-        text-anchor="middle"
-        font-size="11"
-        font-weight="900"
-        font-family="Arial Black, Arial, sans-serif"
-        fill="#CC0000"
-        transform="rotate(-90, 72, 50)">TEXACO</text>
+  'raizen': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <g transform="translate(15.0,64.9) scale(0.5667,0.5667)">
+    ﻿
+<title>Raízen</title>
+<path fill="#6F016F" d="M65.471,24.045c-17.367,0-30.737,13.744-30.737,30.861,0,17.866,11.746,30.861,29.113,30.861,5.872,0,12.494-2.375,17.242-7.372v6.621h14.619v-31.484c-0.001-16.368-12.745-29.487-30.237-29.487m-0.25,47.228c-9.121,0-15.493-6.622-15.493-16.367s6.372-16.493,15.493-16.493,15.494,6.748,15.494,16.493-6.373,16.367-15.494,16.367m38.109,13.744h15.118v-61.72l-15.118,3.747v57.973zm-88.711-53.725v-5.872h-14.619v59.597h14.994v-31.485c0-8.247,3.624-14.619,14.618-14.619h4.499v-14.244h-3.249c-6.498,0-11.246,1.874-16.243,6.623m140.31,25.738l21.115-18.741v-12.87h-50.727v13.87h29.238l-18.742,16.367,12.494,14.494c-16.242,0.999-26.238,12.493-26.238,26.238,0,15.492,12.619,27.362,28.112,27.362,15.367,0,28.237-11.87,28.237-27.362,0-8.247-2.25-14.369-7.372-20.365l-16.11-18.993zm-4.87,52.85c-7.996,0-13.368-5.871-13.368-13.62,0-7.744,5.373-13.618,13.368-13.618,7.873,0,13.37,5.874,13.37,13.618,0,7.75-5.5,13.62-13.37,13.62m57.72-85.835c-17.742,0-29.861,13.869-29.861,30.861,0,17.117,12.245,30.861,29.861,30.861,14.244,0,23.989-7.872,27.738-19.367h-15.494c-2.124,3.623-5.496,5.623-11.368,5.623-8.872,0-13.994-4.497-15.494-12.12h43.98c0.125-1.5,0.249-2.624,0.249-4.123-0.01-20.615-13.25-31.735-29.62-31.735m-14.49,23.989c2.123-7.372,7.745-10.87,14.617-10.87,7.122,0,12.369,3.124,14.244,10.87h-28.861zm82.47-23.989c-6.498,0-11.744,2.25-16.742,6.998v-5.623h-14.619v59.597h14.993v-31.61c0-8.245,3.624-15.118,13.744-15.118,9.371,0,11.995,6.873,11.995,15.118v31.61h14.88v-36.233c0-13.619-8.12-24.739-24.24-24.739m-151.94-24.045l-20.866,9.496v10.496l20.866-6.498v-13.494z"/>
+  </g>
 </svg>`,
-  'ultragaz': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#FF6600"/>
-  <!-- U grande da Ultragaz -->
-  <path d="M25,20 L25,60 Q25,80 50,80 Q75,80 75,60 L75,20 L62,20 L62,58 Q62,68 50,68 Q38,68 38,58 L38,20 Z"
-        fill="white"/>
+  'shell': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 195">
+  <rect width="200" height="195" fill="white"/>
+  <!-- ==========================================
+       Shell Pecten Logo — baseado na imagem real
+       13 raios convergindo para a base,
+       amarelo FFD500 com borda DD1D21
+       ========================================== -->
+  <g transform="translate(100, 100)">
+    <!-- Silhoueta externa vermelha (borda da concha) -->
+    <path d="M0,-85
+      C-10,-85 -22,-83 -34,-77
+      C-54,-67 -68,-48 -74,-26
+      C-80,-4 -76,20 -64,40
+      C-52,60 -32,74 -10,78
+      C-4,79 0,80 4,79
+      C26,75 46,61 58,41
+      C70,21 74,-3 68,-25
+      C62,-47 48,-66 28,-76
+      C16,-82 8,-85 0,-85Z"
+      fill="#DD1D21"/>
+    <!-- Raios amarelos da concha (13 raios) convergindo para baixo -->
+    <!-- Raio central (0°) -->
+    <line x1="0" y1="77" x2="0" y2="-82" stroke="#FFD500" stroke-width="10.5" stroke-linecap="butt"/>
+    <!-- Raio 1L (-14°) -->
+    <line x1="0" y1="77" x2="-20" y2="-80" stroke="#FFD500" stroke-width="10" stroke-linecap="butt"/>
+    <!-- Raio 1R (+14°) -->
+    <line x1="0" y1="77" x2="20" y2="-80" stroke="#FFD500" stroke-width="10" stroke-linecap="butt"/>
+    <!-- Raio 2L (-28°) -->
+    <line x1="0" y1="77" x2="-38" y2="-73" stroke="#FFD500" stroke-width="9.5" stroke-linecap="butt"/>
+    <!-- Raio 2R (+28°) -->
+    <line x1="0" y1="77" x2="38" y2="-73" stroke="#FFD500" stroke-width="9.5" stroke-linecap="butt"/>
+    <!-- Raio 3L (-42°) -->
+    <line x1="0" y1="77" x2="-54" y2="-58" stroke="#FFD500" stroke-width="9" stroke-linecap="butt"/>
+    <!-- Raio 3R (+42°) -->
+    <line x1="0" y1="77" x2="54" y2="-58" stroke="#FFD500" stroke-width="9" stroke-linecap="butt"/>
+    <!-- Raio 4L (-55°) -->
+    <line x1="0" y1="77" x2="-66" y2="-38" stroke="#FFD500" stroke-width="8.5" stroke-linecap="butt"/>
+    <!-- Raio 4R (+55°) -->
+    <line x1="0" y1="77" x2="66" y2="-38" stroke="#FFD500" stroke-width="8.5" stroke-linecap="butt"/>
+    <!-- Raio 5L (-67°) -->
+    <line x1="0" y1="77" x2="-73" y2="-14" stroke="#FFD500" stroke-width="8" stroke-linecap="butt"/>
+    <!-- Raio 5R (+67°) -->
+    <line x1="0" y1="77" x2="73" y2="-14" stroke="#FFD500" stroke-width="8" stroke-linecap="butt"/>
+    <!-- Raio 6L (-78°) — quase horizontal -->
+    <line x1="0" y1="77" x2="-74" y2="14" stroke="#FFD500" stroke-width="7.5" stroke-linecap="butt"/>
+    <!-- Raio 6R (+78°) — quase horizontal -->
+    <line x1="0" y1="77" x2="74" y2="14" stroke="#FFD500" stroke-width="7.5" stroke-linecap="butt"/>
+    <!-- Separadores vermelhos entre raios (linhas finas) -->
+    <line x1="0" y1="77" x2="-10" y2="-81" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="10" y2="-81" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-29" y2="-77" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="29" y2="-77" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-46" y2="-66" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="46" y2="-66" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-60" y2="-48" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="60" y2="-48" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-70" y2="-26" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="70" y2="-26" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="-75" y2="0" stroke="#DD1D21" stroke-width="1.8"/>
+    <line x1="0" y1="77" x2="75" y2="0" stroke="#DD1D21" stroke-width="1.8"/>
+    <!-- Borda vermelha nas laterais (visível sobre os raios) -->
+    <path d="M-74,14 C-82,40 -70,62 -48,72 L-44,65 C-62,57 -72,38 -65,16Z" fill="#DD1D21"/>
+    <path d="M74,14 C82,40 70,62 48,72 L44,65 C62,57 72,38 65,16Z" fill="#DD1D21"/>
+    <!-- Base vermelha inferior (tab/bico da concha) -->
+    <path d="M-12,77 C-14,84 -8,88 0,88 C8,88 14,84 12,77Z" fill="#DD1D21"/>
+  </g>
 </svg>`,
-  'vibra': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#F5A800"/>
-  <!-- V grande da Vibra -->
-  <polygon points="12,18 28,18 50,68 72,18 88,18 56,88 44,88" fill="#1A1A1A"/>
+  'supergasbras': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#E53935"/>
+  <!-- Chama estilizada branca no centro -->
+  <path d="M100,30 C100,30 70,60 70,90 C70,110 82,118 100,120
+           C118,118 130,110 130,90 C130,60 100,30 100,30Z" fill="white" opacity="0.25"/>
+  <text x="100" y="80"
+    text-anchor="middle" font-size="28" font-weight="900"
+    font-family="'Arial Black', Arial, sans-serif" fill="white"
+    letter-spacing="-1">SUPER</text>
+  <text x="100" y="118"
+    text-anchor="middle" font-size="28" font-weight="900"
+    font-family="'Arial Black', Arial, sans-serif" fill="white"
+    letter-spacing="-1">GAS</text>
+  <text x="100" y="156"
+    text-anchor="middle" font-size="28" font-weight="900"
+    font-family="'Arial Black', Arial, sans-serif" fill="white"
+    letter-spacing="-1">BRÁS</text>
+  <rect x="20" y="170" width="160" height="3" rx="1.5" fill="white" opacity="0.4"/>
+</svg>`,
+  'texaco': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <g transform="translate(20.0,74.6) scale(0.7511,0.7511)">
+    <defs><path id="a" d="M7.578 22.992a26.577 26.577 0 0 0-1.209 7.955c0 4.9 3.869 17.02 10.488 21.49 3.213 2.17 9.639 4.76 15.367 4.76 5.745 0 11.007-2.013 15.486-4.921 3.091-2.009 10.208-12.665 10.208-21.33 0-14.5-13.77-26.252-25.694-26.252-7.871.002-21.329 7.689-24.646 18.298"/></defs><clipPath id="b"><use xlink:href="#a" overflow="visible"/></clipPath><path clip-path="url(#b)" fill="#FFF" d="M-1.184-2.861h66.658v67.612H-1.184z"/><defs><path id="c" d="M23.888 26.079v5.045H29v12.357l-11.933 9.093c1.854 1.165 3.807 2.186 5.497 2.884 1.689.7 3.117 1.083 4.654 1.346 1.416.241 2.927.376 4.538.388h.417a31.492 31.492 0 0 0 5.432-.511 24.644 24.644 0 0 0 5.069-1.523 25.82 25.82 0 0 0 4.651-2.583l.143-.145-12.361-8.948V31.124h5.116v-5.045H23.888zm-17.309.637c-.186.961-.26 1.58-.31 2.221a24.034 24.034 0 0 0-.076 1.97v.13a26.547 26.547 0 0 0 1.152 7.658 27.607 27.607 0 0 0 3.472 7.329 27.492 27.492 0 0 0 5.533 6.044l.21.144 6.04-17.899L7.399 23.162a59.083 59.083 0 0 0-.82 3.554m35.203 7.595l6.18 17.829c1.848-1.679 3.531-3.541 4.854-5.351a26.42 26.42 0 0 0 4.647-10.577c.514-2.628.645-5.341.381-8.042a27.302 27.302 0 0 0-.368-2.511 21.445 21.445 0 0 0-.637-2.5L41.782 34.311zM23.409 6.409a26.8 26.8 0 0 0-7.173 3.895 24.825 24.825 0 0 0-5.25 5.457 24.59 24.59 0 0 0-3.289 6.546l-.14.353h18.608l5.824-17.969c-2.96.163-5.899.755-8.58 1.718m9.076-1.717l5.751 17.969h18.396c-.979-2.409-2.22-4.716-3.582-6.697a27.821 27.821 0 0 0-4.399-5.025 24.711 24.711 0 0 0-4.854-3.396 24.062 24.062 0 0 0-5.255-2.042 25.597 25.597 0 0 0-5.632-.808h-.425z"/></defs><clipPath id="d"><use xlink:href="#c" overflow="visible"/></clipPath><path clip-path="url(#d)" fill="#E93330" d="M-1.359-2.861h66.888v67.608H-1.359z"/><defs><path id="e" d="M69.908 19.126v6.725h6.163v16.81h7.657v-16.81h6.165v-6.725H69.908zm22.763 0V42.66h17.93v-6.725H99.769v-2.24h10.832v-5.604H99.769v-2.428h10.832v-6.537h-17.93zm54.541 8.596l2.242 6.535h-4.67l2.428-6.535zm-2.981-8.596l-8.404 21.108-6.349-9.901 7.284-11.207h-8.592l-3.737 6.163-3.36-6.164h-8.591l7.657 11.207-8.029 12.328h8.591l3.923-6.725 4.106 6.725h14.009l1.305-3.551h6.724l1.497 3.551h7.655l-9.338-23.534h-6.351zm25.379-.379h-.07c-1.119 0-2.237.175-3.328.518a11.541 11.541 0 0 0-3.188 1.584 11.55 11.55 0 0 0-2.606 2.555 11.397 11.397 0 0 0-1.652 3.171c-.372 1.11-.554 2.243-.546 3.555.01 1.315.205 2.805.597 4.173.39 1.363.973 2.605 1.706 3.69a11.54 11.54 0 0 0 2.615 2.758c1.955 1.5 4.533 2.253 6.944 2.273a11.29 11.29 0 0 0 3.289-.426 9.76 9.76 0 0 0 2.765-1.278 9.373 9.373 0 0 0 2.216-2.083 10.586 10.586 0 0 0 1.562-2.899c.392-1.103.64-2.34.716-3.584h-6.908c-.05.521-.131 1.037-.223 1.43-.09.39-.189.655-.292.878a3.46 3.46 0 0 1-.308.555c-.709.967-1.421 1.096-2.113 1.21-.825.107-1.715 0-2.591-.631a4.626 4.626 0 0 1-.911-.882 5.764 5.764 0 0 1-.748-1.252c-.423-.92-.651-2.162-.661-3.311a9.193 9.193 0 0 1 .105-1.536 7.81 7.81 0 0 1 .29-1.287 6.13 6.13 0 0 1 .427-1.032 4.64 4.64 0 0 1 .512-.778c.574-.696 1.169-1.002 1.759-1.138.684-.15 1.575-.063 2.476.3.287.119.555.264.79.42 1.24.879 1.521 1.826 1.486 2.759h6.91a16.613 16.613 0 0 0-.711-2.671 12.466 12.466 0 0 0-.996-2.123 10.663 10.663 0 0 0-1.167-1.605 9.39 9.39 0 0 0-2.739-2.127 9.848 9.848 0 0 0-1.603-.651c-1.161-.364-2.467-.537-3.771-.537h-.033zm23.91 17.954a3.365 3.365 0 0 1-.919-.463 4.215 4.215 0 0 1-.861-.818 5.578 5.578 0 0 1-.724-1.202c-.432-.938-.656-2.16-.661-3.32a9.927 9.927 0 0 1 .13-1.676 8.09 8.09 0 0 1 .37-1.426 5.85 5.85 0 0 1 .547-1.124c.918-1.405 1.895-1.75 2.874-1.776.342 0 .684.055 1.032.171a3.94 3.94 0 0 1 1.044.533c.347.243.676.548.973.914.301.365.563.789.776 1.252.216.462.384.963.493 1.488a8.366 8.366 0 0 1-.005 3.322 6.922 6.922 0 0 1-.49 1.518c-.211.466-.469.88-.752 1.229-.89 1.066-1.873 1.524-2.852 1.526a3.343 3.343 0 0 1-.975-.148m.897-17.954c-1.18 0-2.34.179-3.462.535-1.14.361-2.241.905-3.248 1.634a11.909 11.909 0 0 0-2.682 2.686 12.51 12.51 0 0 0-1.747 3.466c-.693 2.19-.811 4.515-.201 6.784.262.987.66 1.978 1.2 2.918a12.857 12.857 0 0 0 1.999 2.631c.78.792 1.668 1.477 2.595 2.021 2.761 1.602 5.734 1.986 8.582 1.238a11.316 11.316 0 0 0 2.763-1.143 12.165 12.165 0 0 0 2.526-1.939 12.844 12.844 0 0 0 2.009-2.619c.549-.954.968-1.971 1.249-2.993.28-1.023.423-2.053.406-3.188a12.997 12.997 0 0 0-.569-3.579 12.12 12.12 0 0 0-1.699-3.417 12.332 12.332 0 0 0-2.713-2.745 11.84 11.84 0 0 0-6.953-2.292l-.055.002z"/></defs><clipPath id="f"><use xlink:href="#e" overflow="visible"/></clipPath><path clip-path="url(#f)" fill="#E93330" d="M64.658 13.497h146.998v34.781H64.658z"/>
+  </g>
+</svg>`,
+  'ultragaz': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <!-- Logo Ultragaz: U laranja grande + texto -->
+  <path d="M28,22 L28,132 Q28,186 100,186 Q172,186 172,132 L172,22 L142,22 L142,130
+           Q142,158 100,158 Q58,158 58,130 L58,22 Z"
+        fill="#FF6600"/>
+  <!-- Linha decorativa laranja fina no fundo -->
+  <rect x="28" y="186" width="144" height="4" rx="2" fill="#FF6600"/>
+</svg>`,
+  'vibra': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <!-- Logo Vibra Energia: V grande amarelo com texto VIBRA azul -->
+  <!-- Forma "V" estilizada — baseada no logo real -->
+  <path d="M14,16 L56,16 L100,138 L144,16 L186,16 L118,184 L82,184 Z"
+        fill="#F5A800"/>
+  <!-- Barra horizontal no V (detalhe do logo) -->
+  <rect x="14" y="32" width="172" height="8" fill="white" opacity="0.2"/>
+  <!-- VIBRA abaixo em azul (como no logo real) -->
 </svg>`,
 }
 

@@ -1,22 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" fill="#1C1C1C"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#1A1A1A"/>
   <!-- Padrão xadrez de bandeira -->
-  <rect x="18" y="12" width="16" height="16" fill="white"/>
-  <rect x="34" y="12" width="16" height="16" fill="#444"/>
-  <rect x="50" y="12" width="16" height="16" fill="white"/>
-  <rect x="66" y="12" width="16" height="16" fill="#444"/>
-  <rect x="18" y="28" width="16" height="16" fill="#444"/>
-  <rect x="34" y="28" width="16" height="16" fill="white"/>
-  <rect x="50" y="28" width="16" height="16" fill="#444"/>
-  <rect x="66" y="28" width="16" height="16" fill="white"/>
-  <rect x="18" y="44" width="16" height="16" fill="white"/>
-  <rect x="34" y="44" width="16" height="16" fill="#444"/>
-  <rect x="50" y="44" width="16" height="16" fill="white"/>
-  <rect x="66" y="44" width="16" height="16" fill="#444"/>
-  <text x="50" y="78"
-        text-anchor="middle"
-        font-size="10"
-        font-weight="700"
-        font-family="Arial, sans-serif"
-        fill="white">BANDEIRANTE</text>
+  <defs>
+    <pattern id="checker" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="16" height="16" fill="white"/>
+      <rect x="16" y="16" width="16" height="16" fill="white"/>
+      <rect x="16" y="0" width="16" height="16" fill="#333"/>
+      <rect x="0" y="16" width="16" height="16" fill="#333"/>
+    </pattern>
+  </defs>
+  <!-- Faixa xadrez na parte superior -->
+  <rect x="0" y="0" width="200" height="80" fill="url(#checker)"/>
+  <!-- Faixa preta na parte inferior -->
+  <rect x="0" y="80" width="200" height="120" fill="#1A1A1A"/>
+  <!-- BANDEIRANTE em branco -->
+  <text x="100" y="146"
+    text-anchor="middle"
+    font-size="26"
+    font-weight="900"
+    font-family="'Arial Black', Arial, sans-serif"
+    fill="white"
+    letter-spacing="0">BANDEI</text>
+  <text x="100" y="176"
+    text-anchor="middle"
+    font-size="26"
+    font-weight="900"
+    font-family="'Arial Black', Arial, sans-serif"
+    fill="white"
+    letter-spacing="0">RANTE</text>
 </svg>
