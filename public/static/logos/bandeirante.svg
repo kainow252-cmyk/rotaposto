@@ -1,26 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <rect width="200" height="200" fill="#111"/>
-  <!-- Grade xadrez estilizada 5x5 -->
-  <rect x="10" y="10" width="36" height="36" fill="white" opacity="0.9"/>
-  <rect x="46" y="10" width="36" height="36" fill="#333"/>
-  <rect x="82" y="10" width="36" height="36" fill="white" opacity="0.9"/>
-  <rect x="118" y="10" width="36" height="36" fill="#333"/>
-  <rect x="154" y="10" width="36" height="36" fill="white" opacity="0.9"/>
-
-  <rect x="10" y="46" width="36" height="36" fill="#333"/>
-  <rect x="46" y="46" width="36" height="36" fill="white" opacity="0.9"/>
-  <rect x="82" y="46" width="36" height="36" fill="#333"/>
-  <rect x="118" y="46" width="36" height="36" fill="white" opacity="0.9"/>
-  <rect x="154" y="46" width="36" height="36" fill="#333"/>
-
-  <rect x="10" y="82" width="36" height="36" fill="white" opacity="0.9"/>
-  <rect x="46" y="82" width="36" height="36" fill="#333"/>
-  <rect x="82" y="82" width="36" height="36" fill="white" opacity="0.9"/>
-  <rect x="118" y="82" width="36" height="36" fill="#333"/>
-  <rect x="154" y="82" width="36" height="36" fill="white" opacity="0.9"/>
-
-  <!-- Faixa preta com texto -->
-  <rect x="0" y="130" width="200" height="70" fill="#111"/>
-  <text x="100" y="175" text-anchor="middle" font-size="20" font-weight="900"
-        font-family="Arial Black, sans-serif" fill="white" letter-spacing="0">BANDEIRANTE</text>
+  <!-- Bandeirante — padrão xadrez clássico de bandeira de corrida -->
+  <rect width="200" height="200" fill="#212121"/>
+  <!-- Padrão xadrez 4x4 na metade superior -->
+  <rect x="0"   y="0"  width="50" height="50" fill="white"/>
+  <rect x="50"  y="0"  width="50" height="50" fill="#212121"/>
+  <rect x="100" y="0"  width="50" height="50" fill="white"/>
+  <rect x="150" y="0"  width="50" height="50" fill="#212121"/>
+  <rect x="0"   y="50" width="50" height="50" fill="#212121"/>
+  <rect x="50"  y="50" width="50" height="50" fill="white"/>
+  <rect x="100" y="50" width="50" height="50" fill="#212121"/>
+  <rect x="150" y="50" width="50" height="50" fill="white"/>
+  <rect x="0"   y="100" width="50" height="50" fill="white"/>
+  <rect x="50"  y="100" width="50" height="50" fill="#212121"/>
+  <rect x="100" y="100" width="50" height="50" fill="white"/>
+  <rect x="150" y="100" width="50" height="50" fill="#212121"/>
+  <!-- Metade inferior escura com texto -->
+  <rect x="0" y="150" width="200" height="50" fill="#212121"/>
+  <text x="100" y="186"
+    text-anchor="middle"
+    font-size="21"
+    font-weight="900"
+    font-family="Arial Black, Arial, sans-serif"
+    fill="white"
+    letter-spacing="0">BANDEIRANTE</text>
 </svg>

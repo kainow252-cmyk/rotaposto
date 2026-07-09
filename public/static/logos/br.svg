@@ -1,25 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <defs>
-    <clipPath id="clip-br"><rect width="200" height="200" rx="8"/></clipPath>
-  </defs>
-  <!-- Fundo branco com borda arredondada -->
-  <rect width="200" height="200" rx="8" fill="white"/>
-  <!-- Faixa amarela no topo (aprox 26% da altura) -->
-  <rect x="0" y="0" width="200" height="52" rx="0" fill="#FDC813" clip-path="url(#clip-br)"/>
+  <!-- Logo BR/Petrobras Distribuidora -->
+  <!-- Faixa amarela superior (26% da altura) -->
   <rect x="0" y="0" width="200" height="52" fill="#FDC813"/>
-  <!-- Fundo verde (corpo principal) -->
+  <!-- Corpo verde -->
   <rect x="0" y="52" width="200" height="148" fill="#00824A"/>
-  <!-- Arredondar cantos do svg inteiro -->
-  <rect width="200" height="200" rx="8" fill="none" stroke="white" stroke-width="0"/>
-  <!-- Letras BR brancas em itálico bold — exatamente como a logo Petrobras Distribuidora -->
+  <!-- "BR" branco itálico bold — exatamente como a logo Petrobras Distribuidora -->
   <text
-    x="104"
-    y="172"
+    x="103" y="172"
     text-anchor="middle"
-    font-size="122"
+    font-size="120"
     font-weight="900"
     font-style="italic"
-    font-family="'Arial Black', 'Arial Bold', Arial, Helvetica, sans-serif"
+    font-family="Arial Black, Arial, Helvetica, sans-serif"
     fill="white"
-    letter-spacing="-6">BR</text>
+    letter-spacing="-5">BR</text>
 </svg>

@@ -1,21 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <rect width="200" height="200" fill="white"/>
-  <!-- Logo ALE real: fundo branco com "ALE" em vermelho grande e barra vermelha -->
-  <!-- Retângulo vermelho superior (header) -->
-  <rect x="0" y="0" width="200" height="60" fill="#E0001B"/>
-  <!-- Barra branca fina separadora -->
-  <rect x="0" y="60" width="200" height="6" fill="white"/>
-  <!-- Área vermelha inferior -->
-  <rect x="0" y="66" width="200" height="134" fill="#E0001B"/>
-  <!-- ALE branco grande e itálico -->
-  <text x="100" y="168"
+  <!-- Logo ALE Combustíveis -->
+  <!-- Fundo vermelho -->
+  <rect width="200" height="200" fill="#E0001B"/>
+  <!-- Linha branca decorativa no topo -->
+  <rect x="0" y="0" width="200" height="10" fill="white" opacity="0.15"/>
+  <!-- ALE branco itálico bold -->
+  <text
+    x="103" y="160"
     text-anchor="middle"
-    font-size="118"
+    font-size="114"
     font-weight="900"
     font-style="italic"
-    font-family="'Arial Black', Arial, Helvetica, sans-serif"
+    font-family="Arial Black, Arial, Helvetica, sans-serif"
     fill="white"
-    letter-spacing="-6">ALE</text>
-  <!-- Detalhe: linha branca fina abaixo das letras -->
-  <rect x="20" y="178" width="160" height="4" rx="2" fill="white" opacity="0.5"/>
+    letter-spacing="-5">ALE</text>
+  <!-- Linha branca decorativa inferior -->
+  <rect x="15" y="174" width="170" height="5" rx="2.5" fill="white" opacity="0.4"/>
 </svg>

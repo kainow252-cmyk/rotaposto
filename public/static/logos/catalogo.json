@@ -1,0 +1,137 @@
+[
+  {
+    "name": "Petrobras BR",
+    "slug": "br",
+    "logo_svg": "/static/logos/br.svg",
+    "logo_png": "/static/logos/png/br.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/br.svg",
+    "source": "svg-geometrico-fiel",
+    "size_bytes": 627
+  },
+  {
+    "name": "Shell",
+    "slug": "shell",
+    "logo_svg": "/static/logos/shell.svg",
+    "logo_png": "/static/logos/png/shell.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/shell.svg",
+    "source": "worldvectorlogo.com",
+    "size_bytes": 8677
+  },
+  {
+    "name": "Ipiranga",
+    "slug": "ipiranga",
+    "logo_svg": "/static/logos/ipiranga.svg",
+    "logo_png": "/static/logos/png/ipiranga.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/ipiranga.svg",
+    "source": "wikimedia-commons",
+    "size_bytes": 5473
+  },
+  {
+    "name": "Raízen",
+    "slug": "raizen",
+    "logo_svg": "/static/logos/raizen.svg",
+    "logo_png": "/static/logos/png/raizen.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/raizen.svg",
+    "source": "wikimedia-commons",
+    "size_bytes": 1697
+  },
+  {
+    "name": "Ale Combustíveis",
+    "slug": "ale",
+    "logo_svg": "/static/logos/ale.svg",
+    "logo_png": "/static/logos/png/ale.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/ale.svg",
+    "source": "svg-geometrico-fiel",
+    "size_bytes": 691
+  },
+  {
+    "name": "Texaco",
+    "slug": "texaco",
+    "logo_svg": "/static/logos/texaco.svg",
+    "logo_png": "/static/logos/png/texaco.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/texaco.svg",
+    "source": "wikimedia-commons",
+    "size_bytes": 4665
+  },
+  {
+    "name": "Vibra Energia",
+    "slug": "vibra",
+    "logo_svg": "/static/logos/vibra.svg",
+    "logo_png": "/static/logos/png/vibra.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/vibra.svg",
+    "source": "wikimedia-commons-png",
+    "size_bytes": 10203
+  },
+  {
+    "name": "Esso",
+    "slug": "esso",
+    "logo_svg": "/static/logos/esso.svg",
+    "logo_png": "/static/logos/png/esso.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/esso.svg",
+    "source": "worldvectorlogo.com",
+    "size_bytes": 2518
+  },
+  {
+    "name": "PitStop",
+    "slug": "pitstop",
+    "logo_svg": "/static/logos/pitstop.svg",
+    "logo_png": "/static/logos/png/pitstop.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/pitstop.svg",
+    "source": "svg-geometrico-fiel",
+    "size_bytes": 1226
+  },
+  {
+    "name": "Bandeirante",
+    "slug": "bandeirante",
+    "logo_svg": "/static/logos/bandeirante.svg",
+    "logo_png": "/static/logos/png/bandeirante.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/bandeirante.svg",
+    "source": "svg-geometrico-fiel",
+    "size_bytes": 1296
+  },
+  {
+    "name": "Liquigás",
+    "slug": "liquigas",
+    "logo_svg": "/static/logos/liquigas.svg",
+    "logo_png": "/static/logos/png/liquigas.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/liquigas.svg",
+    "source": "wikimedia-commons-png",
+    "size_bytes": 17591
+  },
+  {
+    "name": "Copagaz",
+    "slug": "copagaz",
+    "logo_svg": "/static/logos/copagaz.svg",
+    "logo_png": "/static/logos/png/copagaz.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/copagaz.svg",
+    "source": "wikimedia-commons-png",
+    "size_bytes": 10531
+  },
+  {
+    "name": "Ultragaz",
+    "slug": "ultragaz",
+    "logo_svg": "/static/logos/ultragaz.svg",
+    "logo_png": "/static/logos/png/ultragaz.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/ultragaz.svg",
+    "source": "wikimedia-commons-svg",
+    "size_bytes": 9275
+  },
+  {
+    "name": "SuperGasBrás",
+    "slug": "supergasbras",
+    "logo_svg": "/static/logos/supergasbras.svg",
+    "logo_png": "/static/logos/png/supergasbras.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/supergasbras.svg",
+    "source": "wikimedia-commons-png",
+    "size_bytes": 8115
+  },
+  {
+    "name": "Independente",
+    "slug": "independente",
+    "logo_svg": "/static/logos/independente.svg",
+    "logo_png": "/static/logos/png/independente.png",
+    "logo_url": "https://rotaposto.com.br/static/logos/independente.svg",
+    "source": "svg-geometrico",
+    "size_bytes": 1103
+  }
+]
