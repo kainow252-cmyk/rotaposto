@@ -2854,13 +2854,56 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         postosData = data.postos;
         if (data.estatisticas?.semanaANP) semanaANP = data.estatisticas.semanaANP;
         addMapMarkers();
-        // NÃO exibe card automaticamente — só quando usuário clicar
+        // Enriquecer bandeiras via Google em background (não bloqueia UI)
+        _enriquecerBandeirasBackground(postosData);
       }
     } catch(e) {
-      // Dados demo
       postosData = getDemoPostos();
       addMapMarkers();
-      // NÃO exibe card automaticamente — só quando usuário clicar
+    }
+  }
+
+  // Enriquece bandeiras dos postos "Independente" via Google Places em background.
+  // Atualiza postosData e re-renderiza se mudou algo.
+  async function _enriquecerBandeirasBackground(postos) {
+    // Só enriquecer postos com googlePlaceId e bandeira não identificada
+    const semBandeira = postos.filter(p =>
+      p.googlePlaceId && (!p.bandeira || p.bandeira === 'Independente' || p.bandeira === 'independente')
+    ).slice(0, 8); // máx 8 por vez para não estourar rate limit
+
+    if (semBandeira.length === 0) return;
+
+    let mudou = false;
+    for (const p of semBandeira) {
+      try {
+        const params = new URLSearchParams({
+          placeId: p.googlePlaceId,
+          postoId: p.id || p.googlePlaceId,
+          nome: p.nome || ''
+        });
+        const res = await fetch('/api/posto/enriquecer-bandeira?' + params.toString());
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (json.ok && json.bandeiraNome && json.bandeiraNome !== 'Independente') {
+          // Atualizar o posto localmente com a bandeira real
+          p.bandeira = json.bandeiraNome;
+          mudou = true;
+        }
+      } catch(e) {
+        // silencioso — enriquecimento é best-effort
+      }
+      // Pequena pausa entre requests (evitar rate limit)
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    // Se alguma bandeira foi descoberta, re-renderizar mapa e lista
+    if (mudou) {
+      addMapMarkers();
+      // Atualizar lista se estiver visível
+      var listaView = document.getElementById('view-lista');
+      if (listaView && listaView.classList.contains('active')) {
+        renderLista();
+      }
     }
   }
 

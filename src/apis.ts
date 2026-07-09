@@ -74,19 +74,43 @@ export function haversine(lat1: number, lon1: number, lat2: number, lon2: number
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-export function normalizarBandeira(str: string): string {
+// Detecta bandeira pelo nome do posto E pelo website (domínio oficial)
+export function normalizarBandeira(str: string, website?: string): string {
+  // 1. Tentar pelo website (mais confiável — domínio oficial da rede)
+  if (website) {
+    const w = website.toLowerCase()
+    if (w.includes('shell.com'))     return 'Shell'
+    if (w.includes('br.com.br') || w.includes('petrobras') || w.includes('vibra')) return 'BR'
+    if (w.includes('ipiranga'))      return 'Ipiranga'
+    if (w.includes('raizen'))        return 'Raízen'
+    if (w.includes('esso'))          return 'Esso'
+    if (w.includes('aleposto') || w.includes('ale.com')) return 'Ale'
+    if (w.includes('texaco'))        return 'Texaco'
+    if (w.includes('ultragaz') || w.includes('ultragas')) return 'Ultragaz'
+    if (w.includes('copagaz'))       return 'Copagaz'
+    if (w.includes('liquigas') || w.includes('liquigás')) return 'Liquigás'
+    if (w.includes('supergasbras'))  return 'SuperGasBrás'
+  }
+
+  // 2. Detectar pelo nome do posto/distribuidora
   const s = (str || '').toUpperCase()
-  if (s.includes('VIBRA') || s.includes('PETROBRAS') || s.includes('BR ') || s === 'BR') return 'BR'
-  if (s.includes('IPIRANGA')) return 'Ipiranga'
-  if (s.includes('SHELL')) return 'Shell'
-  if (s.includes('RAIZEN') || s.includes('RAÍZEN')) return 'Raízen'
-  if (s.includes('ESSO')) return 'Esso'
-  if (s.includes('ALE') || s.includes('ALÉ')) return 'Ale'
-  if (s.includes('PETRO') && s.includes('BRAS')) return 'Petrobrás'
+  if (s.includes('PETROBRAS') || s.includes('VIBRA')) return 'BR'
+  // BR: só como palavra isolada para não pegar "UBRO", "UMBRA", etc.
+  if (/\bBR\b/.test(s)) return 'BR'
+  if (s.includes('IPIRANGA'))      return 'Ipiranga'
+  if (s.includes('SHELL'))         return 'Shell'
+  if (s.includes('RAIZEN') || s.includes('RAÍZEN') || s.includes('COSAN')) return 'Raízen'
+  if (s.includes('ESSO'))          return 'Esso'
+  if (s.includes('TEXACO'))        return 'Texaco'
+  if (s.includes('ULTRAGAZ') || s.includes('ULTRAGAS') || s.includes('ULTRA GAZ')) return 'Ultragaz'
+  if (s.includes('COPAGAZ'))       return 'Copagaz'
+  if (s.includes('LIQUIGAS') || s.includes('LIQUIGÁS')) return 'Liquigás'
+  if (s.includes('SUPERGASBRAS') || s.includes('SUPER GAS')) return 'SuperGasBrás'
+  // ALE: palavra inteira para não pegar "CAVALETE", "UALE" etc.
+  if (/\bALE\b|\bALÉ\b/.test(s) || s.includes('ALEPOSTO')) return 'Ale'
   if (s.includes('BANDEIRA BRANCA') || s.includes('INDEPEND')) return 'Independente'
-  if (s.includes('COSAN')) return 'Raízen'
-  if (s.includes('ULTRAGAS') || s.includes('ULTRAGAZ')) return 'Ultragaz'
-  return str || 'Independente'
+  // Se não reconhecido — retorna o nome original (independente)
+  return 'Independente'
 }
 
 export function emojiPorBandeira(bandeira: string): string {
@@ -449,7 +473,9 @@ export async function buscarPostosGooglePlaces(
       'places.businessStatus',
       'places.addressComponents',
       'places.types',
-      'places.photos'
+      'places.photos',
+      'places.websiteUri',          // ← identifica bandeira pelo domínio
+      'places.primaryTypeDisplayName' // ← tipo principal em pt-BR
     ].join(',')
 
     const res = await fetch(url, {
@@ -493,7 +519,8 @@ export async function buscarPostosGooglePlaces(
       const endereco = [rua, numero].filter(Boolean).join(', ') || place.formattedAddress || ''
 
       const nome = place.displayName?.text || 'Posto de Combustível'
-      const bandeira = normalizarBandeira(nome)
+      // Detecta bandeira: website (mais confiável) → nome do posto
+      const bandeira = normalizarBandeira(nome, place.websiteUri)
 
       // Normalizar UF para 2 letras
       const ufMap: Record<string, string> = {
