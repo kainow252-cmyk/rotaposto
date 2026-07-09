@@ -313,6 +313,51 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     .btn-ir-ata-la:active { opacity: 0.85; }
 
+    /* ── Balloon com bandeira no mapa ── */
+    .map-balloon {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 9px 5px 5px;
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.22), 0 1px 4px rgba(0,0,0,0.12);
+      cursor: pointer; white-space: nowrap;
+      border: 1.5px solid rgba(0,0,0,0.06);
+      font-family: 'Inter', sans-serif;
+      transform-origin: center bottom;
+      position: relative;
+    }
+    .map-balloon::after {
+      content: '';
+      position: absolute; bottom: -7px; left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 7px solid #fff;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.15));
+    }
+    .map-balloon.best {
+      background: #fff;
+      border-color: #00A651;
+      box-shadow: 0 4px 16px rgba(0,166,81,0.35), 0 1px 4px rgba(0,0,0,0.1);
+      transform: scale(1.12);
+    }
+    .map-balloon.best::after { border-top-color: #fff; }
+    .map-balloon-logo {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; overflow: hidden;
+      background: #f5f5f5;
+    }
+    .map-balloon-logo img {
+      width: 26px; height: 26px; object-fit: contain; border-radius: 50%;
+    }
+    .map-balloon-preco {
+      font-size: 13px; font-weight: 800;
+      color: #1a1a1a; line-height: 1;
+    }
+    .map-balloon.best .map-balloon-preco { color: #00A651; }
+
     .price-balloon {
       padding: 5px 10px; border-radius: 8px;
       font-size: 13px; font-weight: 700; color: white;
@@ -2826,22 +2871,33 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
       const precoFmt = 'R$ ' + preco.toFixed(2).replace('.', ',');
       const isBest = i === 0;
-      const cor = isBest ? '#00A651' : (preco > 6.5 ? '#E53935' : '#FF6D00');
-      const shadow = isBest ? '0 2px 10px rgba(0,166,81,0.5)' : '0 2px 8px rgba(0,0,0,0.25)';
-      const scale = isBest ? 'transform:scale(1.1);transform-origin:center bottom;' : '';
-      const star = isBest ? '⭐ ' : '';
+      const logoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
+      const bestClass = isBest ? ' best' : '';
 
+      // Balloon moderno: logo circular + preço (estilo da screenshot)
+      const logoHtml = logoUrl
+        ? '<div class="map-balloon-logo"><img src="'+logoUrl+'" alt=""/></div>'
+        : '<div class="map-balloon-logo" style="background:#eee;font-size:14px;text-align:center;line-height:26px;">⛽</div>';
+
+      const balloonHtml =
+        '<div class="map-balloon'+bestClass+'">'
+        + logoHtml
+        + '<span class="map-balloon-preco">'+precoFmt+'</span>'
+        + '</div>';
+
+      // iconSize: width = logo(26) + gap(5) + texto(~70) + padding(14) = ~115
+      // anchorY = altura balloon(36) + seta(7) = 43
+      const w = isBest ? 122 : 110;
       const icon = L.divIcon({
         className: '',
-        html: '<div style="padding:5px 10px;border-radius:6px;background:'+cor+';color:white;font-size:13px;font-weight:700;box-shadow:'+shadow+';white-space:nowrap;font-family:Inter,sans-serif;'+scale+'">'+star+precoFmt+'</div>',
-        iconSize: [isBest ? 100 : 80, 30], iconAnchor: [isBest ? 50 : 40, 30]
+        html: balloonHtml,
+        iconSize: [w, 43], iconAnchor: [w / 2, 43]
       });
 
       const marker = L.marker([p.lat, p.lng], { icon }).addTo(mapMain);
       marker._isBalloon = true;
       marker._postoIdx = i;
       marker.on('click', () => {
-        // Clicar num marcador sempre mostra o card
         _mapCardVisivel = true;
         updateMapCard(p, i);
         selectedPosto = p;
@@ -3866,6 +3922,100 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // ══════════════════════════════════════════════════════
   //  HELPERS
   // ══════════════════════════════════════════════════════
+  // Retorna URL do logo da bandeira — SVGs fiéis às cores oficiais de cada rede
+  function getBandeiraLogoUrl(nome) {
+    if (!nome) return null;
+    const n = nome.toUpperCase();
+
+    // Shell — concha vermelha/amarela (cores oficiais #FFD100 e #DD1D21)
+    if (n.includes('SHELL')) return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+      +'<circle cx="50" cy="50" r="50" fill="#FFD100"/>'
+      +'<path d="M50 15 C35 15 20 28 18 44 L50 44 Z" fill="#DD1D21"/>'
+      +'<path d="M18 44 C16 56 22 68 32 75 L44 50 Z" fill="#DD1D21"/>'
+      +'<path d="M68 75 C78 68 84 56 82 44 L56 50 Z" fill="#DD1D21"/>'
+      +'<path d="M82 44 C80 28 65 15 50 15 L50 44 Z" fill="#DD1D21"/>'
+      +'<path d="M32 75 C38 80 44 82 50 82 C56 82 62 80 68 75 L50 50 Z" fill="#DD1D21"/>'
+      +'<ellipse cx="50" cy="50" rx="18" ry="18" fill="#FFD100"/>'
+      +'</svg>'
+    );
+
+    // Petrobras BR — verde #009B3A com losango amarelo #FEDF00
+    if (n.includes('PETROBRAS') || n.includes(' BR ') || n === 'BR' || n.includes('PETRO BR'))
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        +'<circle cx="50" cy="50" r="50" fill="#009B3A"/>'
+        +'<polygon points="50,18 82,50 50,82 18,50" fill="#FEDF00"/>'
+        +'<circle cx="50" cy="50" r="20" fill="#009B3A"/>'
+        +'<text x="50" y="55" text-anchor="middle" font-size="16" font-weight="900" font-family="Arial,sans-serif" fill="#FEDF00">BR</text>'
+        +'</svg>'
+      );
+
+    // Ipiranga — "i" laranja em fundo azul escuro #003087 + laranja #FF6600
+    if (n.includes('IPIRANGA'))
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        +'<circle cx="50" cy="50" r="50" fill="#003087"/>'
+        +'<rect x="42" y="20" width="16" height="14" rx="3" fill="#FF6600"/>'
+        +'<rect x="42" y="38" width="16" height="44" rx="3" fill="#FF6600"/>'
+        +'</svg>'
+      );
+
+    // Raízen — roxo com texto
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN') || n.includes('RAIZ'))
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        +'<circle cx="50" cy="50" r="50" fill="#6A0DAD"/>'
+        +'<text x="50" y="56" text-anchor="middle" font-size="19" font-weight="900" font-family="Arial,sans-serif" fill="white">RAÍZEN</text>'
+        +'</svg>'
+      );
+
+    // Ale — vermelho #E53935 com texto branco
+    if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes('ALEPOSTO'))
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        +'<circle cx="50" cy="50" r="50" fill="#E53935"/>'
+        +'<text x="50" y="58" text-anchor="middle" font-size="30" font-weight="900" font-family="Arial,sans-serif" fill="white">ALE</text>'
+        +'</svg>'
+      );
+
+    // Texaco — estrela/vermelho #CC0000
+    if (n.includes('TEXACO'))
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        +'<circle cx="50" cy="50" r="50" fill="#CC0000"/>'
+        +'<polygon points="50,20 56,38 75,38 60,50 66,68 50,57 34,68 40,50 25,38 44,38" fill="#FFD700"/>'
+        +'</svg>'
+      );
+
+    // Vibra — amarelo-ouro
+    if (n.includes('VIBRA'))
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        +'<circle cx="50" cy="50" r="50" fill="#F4C400"/>'
+        +'<text x="50" y="56" text-anchor="middle" font-size="17" font-weight="900" font-family="Arial,sans-serif" fill="#333">VIBRA</text>'
+        +'</svg>'
+      );
+
+    // Esso — azul/vermelho
+    if (n.includes('ESSO'))
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        +'<circle cx="50" cy="50" r="50" fill="#003DA5"/>'
+        +'<rect x="18" y="42" width="64" height="16" rx="4" fill="#CC0000"/>'
+        +'<text x="50" y="55" text-anchor="middle" font-size="13" font-weight="900" font-family="Arial,sans-serif" fill="white">ESSO</text>'
+        +'</svg>'
+      );
+
+    // Genérico — cinza com bomba
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+      +'<circle cx="50" cy="50" r="50" fill="#78909C"/>'
+      +'<text x="50" y="58" text-anchor="middle" font-size="38" font-family="sans-serif">⛽</text>'
+      +'</svg>'
+    );
+  }
+
   function getEmoji(nome) {
     if (!nome) return '⛽';
     const n = nome.toUpperCase();
