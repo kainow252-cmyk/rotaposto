@@ -1494,6 +1494,79 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     #app-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+    /* ══ Modal de permissão de localização ══ */
+    #modal-gps-perm {
+      position: fixed; inset: 0; z-index: 999999;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+      display: flex; align-items: flex-end; justify-content: center;
+      padding: 0 0 env(safe-area-inset-bottom, 0px);
+      opacity: 0; transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    #modal-gps-perm.show {
+      opacity: 1; pointer-events: auto;
+    }
+    #modal-gps-box {
+      background: var(--navy-card);
+      border-radius: 24px 24px 0 0;
+      border-top: 1px solid var(--navy-border);
+      padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px));
+      width: 100%; max-width: 480px;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+      transform: translateY(40px); transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    #modal-gps-perm.show #modal-gps-box {
+      transform: translateY(0);
+    }
+    #modal-gps-icon {
+      width: 72px; height: 72px; border-radius: 20px;
+      background: linear-gradient(135deg, #FF6D00, #ff9800);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px; margin: 0 auto 16px;
+      box-shadow: 0 8px 24px rgba(255,109,0,0.4);
+    }
+    #modal-gps-titulo {
+      font-size: 20px; font-weight: 800; color: #fff;
+      text-align: center; margin-bottom: 8px;
+    }
+    #modal-gps-desc {
+      font-size: 14px; color: rgba(255,255,255,0.65);
+      text-align: center; line-height: 1.6; margin-bottom: 24px;
+    }
+    #modal-gps-desc strong { color: rgba(255,255,255,0.9); }
+    #btn-gps-permitir {
+      width: 100%; padding: 16px; border: none; border-radius: 16px;
+      background: linear-gradient(135deg, #FF6D00, #ff9800);
+      box-shadow: 0 4px 20px rgba(255,109,0,0.4);
+      color: #fff; font-size: 16px; font-weight: 800;
+      cursor: pointer; margin-bottom: 10px;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    #btn-gps-permitir:active { transform: scale(0.97); opacity: 0.9; }
+    #btn-gps-nao {
+      width: 100%; padding: 13px; border: 1.5px solid var(--navy-border);
+      border-radius: 14px; background: transparent;
+      color: rgba(255,255,255,0.5); font-size: 14px; font-weight: 600;
+      cursor: pointer;
+    }
+    /* estado: negado */
+    #modal-gps-perm.negado #btn-gps-nao { display: none; }
+    #btn-gps-config {
+      display: none; width: 100%; padding: 16px; border: none; border-radius: 16px;
+      background: linear-gradient(135deg, #1565C0, #1976D2);
+      color: #fff; font-size: 16px; font-weight: 800;
+      cursor: pointer; margin-bottom: 10px;
+    }
+    #modal-gps-perm.negado #btn-gps-config { display: block; }
+    #modal-gps-perm.negado #btn-gps-permitir { display: none; }
+    #btn-gps-fechar {
+      display: none; width: 100%; padding: 13px; border: 1.5px solid var(--navy-border);
+      border-radius: 14px; background: transparent;
+      color: rgba(255,255,255,0.5); font-size: 14px; font-weight: 600;
+      cursor: pointer;
+    }
+    #modal-gps-perm.negado #btn-gps-fechar { display: block; }
+
     #app-loading {
       position: fixed; inset: 0; background: rgba(11,20,38,0.85);
       display: none; align-items: center; justify-content: center;
@@ -1539,6 +1612,29 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   </div>
   <style>@keyframes splashprog{from{width:0%}to{width:100%}}</style>
 </div>
+<!-- Modal de permissão de localização -->
+<div id="modal-gps-perm">
+  <div id="modal-gps-box">
+    <div id="modal-gps-icon">📍</div>
+    <div id="modal-gps-titulo">Permitir localização</div>
+    <div id="modal-gps-desc">
+      O <strong>RotaPosto</strong> precisa da sua localização para mostrar os <strong>postos mais baratos próximos</strong> a você e calcular rotas.
+    </div>
+    <button id="btn-gps-permitir" onclick="_solicitarPermissaoGPS()">
+      📍 Permitir localização
+    </button>
+    <button id="btn-gps-config" onclick="_abrirConfigGPS()">
+      ⚙️ Abrir configurações
+    </button>
+    <button id="btn-gps-nao" onclick="_fecharModalGPS(false)">
+      Agora não
+    </button>
+    <button id="btn-gps-fechar" onclick="_fecharModalGPS(false)">
+      Fechar
+    </button>
+  </div>
+</div>
+
 <!-- Google One Tap — reconhece conta Google automaticamente no Android -->
 <div id="g_id_onload"
   data-client_id="1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com"
@@ -5362,8 +5458,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // ── Restaurar badge de filtros (caso filtros salvos existam) ─────────
     _atualizarBadgeFiltros();
 
-    // Pedir localização logo no init — antes de qualquer coisa
-    _initLocalizacao();
+    // Verificar permissão de localização antes de inicializar GPS
+    _verificarPermissaoGPS();
 
 
 
@@ -5743,6 +5839,97 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     _gpsJaAplicou = false;
     _gpsNativo(false);
   };
+
+  // ── Modal de permissão de localização ────────────────────────────────────────
+  function _verificarPermissaoGPS() {
+    // Já pediu antes e usuário negou definitivamente? Não mostrar mais
+    var jaViu = localStorage.getItem('rp_gps_perm_asked');
+
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+        if (result.state === 'granted') {
+          // Já tem permissão — fluxo normal, sem modal
+          _fecharModalGPS(true);
+        } else if (result.state === 'prompt') {
+          // Nunca pediu — mostrar modal explicativo
+          _mostrarModalGPS(false);
+        } else if (result.state === 'denied') {
+          // Negado — mostrar modal orientando abrir configurações
+          if (!jaViu || jaViu === 'prompt') {
+            _mostrarModalGPS(true);
+          }
+        }
+        // Ouvir mudança de permissão em tempo real
+        result.onchange = function() {
+          if (result.state === 'granted') {
+            _fecharModalGPS(true);
+            _gpsNativo(false);
+          }
+        };
+      }).catch(function() {
+        // Permissions API não suportada — tentar GPS direto
+        _fecharModalGPS(true);
+      });
+    } else {
+      // Sem Permissions API (iOS Safari) — mostrar modal sempre na 1ª vez
+      if (!jaViu) {
+        _mostrarModalGPS(false);
+      } else {
+        _fecharModalGPS(true);
+      }
+    }
+  }
+
+  function _mostrarModalGPS(negado) {
+    var modal = document.getElementById('modal-gps-perm');
+    if (!modal) return;
+    if (negado) {
+      modal.classList.add('negado');
+      var titulo = document.getElementById('modal-gps-titulo');
+      var desc = document.getElementById('modal-gps-desc');
+      if (titulo) titulo.textContent = 'Localização bloqueada';
+      if (desc) desc.innerHTML = 'A localização está <strong>bloqueada</strong> nas configurações do seu navegador ou sistema.<br><br>Para ativar: <strong>Configurações → Privacidade → Localização → RotaPosto</strong>';
+    }
+    modal.classList.add('show');
+  }
+
+  function _fecharModalGPS(continuar) {
+    var modal = document.getElementById('modal-gps-perm');
+    if (modal) {
+      modal.classList.remove('show');
+      setTimeout(function() { modal.style.display = 'none'; }, 350);
+    }
+    if (continuar) {
+      // Continua o fluxo normal de inicialização
+      _initLocalizacao();
+    }
+  }
+
+  function _solicitarPermissaoGPS() {
+    localStorage.setItem('rp_gps_perm_asked', 'prompt');
+    var modal = document.getElementById('modal-gps-perm');
+    if (modal) {
+      modal.classList.remove('show');
+      setTimeout(function() { modal.style.display = 'none'; }, 300);
+    }
+    // Chamar GPS — o browser vai mostrar o diálogo nativo de permissão
+    _initLocalizacao();
+  }
+
+  function _abrirConfigGPS() {
+    localStorage.setItem('rp_gps_perm_asked', 'denied');
+    // Tentar abrir configurações (funciona em alguns browsers mobile)
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission();
+    }
+    // Informar o usuário
+    showToast('Procure "Localização" ou "Permissões do site" nas configurações', 5000);
+    var modal = document.getElementById('modal-gps-perm');
+    if (modal) {
+      modal.classList.remove('show');
+      setTimeout(function() { modal.style.display = 'none'; }, 300);
+    }
+  }
 
   function _initLocalizacao() {
     // ── Limpar cache SP ──
