@@ -6084,23 +6084,68 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // ── Modal de permissão de localização ────────────────────────────────────────
   function _verificarPermissaoGPS() {
-    // Já pediu antes e usuário negou definitivamente? Não mostrar mais
     var jaViu = localStorage.getItem('rp_gps_perm_asked');
 
+    // Função de fallback: se a Permissions API falhar ou retornar dado
+    // inconsistente (comum em Android WebView / Realme / Xiaomi),
+    // mostramos o modal na 1ª vez e deixamos o usuário decidir.
+    function _fallback() {
+      if (!jaViu) {
+        _mostrarModalGPS(false);
+      } else if (jaViu === 'denied') {
+        _mostrarModalGPS(true);
+      } else {
+        // jaViu === 'prompt' ou 'granted' — ir direto
+        _fecharModalGPS(true);
+      }
+    }
+
+    // ── Android Chrome / WebView: Permissions API pode mentir retornando
+    // 'granted' mesmo sem consentimento real. Então se for 'granted'
+    // tentamos um getCurrentPosition rápido para confirmar.
     if (navigator.permissions && navigator.permissions.query) {
       navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+
         if (result.state === 'granted') {
-          // Já tem permissão — fluxo normal, sem modal
-          _fecharModalGPS(true);
+          // Confirmar com um teste real (timeout 3s)
+          var confirmTimer = setTimeout(function() {
+            // GPS não respondeu em 3s — mostrar modal mesmo assim
+            if (!jaViu) _mostrarModalGPS(false);
+            else _fecharModalGPS(true);
+          }, 3000);
+
+          navigator.geolocation.getCurrentPosition(
+            function(pos) {
+              clearTimeout(confirmTimer);
+              // GPS real funcionando — iniciar normalmente
+              _fecharModalGPS(true);
+            },
+            function(err) {
+              clearTimeout(confirmTimer);
+              if (err.code === 1 /* PERMISSION_DENIED */) {
+                // Permissions API disse granted mas GPS negou — bug Android
+                _mostrarModalGPS(true);
+              } else {
+                // Erro de posição (timeout/unavailable), permissão ok
+                _fecharModalGPS(true);
+              }
+            },
+            { timeout: 3000, maximumAge: 60000, enableHighAccuracy: false }
+          );
+
         } else if (result.state === 'prompt') {
           // Nunca pediu — mostrar modal explicativo
           _mostrarModalGPS(false);
+
         } else if (result.state === 'denied') {
           // Negado — mostrar modal orientando abrir configurações
           if (!jaViu || jaViu === 'prompt') {
             _mostrarModalGPS(true);
+          } else {
+            _fecharModalGPS(false);
           }
         }
+
         // Ouvir mudança de permissão em tempo real
         result.onchange = function() {
           if (result.state === 'granted') {
@@ -6108,17 +6153,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
             _gpsNativo(false);
           }
         };
+
       }).catch(function() {
-        // Permissions API não suportada — tentar GPS direto
-        _fecharModalGPS(true);
+        // Permissions API não suportada ou lançou erro — fallback seguro
+        _fallback();
       });
     } else {
-      // Sem Permissions API (iOS Safari) — mostrar modal sempre na 1ª vez
-      if (!jaViu) {
-        _mostrarModalGPS(false);
-      } else {
-        _fecharModalGPS(true);
-      }
+      // Sem Permissions API (iOS Safari, WebView antigo) — fallback
+      _fallback();
     }
   }
 
@@ -6130,7 +6172,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       var titulo = document.getElementById('modal-gps-titulo');
       var desc = document.getElementById('modal-gps-desc');
       if (titulo) titulo.textContent = 'Localização bloqueada';
-      if (desc) desc.innerHTML = 'A localização está <strong>bloqueada</strong> nas configurações do seu navegador ou sistema.<br><br>Para ativar: <strong>Configurações → Privacidade → Localização → RotaPosto</strong>';
+      if (desc) desc.innerHTML = 'A localização está <strong>bloqueada</strong>. Para ativar:<br><br>'
+        + '📱 <strong>Android:</strong> Configurações → Apps → Chrome → Permissões → Localização → Permitir<br><br>'
+        + '🌐 <strong>No navegador:</strong> toque no 🔒 na barra de endereço → Permissões → Localização → Permitir';
     }
     modal.classList.add('show');
   }
@@ -6141,10 +6185,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       modal.classList.remove('show');
       setTimeout(function() { modal.style.display = 'none'; }, 350);
     }
-    if (continuar) {
-      // Continua o fluxo normal de inicialização
-      _initLocalizacao();
-    }
+    // Sempre inicializar o app (com ou sem GPS — usa GeoIP como fallback)
+    _initLocalizacao();
   }
 
   function _solicitarPermissaoGPS() {
