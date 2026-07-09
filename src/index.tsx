@@ -9563,6 +9563,51 @@ app.get('/api/app/menu-config', async (c) => {
   } catch { return c.json({ itens: null }) }
 })
 
+// ─── Push Notifications ──────────────────────────────────────────────────────
+
+// GET /api/push/vapid-key — retorna chave pública VAPID para o frontend
+app.get('/api/push/vapid-key', (c) => {
+  return c.json({ publicKey: 'BGSAtwY1i4Qc9yJhWLXFRtWhEH78J3TlGZhiqjlHSdZvMbHO4CNLE65iXYW6ern1EIw_nl3IU6g8bX3JxnKgkuU' })
+})
+
+// POST /api/push/subscribe — salva subscription no KV (por uid ou anônimo)
+app.post('/api/push/subscribe', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+  try {
+    const body = await c.req.json() as any
+    const subscription = body.subscription
+    const uid = body.uid || 'anon_' + Date.now()
+    if (!subscription || !subscription.endpoint) {
+      return c.json({ ok: false, erro: 'Subscription inválida' }, 400)
+    }
+    // Salvar: push:sub:<uid>
+    await kv.put('push:sub:' + uid, JSON.stringify({
+      uid,
+      subscription,
+      createdAt: new Date().toISOString(),
+      active: true
+    }), { expirationTtl: 60 * 60 * 24 * 90 }) // 90 dias
+    return c.json({ ok: true })
+  } catch(e) {
+    return c.json({ ok: false, erro: String(e) }, 500)
+  }
+})
+
+// POST /api/push/unsubscribe — desativa subscription
+app.post('/api/push/unsubscribe', async (c) => {
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false }, 500)
+  try {
+    const body = await c.req.json() as any
+    const uid = body.uid
+    if (uid) await kv.delete('push:sub:' + uid)
+    return c.json({ ok: true })
+  } catch {
+    return c.json({ ok: false }, 500)
+  }
+})
+
 // ─── GET /api/admin/assinaturas — lista todas as assinaturas ──────────────────
 app.get('/api/admin/assinaturas', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''

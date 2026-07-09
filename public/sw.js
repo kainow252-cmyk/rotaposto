@@ -1,4 +1,4 @@
-// RotaPosto — Service Worker PWA v3.1
+// RotaPosto — Service Worker PWA v3.2 (+ Push Notifications)
 // REGRA: O SW NUNCA intercepta páginas HTML — apenas assets estáticos (/icons/, /static/)
 // Motivo: páginas são geradas server-side no Cloudflare Worker; cacheá-las quebra navegação
 const CACHE_NAME = 'rotaposto-v3.1';
@@ -77,9 +77,48 @@ self.addEventListener('fetch', event => {
         }
         return response;
       }).catch(() => {
-        // Asset não disponível e não está em cache — retornar resposta vazia mas válida
         return new Response('', { status: 408, statusText: 'Offline' });
       });
+    })
+  );
+});
+
+// ── Push Notifications ────────────────────────────────────────────────────────
+self.addEventListener('push', event => {
+  let data = { title: 'RotaPosto', body: 'Nova atualização disponível!', icon: '/icons/icon-192x192.png', url: '/' };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch(e) {
+    if (event.data) data.body = event.data.text();
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon || '/icons/icon-192x192.png',
+      badge: '/icons/icon-192x192.png',
+      tag: data.tag || 'rotaposto-notif',
+      data: { url: data.url || '/' },
+      vibrate: [200, 100, 200],
+      requireInteraction: false
+    })
+  );
+});
+
+// ── Clique na notificação → abre o app ───────────────────────────────────────
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      // Se já tem janela aberta, foca nela
+      for (const client of list) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Senão abre nova aba
+      if (clients.openWindow) return clients.openWindow(url);
     })
   );
 });

@@ -1494,6 +1494,70 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     #app-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+    /* ══ Modal de Notificações (sininho) ══ */
+    #modal-notif {
+      position: fixed; inset: 0; z-index: 999998;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    #modal-notif.show { opacity: 1; pointer-events: auto; }
+    #modal-notif-box {
+      background: var(--navy-card);
+      border-radius: 24px 24px 0 0;
+      border-top: 1px solid var(--navy-border);
+      padding: 24px 24px calc(20px + env(safe-area-inset-bottom, 0px));
+      width: 100%; max-width: 480px;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+      transform: translateY(40px); transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    #modal-notif.show #modal-notif-box { transform: translateY(0); }
+    #modal-notif-icon {
+      width: 64px; height: 64px; border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; margin: 0 auto 14px;
+      transition: background 0.3s;
+    }
+    #modal-notif-icon.on  { background: linear-gradient(135deg,#FF6D00,#ff9800); box-shadow: 0 6px 20px rgba(255,109,0,0.4); }
+    #modal-notif-icon.off { background: rgba(255,255,255,0.08); box-shadow: none; }
+    #modal-notif-titulo {
+      font-size: 19px; font-weight: 800; color: #fff;
+      text-align: center; margin-bottom: 6px;
+    }
+    #modal-notif-status {
+      font-size: 13px; text-align: center; margin-bottom: 18px;
+      font-weight: 600; letter-spacing: 0.3px;
+    }
+    #modal-notif-status.on  { color: #4CAF50; }
+    #modal-notif-status.off { color: rgba(255,255,255,0.4); }
+    .notif-beneficio {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid var(--navy-border);
+      font-size: 13px; color: rgba(255,255,255,0.75);
+    }
+    .notif-beneficio:last-child { border-bottom: none; }
+    .notif-beneficio-ico { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+    #modal-notif-beneficios { margin-bottom: 20px; }
+    #btn-notif-toggle {
+      width: 100%; padding: 15px; border: none; border-radius: 16px;
+      color: #fff; font-size: 16px; font-weight: 800;
+      cursor: pointer; margin-bottom: 10px;
+      transition: transform 0.15s, opacity 0.15s, background 0.3s;
+    }
+    #btn-notif-toggle.ativar  { background: linear-gradient(135deg,#FF6D00,#ff9800); box-shadow: 0 4px 20px rgba(255,109,0,0.4); }
+    #btn-notif-toggle.desativar { background: rgba(255,255,255,0.08); box-shadow: none; color: rgba(255,255,255,0.6); }
+    #btn-notif-toggle:active { transform: scale(0.97); opacity: 0.9; }
+    #btn-notif-fechar {
+      width: 100%; padding: 12px; border: 1.5px solid var(--navy-border);
+      border-radius: 14px; background: transparent;
+      color: rgba(255,255,255,0.4); font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    #modal-notif-denied {
+      display: none; background: rgba(255,80,80,0.08); border: 1px solid rgba(255,80,80,0.2);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;
+      font-size: 13px; color: rgba(255,180,180,0.9); line-height: 1.5;
+    }
+
     /* ══ Modal de permissão de localização ══ */
     #modal-gps-perm {
       position: fixed; inset: 0; z-index: 999999;
@@ -1635,6 +1699,28 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   </div>
 </div>
 
+<!-- Modal de Notificações (sininho) -->
+<div id="modal-notif">
+  <div id="modal-notif-box">
+    <div id="modal-notif-icon" class="off">🔕</div>
+    <div id="modal-notif-titulo">Notificações</div>
+    <div id="modal-notif-status" class="off">Desativadas</div>
+    <div id="modal-notif-denied">
+      ⚠️ Permissão bloqueada. Acesse as configurações do navegador/sistema → Permissões do site → Notificações → RotaPosto → Permitir.
+    </div>
+    <div id="modal-notif-beneficios">
+      <div class="notif-beneficio"><span class="notif-beneficio-ico">⛽</span>Quedas de preço nos postos que você usa</div>
+      <div class="notif-beneficio"><span class="notif-beneficio-ico">📍</span>Promoções em postos próximos a você</div>
+      <div class="notif-beneficio"><span class="notif-beneficio-ico">💰</span>Melhor hora para abastecer</div>
+      <div class="notif-beneficio"><span class="notif-beneficio-ico">🔔</span>Alertas de preços dos seus favoritos</div>
+    </div>
+    <button id="btn-notif-toggle" class="ativar" onclick="_toggleNotificacoes()">
+      🔔 Ativar notificações
+    </button>
+    <button id="btn-notif-fechar" onclick="_fecharModalNotif()">Fechar</button>
+  </div>
+</div>
+
 <!-- Google One Tap — reconhece conta Google automaticamente no Android -->
 <div id="g_id_onload"
   data-client_id="1078426960222-viiv45tf4i508rlvj53202h6kda8ga9b.apps.googleusercontent.com"
@@ -1657,9 +1743,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         <span></span><span></span><span></span>
       </button>
       <div class="header-logo"><span class="rota">Rota</span><span class="posto">Posto</span></div>
-      <button class="btn-bell" onclick="showToast('Nenhuma notificação')">
+      <button class="btn-bell" id="btn-bell-header" onclick="_abrirModalNotif()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-        <div class="bell-dot"></div>
+        <div class="bell-dot" id="bell-dot-indicator" style="display:none"></div>
       </button>
     </div>
     <div class="search-bar">
@@ -5839,6 +5925,162 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     _gpsJaAplicou = false;
     _gpsNativo(false);
   };
+
+  // ── Push Notifications — Modal do Sininho ─────────────────────────────────────
+  var VAPID_PUBLIC_KEY = 'BGSAtwY1i4Qc9yJhWLXFRtWhEH78J3TlGZhiqjlHSdZvMbHO4CNLE65iXYW6ern1EIw_nl3IU6g8bX3JxnKgkuU';
+
+  function _urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var rawData = atob(base64);
+    var output = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+    return output;
+  }
+
+  function _abrirModalNotif() {
+    var modal = document.getElementById('modal-notif');
+    if (!modal) return;
+    _atualizarEstadoModalNotif();
+    modal.classList.add('show');
+  }
+
+  function _fecharModalNotif() {
+    var modal = document.getElementById('modal-notif');
+    if (modal) {
+      modal.classList.remove('show');
+      setTimeout(function() { /* mantém no DOM */ }, 350);
+    }
+  }
+
+  function _atualizarEstadoModalNotif() {
+    var ativo = Notification.permission === 'granted' && localStorage.getItem('rp_push_active') === '1';
+    var negado = Notification.permission === 'denied';
+
+    var icon = document.getElementById('modal-notif-icon');
+    var status = document.getElementById('modal-notif-status');
+    var btn = document.getElementById('btn-notif-toggle');
+    var denied = document.getElementById('modal-notif-denied');
+    var dot = document.getElementById('bell-dot-indicator');
+
+    if (icon) { icon.textContent = ativo ? '🔔' : '🔕'; icon.className = ativo ? 'on' : 'off'; }
+    if (status) { status.textContent = ativo ? '✅ Ativadas' : (negado ? '🚫 Bloqueadas' : '⭕ Desativadas'); status.className = ativo ? 'on' : 'off'; }
+    if (btn) {
+      if (negado) {
+        btn.textContent = '⚙️ Abrir configurações';
+        btn.className = 'desativar';
+        btn.onclick = function() { showToast('Acesse Configurações → Notificações → RotaPosto', 5000); _fecharModalNotif(); };
+      } else if (ativo) {
+        btn.textContent = '🔕 Desativar notificações';
+        btn.className = 'desativar';
+        btn.onclick = _toggleNotificacoes;
+      } else {
+        btn.textContent = '🔔 Ativar notificações';
+        btn.className = 'ativar';
+        btn.onclick = _toggleNotificacoes;
+      }
+    }
+    if (denied) denied.style.display = negado ? 'block' : 'none';
+    if (dot) dot.style.display = ativo ? 'block' : 'none';
+  }
+
+  function _toggleNotificacoes() {
+    var ativo = Notification.permission === 'granted' && localStorage.getItem('rp_push_active') === '1';
+
+    if (ativo) {
+      // DESATIVAR: unsubscribe do push
+      _desativarPush();
+    } else {
+      // ATIVAR: pedir permissão e fazer subscribe
+      _ativarPush();
+    }
+  }
+
+  function _ativarPush() {
+    if (!('Notification' in window)) {
+      showToast('Seu navegador não suporta notificações');
+      return;
+    }
+    if (!('serviceWorker' in navigator)) {
+      showToast('Service Worker não disponível');
+      return;
+    }
+
+    Notification.requestPermission().then(function(perm) {
+      if (perm !== 'granted') {
+        _atualizarEstadoModalNotif();
+        showToast('Permissão negada. Ative nas configurações.');
+        return;
+      }
+      // Fazer subscribe no service worker
+      navigator.serviceWorker.ready.then(function(reg) {
+        var key = _urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: key
+        });
+      }).then(function(subscription) {
+        // Salvar subscription no servidor
+        var user = currentUser || {};
+        return fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ uid: user.uid || null, subscription: subscription.toJSON() })
+        });
+      }).then(function() {
+        localStorage.setItem('rp_push_active', '1');
+        _atualizarEstadoModalNotif();
+        showToast('🔔 Notificações ativadas!');
+        // Enviar notificação de boas-vindas
+        setTimeout(function() {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('RotaPosto 🔔', {
+              body: 'Você receberá alertas de preços e promoções próximas a você!',
+              icon: '/icons/icon-192x192.png',
+              tag: 'boas-vindas'
+            });
+          }
+        }, 1500);
+      }).catch(function(err) {
+        console.warn('[Push] Erro ao ativar:', err);
+        showToast('Erro ao ativar notificações. Tente novamente.');
+        _atualizarEstadoModalNotif();
+      });
+    });
+  }
+
+  function _desativarPush() {
+    navigator.serviceWorker.ready.then(function(reg) {
+      return reg.pushManager.getSubscription();
+    }).then(function(sub) {
+      if (sub) return sub.unsubscribe();
+    }).then(function() {
+      var user = currentUser || {};
+      if (user.uid) {
+        fetch('/api/push/unsubscribe', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ uid: user.uid })
+        }).catch(function() {});
+      }
+      localStorage.removeItem('rp_push_active');
+      _atualizarEstadoModalNotif();
+      showToast('🔕 Notificações desativadas');
+    }).catch(function() {
+      localStorage.removeItem('rp_push_active');
+      _atualizarEstadoModalNotif();
+      showToast('🔕 Notificações desativadas');
+    });
+  }
+
+  // Inicializar estado do bell-dot ao carregar
+  (function() {
+    setTimeout(function() {
+      if (typeof Notification !== 'undefined') {
+        _atualizarEstadoModalNotif();
+      }
+    }, 1000);
+  })();
 
   // ── Modal de permissão de localização ────────────────────────────────────────
   function _verificarPermissaoGPS() {
