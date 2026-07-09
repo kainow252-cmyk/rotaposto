@@ -1268,6 +1268,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     #btn-sos-float.dragging { cursor: grabbing; box-shadow: 0 8px 24px rgba(211,47,47,0.55); transform: none; opacity: 0.92; }
     #btn-sos-float svg { width: 20px; height: 20px; stroke: #fff; fill: none; pointer-events: none; }
 
+    /* ─── GPS flutuante ─── */
+    #btn-gps-float.dragging {
+      cursor: grabbing;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.30);
+      transform: none;
+      opacity: 0.92;
+    }
+
     /* ══════════════════════════════════════════════
        VIEW SOS
     ══════════════════════════════════════════════ */
@@ -1586,7 +1594,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     <div id="view-mapa" class="view active">
       <div id="map-leaflet"></div>
       <!-- Botão GPS flutuante -->
-      <button id="btn-gps-float" onclick="_forcarGPS()" title="Minha localização" style="position:absolute;bottom:100px;right:16px;z-index:1000;width:44px;height:44px;border-radius:50%;background:#fff;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;cursor:pointer;">
+      <button id="btn-gps-float" onclick="_forcarGPS()" title="Atualizar GPS" style="position:fixed;bottom:160px;right:16px;z-index:1001;width:44px;height:44px;border-radius:50%;background:#fff;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;user-select:none;transition:transform 0.15s,box-shadow 0.15s;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6D00" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="4 2" stroke="#FF6D00" stroke-width="1.5" fill="none"/></svg>
       </button>
       <div id="map-card" style="display:none">
@@ -5365,6 +5373,87 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
           e.stopPropagation();
           e.preventDefault();
           _sosWasDragged = false;
+        }
+      }, true);
+    })();
+
+    // ── Botão GPS: arrastável + posição persistida no localStorage ──────────
+    (function initGpsDrag() {
+      var btn = document.getElementById('btn-gps-float');
+      if (!btn) return;
+
+      var _gpsDragging = false;
+      var _gpsWasDragged = false;
+      var startClientY = 0;
+      var startBtnTop = 0;
+
+      function getBtnTop() {
+        return btn.getBoundingClientRect().top;
+      }
+
+      function onStart(e) {
+        _gpsDragging = false;
+        _gpsWasDragged = false;
+        startClientY = e.touches ? e.touches[0].clientY : e.clientY;
+        startBtnTop = getBtnTop();
+
+        function onMove(ev) {
+          var curY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+          var dy = curY - startClientY;
+          if (!_gpsDragging && Math.abs(dy) > 6) {
+            _gpsDragging = true;
+            _gpsWasDragged = true;
+            btn.classList.add('dragging');
+          }
+          if (!_gpsDragging) return;
+          ev.preventDefault();
+          var newTop = Math.max(56, Math.min(window.innerHeight - 56, startBtnTop + dy));
+          btn.style.transform = 'none';
+          btn.style.top = newTop + 'px';
+          btn.style.bottom = 'auto';
+          btn.style.transition = 'none';
+        }
+
+        function onEnd() {
+          if (_gpsDragging) {
+            btn.classList.remove('dragging');
+            btn.style.transition = '';
+            // Salvar posição como % para diferentes tamanhos de tela
+            var pct = Math.round((getBtnTop() + btn.offsetHeight / 2) / window.innerHeight * 100);
+            localStorage.setItem('rp_gps_top_pct', pct.toString());
+          }
+          _gpsDragging = false;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onEnd);
+          document.removeEventListener('touchmove', onMove);
+          document.removeEventListener('touchend', onEnd);
+        }
+
+        document.addEventListener('mousemove', onMove, { passive: false });
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onEnd);
+      }
+
+      // Restaurar posição salva
+      var savedPct = localStorage.getItem('rp_gps_top_pct');
+      if (savedPct !== null) {
+        var pctNum = parseInt(savedPct);
+        var savedTop = Math.round((pctNum / 100) * window.innerHeight - btn.offsetHeight / 2);
+        btn.style.transform = 'none';
+        btn.style.top = savedTop + 'px';
+        btn.style.bottom = 'auto';
+      }
+
+      btn.addEventListener('mousedown', onStart);
+      btn.addEventListener('touchstart', onStart, { passive: true });
+
+      // Suprimir click se foi drag
+      btn.addEventListener('click', function(e) {
+        if (_gpsWasDragged) {
+          e.stopPropagation();
+          e.preventDefault();
+          _gpsWasDragged = false;
         }
       }, true);
     })();
