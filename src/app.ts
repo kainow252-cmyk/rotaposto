@@ -1441,7 +1441,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       text-align: center; display: block;
       box-shadow: 0 2px 8px rgba(37,211,102,0.25);
     }
-    .sos-btn-irla { display: none; }  /* oculto — usuário está quebrado, não precisa ir até o guincho */
+    .sos-btn-irla {
+      padding: 8px 12px; background: #1565C0; color: #fff;
+      border: none; border-radius: 10px; font-size: 12px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; text-decoration: none;
+      text-align: center; display: block;
+      box-shadow: 0 2px 8px rgba(21,101,192,0.25);
+    }
     /* Drag handle do botão SOS flutuante */
     #btn-sos-float.dragging { opacity: 0.85; transition: none; }
     #btn-sos-drag-hint {
@@ -2472,8 +2478,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       var btnWhats = whatsNum
         ? '<a href="https://wa.me/' + whatsNum + '?text=' + whatsMsg + '" target="_blank" class="sos-btn-whats">💬 WhatsApp</a>'
         : '';
-      // Botão Ir até lá — OCULTADO: usuário está quebrado, não precisa navegar até o guincho
-      var btnIrLa = '';  // oculto intencionalmente
+      // Botão Ir até lá — só oculto para guincho (está quebrado, guincho vem até ele)
+      // Borracheiro e mecânico: usuário pode precisar ir até o estabelecimento
+      var Q = String.fromCharCode(39);
+      var nomeSeguro = (s.nome || '').split(Q).join('');
+      var coordsLat = s.lat || '';
+      var coordsLng = s.lng || '';
+      var btnIrLa = (sosTipoAtivo === 'guincho') ? '' :
+        (coordsLat && coordsLng)
+          ? '<a href="#" class="sos-btn-irla" onclick="_abrirNavegacaoExterna(' + coordsLat + ',' + coordsLng + ',' + Q + nomeSeguro + Q + ');return false;">🗺️ Ir até lá</a>'
+          : '<a href="#" class="sos-btn-irla" onclick="_abrirNavegacaoExterna(0,0,' + Q + encodeURIComponent(s.nome + ' ' + (s.endereco || '')) + Q + ');return false;">🗺️ Ir até lá</a>';
       return '<div class="sos-card">'
         + '<div class="sos-card-emoji">' + s.emoji + '</div>'
         + '<div class="sos-card-info">'
