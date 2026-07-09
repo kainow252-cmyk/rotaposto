@@ -98,6 +98,256 @@ app.use('/icons/*', async (c) => {
   })
 })
 
+// ─── GET /static/logos/:nome.svg — logos de bandeiras embutidas no Worker ────
+// SVGs servidos diretamente sem depender de Pages Assets ou CDN externo
+const LOGOS_SVG: Record<string, string> = {
+  'ale': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#E0001B"/>
+  <!-- Faixa branca fina no topo (estilo Ale real) -->
+  <rect x="0" y="0" width="100" height="4" fill="white" opacity="0.3"/>
+  <!-- Texto ALE branco grande bold -->
+  <text x="50" y="65"
+        text-anchor="middle"
+        font-size="44"
+        font-weight="900"
+        font-family="Arial Black, Impact, sans-serif"
+        fill="white"
+        letter-spacing="-2">ALE</text>
+</svg>`,
+  'bandeirante': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#1C1C1C"/>
+  <!-- Padrão xadrez de bandeira -->
+  <rect x="18" y="12" width="16" height="16" fill="white"/>
+  <rect x="34" y="12" width="16" height="16" fill="#444"/>
+  <rect x="50" y="12" width="16" height="16" fill="white"/>
+  <rect x="66" y="12" width="16" height="16" fill="#444"/>
+  <rect x="18" y="28" width="16" height="16" fill="#444"/>
+  <rect x="34" y="28" width="16" height="16" fill="white"/>
+  <rect x="50" y="28" width="16" height="16" fill="#444"/>
+  <rect x="66" y="28" width="16" height="16" fill="white"/>
+  <rect x="18" y="44" width="16" height="16" fill="white"/>
+  <rect x="34" y="44" width="16" height="16" fill="#444"/>
+  <rect x="50" y="44" width="16" height="16" fill="white"/>
+  <rect x="66" y="44" width="16" height="16" fill="#444"/>
+  <text x="50" y="78"
+        text-anchor="middle"
+        font-size="10"
+        font-weight="700"
+        font-family="Arial, sans-serif"
+        fill="white">BANDEIRANTE</text>
+</svg>`,
+  'br': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#009B3A"/>
+  <!-- Losango amarelo Petrobras -->
+  <polygon points="50,8 92,50 50,92 8,50" fill="#FEDF00"/>
+  <!-- Círculo azul interno -->
+  <circle cx="50" cy="50" r="26" fill="#009B3A"/>
+  <!-- Arco azul da Terra (estilo real) -->
+  <path d="M28,48 Q50,36 72,48" stroke="#1565C0" stroke-width="4" fill="none"/>
+  <!-- Texto BR amarelo bold -->
+  <text x="50" y="60"
+        text-anchor="middle"
+        font-size="24"
+        font-weight="900"
+        font-family="Arial Black, Arial, sans-serif"
+        fill="#FEDF00"
+        letter-spacing="-1">BR</text>
+</svg>`,
+  'copagaz': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#0077C8"/>
+  <circle cx="50" cy="44" rx="24" ry="24" fill="none" stroke="white" stroke-width="3" opacity="0.4"/>
+  <text x="50" y="43"
+        text-anchor="middle"
+        font-size="16"
+        font-weight="900"
+        font-family="Arial Black, sans-serif"
+        fill="white">COPA</text>
+  <text x="50" y="62"
+        text-anchor="middle"
+        font-size="16"
+        font-weight="900"
+        font-family="Arial Black, sans-serif"
+        fill="white">GAZ</text>
+  <rect x="20" y="68" width="60" height="3" rx="1.5" fill="white" opacity="0.5"/>
+</svg>`,
+  'esso': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#ffffff"/>
+  <!-- Oval vermelho grande Esso -->
+  <ellipse cx="50" cy="52" rx="44" ry="30" fill="#CC0000"/>
+  <!-- Oval menor interno branco (efeito 3D) -->
+  <ellipse cx="50" cy="50" rx="42" ry="28" fill="#CC0000"/>
+  <!-- Faixa azul no topo -->
+  <rect x="6" y="24" width="88" height="8" rx="4" fill="#003DA5"/>
+  <!-- Texto ESSO branco grande -->
+  <text x="50" y="62"
+        text-anchor="middle"
+        font-size="30"
+        font-weight="900"
+        font-family="Arial Black, Impact, sans-serif"
+        fill="white"
+        letter-spacing="2">ESSO</text>
+</svg>`,
+  'independente': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#607D8B"/>
+  <!-- Ícone de bomba de combustível estilizado -->
+  <!-- Corpo da bomba -->
+  <rect x="25" y="28" width="35" height="48" rx="3" fill="white" opacity="0.9"/>
+  <!-- Janela de display -->
+  <rect x="30" y="34" width="25" height="16" rx="2" fill="#607D8B"/>
+  <!-- Mangueira -->
+  <rect x="60" y="28" width="6" height="5" rx="1" fill="white" opacity="0.9"/>
+  <rect x="62" y="33" width="4" height="22" rx="2" fill="white" opacity="0.9"/>
+  <rect x="58" y="51" width="8" height="5" rx="2" fill="white" opacity="0.7"/>
+  <!-- Logotipo "P" no centro -->
+  <text x="43" y="65"
+        text-anchor="middle"
+        font-size="20"
+        font-weight="900"
+        font-family="Arial Black, sans-serif"
+        fill="#607D8B">P</text>
+</svg>`,
+  'ipiranga': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#ffffff"/>
+  <!-- Símbolo "i" estilizado da Ipiranga (azul #0043BC) -->
+  <!-- Forma do símbolo Ipiranga: como um "i" com gancho no topo -->
+  <path d="M32,5 C32,5 10,5 10,32 L10,62 C10,62 30,80 50,95 C70,80 90,62 90,62 L90,32 C90,5 68,5 68,5 Z" 
+        fill="#0043BC" opacity="0.08"/>
+  <!-- Logo Ipiranga simplificado mas fiel -->
+  <!-- O "i" principal -->
+  <rect x="44" y="18" width="12" height="10" rx="2" fill="#0043BC"/>
+  <rect x="44" y="32" width="12" height="38" rx="2" fill="#0043BC"/>
+  <!-- Curva base do "i" Ipiranga -->
+  <path d="M35,70 Q50,82 65,70" stroke="#0043BC" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Ponto acima (gancho) -->
+  <path d="M44,30 Q40,22 36,18 Q44,14 50,18" fill="#0043BC" opacity="0.3"/>
+  <!-- Texto Ipiranga pequeno -->
+  <text x="50" y="94"
+        text-anchor="middle"
+        font-size="9"
+        font-weight="700"
+        font-family="Arial, sans-serif"
+        fill="#0043BC">IPIRANGA</text>
+</svg>`,
+  'pitstop': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#0D1B3E"/>
+  <!-- Faixas laranja características do PitStop -->
+  <rect x="0" y="0" width="100" height="9" fill="#FF6200"/>
+  <rect x="0" y="91" width="100" height="9" fill="#FF6200"/>
+  <!-- Texto PIT branco -->
+  <text x="50" y="50"
+        text-anchor="middle"
+        font-size="30"
+        font-weight="900"
+        font-family="Arial Black, Impact, sans-serif"
+        fill="white"
+        letter-spacing="-1">PIT</text>
+  <!-- Texto STOP laranja -->
+  <text x="50" y="76"
+        text-anchor="middle"
+        font-size="24"
+        font-weight="900"
+        font-family="Arial Black, Impact, sans-serif"
+        fill="#FF6200"
+        letter-spacing="1">STOP</text>
+</svg>`,
+  'raizen': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#5B1B6E"/>
+  <!-- Símbolo folha/semente da Raízen -->
+  <path d="M50,18 C50,18 30,32 28,52 C26,68 36,80 50,82 C64,80 74,68 72,52 C70,32 50,18 50,18Z"
+        fill="#9333EA" opacity="0.5"/>
+  <path d="M50,26 C50,26 35,38 33,55 C31,67 40,76 50,77 C60,76 69,67 67,55 C65,38 50,26 50,26Z"
+        fill="white" opacity="0.2"/>
+  <!-- Haste da folha -->
+  <line x1="50" y1="77" x2="50" y2="90" stroke="white" stroke-width="2.5" opacity="0.7"/>
+  <!-- Texto RAÍZEN -->
+  <text x="50" y="98"
+        text-anchor="middle"
+        font-size="11"
+        font-weight="900"
+        font-family="Arial Black, Arial, sans-serif"
+        fill="white">RAÍZEN</text>
+</svg>`,
+  'shell': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#FFD100"/>
+  <!-- Concha Shell com 7 segmentos reais -->
+  <g transform="translate(50,52) scale(0.72)">
+    <!-- Segmentos vermelhos da concha Shell -->
+    <path d="M0,-55 L-18,0 L18,0 Z" fill="#DD1D21"/>
+    <path d="M-18,0 C-52,-10 -58,-35 -48,-52 L-18,-20 Z" fill="#DD1D21"/>
+    <path d="M18,0 C52,-10 58,-35 48,-52 L18,-20 Z" fill="#DD1D21"/>
+    <path d="M-48,-52 C-30,-62 -10,-58 0,-55 L-18,-20 Z" fill="#DD1D21"/>
+    <path d="M48,-52 C30,-62 10,-58 0,-55 L18,-20 Z" fill="#DD1D21"/>
+    <path d="M-18,0 C-30,12 -28,28 -18,38 L0,20 Z" fill="#DD1D21"/>
+    <path d="M18,0 C30,12 28,28 18,38 L0,20 Z" fill="#DD1D21"/>
+    <!-- Faixa amarela central -->
+    <ellipse cx="0" cy="-10" rx="22" ry="26" fill="#FFD100"/>
+    <!-- Ponto inferior arredondado -->
+    <ellipse cx="0" cy="32" rx="18" ry="10" fill="#DD1D21"/>
+  </g>
+</svg>`,
+  'supergasbras': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#E53935"/>
+  <text x="50" y="42"
+        text-anchor="middle"
+        font-size="13"
+        font-weight="900"
+        font-family="Arial Black, sans-serif"
+        fill="white">SUPER</text>
+  <text x="50" y="58"
+        text-anchor="middle"
+        font-size="11"
+        font-weight="900"
+        font-family="Arial Black, sans-serif"
+        fill="white">GAS</text>
+  <text x="50" y="73"
+        text-anchor="middle"
+        font-size="11"
+        font-weight="900"
+        font-family="Arial Black, sans-serif"
+        fill="white">BRÁS</text>
+</svg>`,
+  'texaco': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#ffffff"/>
+  <!-- Círculo vermelho Texaco -->
+  <circle cx="38" cy="50" r="34" fill="#CC0000"/>
+  <!-- Estrela branca (5 pontas) -->
+  <polygon points="38,20 43,36 60,36 46,46 51,62 38,52 25,62 30,46 16,36 33,36"
+           fill="white"/>
+  <!-- Texto TEXACO em vermelho -->
+  <text x="72" y="44"
+        text-anchor="middle"
+        font-size="11"
+        font-weight="900"
+        font-family="Arial Black, Arial, sans-serif"
+        fill="#CC0000"
+        transform="rotate(-90, 72, 50)">TEXACO</text>
+</svg>`,
+  'ultragaz': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#FF6600"/>
+  <!-- U grande da Ultragaz -->
+  <path d="M25,20 L25,60 Q25,80 50,80 Q75,80 75,60 L75,20 L62,20 L62,58 Q62,68 50,68 Q38,68 38,58 L38,20 Z"
+        fill="white"/>
+</svg>`,
+  'vibra': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#F5A800"/>
+  <!-- V grande da Vibra -->
+  <polygon points="12,18 28,18 50,68 72,18 88,18 56,88 44,88" fill="#1A1A1A"/>
+</svg>`,
+}
+
+app.get('/static/logos/:nome', (c) => {
+  const raw  = c.req.param('nome')               // ex: 'shell.svg'
+  const nome = raw.replace(/\.svg$/i, '')        // ex: 'shell'
+  const svg  = LOGOS_SVG[nome]
+  if (!svg) return c.notFound()
+  return new Response(svg, {
+    headers: {
+      'Content-Type':  'image/svg+xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
+})
 app.use('/static/*', async (c) => {
   const url = PAGES_ASSETS_URL + c.req.path
   const res = await fetch(url)
