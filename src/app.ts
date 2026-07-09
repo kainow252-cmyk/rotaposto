@@ -249,11 +249,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     #map-card {
-      position: fixed; bottom: 0; left: 0; right: 0;
+      position: absolute; bottom: 0; left: 0; right: 0;
       background: var(--navy-card);
       border-radius: 16px 16px 0 0;
       box-shadow: 0 -4px 32px rgba(0,0,0,0.4);
-      padding: 6px 12px calc(env(safe-area-inset-bottom, 0px) + 2px);
+      padding: 5px 12px 5px;
       z-index: 500;
       border-top: 1px solid var(--navy-border);
     }
