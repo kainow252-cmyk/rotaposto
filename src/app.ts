@@ -564,12 +564,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       background: var(--white);
       border: none;
       border-radius: var(--radius);
-      overflow: hidden; margin-bottom: 8px;
+      overflow: hidden; margin-bottom: 6px;
       box-shadow: var(--shadow);
     }
     .route-field {
       display: flex; align-items: center; gap: 10px;
-      padding: 9px 14px; min-height: 44px;
+      padding: 7px 14px; min-height: 40px;
     }
     .route-field + .route-field {
       border-top: 1px solid var(--border);
@@ -597,8 +597,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .route-stats-badge {
       background: var(--white);
       border-radius: var(--radius);
-      padding: 10px 14px;
-      margin-bottom: 8px;
+      padding: 8px 14px;
+      margin-bottom: 6px;
       box-shadow: var(--shadow);
       display: flex; align-items: center; justify-content: space-between;
     }
@@ -612,8 +612,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .route-stat-sep { width: 1px; height: 22px; background: var(--border); }
 
     #plan-map {
-      height: 180px; border-radius: var(--radius);
-      overflow: hidden; margin-bottom: 8px;
+      height: 150px; border-radius: var(--radius);
+      overflow: hidden; margin-bottom: 6px;
       box-shadow: var(--shadow);
     }
 
@@ -622,8 +622,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       background: var(--white);
       border: none;
       border-radius: var(--radius);
-      padding: 10px 14px;
-      margin-bottom: 8px;
+      padding: 8px 14px;
+      margin-bottom: 6px;
       box-shadow: var(--shadow);
     }
     .plan-posto-logo {
@@ -640,7 +640,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .plan-preco-unit { font-size: 11px; color: var(--gray); font-weight: 500; }
 
     .btn-iniciar-nav {
-      width: 100%; padding: 14px;
+      width: 100%; padding: 12px;
       background: var(--orange); border: none; border-radius: var(--radius);
       color: #fff; font-family: 'Inter', sans-serif;
       font-size: 16px; font-weight: 700;
@@ -653,7 +653,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     /* ── Seletor de veículo na tela Planejar ── */
     #plan-veiculo-selector {
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     #plan-veiculo-selector .plan-sec-label {
       font-size: 12px; font-weight: 700; color: var(--gray);
@@ -698,7 +698,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     #plan-custo-panel {
       background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
       border-radius: var(--radius); padding: 12px 16px;
-      margin-bottom: 8px; color: #fff;
+      margin-bottom: 6px; color: #fff;
       box-shadow: var(--shadow-orange);
     }
     #plan-custo-panel .pcp-titulo {
