@@ -3901,9 +3901,9 @@ app.get('/ir', async (c) => {
     transform:translate(-50%,-50%);
     animation:pulse 2s ease-out infinite}
   @keyframes pulse{0%{transform:translate(-50%,-50%) scale(.7);opacity:1}100%{transform:translate(-50%,-50%) scale(2);opacity:0}}
-  /* rotação suave do mapa durante navegação */
+  /* mapa sem rotação — bearing apenas na seta do marcador */
   #map{ transition:none }
-  #map .leaflet-map-pane{ transition:transform 0.3s ease }
+  #map .leaflet-map-pane{ transition:none }
 
   /* linha de rota */
   .rota-line{stroke:#f97316;stroke-width:5;stroke-opacity:.9;
@@ -4149,30 +4149,23 @@ app.get('/ir', async (c) => {
     return ((Math.atan2(y,x)*180/Math.PI)+360)%360;
   }
 
-  /* ── Aplica rotação do mapa (CSS transform no pane) ─── */
+  /* ── Aplica rotação do mapa — DESATIVADO (causa textos invertidos) ─── */
+  /* A rotação CSS no leaflet-map-pane inverte os rótulos dos tiles quando
+     bearing ~180°. Mantemos apenas a seta do usuário para indicar direção. */
   function aplicarRotacaoMapa(bearing){
-    var pane=document.querySelector('#map .leaflet-map-pane');
-    if(!pane) return;
-    // Rotaciona o pane do Leaflet contra o bearing para que o Norte aponte para cima do bearing
-    // Ou seja: rotaciona o mapa -bearing para que a frente fique no topo
-    pane.style.transformOrigin='50% 50%';
-    // Aplica transform preservando a translação que o Leaflet já aplica
-    var currentTransform = pane.style.transform || '';
-    // Extrai translate existente
-    var match = currentTransform.match(/translate3d\(([^)]+)\)/);
-    var translate = match ? 'translate3d('+match[1]+')' : '';
-    pane.style.transform = translate + ' rotate('+(-bearing)+'deg)';
-    _mapaRotacionado = true;
+    // NÃO rotaciona o mapa — só atualiza a seta do marcador
+    _mapaRotacionado = false;
   }
 
-  /* ── Remove rotação ao sair da navegação ─── */
+  /* ── Remove rotação (já desativada, mantida por compatibilidade) ─── */
   function removerRotacaoMapa(){
+    // Garante que nenhuma rotação residual exista no pane
     var pane=document.querySelector('#map .leaflet-map-pane');
     if(pane){
       var currentTransform = pane.style.transform || '';
       var match = currentTransform.match(/translate3d\(([^)]+)\)/);
       var translate = match ? 'translate3d('+match[1]+')' : '';
-      pane.style.transform = translate;
+      pane.style.transform = translate; // remove qualquer rotate residual
     }
     _mapaRotacionado = false;
   }
@@ -4292,6 +4285,17 @@ app.get('/ir', async (c) => {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       maxZoom:19
     }).addTo(_map);
+
+    // Garantir que o pane não tenha rotação residual (bug de sessão anterior)
+    setTimeout(function(){
+      var pane = document.querySelector('#map .leaflet-map-pane');
+      if(pane){
+        var t = pane.style.transform || '';
+        var m = t.match(/translate3d\(([^)]+)\)/);
+        var tr = m ? 'translate3d('+m[1]+')' : '';
+        pane.style.transform = tr; // remove qualquer rotate
+      }
+    }, 300);
 
     // Marcador do posto destino
     if(DLAT&&DLNG){
