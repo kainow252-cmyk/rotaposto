@@ -124,7 +124,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     .header-logo {
-      font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+      font-size: 18px; font-weight: 900; letter-spacing: -0.3px;
       font-family: 'Inter', sans-serif;
     }
     .header-logo .rota { color: #fff; }
@@ -171,7 +171,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; align-items: center; justify-content: center; gap: 5px;
       background: rgba(255,255,255,0.15); border: 1.5px solid rgba(255,255,255,0.2);
       border-radius: 12px; cursor: pointer; color: #fff;
-      padding: 0 14px; height: 44px; font-size: 13px; font-weight: 600;
+      padding: 0 12px; height: 38px; font-size: 12px; font-weight: 600;
       font-family: 'Inter', sans-serif; white-space: nowrap;
       transition: background 0.15s, border-color 0.15s;
     }
@@ -183,7 +183,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .btn-filter-count {
       display: inline-flex; align-items: center; justify-content: center;
       background: var(--orange); color: #fff;
-      font-size: 11px; font-weight: 800; line-height: 1;
+      font-size: 10px; font-weight: 700; line-height: 1;
       width: 18px; height: 18px; border-radius: 50%;
       margin-left: 2px;
     }
@@ -279,7 +279,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .posto-logo-circle {
       width: 46px; height: 46px; border-radius: 12px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
+      font-size: 18px; flex-shrink: 0;
       border: 1px solid rgba(255,255,255,0.12);
       overflow: hidden; background: rgba(255,255,255,0.08);
     }
@@ -295,11 +295,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       text-transform: uppercase; letter-spacing: 0.5px;
     }
     .map-posto-preco {
-      font-size: 26px; font-weight: 900; color: #fff;
+      font-size: 16px; font-weight: 800; color: #fff;
       margin-bottom: 2px; line-height: 1.1;
     }
     .map-posto-dist {
-      font-size: 12px; color: rgba(255,255,255,0.4); font-weight: 500;
+      font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 500;
     }
 
     .btn-ir-ata-la {
@@ -350,12 +350,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       flex-shrink: 0; overflow: hidden;
       border: 1px solid var(--border);
       display: flex; align-items: center; justify-content: center;
-      font-size: 26px; background: var(--gray-bg);
+      font-size: 18px; background: var(--gray-bg);
     }
 
     .posto-item-info { flex: 1; min-width: 0; }
     .posto-item-nome {
-      font-size: 14px; font-weight: 800; color: var(--black);
+      font-size: 13px; font-weight: 700; color: var(--black);
       margin-bottom: 4px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       letter-spacing: 0.2px;
@@ -375,12 +375,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       text-align: right; flex-shrink: 0;
     }
     .posto-item-preco .preco-val {
-      font-size: 22px; font-weight: 900; color: var(--orange);
+      font-size: 16px; font-weight: 800; color: var(--orange);
       white-space: nowrap;
       line-height: 1.1;
     }
     .posto-item-preco .preco-rs {
-      font-size: 13px; font-weight: 700; color: var(--orange);
+      font-size: 11px; font-weight: 600; color: var(--orange);
       vertical-align: top; margin-top: 3px; display: inline-block;
     }
     .posto-item-preco .preco-unit {
@@ -428,7 +428,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       background: white; border: 3px solid white;
       box-shadow: var(--shadow-strong);
       display: flex; align-items: center; justify-content: center;
-      font-size: 26px; overflow: hidden;
+      font-size: 18px; overflow: hidden;
     }
 
     #det-body {
@@ -436,7 +436,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     #det-nome {
-      font-size: 22px; font-weight: 900; color: var(--black);
+      font-size: 17px; font-weight: 800; color: var(--black);
       margin-bottom: 5px; letter-spacing: -0.3px;
     }
     #det-endereco {
@@ -467,7 +467,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       box-shadow: var(--shadow-strong);
     }
     .det-comb-nome { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.5px; }
-    .det-comb-preco { font-size: 30px; font-weight: 900; color: #fff; margin-top: 2px; }
+    .det-comb-preco { font-size: 24px; font-weight: 900; color: #fff; margin-top: 2px; }
     .det-arrow svg { width: 20px; height: 20px; color: rgba(255,255,255,0.4); }
 
     .det-fuel-list {
@@ -482,7 +482,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     .det-fuel-row:last-child { border-bottom: none; }
     .det-fuel-nome { font-size: 14px; color: var(--gray-dark); font-weight: 500; }
-    .det-fuel-price { font-size: 15px; font-weight: 800; color: var(--black); }
+    .det-fuel-price { font-size: 14px; font-weight: 700; color: var(--black); }
 
     .det-btns {
       display: flex; gap: 10px; margin-bottom: 24px;
@@ -514,7 +514,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 14px;
     }
-    .det-section-title h3 { font-size: 17px; font-weight: 800; color: var(--black); }
+    .det-section-title h3 { font-size: 14px; font-weight: 700; color: var(--black); }
     .link-ver-todas { font-size: 13px; font-weight: 600; color: var(--orange); background: none; border: none; cursor: pointer; }
 
     .review-card {
@@ -549,7 +549,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       flex-shrink: 0;
     }
     #plan-title {
-      font-size: 18px; font-weight: 800; color: #fff;
+      font-size: 16px; font-weight: 800; color: #fff;
     }
     .btn-back-plan {
       width: 38px; height: 38px; flex-shrink: 0;
@@ -607,7 +607,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; align-items: center; gap: 16px;
     }
     .route-stat {
-      font-size: 22px; font-weight: 900; color: var(--black);
+      font-size: 18px; font-weight: 800; color: var(--black);
     }
     .route-stat-sep { width: 1px; height: 28px; background: var(--border); }
 
@@ -629,21 +629,21 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .plan-posto-logo {
       width: 48px; height: 48px; border-radius: 14px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 24px; flex-shrink: 0;
+      font-size: 18px; flex-shrink: 0;
       background: var(--gray-bg);
       border: 1px solid var(--border);
     }
     .plan-posto-info { flex: 1; }
-    .plan-posto-nome { font-size: 14px; font-weight: 800; color: var(--black); margin-bottom: 2px; }
+    .plan-posto-nome { font-size: 13px; font-weight: 700; color: var(--black); margin-bottom: 2px; }
     .plan-posto-end { font-size: 12px; color: var(--gray); }
-    .plan-posto-preco { font-size: 17px; font-weight: 900; color: var(--orange); }
+    .plan-posto-preco { font-size: 14px; font-weight: 800; color: var(--orange); }
     .plan-preco-unit { font-size: 11px; color: var(--gray); font-weight: 500; }
 
     .btn-iniciar-nav {
       width: 100%; padding: 18px;
       background: var(--orange); border: none; border-radius: var(--radius);
       color: #fff; font-family: 'Inter', sans-serif;
-      font-size: 16px; font-weight: 800;
+      font-size: 15px; font-weight: 700;
       cursor: pointer; transition: all 0.2s;
       display: flex; align-items: center; justify-content: center; gap: 10px;
       box-shadow: var(--shadow-orange);
@@ -678,7 +678,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       background: var(--white);
       box-shadow: 0 2px 12px rgba(255,109,0,0.18);
     }
-    .plan-car-tab-icon { font-size: 22px; flex-shrink: 0; }
+    .plan-car-tab-icon { font-size: 18px; flex-shrink: 0; }
     .plan-car-tab-info { flex: 1; overflow: hidden; }
     .plan-car-tab-nome {
       font-size: 13px; font-weight: 700; color: var(--black);
@@ -689,7 +689,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       width: 52px; height: 52px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
       background: var(--white); border: 1.5px dashed rgba(255,109,0,0.35);
-      border-radius: var(--radius-sm); font-size: 22px; cursor: pointer;
+      border-radius: var(--radius-sm); font-size: 18px; cursor: pointer;
       color: var(--orange);
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
@@ -716,7 +716,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       border-left: 1px solid rgba(255,255,255,0.2);
     }
     #plan-custo-panel .pcp-val {
-      font-size: 20px; font-weight: 900; line-height: 1.1;
+      font-size: 17px; font-weight: 900; line-height: 1.1;
     }
     #plan-custo-panel .pcp-label {
       font-size: 10px; opacity: 0.75; margin-top: 3px;
@@ -857,10 +857,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .veh-list-icon {
       width: 50px; height: 50px; border-radius: 14px;
       background: rgba(255,109,0,0.12); display: flex; align-items: center;
-      justify-content: center; font-size: 26px; flex-shrink: 0;
+      justify-content: center; font-size: 20px; flex-shrink: 0;
     }
     .veh-list-info { flex: 1; }
-    .veh-list-nome { font-size: 15px; font-weight: 800; color: var(--black); }
+    .veh-list-nome { font-size: 14px; font-weight: 700; color: var(--black); }
     .veh-list-det { font-size: 12px; color: var(--gray); margin-top: 2px; }
     .veh-list-btns { display: flex; gap: 6px; }
     .veh-list-btn-edit {
@@ -879,7 +879,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       width: 50px; height: 50px; border-radius: 14px;
       border: 2px dashed rgba(255,109,0,0.4);
       display: flex; align-items: center; justify-content: center;
-      font-size: 24px; flex-shrink: 0; color: var(--orange);
+      font-size: 20px; flex-shrink: 0; color: var(--orange);
     }
     .veh-slot-add-label { font-size: 14px; font-weight: 600; color: var(--orange); }
 
@@ -894,7 +894,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       position: sticky; top: 0; z-index: 10;
     }
     #rel-title {
-      font-size: 20px; font-weight: 900; color: #fff;
+      font-size: 17px; font-weight: 900; color: #fff;
       padding: 20px 18px 0;
     }
 
@@ -925,14 +925,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       cursor: pointer; color: #fff; font-size: 18px;
       display: flex; align-items: center; justify-content: center;
     }
-    .month-label { font-size: 15px; font-weight: 700; color: #fff; }
+    .month-label { font-size: 13px; font-weight: 600; color: #fff; }
 
     #rel-total {
       text-align: center; padding: 20px 18px 24px;
       background: var(--navy);
     }
     .rel-total-val {
-      font-size: 48px; font-weight: 900; color: #00E676;
+      font-size: 28px; font-weight: 900; color: #00E676;
       line-height: 1; margin-bottom: 6px;
       text-shadow: 0 0 20px rgba(0,230,118,0.3);
     }
@@ -948,7 +948,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       box-shadow: var(--shadow);
     }
     .rel-stat-label { font-size: 12px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px; }
-    .rel-stat-val { font-size: 24px; font-weight: 900; color: var(--black); }
+    .rel-stat-val { font-size: 19px; font-weight: 800; color: var(--black); }
 
     .rel-econ-litro {
       margin: 10px 14px 0;
@@ -958,10 +958,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       box-shadow: var(--shadow);
     }
     .rel-econ-label { font-size: 12px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
-    .rel-econ-val { font-size: 20px; font-weight: 900; color: var(--black); }
+    .rel-econ-val { font-size: 17px; font-weight: 800; color: var(--black); }
 
     .rel-section { padding: 16px 14px 0; }
-    .rel-section-title { font-size: 16px; font-weight: 800; color: var(--black); margin-bottom: 10px; }
+    .rel-section-title { font-size: 13px; font-weight: 700; color: var(--black); margin-bottom: 10px; }
 
     .rel-posto-row {
       display: flex; align-items: center; gap: 12px;
@@ -978,7 +978,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       background: var(--gray-bg);
       border: 1px solid var(--border);
     }
-    .rel-posto-nome { flex: 1; font-size: 14px; font-weight: 700; color: var(--black); }
+    .rel-posto-nome { flex: 1; font-size: 13px; font-weight: 600; color: var(--black); }
     .rel-posto-vezes { font-size: 13px; color: var(--orange); font-weight: 700; }
 
     /* TELA 12: PERFIL / MENU */
@@ -1004,7 +1004,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       width: 76px; height: 76px; border-radius: 50%;
       background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
       display: flex; align-items: center; justify-content: center;
-      font-size: 32px; font-weight: 900; color: #fff;
+      font-size: 24px; font-weight: 900; color: #fff;
       border: 3px solid rgba(255,255,255,0.2);
       flex-shrink: 0;
       box-shadow: var(--shadow-orange);
@@ -1101,7 +1101,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     #rp-subtela-back svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
     #rp-subtela-titulo {
-      font-size: 18px; font-weight: 800; color: #fff; flex: 1;
+      font-size: 16px; font-weight: 700; color: #fff; flex: 1;
     }
     #rp-subtela-body {
       flex: 1; overflow-y: auto;
@@ -1127,7 +1127,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       width: 100%; padding: 16px;
       background: var(--orange); color: #fff;
       border: none; border-radius: var(--radius);
-      font-size: 15px; font-weight: 700; cursor: pointer;
+      font-size: 14px; font-weight: 700; cursor: pointer;
       margin-top: 8px; transition: opacity .15s;
       box-shadow: var(--shadow-orange);
     }
@@ -1161,7 +1161,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     #perfil-info { flex: 1; }
     #perfil-ola {
-      font-size: 22px; font-weight: 900; color: var(--white);
+      font-size: 20px; font-weight: 800; color: var(--white);
       margin-bottom: 6px; letter-spacing: -0.3px;
     }
     .badge-premium {
@@ -1201,7 +1201,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       color: var(--gray-dark); flex-shrink: 0;
     }
     .menu-item-icon svg { width: 18px; height: 18px; }
-    .menu-item-label { flex: 1; font-size: 15px; font-weight: 600; color: var(--black); }
+    .menu-item-label { flex: 1; font-size: 14px; font-weight: 600; color: var(--black); }
     .menu-item-arrow { color: #D0D8E4; }
     .menu-item-arrow svg { width: 16px; height: 16px; }
 
@@ -1288,7 +1288,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; align-items: center; justify-content: center;
     }
     #sos-back svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
-    #sos-titulo { font-size: 18px; font-weight: 900; color: #fff; flex: 1; }
+    #sos-titulo { font-size: 16px; font-weight: 800; color: #fff; flex: 1; }
     #sos-badge-premium {
       font-size: 11px; font-weight: 800; color: #FFD600;
       background: rgba(0,0,0,0.30); border-radius: 100px; padding: 5px 13px;
@@ -1360,13 +1360,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .sos-cat-ico {
       width: 46px; height: 46px; border-radius: 14px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
+      font-size: 18px; flex-shrink: 0;
     }
     .sos-cat-ico.guincho   { background: #FFF3E0; }
     .sos-cat-ico.borracha  { background: #E8F5E9; }
     .sos-cat-ico.mecanica  { background: #E3F2FD; }
     .sos-cat-info { flex: 1; }
-    .sos-cat-nome { font-size: 15px; font-weight: 700; color: #1A1A1A; }
+    .sos-cat-nome { font-size: 14px; font-weight: 600; color: #1A1A1A; }
     .sos-cat-desc { font-size: 12px; color: #888; margin-top: 2px; }
     .sos-cat-check {
       width: 22px; height: 22px; border-radius: 50%;
@@ -1388,11 +1388,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .sos-card-emoji {
       width: 46px; height: 46px; border-radius: 13px;
       background: rgba(255,109,0,0.10); display: flex; align-items: center;
-      justify-content: center; font-size: 22px; flex-shrink: 0;
+      justify-content: center; font-size: 20px; flex-shrink: 0;
     }
     .sos-card-info { flex: 1; min-width: 0; }
     .sos-card-nome {
-      font-size: 15px; font-weight: 700; color: var(--black);
+      font-size: 13px; font-weight: 700; color: var(--black);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .sos-card-end {
