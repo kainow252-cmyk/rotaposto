@@ -124,8 +124,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     .header-logo {
-      font-size: 19px; font-weight: 900; letter-spacing: -0.3px;
+      font-size: 26px; font-weight: 900; letter-spacing: -0.5px;
       font-family: 'Inter', sans-serif;
+      flex: 1; text-align: center;
     }
     .header-logo .rota { color: #fff; }
     .header-logo .posto { color: var(--orange); }
