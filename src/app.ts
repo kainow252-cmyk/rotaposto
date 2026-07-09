@@ -558,18 +558,18 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       cursor: pointer; color: #fff;
     }
 
-    #plan-body { padding: 18px 16px calc(var(--sab) + 80px); }
+    #plan-body { padding: 12px 14px calc(var(--sab) + 80px); }
 
     .route-fields {
       background: var(--white);
       border: none;
       border-radius: var(--radius);
-      overflow: hidden; margin-bottom: 14px;
+      overflow: hidden; margin-bottom: 8px;
       box-shadow: var(--shadow);
     }
     .route-field {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px; min-height: 58px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px; min-height: 44px;
     }
     .route-field + .route-field {
       border-top: 1px solid var(--border);
@@ -585,10 +585,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       box-shadow: 0 0 0 3px rgba(255,109,0,0.15);
     }
     .route-field-content { flex: 1; }
-    .route-field-label { font-size: 11px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .route-field-label { font-size: 10px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
     .route-field-val { font-size: 14px; font-weight: 600; color: var(--black); }
     .btn-target {
-      width: 34px; height: 34px;
+      width: 30px; height: 30px;
       display: flex; align-items: center; justify-content: center;
       background: var(--gray-bg); border: none; border-radius: 10px;
       cursor: pointer; color: var(--gray);
@@ -597,8 +597,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .route-stats-badge {
       background: var(--white);
       border-radius: var(--radius);
-      padding: 14px 18px;
-      margin-bottom: 14px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
       box-shadow: var(--shadow);
       display: flex; align-items: center; justify-content: space-between;
     }
@@ -607,29 +607,29 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; align-items: center; gap: 16px;
     }
     .route-stat {
-      font-size: 20px; font-weight: 700; color: var(--black);
+      font-size: 17px; font-weight: 700; color: var(--black);
     }
-    .route-stat-sep { width: 1px; height: 28px; background: var(--border); }
+    .route-stat-sep { width: 1px; height: 22px; background: var(--border); }
 
     #plan-map {
-      height: 220px; border-radius: var(--radius);
-      overflow: hidden; margin-bottom: 14px;
+      height: 180px; border-radius: var(--radius);
+      overflow: hidden; margin-bottom: 8px;
       box-shadow: var(--shadow);
     }
 
     .plan-posto-card {
-      display: flex; align-items: center; gap: 14px;
+      display: flex; align-items: center; gap: 12px;
       background: var(--white);
       border: none;
       border-radius: var(--radius);
-      padding: 16px;
-      margin-bottom: 16px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
       box-shadow: var(--shadow);
     }
     .plan-posto-logo {
-      width: 48px; height: 48px; border-radius: 14px;
+      width: 38px; height: 38px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
+      font-size: 16px; flex-shrink: 0;
       background: var(--gray-bg);
       border: 1px solid var(--border);
     }
@@ -640,7 +640,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .plan-preco-unit { font-size: 11px; color: var(--gray); font-weight: 500; }
 
     .btn-iniciar-nav {
-      width: 100%; padding: 18px;
+      width: 100%; padding: 14px;
       background: var(--orange); border: none; border-radius: var(--radius);
       color: #fff; font-family: 'Inter', sans-serif;
       font-size: 16px; font-weight: 700;
@@ -653,19 +653,19 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     /* ── Seletor de veículo na tela Planejar ── */
     #plan-veiculo-selector {
-      margin-bottom: 14px;
+      margin-bottom: 8px;
     }
     #plan-veiculo-selector .plan-sec-label {
       font-size: 12px; font-weight: 700; color: var(--gray);
       text-transform: uppercase; letter-spacing: 0.6px;
-      margin-bottom: 8px;
+      margin-bottom: 5px;
     }
     .plan-car-tabs {
       display: flex; gap: 8px;
     }
     .plan-car-tab {
       flex: 1; display: flex; align-items: center; gap: 9px;
-      padding: 11px 13px;
+      padding: 7px 12px;
       background: var(--white);
       border: 1.5px solid var(--navy-border);
       border-radius: var(--radius-sm);
@@ -686,7 +686,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     .plan-car-tab-consumo { font-size: 11px; color: var(--gray); }
     .plan-car-add {
-      width: 52px; height: 52px; flex-shrink: 0;
+      width: 42px; height: 42px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
       background: var(--white); border: 1.5px dashed rgba(255,109,0,0.35);
       border-radius: var(--radius-sm); font-size: 18px; cursor: pointer;
@@ -697,26 +697,26 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     /* Painel custo estimado */
     #plan-custo-panel {
       background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
-      border-radius: var(--radius); padding: 18px 20px;
-      margin-bottom: 14px; color: #fff;
+      border-radius: var(--radius); padding: 12px 16px;
+      margin-bottom: 8px; color: #fff;
       box-shadow: var(--shadow-orange);
     }
     #plan-custo-panel .pcp-titulo {
-      font-size: 11px; font-weight: 700; opacity: 0.75;
-      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;
+      font-size: 10px; font-weight: 700; opacity: 0.75;
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 7px;
     }
     #plan-custo-panel .pcp-grid {
       display: grid; grid-template-columns: 1fr 1fr 1fr;
       gap: 0;
     }
     #plan-custo-panel .pcp-item {
-      text-align: center; padding: 4px 0;
+      text-align: center; padding: 2px 0;
     }
     #plan-custo-panel .pcp-item + .pcp-item {
       border-left: 1px solid rgba(255,255,255,0.2);
     }
     #plan-custo-panel .pcp-val {
-      font-size: 17px; font-weight: 900; line-height: 1.1;
+      font-size: 15px; font-weight: 900; line-height: 1.1;
     }
     #plan-custo-panel .pcp-label {
       font-size: 10px; opacity: 0.75; margin-top: 3px;
