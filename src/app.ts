@@ -124,7 +124,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     .header-logo {
-      font-size: 18px; font-weight: 900; letter-spacing: -0.3px;
+      font-size: 19px; font-weight: 900; letter-spacing: -0.3px;
       font-family: 'Inter', sans-serif;
     }
     .header-logo .rota { color: #fff; }
@@ -355,7 +355,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     .posto-item-info { flex: 1; min-width: 0; }
     .posto-item-nome {
-      font-size: 13px; font-weight: 700; color: var(--black);
+      font-size: 14px; font-weight: 700; color: var(--black);
       margin-bottom: 4px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       letter-spacing: 0.2px;
@@ -436,11 +436,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     #det-nome {
-      font-size: 17px; font-weight: 800; color: var(--black);
-      margin-bottom: 5px; letter-spacing: -0.3px;
+      font-size: 20px; font-weight: 700; color: var(--black);
+      margin-bottom: 5px; letter-spacing: -0.2px;
     }
     #det-endereco {
-      font-size: 13px; color: var(--gray); line-height: 1.5;
+      font-size: 14px; color: var(--gray); line-height: 1.5;
       margin-bottom: 12px;
     }
 
@@ -449,8 +449,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       margin-bottom: 18px;
     }
     .det-stars { display: flex; gap: 2px; }
-    .det-star { color: #FFC107; font-size: 15px; }
-    .det-rating-count { font-size: 13px; color: var(--gray); }
+    .det-star { color: #FFC107; font-size: 16px; }
+    .det-rating-count { font-size: 14px; color: var(--gray); }
     .badge-aberto {
       padding: 4px 12px; border-radius: 100px;
       background: var(--green-bg); color: var(--green-text);
@@ -466,8 +466,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; align-items: center; justify-content: space-between;
       box-shadow: var(--shadow-strong);
     }
-    .det-comb-nome { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.5px; }
-    .det-comb-preco { font-size: 24px; font-weight: 900; color: #fff; margin-top: 2px; }
+    .det-comb-nome { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.6px; }
+    .det-comb-preco { font-size: 22px; font-weight: 800; color: #fff; margin-top: 2px; }
     .det-arrow svg { width: 20px; height: 20px; color: rgba(255,255,255,0.4); }
 
     .det-fuel-list {
@@ -481,7 +481,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       border-bottom: 1px solid var(--border);
     }
     .det-fuel-row:last-child { border-bottom: none; }
-    .det-fuel-nome { font-size: 14px; color: var(--gray-dark); font-weight: 500; }
+    .det-fuel-nome { font-size: 13px; color: var(--gray-dark); font-weight: 500; }
     .det-fuel-price { font-size: 14px; font-weight: 700; color: var(--black); }
 
     .det-btns {
@@ -514,7 +514,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 14px;
     }
-    .det-section-title h3 { font-size: 14px; font-weight: 700; color: var(--black); }
+    .det-section-title h3 { font-size: 15px; font-weight: 700; color: var(--black); }
     .link-ver-todas { font-size: 13px; font-weight: 600; color: var(--orange); background: none; border: none; cursor: pointer; }
 
     .review-card {
@@ -607,7 +607,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; align-items: center; gap: 16px;
     }
     .route-stat {
-      font-size: 18px; font-weight: 800; color: var(--black);
+      font-size: 20px; font-weight: 700; color: var(--black);
     }
     .route-stat-sep { width: 1px; height: 28px; background: var(--border); }
 
@@ -634,16 +634,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       border: 1px solid var(--border);
     }
     .plan-posto-info { flex: 1; }
-    .plan-posto-nome { font-size: 13px; font-weight: 700; color: var(--black); margin-bottom: 2px; }
+    .plan-posto-nome { font-size: 14px; font-weight: 700; color: var(--black); margin-bottom: 2px; }
     .plan-posto-end { font-size: 12px; color: var(--gray); }
-    .plan-posto-preco { font-size: 14px; font-weight: 800; color: var(--orange); }
+    .plan-posto-preco { font-size: 13px; font-weight: 700; color: var(--orange); }
     .plan-preco-unit { font-size: 11px; color: var(--gray); font-weight: 500; }
 
     .btn-iniciar-nav {
       width: 100%; padding: 18px;
       background: var(--orange); border: none; border-radius: var(--radius);
       color: #fff; font-family: 'Inter', sans-serif;
-      font-size: 15px; font-weight: 700;
+      font-size: 16px; font-weight: 700;
       cursor: pointer; transition: all 0.2s;
       display: flex; align-items: center; justify-content: center; gap: 10px;
       box-shadow: var(--shadow-orange);
@@ -894,7 +894,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       position: sticky; top: 0; z-index: 10;
     }
     #rel-title {
-      font-size: 17px; font-weight: 900; color: #fff;
+      font-size: 20px; font-weight: 700; color: #fff;
       padding: 20px 18px 0;
     }
 
@@ -925,14 +925,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       cursor: pointer; color: #fff; font-size: 18px;
       display: flex; align-items: center; justify-content: center;
     }
-    .month-label { font-size: 13px; font-weight: 600; color: #fff; }
+    .month-label { font-size: 14px; font-weight: 600; color: #fff; }
 
     #rel-total {
       text-align: center; padding: 20px 18px 24px;
       background: var(--navy);
     }
     .rel-total-val {
-      font-size: 28px; font-weight: 900; color: #00E676;
+      font-size: 26px; font-weight: 700; color: #00E676;
       line-height: 1; margin-bottom: 6px;
       text-shadow: 0 0 20px rgba(0,230,118,0.3);
     }
@@ -948,7 +948,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       box-shadow: var(--shadow);
     }
     .rel-stat-label { font-size: 12px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 8px; }
-    .rel-stat-val { font-size: 19px; font-weight: 800; color: var(--black); }
+    .rel-stat-val { font-size: 20px; font-weight: 700; color: var(--black); }
 
     .rel-econ-litro {
       margin: 10px 14px 0;
@@ -958,10 +958,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       box-shadow: var(--shadow);
     }
     .rel-econ-label { font-size: 12px; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
-    .rel-econ-val { font-size: 17px; font-weight: 800; color: var(--black); }
+    .rel-econ-val { font-size: 18px; font-weight: 700; color: var(--black); }
 
     .rel-section { padding: 16px 14px 0; }
-    .rel-section-title { font-size: 13px; font-weight: 700; color: var(--black); margin-bottom: 10px; }
+    .rel-section-title { font-size: 15px; font-weight: 700; color: var(--black); margin-bottom: 10px; }
 
     .rel-posto-row {
       display: flex; align-items: center; gap: 12px;
@@ -978,7 +978,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       background: var(--gray-bg);
       border: 1px solid var(--border);
     }
-    .rel-posto-nome { flex: 1; font-size: 13px; font-weight: 600; color: var(--black); }
+    .rel-posto-nome { flex: 1; font-size: 14px; font-weight: 600; color: var(--black); }
     .rel-posto-vezes { font-size: 13px; color: var(--orange); font-weight: 700; }
 
     /* TELA 12: PERFIL / MENU */
@@ -1101,7 +1101,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     #rp-subtela-back svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
     #rp-subtela-titulo {
-      font-size: 16px; font-weight: 700; color: #fff; flex: 1;
+      font-size: 18px; font-weight: 700; color: #fff; flex: 1;
     }
     #rp-subtela-body {
       flex: 1; overflow-y: auto;
@@ -1127,7 +1127,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       width: 100%; padding: 16px;
       background: var(--orange); color: #fff;
       border: none; border-radius: var(--radius);
-      font-size: 14px; font-weight: 700; cursor: pointer;
+      font-size: 15px; font-weight: 700; cursor: pointer;
       margin-top: 8px; transition: opacity .15s;
       box-shadow: var(--shadow-orange);
     }
@@ -1201,7 +1201,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       color: var(--gray-dark); flex-shrink: 0;
     }
     .menu-item-icon svg { width: 18px; height: 18px; }
-    .menu-item-label { flex: 1; font-size: 14px; font-weight: 600; color: var(--black); }
+    .menu-item-label { flex: 1; font-size: 15px; font-weight: 600; color: var(--black); }
     .menu-item-arrow { color: #D0D8E4; }
     .menu-item-arrow svg { width: 16px; height: 16px; }
 
@@ -1230,7 +1230,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       padding: 8px 4px;
       background: none; border: none; cursor: pointer;
       color: #C0C8D4; font-family: 'Inter', sans-serif;
-      font-size: 10px; font-weight: 600;
+      font-size: 11px; font-weight: 600;
       letter-spacing: 0.2px;
       transition: color 0.2s;
     }
@@ -1288,7 +1288,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; align-items: center; justify-content: center;
     }
     #sos-back svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
-    #sos-titulo { font-size: 16px; font-weight: 800; color: #fff; flex: 1; }
+    #sos-titulo { font-size: 18px; font-weight: 700; color: #fff; flex: 1; }
     #sos-badge-premium {
       font-size: 11px; font-weight: 800; color: #FFD600;
       background: rgba(0,0,0,0.30); border-radius: 100px; padding: 5px 13px;
@@ -1366,7 +1366,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .sos-cat-ico.borracha  { background: #E8F5E9; }
     .sos-cat-ico.mecanica  { background: #E3F2FD; }
     .sos-cat-info { flex: 1; }
-    .sos-cat-nome { font-size: 14px; font-weight: 600; color: #1A1A1A; }
+    .sos-cat-nome { font-size: 15px; font-weight: 600; color: #1A1A1A; }
     .sos-cat-desc { font-size: 12px; color: #888; margin-top: 2px; }
     .sos-cat-check {
       width: 22px; height: 22px; border-radius: 50%;
