@@ -400,7 +400,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     #det-header {
-      position: relative; height: 230px; flex-shrink: 0;
+      position: relative; height: 160px; flex-shrink: 0;
       background: linear-gradient(160deg, var(--navy) 0%, #1a2a4a 100%);
       overflow: hidden;
     }
@@ -415,7 +415,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       display: flex; justify-content: space-between; align-items: center;
     }
     .det-btn-icon {
-      width: 40px; height: 40px; border-radius: 12px;
+      width: 36px; height: 36px; border-radius: 10px;
       background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.1);
       display: flex; align-items: center; justify-content: center;
       color: white; cursor: pointer; backdrop-filter: blur(8px);
@@ -423,34 +423,34 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .det-btn-group { display: flex; gap: 8px; }
 
     #det-logo-badge {
-      position: absolute; bottom: -26px; left: 20px;
-      width: 56px; height: 56px; border-radius: 16px;
-      background: white; border: 3px solid white;
+      position: absolute; bottom: -20px; left: 16px;
+      width: 44px; height: 44px; border-radius: 12px;
+      background: white; border: 2px solid white;
       box-shadow: var(--shadow-strong);
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; overflow: hidden;
+      font-size: 16px; overflow: hidden;
     }
 
     #det-body {
-      padding: 38px 18px calc(var(--sab) + 80px);
+      padding: 28px 16px calc(var(--sab) + 80px);
     }
 
     #det-nome {
-      font-size: 20px; font-weight: 700; color: var(--black);
-      margin-bottom: 5px; letter-spacing: -0.2px;
+      font-size: 17px; font-weight: 700; color: var(--black);
+      margin-bottom: 3px; letter-spacing: -0.2px;
     }
     #det-endereco {
-      font-size: 14px; color: var(--gray); line-height: 1.5;
-      margin-bottom: 12px;
+      font-size: 13px; color: var(--gray); line-height: 1.4;
+      margin-bottom: 8px;
     }
 
     #det-info-row {
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      margin-bottom: 18px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 10px;
     }
     .det-stars { display: flex; gap: 2px; }
-    .det-star { color: #FFC107; font-size: 16px; }
-    .det-rating-count { font-size: 14px; color: var(--gray); }
+    .det-star { color: #FFC107; font-size: 14px; }
+    .det-rating-count { font-size: 13px; color: var(--gray); }
     .badge-aberto {
       padding: 4px 12px; border-radius: 100px;
       background: var(--green-bg); color: var(--green-text);
@@ -461,23 +461,23 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       background: linear-gradient(135deg, var(--navy) 0%, #1a2a4a 100%);
       border: none;
       border-radius: var(--radius);
-      padding: 18px 20px;
-      margin-bottom: 14px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
       display: flex; align-items: center; justify-content: space-between;
       box-shadow: var(--shadow-strong);
     }
     .det-comb-nome { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.6px; }
-    .det-comb-preco { font-size: 22px; font-weight: 800; color: #fff; margin-top: 2px; }
+    .det-comb-preco { font-size: 19px; font-weight: 800; color: #fff; margin-top: 1px; }
     .det-arrow svg { width: 20px; height: 20px; color: rgba(255,255,255,0.4); }
 
     .det-fuel-list {
       background: var(--white); border-radius: var(--radius);
-      padding: 0 16px; margin-bottom: 16px;
+      padding: 0 14px; margin-bottom: 10px;
       box-shadow: var(--shadow);
     }
     .det-fuel-row {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 14px 0;
+      padding: 10px 0;
       border-bottom: 1px solid var(--border);
     }
     .det-fuel-row:last-child { border-bottom: none; }
@@ -485,10 +485,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .det-fuel-price { font-size: 14px; font-weight: 700; color: var(--black); }
 
     .det-btns {
-      display: flex; gap: 10px; margin-bottom: 24px;
+      display: flex; gap: 8px; margin-bottom: 12px;
     }
     .btn-como-chegar {
-      flex: 1; padding: 15px;
+      flex: 1; padding: 12px;
       background: var(--white); border: 2px solid var(--border);
       border-radius: var(--radius);
       display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -499,7 +499,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     .btn-como-chegar:active { background: var(--gray-bg); }
     .btn-ir-la {
-      flex: 1; padding: 15px;
+      flex: 1; padding: 12px;
       background: var(--orange); border: none;
       border-radius: var(--radius);
       display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -512,7 +512,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     .det-section-title {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
     }
     .det-section-title h3 { font-size: 15px; font-weight: 700; color: var(--black); }
     .link-ver-todas { font-size: 13px; font-weight: 600; color: var(--orange); background: none; border: none; cursor: pointer; }
