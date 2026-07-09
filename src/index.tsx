@@ -3877,17 +3877,33 @@ app.get('/ir', async (c) => {
     display:block;transform:rotate(45deg);
     font-size:17px;line-height:32px;text-align:center;font-style:normal}
 
-  /* pin usuário */
+  /* pin usuário — seta direcional em modo nav, círculo em modo estático */
+  .pin-user-wrap{
+    position:relative;width:36px;height:36px;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform 0.4s ease}
   .pin-user{
-    width:18px;height:18px;border-radius:50%;
-    background:#3b82f6;border:2.5px solid #fff;
-    box-shadow:0 2px 8px rgba(59,130,246,.8)}
+    width:0;height:0;
+    border-left:9px solid transparent;
+    border-right:9px solid transparent;
+    border-bottom:24px solid #3b82f6;
+    filter:drop-shadow(0 2px 6px rgba(59,130,246,.8))}
+  .pin-user-dot{
+    position:absolute;width:10px;height:10px;border-radius:50%;
+    background:#3b82f6;border:2px solid #fff;
+    box-shadow:0 2px 8px rgba(59,130,246,.8);
+    top:50%;left:50%;transform:translate(-50%,-50%);
+    display:none}
   .pulse-ring{
-    position:absolute;top:-10px;left:-10px;
+    position:absolute;top:50%;left:50%;
     width:38px;height:38px;border-radius:50%;
     border:2px solid rgba(59,130,246,.5);
+    transform:translate(-50%,-50%);
     animation:pulse 2s ease-out infinite}
-  @keyframes pulse{0%{transform:scale(.7);opacity:1}100%{transform:scale(2);opacity:0}}
+  @keyframes pulse{0%{transform:translate(-50%,-50%) scale(.7);opacity:1}100%{transform:translate(-50%,-50%) scale(2);opacity:0}}
+  /* rotação suave do mapa durante navegação */
+  #map{ transition:none }
+  #map .leaflet-map-pane{ transition:transform 0.3s ease }
 
   /* linha de rota */
   .rota-line{stroke:#f97316;stroke-width:5;stroke-opacity:.9;
@@ -4040,6 +4056,9 @@ app.get('/ir', async (c) => {
   var _userLat = null, _userLng = null;
   var _watchId = null;
   var _rotaOk   = false;
+  var _prevLat  = null, _prevLng = null;  // última posição para calcular bearing
+  var _bearing  = 0;                       // direção atual em graus (0=Norte)
+  var _mapaRotacionado = false;            // se mapa está em modo rotação
 
   // Navegação turn-by-turn
   var _navAtiva   = false;
@@ -4119,6 +4138,52 @@ app.get('/ir', async (c) => {
           Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*
           Math.sin(dLo/2)*Math.sin(dLo/2);
     return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+
+  /* ── Calcula bearing entre dois pontos ── */
+  function calcBearing(la1,lo1,la2,lo2){
+    var dLo=(lo2-lo1)*Math.PI/180;
+    var la1r=la1*Math.PI/180, la2r=la2*Math.PI/180;
+    var y=Math.sin(dLo)*Math.cos(la2r);
+    var x=Math.cos(la1r)*Math.sin(la2r)-Math.sin(la1r)*Math.cos(la2r)*Math.cos(dLo);
+    return ((Math.atan2(y,x)*180/Math.PI)+360)%360;
+  }
+
+  /* ── Aplica rotação do mapa (CSS transform no pane) ─── */
+  function aplicarRotacaoMapa(bearing){
+    var pane=document.querySelector('#map .leaflet-map-pane');
+    if(!pane) return;
+    // Rotaciona o pane do Leaflet contra o bearing para que o Norte aponte para cima do bearing
+    // Ou seja: rotaciona o mapa -bearing para que a frente fique no topo
+    pane.style.transformOrigin='50% 50%';
+    // Aplica transform preservando a translação que o Leaflet já aplica
+    var currentTransform = pane.style.transform || '';
+    // Extrai translate existente
+    var match = currentTransform.match(/translate3d\(([^)]+)\)/);
+    var translate = match ? 'translate3d('+match[1]+')' : '';
+    pane.style.transform = translate + ' rotate('+(-bearing)+'deg)';
+    _mapaRotacionado = true;
+  }
+
+  /* ── Remove rotação ao sair da navegação ─── */
+  function removerRotacaoMapa(){
+    var pane=document.querySelector('#map .leaflet-map-pane');
+    if(pane){
+      var currentTransform = pane.style.transform || '';
+      var match = currentTransform.match(/translate3d\(([^)]+)\)/);
+      var translate = match ? 'translate3d('+match[1]+')' : '';
+      pane.style.transform = translate;
+    }
+    _mapaRotacionado = false;
+  }
+
+  /* ── Atualiza seta do marcador do usuário ─── */
+  function atualizarSetaUsuario(bearing){
+    if(!_userMarker) return;
+    var wrap=_userMarker.getElement&&_userMarker.getElement();
+    if(!wrap) return;
+    var innerWrap=wrap.querySelector('.pin-user-wrap');
+    if(innerWrap) innerWrap.style.transform='rotate('+bearing+'deg)';
   }
 
   /* ── Traduz instrução do OSRM ─────────── */
@@ -4250,20 +4315,34 @@ app.get('/ir', async (c) => {
   function atualizarUser(lat,lng){
     _userLat=lat; _userLng=lng;
     if(!_map) return;
+
+    // Calcular bearing se tiver posição anterior
+    if(_prevLat!==null && _prevLng!==null){
+      var dist=haversine(_prevLat,_prevLng,lat,lng);
+      if(dist>3){ // só atualiza bearing se moveu > 3m (evita ruído GPS)
+        _bearing=calcBearing(_prevLat,_prevLng,lat,lng);
+      }
+    }
+    _prevLat=lat; _prevLng=lng;
+
     if(!_userMarker){
-      var h='<div class="pin-user"><div class="pulse-ring"></div></div>';
-      var ic=L.divIcon({html:h,className:'',iconSize:[18,18],iconAnchor:[9,9]});
+      var h='<div class="pin-user-wrap"><div class="pin-user"></div><div class="pulse-ring"></div></div>';
+      var ic=L.divIcon({html:h,className:'',iconSize:[36,36],iconAnchor:[18,18]});
       _userMarker=L.marker([lat,lng],{icon:ic,zIndexOffset:1000}).addTo(_map);
     } else {
       _userMarker.setLatLng([lat,lng]);
     }
+
     if(DLAT&&DLNG&&!_rotaOk){
       var m=haversine(lat,lng,DLAT,DLNG);
       setInfoDist(fmtDist(m)+' em linha reta');
     }
-    // Em modo navegação: centraliza mapa e detecta step
+
+    // Em modo navegação: centraliza + rotaciona mapa na direção do movimento
     if(_navAtiva){
-      _map.setView([lat,lng],17,{animate:true});
+      _map.setView([lat,lng],18,{animate:true,duration:0.8});
+      atualizarSetaUsuario(_bearing);
+      aplicarRotacaoMapa(_bearing);
       detectarStepAtual(lat,lng);
     }
   }
@@ -4391,8 +4470,12 @@ app.get('/ir', async (c) => {
     // Atualiza primeiro step
     atualizarBannerNav();
 
-    // Ajusta mapa para modo navegação (centrado no usuário, zoom maior)
-    if(_userLat!=null) _map.setView([_userLat,_userLng],17,{animate:true});
+    // Ajusta mapa para modo navegação (centrado no usuário, zoom 18 + bearing)
+    if(_userLat!=null){
+      _map.setView([_userLat,_userLng],18,{animate:true});
+      atualizarSetaUsuario(_bearing);
+      aplicarRotacaoMapa(_bearing);
+    }
 
     // Esconde botão de iniciar (já está navegando)
     this.classList.remove('ativo');
@@ -4410,7 +4493,9 @@ app.get('/ir', async (c) => {
       var btnNav=document.getElementById('btn-nav');
       if(btnNav) btnNav.classList.add('ativo');
     }
-    // Volta zoom para ver toda a rota
+    // Remove rotação e volta zoom para ver toda a rota
+    removerRotacaoMapa();
+    _bearing=0;
     if(_rotaLayer) _map.fitBounds(_rotaLayer.getBounds(),{padding:[60,60]});
   });
 
