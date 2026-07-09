@@ -2737,17 +2737,29 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     });
     L.marker([destLat, destLng], { icon: destIcon }).addTo(mapPlan);
 
-    // Linha de rota azul
-    const routeLine = L.polyline([[userLat, userLng], [destLat, destLng]], {
-      color: '#1565C0', weight: 4, dashArray: '8, 4', opacity: 0.8
+    // Linha reta temporária enquanto carrega OSRM
+    var routeLineInit = L.polyline([[userLat, userLng], [destLat, destLng]], {
+      color: '#1565C0', weight: 4, dashArray: '8, 4', opacity: 0.5
     }).addTo(mapPlan);
+    mapPlan.fitBounds(routeLineInit.getBounds(), { padding: [30, 30] });
 
-    mapPlan.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+    // Distância inicial (haversine) para mostrar algo imediato
+    var distInicial = dest && dest.distancia ? dest.distancia : calcHaversinePlan(userLat, userLng, destLat, destLng);
+    document.getElementById('plan-dist').textContent = distInicial.toFixed(1).replace('.', ',') + ' km';
+    document.getElementById('plan-time').textContent = calcTempo(distInicial);
 
-    // Calcular distância e tempo
-    var dist = dest && dest.distancia ? dest.distancia : calcHaversinePlan(userLat, userLng, destLat, destLng);
-    document.getElementById('plan-dist').textContent = dist.toFixed(1).replace('.', ',') + ' km';
-    document.getElementById('plan-time').textContent = calcTempo(dist);
+    // Buscar rota real via OSRM e atualizar
+    _buscarRotaOSRM(mapPlan, userLat, userLng, destLat, destLng, function(distKm, durationMin, latlngs) {
+      // Remover linha provisória e desenhar rota real
+      routeLineInit.remove();
+      L.polyline(latlngs, { color: '#1565C0', weight: 5, opacity: 0.9 }).addTo(mapPlan);
+      // Atualizar distância e tempo reais
+      document.getElementById('plan-dist').textContent = distKm.toFixed(1).replace('.', ',') + ' km';
+      document.getElementById('plan-time').textContent = durationMin ? durationMin + ' min' : calcTempo(distKm);
+      // Atualizar custo estimado com distância real
+      const preco = (dest && (dest.preco || dest.precos?.[selectedFuel])) || 0;
+      atualizarCustoPlan(distKm, preco);
+    });
 
     // Atualizar info do card posto
     if (dest) {
@@ -2767,6 +2779,56 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     // Renderizar tabs de veículo
     renderPlanCarTabs();
+  }
+
+  // ── Rota real via OSRM ──────────────────────────────────────────
+  function _decodificarPolyline(str, precisao) {
+    // Decodifica Google Encoded Polyline (precision=5 no OSRM)
+    var prec = Math.pow(10, -(precisao || 5));
+    var index = 0, lat = 0, lng = 0, result = [];
+    while (index < str.length) {
+      var b, shift = 0, resultVal = 0;
+      do { b = str.charCodeAt(index++) - 63; resultVal |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+      lat += (resultVal & 1) ? ~(resultVal >> 1) : (resultVal >> 1);
+      shift = 0; resultVal = 0;
+      do { b = str.charCodeAt(index++) - 63; resultVal |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+      lng += (resultVal & 1) ? ~(resultVal >> 1) : (resultVal >> 1);
+      result.push([lat * prec, lng * prec]);
+    }
+    return result;
+  }
+
+  var _osrmCache = {};  // cache simples por chave "lat,lng→lat,lng"
+
+  function _buscarRotaOSRM(mapObj, oriLat, oriLng, dstLat, dstLng, onResult) {
+    // onResult(distKm, durationMin, latlngs)
+    var cacheKey = oriLat.toFixed(5)+','+oriLng.toFixed(5)+'→'+dstLat.toFixed(5)+','+dstLng.toFixed(5);
+    if (_osrmCache[cacheKey]) {
+      var c = _osrmCache[cacheKey];
+      onResult(c.distKm, c.durationMin, c.latlngs);
+      return;
+    }
+    var url = 'https://router.project-osrm.org/route/v1/driving/'
+      + oriLng.toFixed(6) + ',' + oriLat.toFixed(6)
+      + ';' + dstLng.toFixed(6) + ',' + dstLat.toFixed(6)
+      + '?overview=full&geometries=polyline&steps=false';
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data || !data.routes || !data.routes[0]) throw new Error('sem rota');
+        var route = data.routes[0];
+        var distKm = route.distance / 1000;
+        var durationMin = Math.round(route.duration / 60);
+        var latlngs = _decodificarPolyline(route.geometry, 5);
+        _osrmCache[cacheKey] = { distKm: distKm, durationMin: durationMin, latlngs: latlngs };
+        onResult(distKm, durationMin, latlngs);
+      })
+      .catch(function() {
+        // Fallback: linha reta haversine
+        var distKm = calcHaversinePlan(oriLat, oriLng, dstLat, dstLng);
+        var latlngs = [[oriLat, oriLng], [dstLat, dstLng]];
+        onResult(distKm, null, latlngs);
+      });
   }
 
   function calcHaversinePlan(lat1, lng1, lat2, lng2) {
@@ -3094,16 +3156,25 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       iconSize: [28, 36], iconAnchor: [14, 36]
     })}).addTo(mapPlan).bindPopup(nome);
 
-    // Linha de rota
-    var routeLine = L.polyline([[userLat, userLng], [destLat, destLng]], {
-      color: '#1565C0', weight: 4, dashArray: '8, 5', opacity: 0.85
+    // Linha reta provisória
+    var routeLineTemp = L.polyline([[userLat, userLng], [destLat, destLng]], {
+      color: '#1565C0', weight: 4, dashArray: '8, 5', opacity: 0.5
     }).addTo(mapPlan);
-    mapPlan.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+    mapPlan.fitBounds(routeLineTemp.getBounds(), { padding: [40, 40] });
 
-    // Calcular distância e tempo
-    var dist = calcHaversinePlan(userLat, userLng, destLat, destLng);
-    document.getElementById('plan-dist').textContent = dist.toFixed(1).replace('.', ',') + ' km';
-    document.getElementById('plan-time').textContent = calcTempo(dist);
+    // Distância haversine imediata
+    var distTemp = calcHaversinePlan(userLat, userLng, destLat, destLng);
+    document.getElementById('plan-dist').textContent = distTemp.toFixed(1).replace('.', ',') + ' km';
+    document.getElementById('plan-time').textContent = calcTempo(distTemp);
+
+    // Rota real OSRM
+    _buscarRotaOSRM(mapPlan, userLat, userLng, destLat, destLng, function(distKm, durationMin, latlngs) {
+      routeLineTemp.remove();
+      L.polyline(latlngs, { color: '#1565C0', weight: 5, opacity: 0.9 }).addTo(mapPlan);
+      document.getElementById('plan-dist').textContent = distKm.toFixed(1).replace('.', ',') + ' km';
+      document.getElementById('plan-time').textContent = durationMin ? durationMin + ' min' : calcTempo(distKm);
+      atualizarCustoPlan(distKm, _getPrecoMedioPosros());
+    });
 
     // Card destino (genérico — não é posto)
     document.getElementById('plan-logo').textContent = detectarIconeLugar(nome + ' ' + endereco);
