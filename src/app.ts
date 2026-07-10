@@ -4537,7 +4537,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // Verificar se posto atual é favorito e atualizar botão
   function _sincronizarBotaoFav() {
     if (!selectedPosto) return;
-    var isFav = _favoritosCache.some(function(f) { return f.id === selectedPosto.id; });
+    // Usa mesma lógica do toggleFavorite: id || nome como chave
+    var postoKey = selectedPosto.id || selectedPosto.nome;
+    var isFav = _favoritosCache.some(function(f) { return f.id === postoKey; });
     _atualizarBotaoFav(isFav);
   }
 
@@ -4634,7 +4636,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     var html = '<div style="padding:16px;display:flex;flex-direction:column;gap:10px;">';
     postos.forEach(function(p) {
-      var precoTxt = p.preco ? 'R$ ' + p.preco.toFixed(2).replace('.', ',') + ' /L' : '';
+      var precoNum = typeof p.preco === 'number' ? p.preco : parseFloat(p.preco);
+      var precoTxt = precoNum > 0 && !isNaN(precoNum) ? 'R$ ' + precoNum.toFixed(2).replace('.', ',') + ' /L' : '';
       var dataTxt = p.salvoEm ? new Date(p.salvoEm).toLocaleDateString('pt-BR') : '';
       html += '<div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);display:flex;align-items:center;gap:12px;cursor:pointer;active:opacity:0.8"'
         + ' onclick="_abrirFavoritoNaMapa(\'' + String(p.id).replace(/'/g,"&#39;") + '\')">'
