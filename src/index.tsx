@@ -11348,7 +11348,7 @@ app.get('/api/admin/config/pagamento', async (c) => {
   if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
   const config = await getConfigPagamento(kv)
   // Verificar credenciais nos env secrets
-  const temWooviEnv   = Boolean((c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY)
+  const temWooviEnv   = Boolean((c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || (c.env as any)?.WOOVI_API_KEY)
   const temMPEnv      = Boolean((c.env as any)?.MP_ACCESS_TOKEN)
   const temPagBankEnv = Boolean((c.env as any)?.PAGBANK_TOKEN)
   return c.json({ config, temWooviEnv, temMPEnv, temPagBankEnv })
@@ -11383,7 +11383,7 @@ app.post('/api/admin/config/pagamento/testar', async (c) => {
   const config = await getConfigPagamento(kv)
 
   if (gateway === 'woovi') {
-    const wooviKey = (c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || config.wooviAppId || ''
+    const wooviKey = (c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || (c.env as any)?.WOOVI_API_KEY || config.wooviAppId || ''
     if (!wooviKey) {
       await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusWoovi: 'nao_configurado', atualizadoEm: Date.now() }))
       return c.json({ ok: false, status: 'nao_configurado', mensagem: 'App ID da Woovi não configurado. Insira a chave no campo Credenciais.' })
@@ -11469,7 +11469,7 @@ app.post('/api/admin/planos/criar-no-gateway', async (c) => {
   const nome = plano.nome || planoId
 
   if (config.gateway === 'woovi') {
-    const wooviKey = (c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || config.wooviAppId || ''
+    const wooviKey = (c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || (c.env as any)?.WOOVI_API_KEY || config.wooviAppId || ''
     if (!wooviKey) return c.json({ erro: 'Woovi não configurado' }, 400)
     // Woovi Subscription Plan (plan recorrente)
     try {
@@ -14651,7 +14651,7 @@ app.get('/admin', (c) => {
         </div>
         <div style="margin-top:14px;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6">
           💡 As chaves podem ser inseridas diretamente no card <strong style="color:rgba(255,255,255,0.4)">Credenciais de Integração</strong> acima, ou configuradas como Secrets no Cloudflare Workers.<br>
-          Variáveis alternativas: <code style="color:#00C853">WOOVI_APP_ID</code> &nbsp;|&nbsp; <code style="color:#42A5F5">MP_ACCESS_TOKEN</code> &nbsp;|&nbsp; <code style="color:#FFB300">PAGBANK_TOKEN</code>
+          Variáveis alternativas: <code style="color:#00C853">WOOVI_API_KEY</code> &nbsp;|&nbsp; <code style="color:#42A5F5">MP_ACCESS_TOKEN</code> &nbsp;|&nbsp; <code style="color:#FFB300">PAGBANK_TOKEN</code>
         </div>
       </div>
     </div>
@@ -17591,7 +17591,7 @@ function renderIntegracaoStatus() {
       id: 'woovi',
       nome: 'Woovi / OpenPix', icon: '📱', cor: '#00C853',
       temEnv: _pgTemWooviEnv, status: _pgConfig.statusWoovi,
-      varEnv: 'WOOVI_APP_ID ou OPENPIX_KEY'
+      varEnv: 'WOOVI_API_KEY'
     },
     {
       id: 'mercadopago',
