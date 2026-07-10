@@ -11338,6 +11338,187 @@ app.post('/api/admin/script/auto-fotos', async (c) => {
   })
 })
 
+// ─── POST /api/admin/script/auto-fotos-postos-band — logo SVG + foto Google para posto:band:* ──
+// Processa TODOS os postos do KV (ANP, OSM, Google) que não têm fotoUrl ou logoUrl
+app.post('/api/admin/script/auto-fotos-postos-band', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+
+  const kv = getKV(c.env as any)
+  const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+
+  // Limite de postos processados por chamada (evitar timeout dos Workers)
+  const limite = parseInt(c.req.query('limite') || '60')
+
+  // Mapa bandeira → logo SVG
+  const logoSvgPorBandeira = (bandeira: string, nome: string): string | null => {
+    const n = (bandeira + ' ' + nome).toUpperCase()
+    if (n.includes('SHELL'))                                          return 'https://rotaposto.com.br/static/logos/shell.svg'
+    if (n.includes('PETROBRAS') || /\bBR\b/.test(n) || n.includes('BR DISTRIBUIDORA')) return 'https://rotaposto.com.br/static/logos/br.svg'
+    if (n.includes('IPIRANGA'))                                       return 'https://rotaposto.com.br/static/logos/ipiranga.svg'
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN'))                 return 'https://rotaposto.com.br/static/logos/raizen.svg'
+    if (/\bALE\b/.test(n) || n.includes('ALEPOSTO'))                  return 'https://rotaposto.com.br/static/logos/ale.svg'
+    if (n.includes('TEXACO'))                                         return 'https://rotaposto.com.br/static/logos/texaco.svg'
+    if (n.includes('VIBRA'))                                          return 'https://rotaposto.com.br/static/logos/vibra.svg'
+    if (n.includes('ESSO'))                                           return 'https://rotaposto.com.br/static/logos/esso.svg'
+    if (n.includes('PITSTOP') || n.includes('PIT STOP'))             return 'https://rotaposto.com.br/static/logos/pitstop.svg'
+    if (n.includes('BANDEIRANTE'))                                    return 'https://rotaposto.com.br/static/logos/bandeirante.svg'
+    if (n.includes('COPAGAZ'))                                        return 'https://rotaposto.com.br/static/logos/copagaz.svg'
+    if (n.includes('ULTRAGAZ'))                                       return 'https://rotaposto.com.br/static/logos/ultragaz.svg'
+    if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS'))       return 'https://rotaposto.com.br/static/logos/supergasbras.svg'
+    return null
+  }
+
+  // Busca foto Google por coordenadas (Nearby Search) ou nome+cidade (Text Search)
+  const buscarFotoGoogle = async (nome: string, cidade: string, lat?: number | null, lng?: number | null): Promise<string | null> => {
+    if (!googleKey) return null
+    try {
+      if (lat && lng) {
+        const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': googleKey,
+            'X-Goog-FieldMask': 'places.id,places.photos',
+            'Accept-Language': 'pt-BR'
+          },
+          body: JSON.stringify({
+            includedTypes: ['gas_station'],
+            maxResultCount: 1,
+            locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: 80 } },
+            rankPreference: 'DISTANCE'
+          }),
+          signal: AbortSignal.timeout(7000)
+        })
+        if (res.ok) {
+          const j = await res.json() as any
+          const place = (j.places || [])[0]
+          if (place?.photos?.length > 0) {
+            return `https://places.googleapis.com/v1/${place.photos[0].name}/media?key=${googleKey}&maxWidthPx=800`
+          }
+        }
+      }
+      // Fallback: Text Search
+      const res2 = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': googleKey,
+          'X-Goog-FieldMask': 'places.id,places.photos',
+          'Accept-Language': 'pt-BR'
+        },
+        body: JSON.stringify({ textQuery: `${nome} ${cidade} posto combustivel`, includedType: 'gas_station', maxResultCount: 1 }),
+        signal: AbortSignal.timeout(7000)
+      })
+      if (!res2.ok) return null
+      const j2 = await res2.json() as any
+      const place2 = (j2.places || [])[0]
+      if (place2?.photos?.length > 0) {
+        return `https://places.googleapis.com/v1/${place2.photos[0].name}/media?key=${googleKey}&maxWidthPx=800`
+      }
+      return null
+    } catch { return null }
+  }
+
+  // Listar posto:band:* do KV (todos os postos do mapa)
+  const resultados: Array<Record<string, unknown>> = []
+  let logosSalvos = 0, fotosSalvas = 0, jaOkCount = 0, erros = 0, processados = 0
+  let cursor: string | undefined = undefined
+
+  while (processados < limite) {
+    const batch = Math.min(20, limite - processados)
+    const list = await kv.list({ prefix: 'posto:band:', limit: batch, cursor })
+    if (!list.keys.length) break
+
+    for (const kkey of list.keys) {
+      if (processados >= limite) break
+      processados++
+
+      const raw = await kv.get(kkey.name)
+      if (!raw) continue
+      let dado: Record<string, unknown>
+      try { dado = JSON.parse(raw) } catch { continue }
+
+      const postoId  = String(dado.postoId || kkey.name.replace('posto:band:', ''))
+      const nome     = String(dado.postoNome || dado.nome || '')
+      const bandeira = String(dado.bandeiraNome || dado.bandeira || '')
+      const cidade   = String(dado.cidade || '')
+      const lat      = dado.lat ? Number(dado.lat) : null
+      const lng      = dado.lng ? Number(dado.lng) : null
+
+      // Verificar se já tem logo E foto
+      const temLogo = !!(dado.logoUrl || dado.fotoUrl)
+      const temFoto = !!(dado.fotoUrl)
+
+      if (temLogo && temFoto) {
+        jaOkCount++
+        resultados.push({ postoId, nome, status: 'ja_ok' })
+        continue
+      }
+
+      let modificado = false
+      const acoes: string[] = []
+
+      try {
+        // A) Logo SVG pela bandeira
+        if (!dado.logoUrl) {
+          const logoUrl = logoSvgPorBandeira(bandeira, nome)
+          if (logoUrl) {
+            dado.logoUrl = logoUrl
+            acoes.push('logo_svg:' + logoUrl.split('/').pop())
+            logosSalvos++
+            modificado = true
+          }
+        }
+
+        // B) Foto do Google Maps (só se não tem fotoUrl)
+        if (!dado.fotoUrl) {
+          const fotoUrl = await buscarFotoGoogle(nome, cidade, lat, lng)
+          if (fotoUrl) {
+            dado.fotoUrl = fotoUrl
+            dado.fotoTs  = new Date().toISOString()
+            acoes.push('foto_google:ok')
+            fotosSalvas++
+            modificado = true
+          } else {
+            acoes.push('foto_google:nao_encontrada')
+          }
+        }
+
+        if (modificado) {
+          await kv.put(kkey.name, JSON.stringify(dado), { expirationTtl: 365 * 24 * 3600 })
+          resultados.push({ postoId, nome, status: 'atualizado', acoes })
+        } else {
+          jaOkCount++
+          resultados.push({ postoId, nome, status: 'ja_ok', acoes })
+        }
+
+        // Pausa para não estourar rate limit
+        await new Promise(r => setTimeout(r, 80))
+      } catch(e) {
+        erros++
+        resultados.push({ postoId, nome, status: 'erro', msg: String(e) })
+      }
+    }
+
+    if (list.list_complete) break
+    cursor = (list as any).cursor
+  }
+
+  return c.json({
+    ok: true,
+    total: processados,
+    logosSalvos,
+    fotosSalvas,
+    jaOkCount,
+    erros,
+    googleKeyDisponivel: !!googleKey,
+    resultados
+  })
+})
+
 // ─── GET /api/admin/parceiros — lista TODOS os postos (R2 + KV fallback + p_teste persistido) ──
 app.get('/api/admin/parceiros', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -14560,7 +14741,7 @@ async function rodarAutoFotos() {
   }
 }
 
-// ─── Auto-fotos específica para seção ANP ─────────────────────────────────────
+// ─── Auto-fotos para seção ANP — processa posto:band:* (todos os postos do mapa) ─────────────
 async function rodarAutoFotosANP() {
   const btn = document.getElementById('btn-auto-fotos-anp');
   const resultado = document.getElementById('auto-fotos-anp-resultado');
@@ -14568,36 +14749,33 @@ async function rodarAutoFotosANP() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos...';
   btn.style.pointerEvents = 'none';
   resultado.style.display = 'block';
-  resultado.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos reais do Google Maps e logos das bandeiras para todos os postos parceiros — aguarde...';
+  resultado.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando logos e fotos do Google Maps para os postos do mapa (ANP/OSM/Google) — pode levar alguns segundos...';
   try {
-    const r = await fetch('/api/admin/script/auto-fotos?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
+    // Chama o endpoint específico para posto:band:* — processa postos do mapa, não apenas parceiros
+    const r = await fetch('/api/admin/script/auto-fotos-postos-band?key=' + encodeURIComponent(ADMIN_KEY) + '&limite=60', { method: 'POST' });
     const d = await r.json();
     if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao buscar fotos');
-    const linhas = (d.resultados || []).map(function(x) {
-      const icone = x.status === 'atualizado' ? '✅' : x.status === 'ja_tem_foto' ? '⚪' : '❌';
+    const linhas = (d.resultados || []).filter(function(x) { return x.status === 'atualizado'; }).map(function(x) {
       const acoes = (x.acoes || []).map(function(a) {
-        if (a.startsWith('logo_svg:'))   return '<span style="color:#FFD600">🏷️ logo: ' + a.replace('logo_svg:','') + '</span>';
-        if (a === 'foto_google:ok')       return '<span style="color:#69F0AE">📸 foto Google ✓</span>';
-        if (a === 'foto_google:nao_encontrada') return '<span style="color:#888">📸 Google: não encontrada</span>';
+        if (a.startsWith('logo_svg:'))              return '<span style="color:#FFD600">🏷️ ' + a.replace('logo_svg:','') + '</span>';
+        if (a === 'foto_google:ok')                 return '<span style="color:#69F0AE">📸 foto Google ✓</span>';
+        if (a === 'foto_google:nao_encontrada')     return '<span style="color:#888">📸 sem foto</span>';
         return a;
-      }).join(' | ');
-      const rating = x.rating ? ' ★' + x.rating : '';
-      return icone + ' <b>' + (x.nomePosto || x.id) + '</b> ' + (acoes || '') + rating;
+      }).join(' ');
+      return '✅ <b>' + (x.nome || x.postoId) + '</b> ' + acoes;
     }).join('<br>');
     const googleOk = d.googleKeyDisponivel
       ? '<span style="color:#69F0AE">✓ Google API disponível</span>'
-      : '<span style="color:#FF8A65">⚠️ Google API KEY ausente — só logos salvos</span>';
+      : '<span style="color:#FF8A65">⚠️ Google API KEY ausente — só logos SVG salvos</span>';
     resultado.innerHTML =
-      '<b style="color:#fff">✅ Auto-fotos concluído!</b> ' + googleOk + '<br>' +
-      '<span style="color:#80CBC4">Logos salvos: <b>' + d.logosSalvos + '</b></span> &nbsp;|&nbsp; ' +
-      '<span style="color:#A5D6A7">Fotos Google: <b>' + d.fotosSalvas + '</b></span> &nbsp;|&nbsp; ' +
+      '<b style="color:#fff">✅ Fotos postos ANP/OSM concluído!</b> ' + googleOk + '<br>' +
+      '<span style="color:#80CBC4">🏷️ Logos salvos: <b>' + d.logosSalvos + '</b></span> &nbsp;|&nbsp; ' +
+      '<span style="color:#A5D6A7">📸 Fotos Google: <b>' + d.fotosSalvas + '</b></span> &nbsp;|&nbsp; ' +
       '<span style="color:#888">Já ok: <b>' + d.jaOkCount + '</b></span> &nbsp;|&nbsp; ' +
       '<span style="color:#EF9A9A">Erros: <b>' + d.erros + '</b></span> &nbsp;|&nbsp; ' +
-      'Total: <b>' + d.total + '</b>' +
+      'Total processados: <b>' + d.total + '</b>' +
       (linhas ? '<div style="margin-top:10px;max-height:220px;overflow-y:auto;font-size:11px;line-height:2">' + linhas + '</div>' : '');
-    showToast('✅ Fotos ANP: ' + d.fotosSalvas + ' Google | ' + d.logosSalvos + ' logos salvos!', 'ok');
-    // Auto-propagar para refletir as novas fotos no mapa/lista do usuário
-    setTimeout(rodarPropagacaoLogos, 800);
+    showToast('✅ Postos ANP: ' + d.fotosSalvas + ' fotos Google | ' + d.logosSalvos + ' logos salvos!', 'ok');
   } catch(e) {
     resultado.innerHTML = '❌ Erro: ' + e.message;
     showToast('❌ Erro ao buscar fotos: ' + e.message, 'err');
@@ -15175,44 +15353,62 @@ async function salvarParceiroModal() {
     showToast('Posto atualizado!' + coordMsg, 'ok');
     fecharModalParceiro();
     await carregarParceirosCadastrados();
-    // Se o posto veio da seleção ANP → rodar auto-fotos automaticamente
+    // Se o posto veio da seleção ANP → rodar auto-fotos automaticamente (parceiros + postos do mapa)
     if (_postoVeioDaANP) {
       _postoVeioDaANP = false;
       showToast('🪄 Buscando logo e foto Google Maps automaticamente...', 'ok');
       // Pequeno delay para garantir que o parceiro foi salvo no KV
       setTimeout(async () => {
-        // Mostrar resultado na seção ANP
         const anpResultDiv = document.getElementById('auto-fotos-anp-resultado');
         if (anpResultDiv) {
           anpResultDiv.style.display = 'block';
-          anpResultDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos e logo automaticamente para o posto recém-adicionado...';
+          anpResultDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando logos e fotos Google Maps automaticamente...';
         }
         try {
-          const fr = await fetch('/api/admin/script/auto-fotos?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
-          const fd = await fr.json();
-          if (!fr.ok || !fd.ok) throw new Error(fd.erro || 'Erro');
-          const googleOk = fd.googleKeyDisponivel
+          // 1. Auto-fotos para parceiros (salva fotoBandeira + fotoExterna no R2/KV)
+          const fr1 = await fetch('/api/admin/script/auto-fotos?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
+          const fd1 = await fr1.json().catch(() => ({}));
+          // 2. Auto-fotos para posto:band:* (postos do mapa — ANP/OSM/Google)
+          const fr2 = await fetch('/api/admin/script/auto-fotos-postos-band?key=' + encodeURIComponent(ADMIN_KEY) + '&limite=60', { method: 'POST' });
+          const fd2 = await fr2.json().catch(() => ({}));
+          const logosTot  = (fd1.logosSalvos || 0) + (fd2.logosSalvos || 0);
+          const fotosTot  = (fd1.fotosSalvas || 0) + (fd2.fotosSalvas || 0);
+          const googleOk  = (fd1.googleKeyDisponivel || fd2.googleKeyDisponivel)
             ? '<span style="color:#69F0AE">✓ Google API</span>'
-            : '<span style="color:#FF8A65">⚠️ sem Google API KEY</span>';
+            : '<span style="color:#FF8A65">⚠️ sem Google API KEY — só logos SVG</span>';
           if (anpResultDiv) {
-            const linhas = (fd.resultados || []).map(function(x) {
-              const icone = x.status === 'atualizado' ? '✅' : x.status === 'ja_tem_foto' ? '⚪' : '❌';
+            // Linhas atualizadas dos postos do mapa
+            const linhasMapa = (fd2.resultados || []).filter(function(x) { return x.status === 'atualizado'; }).map(function(x) {
               const acoes = (x.acoes || []).map(function(a) {
-                if (a.startsWith('logo_svg:'))   return '🏷️ logo: ' + a.replace('logo_svg:','');
-                if (a === 'foto_google:ok')       return '📸 foto Google ✓';
-                if (a === 'foto_google:nao_encontrada') return '📸 Google: não encontrada';
+                if (a.startsWith('logo_svg:'))          return '🏷️ ' + a.replace('logo_svg:','');
+                if (a === 'foto_google:ok')              return '📸 foto ✓';
+                if (a === 'foto_google:nao_encontrada')  return '—';
                 return a;
-              }).join(' | ');
-              return icone + ' <b>' + (x.nomePosto || x.id) + '</b> ' + acoes;
+              }).join(' ');
+              return '✅ <b>' + (x.nome || x.postoId) + '</b> ' + acoes;
             }).join('<br>');
+            // Linhas atualizadas dos parceiros
+            const linhasParceiros = (fd1.resultados || []).filter(function(x) { return x.status === 'atualizado'; }).map(function(x) {
+              const acoes = (x.acoes || []).map(function(a) {
+                if (a.startsWith('logo_svg:'))          return '🏷️ ' + a.replace('logo_svg:','');
+                if (a === 'foto_google:ok')              return '📸 foto ✓';
+                if (a === 'foto_google:nao_encontrada')  return '—';
+                return a;
+              }).join(' ');
+              return '✅ <b>' + (x.nomePosto || x.id) + '</b> ' + acoes;
+            }).join('<br>');
+            const linhas = [linhasParceiros, linhasMapa].filter(Boolean).join('<br>');
             anpResultDiv.innerHTML =
               '<b style="color:#fff">✅ Fotos buscadas automaticamente!</b> ' + googleOk + '<br>' +
-              'Logos: <b>' + fd.logosSalvos + '</b> &nbsp;|&nbsp; Fotos Google: <b>' + fd.fotosSalvas + '</b> &nbsp;|&nbsp; Total: <b>' + fd.total + '</b>' +
-              (linhas ? '<div style="margin-top:8px;font-size:11px;line-height:2">' + linhas + '</div>' : '');
+              '🏷️ Logos: <b>' + logosTot + '</b> &nbsp;|&nbsp; ' +
+              '📸 Fotos Google: <b>' + fotosTot + '</b> &nbsp;|&nbsp; ' +
+              'Parceiros: <b>' + (fd1.total || 0) + '</b> &nbsp;|&nbsp; ' +
+              'Postos mapa: <b>' + (fd2.total || 0) + '</b>' +
+              (linhas ? '<div style="margin-top:8px;font-size:11px;line-height:2;max-height:160px;overflow-y:auto">' + linhas + '</div>' : '');
           }
-          showToast('✅ Logo e foto Google buscados: ' + fd.fotosSalvas + ' fotos | ' + fd.logosSalvos + ' logos!', 'ok');
+          showToast('✅ ' + fotosTot + ' fotos | ' + logosTot + ' logos buscados automaticamente!', 'ok');
           // Propagar para mapa/lista do usuário
-          setTimeout(rodarPropagacaoLogos, 600);
+          setTimeout(rodarPropagacaoLogos, 700);
         } catch(fe) {
           if (anpResultDiv) anpResultDiv.innerHTML = '❌ Erro ao buscar fotos: ' + fe.message;
           showToast('❌ Erro ao buscar fotos automáticas: ' + fe.message, 'err');
