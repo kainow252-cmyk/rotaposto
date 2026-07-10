@@ -12276,6 +12276,31 @@ app.get('/admin', (c) => {
     .staff-ativo-toggle{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800;cursor:pointer;transition:all 0.2s}
     .staff-ativo-on{background:rgba(0,200,83,0.15);color:#00C853}
     .staff-ativo-off{background:rgba(255,82,82,0.12);color:#FF5252}
+    /* ── Modal responsivo ── */
+    .modal-wrapper{position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
+    .modal-inner{background:#1A1D23;border:1px solid rgba(255,255,255,0.1);border-radius:18px;width:100%;max-width:680px;max-height:calc(100vh - 32px);overflow-y:auto;overflow-x:hidden;position:relative;margin:auto;flex-shrink:0}
+    .modal-inner::-webkit-scrollbar{width:4px}.modal-inner::-webkit-scrollbar-track{background:transparent}.modal-inner::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:4px}
+    .modal-header{position:sticky;top:0;z-index:10;background:#1A1D23;padding:20px 24px 14px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .modal-close-btn{background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.5);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:15px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+    .modal-close-btn:hover{background:rgba(255,82,82,0.2);color:#FF5252}
+    .modal-body{padding:20px 24px}
+    .modal-footer{position:sticky;bottom:0;background:#1A1D23;border-top:1px solid rgba(255,255,255,0.08);padding:14px 24px;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+    /* Responsivo mobile */
+    @media(max-width:768px){
+      .main{margin-left:0;padding:12px}
+      .sidebar{transform:translateX(-100%);transition:transform 0.3s}
+      .sidebar.open{transform:translateX(0)}
+      .modal-wrapper{padding:8px}
+      .modal-inner{max-height:calc(100vh - 16px);border-radius:14px}
+      .modal-header{padding:14px 16px 10px}
+      .modal-body{padding:14px 16px}
+      .modal-footer{padding:10px 16px}
+      .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:480px){
+      .modal-inner{border-radius:10px}
+      .kpi-grid{grid-template-columns:1fr 1fr}
+    }
   </style>
 </head>
 <body>
@@ -12590,47 +12615,52 @@ app.get('/admin', (c) => {
   </section>
 
   <!-- Modal Editar Usuário do App -->
-  <div id="modal-editar-usuario" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;overflow-y:auto;padding:20px;align-items:flex-start;justify-content:center">
-    <div style="background:#1A1D23;border:1px solid rgba(255,255,255,0.1);border-radius:18px;max-width:500px;width:100%;margin:40px auto;padding:28px;position:relative">
-      <button onclick="fecharModalEditarUsuario()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px">✕</button>
-      <div style="margin-bottom:20px">
-        <h3 style="font-size:16px;font-weight:900;color:#fff;margin:0 0 4px"><i class="fas fa-user-edit" style="color:#42A5F5;margin-right:8px"></i>Editar Usuário</h3>
-        <div id="au-edit-header-nome" style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.7)">—</div>
-        <div id="au-edit-header-email" style="font-size:11px;color:rgba(255,255,255,0.35);font-family:monospace">—</div>
+  <div id="modal-editar-usuario" class="modal-wrapper" style="display:none">
+    <div class="modal-inner" style="max-width:500px">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size:15px;font-weight:900;color:#fff;margin:0 0 3px"><i class="fas fa-user-edit" style="color:#42A5F5;margin-right:8px"></i>Editar Usuário</h3>
+          <div id="au-edit-header-nome" style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.6)">—</div>
+          <div id="au-edit-header-email" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:monospace">—</div>
+        </div>
+        <button class="modal-close-btn" onclick="fecharModalEditarUsuario()">✕</button>
       </div>
-      <div style="font-size:10px;font-weight:900;color:#42A5F5;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Dados Cadastrais</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
-        <div class="form-group" style="grid-column:1/-1">
-          <label>Nome completo</label>
-          <input id="au-edit-nome" type="text" placeholder="Nome do usuário"/>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label>E-mail</label>
-          <input id="au-edit-email" type="email" placeholder="email@exemplo.com"/>
-        </div>
-        <div class="form-group">
-          <label>Telefone</label>
-          <input id="au-edit-telefone" type="text" placeholder="(27) 99999-9999"/>
-        </div>
-        <div class="form-group">
-          <label>Estado (UF)</label>
-          <select id="au-edit-estado" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
-            <option value="">— UF —</option>
-            <option>AC</option><option>AL</option><option>AM</option><option>AP</option><option>BA</option><option>CE</option>
-            <option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MG</option><option>MS</option>
-            <option>MT</option><option>PA</option><option>PB</option><option>PE</option><option>PI</option><option>PR</option>
-            <option>RJ</option><option>RN</option><option>RO</option><option>RR</option><option>RS</option><option>SC</option>
-            <option>SE</option><option>SP</option><option>TO</option>
-          </select>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label>Cidade</label>
-          <input id="au-edit-cidade" type="text" placeholder="Cidade do usuário"/>
+      <div class="modal-body">
+        <div style="font-size:10px;font-weight:900;color:#42A5F5;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Dados Cadastrais</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Nome completo</label>
+            <input id="au-edit-nome" type="text" placeholder="Nome do usuário"/>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>E-mail</label>
+            <input id="au-edit-email" type="email" placeholder="email@exemplo.com"/>
+          </div>
+          <div class="form-group">
+            <label>Telefone</label>
+            <input id="au-edit-telefone" type="text" placeholder="(27) 99999-9999"/>
+          </div>
+          <div class="form-group">
+            <label>Estado (UF)</label>
+            <select id="au-edit-estado" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
+              <option value="">— UF —</option>
+              <option>AC</option><option>AL</option><option>AM</option><option>AP</option><option>BA</option><option>CE</option>
+              <option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MG</option><option>MS</option>
+              <option>MT</option><option>PA</option><option>PB</option><option>PE</option><option>PI</option><option>PR</option>
+              <option>RJ</option><option>RN</option><option>RO</option><option>RR</option><option>RS</option><option>SC</option>
+              <option>SE</option><option>SP</option><option>TO</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Cidade</label>
+            <input id="au-edit-cidade" type="text" placeholder="Cidade do usuário"/>
+          </div>
         </div>
       </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button onclick="fecharModalEditarUsuario()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700">Cancelar</button>
-        <button id="au-edit-salvar-btn" onclick="salvarEdicaoUsuario()" style="background:linear-gradient(135deg,#42A5F5,#1976D2);border:none;color:#fff;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:800"><i class="fas fa-save"></i> Salvar</button>
+      <div class="modal-footer">
+        <button onclick="fecharModalEditarUsuario()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);padding:9px 18px;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700">Cancelar</button>
+        <div style="flex:1"></div>
+        <button id="au-edit-salvar-btn" onclick="salvarEdicaoUsuario()" style="background:linear-gradient(135deg,#42A5F5,#1976D2);border:none;color:#fff;padding:9px 22px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:800"><i class="fas fa-save"></i> Salvar</button>
       </div>
     </div>
   </div>
@@ -12884,11 +12914,18 @@ app.get('/admin', (c) => {
     </div>
 
     <!-- Modal Editar Parceiro -->
-    <div id="modal-parceiro-edit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;overflow-y:auto;padding:20px">
-      <div style="background:#1A1D23;border:1px solid rgba(255,255,255,0.1);border-radius:18px;max-width:660px;margin:0 auto;padding:28px;position:relative">
-        <button onclick="fecharModalParceiro()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px">✕</button>
-        <h3 style="font-size:17px;font-weight:900;color:#fff;margin:0 0 4px"><i class="fas fa-gas-pump" style="color:#FF6D00;margin-right:8px"></i>Editar Posto Parceiro</h3>
-        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:20px;font-family:monospace" id="ep-id-display">ID: —</div>
+    <div id="modal-parceiro-edit" class="modal-wrapper" style="display:none">
+      <div class="modal-inner">
+        <!-- Header fixo (sempre visível) -->
+        <div class="modal-header">
+          <div>
+            <h3 style="font-size:16px;font-weight:900;color:#fff;margin:0 0 3px"><i class="fas fa-gas-pump" style="color:#FF6D00;margin-right:8px"></i>Editar Posto Parceiro</h3>
+            <div style="font-size:10px;color:rgba(255,255,255,0.3);font-family:monospace" id="ep-id-display">ID: —</div>
+          </div>
+          <button class="modal-close-btn" onclick="fecharModalParceiro()">✕</button>
+        </div>
+        <!-- Corpo com scroll -->
+        <div class="modal-body">
 
         <!-- Dados cadastrais -->
         <div style="font-size:10px;font-weight:900;color:#FF6D00;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Dados Cadastrais</div>
@@ -13131,14 +13168,18 @@ app.get('/admin', (c) => {
           <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:8px"><i class="fas fa-info-circle"></i> Envie este link para o dono do posto — ele abre a página de boas-vindas e baixa o app já vinculado.</div>
         </div>
 
-        <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button onclick="fecharModalParceiro()" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:13px">Cancelar</button>
-          <button id="ep-deletar-btn" onclick="deletarParceiroModal()" style="background:rgba(255,82,82,0.15);color:#FF5252;border:1px solid rgba(255,82,82,0.3);padding:10px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700"><i class="fas fa-trash"></i> Remover</button>
-          <button id="ep-convite-btn" onclick="gerarConviteParceiro()" style="background:rgba(66,165,245,0.15);color:#42A5F5;border:1px solid rgba(66,165,245,0.3);padding:10px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700"><i class="fas fa-paper-plane"></i> Gerar Convite</button>
-          <button onclick="salvarParceiroModal()" style="background:#FF6D00;color:white;border:none;padding:10px 24px;border-radius:10px;font-weight:900;font-size:13px;cursor:pointer"><i class="fas fa-save"></i> Salvar</button>
+        </div><!-- /modal-body -->
+
+        <!-- Footer fixo (sempre visível) -->
+        <div class="modal-footer">
+          <button onclick="fecharModalParceiro()" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);padding:9px 18px;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700">Cancelar</button>
+          <button id="ep-deletar-btn" onclick="deletarParceiroModal()" style="background:rgba(255,82,82,0.15);color:#FF5252;border:1px solid rgba(255,82,82,0.3);padding:9px 16px;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700"><i class="fas fa-trash"></i> Remover</button>
+          <button id="ep-convite-btn" onclick="gerarConviteParceiro()" style="background:rgba(66,165,245,0.15);color:#42A5F5;border:1px solid rgba(66,165,245,0.3);padding:9px 16px;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700"><i class="fas fa-paper-plane"></i> Gerar Convite</button>
+          <div style="flex:1"></div>
+          <button onclick="salvarParceiroModal()" style="background:#FF6D00;color:white;border:none;padding:9px 22px;border-radius:10px;font-weight:900;font-size:13px;cursor:pointer"><i class="fas fa-save"></i> Salvar</button>
         </div>
-      </div>
-    </div>
+      </div><!-- /modal-inner -->
+    </div><!-- /modal-wrapper modal-parceiro-edit -->
 
     <!-- ═══ Buscar Posto na ANP ═══ -->
     <div class="section-card" style="margin-top:18px">
@@ -15064,8 +15105,9 @@ function abrirModalEditarParceiro(id) {
   if (epFotoExterna) epFotoExterna.value = p.fotoExterna || '';
   epPreviewFotoExterna(p.fotoExterna || '');
 
-  document.getElementById('modal-parceiro-edit').style.display = 'block';
-  document.getElementById('modal-parceiro-edit').scrollTop = 0;
+  const _mel = document.getElementById('modal-parceiro-edit');
+  _mel.style.display = 'flex'; _mel.scrollTop = 0;
+  const _min = _mel.querySelector('.modal-inner'); if (_min) _min.scrollTop = 0;
 }
 
 // ── Foto de bandeira no Admin ─────────────────────────────
@@ -15686,8 +15728,9 @@ function preencherModalComANP(idxStr) {
   document.getElementById('ep-cuponsAtivos').checked   = false;
   popularSelectPlanosModal('');  // seleciona o primeiro plano disponível
   document.getElementById('ep-deletar-btn').style.display = 'none';
-  document.getElementById('modal-parceiro-edit').style.display = 'block';
-  document.getElementById('modal-parceiro-edit').scrollTop = 0;
+  const _mel2 = document.getElementById('modal-parceiro-edit');
+  _mel2.style.display = 'flex'; _mel2.scrollTop = 0;
+  const _min2 = _mel2.querySelector('.modal-inner'); if (_min2) _min2.scrollTop = 0;
   showToast('Dados da ANP preenchidos! Confira e salve.', 'ok');
 }
 
