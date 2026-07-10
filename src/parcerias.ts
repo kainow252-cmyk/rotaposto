@@ -1860,6 +1860,34 @@ export function getPainelEmpresaHTML(): string {
           </div>
         </div>
 
+        <!-- ── Foto / Logo da Bandeira ── -->
+        <div class="config-section" style="margin-top:14px">
+          <div class="config-titulo">🖼️ Foto / Logo do Posto</div>
+          <p style="font-size:13px;color:var(--sub);margin:0 0 14px">Essa foto aparece no mapa e na lista de postos para todos os usuários do app. Use a logo da bandeira ou uma foto externa do posto.</p>
+          <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+            <!-- Preview atual -->
+            <div id="perf-foto-preview-wrap" style="width:90px;height:90px;border-radius:14px;background:#1a1a2e;border:2px dashed rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;position:relative">
+              <span id="perf-foto-placeholder" style="font-size:32px">⛽</span>
+              <img id="perf-foto-preview-img" src="" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+            </div>
+            <div style="flex:1;min-width:200px">
+              <!-- Input arquivo -->
+              <input type="file" id="perf-foto-input" accept="image/*" style="display:none" onchange="perfHandleFotoChange(this)"/>
+              <button onclick="document.getElementById('perf-foto-input').click()" style="padding:10px 20px;background:rgba(255,255,255,0.07);color:#fff;border:1.5px dashed rgba(255,255,255,0.2);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <i class="fas fa-upload"></i> Selecionar imagem
+              </button>
+              <div style="font-size:11px;color:var(--sub);line-height:1.6">
+                • JPG, PNG ou WebP · Máx. 2 MB<br>
+                • Recomendado: fundo branco, 400×400px
+              </div>
+              <div id="perf-foto-status" style="font-size:12px;font-weight:700;margin-top:8px;display:none"></div>
+              <button id="perf-foto-btn-salvar" onclick="perfUploadFotoBandeira()" style="display:none;margin-top:10px;padding:9px 18px;background:var(--laranja);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">
+                <i class="fas fa-cloud-upload-alt"></i> Enviar foto
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- ── Ações ── -->
         <div style="display:flex;align-items:center;gap:16px;margin-top:20px;flex-wrap:wrap">
           <button onclick="salvarPerfil()" id="perf-btn-salvar" style="padding:13px 28px;background:var(--laranja);color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px">
@@ -2690,7 +2718,71 @@ async function carregarPerfil() {
       const badge = document.getElementById('perf-end-badge');
       if (badge) badge.style.display = 'inline-flex';
     }
+    // Foto de bandeira salva
+    if (p.fotoBandeira) { _perfMostrarFotoBandeira(p.fotoBandeira); }
   } catch {}
+}
+
+// ── Foto de bandeira do posto (Parcerias) ───────────────
+function _perfMostrarFotoBandeira(url) {
+  const img = document.getElementById('perf-foto-preview-img');
+  const ph  = document.getElementById('perf-foto-placeholder');
+  if (!img || !url) return;
+  img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  img.style.display = 'block';
+  if (ph) ph.style.display = 'none';
+  img.onerror = function() { this.style.display='none'; if(ph) ph.style.display='flex'; };
+}
+
+let _perfFotoFile = null;
+
+function perfHandleFotoChange(inp) {
+  const f = inp.files && inp.files[0];
+  if (!f) return;
+  if (f.size > 2 * 1024 * 1024) {
+    const st = document.getElementById('perf-foto-status');
+    st.textContent = '⚠️ Imagem muito grande. Máx. 2 MB.'; st.style.color='#d32f2f'; st.style.display='block';
+    return;
+  }
+  _perfFotoFile = f;
+  // Preview local
+  const reader = new FileReader();
+  reader.onload = function(e) { _perfMostrarFotoBandeira(e.target.result as string); };
+  reader.readAsDataURL(f);
+  const st = document.getElementById('perf-foto-status');
+  st.textContent = '📸 ' + f.name + ' selecionado. Clique em "Enviar foto" para salvar.';
+  st.style.color = '#888'; st.style.display = 'block';
+  document.getElementById('perf-foto-btn-salvar').style.display = 'inline-flex';
+}
+
+async function perfUploadFotoBandeira() {
+  if (!_perfFotoFile) return;
+  const st  = document.getElementById('perf-foto-status');
+  const btn = document.getElementById('perf-foto-btn-salvar');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+  st.textContent = '⏳ Enviando foto...'; st.style.color='#888'; st.style.display='block';
+  try {
+    const form = new FormData();
+    form.append('foto', _perfFotoFile);
+    form.append('postoId', _sessao?.postoId || '');
+    const r = await fetch('/api/parceiros/foto-bandeira', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (_sessao?.token||'') },
+      body: form
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao enviar');
+    st.textContent = '✅ Foto salva! Já aparece para os usuários no mapa e lista.';
+    st.style.color = 'var(--verde,#00C853)';
+    _perfFotoFile = null;
+    btn.style.display = 'none';
+    if (d.fotoUrl) { _perfMostrarFotoBandeira(d.fotoUrl); }
+  } catch(e) {
+    st.textContent = '❌ ' + e.message; st.style.color='#d32f2f';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Enviar foto';
+    document.getElementById('perf-foto-input').value = '';
+  }
 }
 
 // ── Helpers de formatação (aplicados no onblur) ─────────

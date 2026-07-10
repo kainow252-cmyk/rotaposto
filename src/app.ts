@@ -2902,6 +2902,36 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         }
       }
     }
+    // PASSO EXTRA: buscar foto de bandeira dos postos parceiros via KV
+    // Para postos com id e sem fotoUrl, tenta buscar do KV usando enriquecer-bandeira (sem placeId)
+    const semFoto = postos.filter(p => p.id && !p.fotoUrl).slice(0, 15);
+    let mudouFoto = false;
+    for (const p of semFoto) {
+      try {
+        const params = new URLSearchParams({
+          postoId: p.id,
+          nome: p.nome || '',
+          somenteCached: '1'  // só retorna do cache KV, sem chamar Google
+        });
+        const res = await fetch('/api/posto/enriquecer-bandeira?' + params.toString());
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (json.ok && json.fotoUrl) {
+          p.fotoUrl = json.fotoUrl;
+          mudouFoto = true;
+        }
+        if (json.ok && json.bandeiraNome && json.bandeiraNome !== 'Independente' && (!p.bandeira || p.bandeira === 'Independente')) {
+          p.bandeira = json.bandeiraNome;
+          mudouFoto = true;
+        }
+      } catch(e) { /* silencioso */ }
+    }
+    if (mudouFoto) {
+      addMapMarkers();
+      var listaViewF = document.getElementById('view-lista');
+      if (listaViewF && listaViewF.classList.contains('active')) renderLista();
+    }
+
     // Só enriquecer postos com googlePlaceId e bandeira ainda não identificada
     const semBandeira = postos.filter(p =>
       p.googlePlaceId && (!p.bandeira || p.bandeira === 'Independente' || p.bandeira === 'independente')

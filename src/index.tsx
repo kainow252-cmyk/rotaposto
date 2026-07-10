@@ -4851,16 +4851,17 @@ app.get('/api/posto/enriquecer-bandeira', async (c) => {
   const placeId  = c.req.query('placeId')  || ''
   const postoId  = c.req.query('postoId')  || ''
   const nomePosto = c.req.query('nome')    || ''
+  const somenteCached = c.req.query('somenteCached') === '1'
 
-  if (!placeId && !nomePosto) return c.json({ ok: false, erro: 'placeId ou nome obrigatório' }, 400)
+  if (!somenteCached && !placeId && !nomePosto) return c.json({ ok: false, erro: 'placeId ou nome obrigatório' }, 400)
 
   // 1. Se já temos no KV — retornar direto sem chamar Google
   if (kv && postoId) {
     const cached = await kv.get('posto:band:' + postoId)
     if (cached) {
       const parsed = JSON.parse(cached)
-      // Cache hit: retornar se bandeira conhecida E já tem fotoUrl
-      if (parsed.bandeira && parsed.bandeira !== 'independente' && parsed.fotoUrl) {
+      // Cache hit: retornar se tem qualquer dado útil (bandeira OU fotoUrl)
+      if (parsed.fotoUrl || (parsed.bandeira && parsed.bandeira !== 'independente')) {
         return c.json({ ok: true, fonte: 'cache', ...parsed })
       }
       // Tem bandeira mas não tem foto → re-buscar só foto (não gastar quota desnecessária)
@@ -4896,6 +4897,9 @@ app.get('/api/posto/enriquecer-bandeira', async (c) => {
       // Independente antigo (>7 dias) → re-consultar abaixo
     }
   }
+
+  // somenteCached: não chamar Google, retornar sem dados
+  if (somenteCached) return c.json({ ok: false, fonte: 'sem_cache' })
 
   try {
     let website = ''
@@ -5041,6 +5045,30 @@ app.get('/api/admin/enriquecer-fotos', async (c) => {
     cursor_proximo: list.list_complete ? null : (list as any).cursor,
     resultados
   })
+})
+
+// ── GET /api/posto/foto-bandeira/:postoId — serve a foto/logo do posto salva no R2 ──
+app.get('/api/posto/foto-bandeira/:postoId', async (c) => {
+  try {
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    if (!r2) return c.notFound()
+    const postoId = c.req.param('postoId')
+    // Tenta jpg, png, webp
+    for (const ext of ['jpg', 'png', 'webp']) {
+      const obj = await r2.get(`posto-bandeira/${postoId}.${ext}`)
+      if (obj) {
+        return new Response(obj.body, {
+          headers: {
+            'Content-Type': obj.httpMetadata?.contentType || `image/${ext}`,
+            'Cache-Control': 'public, max-age=3600',
+          }
+        })
+      }
+    }
+    return c.notFound()
+  } catch(e) {
+    return c.notFound()
+  }
 })
 
 // ── GET /api/posto/:id — dados públicos do posto ──────────────────────────────
@@ -10760,6 +10788,11 @@ function normalizarParceiro(data: Record<string,unknown>, id: string, uploaded: 
     totalCliques:     data.totalCliques     || 0,
     totalCupons:      data.totalCupons      || 0,
     totalImpressoes:  data.totalImpressoes  || 0,
+    // Foto de bandeira
+    fotoBandeira:     data.fotoBandeira     || null,
+    endereco:         data.endereco         || {},
+    lat:              data.lat              || null,
+    lng:              data.lng              || null,
   }
 }
 
@@ -11951,6 +11984,28 @@ app.get('/admin', (c) => {
               <option value="suspenso">Suspenso</option>
               <option value="cancelado">Cancelado</option>
             </select>
+          </div>
+          <!-- Foto / Logo da Bandeira (Admin) -->
+          <div class="form-group" style="grid-column:1/-1">
+            <label style="color:#FF6D00">📸 Foto / Logo do Posto</label>
+            <div style="display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap">
+              <div id="ep-foto-preview-wrap" style="width:72px;height:72px;border-radius:12px;background:#0A1520;border:2px dashed rgba(255,109,0,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:28px;position:relative">
+                ⛽
+                <img id="ep-foto-preview-img" src="" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px;"/>
+              </div>
+              <div style="flex:1;min-width:180px">
+                <input type="file" id="ep-foto-input" accept="image/*" style="display:none" onchange="epHandleFotoChange(this)"/>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button type="button" onclick="document.getElementById('ep-foto-input').click()" style="padding:8px 16px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);border:1.5px dashed rgba(255,255,255,0.2);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+                    <i class="fas fa-upload"></i> Selecionar imagem
+                  </button>
+                  <button type="button" id="ep-foto-btn-enviar" onclick="epUploadFotoBandeira()" style="display:none;padding:8px 16px;background:#FF6D00;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;display:none;align-items:center;gap:6px">
+                    <i class="fas fa-cloud-upload-alt"></i> Enviar foto
+                  </button>
+                </div>
+                <div id="ep-foto-status" style="font-size:11px;font-weight:700;margin-top:6px;display:none"></div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -13639,8 +13694,87 @@ function abrirModalEditarParceiro(id) {
 
   popularSelectPlanosModal(p.plano || '');
   document.getElementById('ep-deletar-btn').style.display = (id === 'p_teste') ? 'none' : 'inline-flex';
+
+  // Foto de bandeira — resetar e carregar se existir
+  _epFotoFile = null;
+  const epFotoInput = document.getElementById('ep-foto-input');
+  if (epFotoInput) (epFotoInput as HTMLInputElement).value = '';
+  const epFotoStatus = document.getElementById('ep-foto-status');
+  if (epFotoStatus) { epFotoStatus.style.display='none'; epFotoStatus.textContent=''; }
+  const epFotoBtnEnviar = document.getElementById('ep-foto-btn-enviar');
+  if (epFotoBtnEnviar) epFotoBtnEnviar.style.display='none';
+  // Preview da foto atual
+  const epFotoImg = document.getElementById('ep-foto-preview-img') as HTMLImageElement | null;
+  const epFotoWrap = document.getElementById('ep-foto-preview-wrap');
+  if (epFotoImg && epFotoWrap) {
+    if (p.fotoBandeira) {
+      epFotoImg.src = p.fotoBandeira + '?t=' + Date.now();
+      epFotoImg.style.display = 'block';
+      epFotoWrap.style.fontSize = '0';
+    } else {
+      epFotoImg.src = '';
+      epFotoImg.style.display = 'none';
+      epFotoWrap.style.fontSize = '28px';
+    }
+  }
+
   document.getElementById('modal-parceiro-edit').style.display = 'block';
   document.getElementById('modal-parceiro-edit').scrollTop = 0;
+}
+
+// ── Foto de bandeira no Admin ─────────────────────────────
+let _epFotoFile: File | null = null;
+
+function epHandleFotoChange(inp: HTMLInputElement) {
+  const f = inp.files && inp.files[0];
+  if (!f) return;
+  const st  = document.getElementById('ep-foto-status');
+  const btn = document.getElementById('ep-foto-btn-enviar');
+  if (f.size > 3 * 1024 * 1024) {
+    if (st) { st.textContent='⚠️ Imagem muito grande (máx. 3 MB).'; st.style.color='#FF5252'; st.style.display='block'; }
+    return;
+  }
+  _epFotoFile = f;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = document.getElementById('ep-foto-preview-img') as HTMLImageElement | null;
+    const wrap = document.getElementById('ep-foto-preview-wrap');
+    if (img) { img.src = e.target!.result as string; img.style.display='block'; }
+    if (wrap) wrap.style.fontSize='0';
+  };
+  reader.readAsDataURL(f);
+  if (st) { st.textContent='📸 ' + f.name + ' — clique em "Enviar foto".'; st.style.color='rgba(255,255,255,0.5)'; st.style.display='block'; }
+  if (btn) btn.style.display='inline-flex';
+}
+
+async function epUploadFotoBandeira() {
+  if (!_epFotoFile || !_parceiroEditandoId) return;
+  const st  = document.getElementById('ep-foto-status');
+  const btn = document.getElementById('ep-foto-btn-enviar') as HTMLButtonElement | null;
+  if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Enviando...'; }
+  if (st)  { st.textContent='⏳ Enviando foto...'; st.style.color='rgba(255,255,255,0.5)'; st.style.display='block'; }
+  try {
+    const form = new FormData();
+    form.append('foto', _epFotoFile);
+    form.append('postoId', _parceiroEditandoId);
+    const r = await fetch('/api/parceiros/foto-bandeira?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST', body: form
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao enviar');
+    if (st) { st.textContent='✅ Foto salva! Já aparece no mapa e lista para os usuários.'; st.style.color='#00C853'; }
+    _epFotoFile = null;
+    if (btn) btn.style.display='none';
+    // Atualiza no objeto _parceiros local
+    const idx = _parceiros.findIndex(x => x.id === _parceiroEditandoId);
+    if (idx !== -1 && d.fotoUrl) _parceiros[idx].fotoBandeira = d.fotoUrl;
+  } catch(e: any) {
+    if (st) { st.textContent='❌ ' + e.message; st.style.color='#FF5252'; }
+  } finally {
+    if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-cloud-upload-alt"></i> Enviar foto'; }
+    const inp = document.getElementById('ep-foto-input') as HTMLInputElement | null;
+    if (inp) inp.value='';
+  }
 }
 
 // ── Helpers de formatação (aplicados no onblur) ───────────
@@ -16219,9 +16353,78 @@ app.get('/api/parceiros/perfil', async (c) => {
         endereco: parceiro.endereco || {},
         lat: parceiro.lat, lng: parceiro.lng,
         servicos: parceiro.servicos || [],
-        plano: parceiro.plano, status: parceiro.status
+        plano: parceiro.plano, status: parceiro.status,
+        fotoBandeira: parceiro.fotoBandeira || null
       }
     })
+  } catch(e) {
+    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+  }
+})
+
+// ── POST /api/parceiros/foto-bandeira — upload da foto/logo do posto ──────────
+app.post('/api/parceiros/foto-bandeira', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    const adminKey = c.req.query('key') || ''
+    const isAdmin = adminKey === ADMIN_PASS
+
+    // Auth via token de parceiro OU chave admin
+    let parceiroId = ''
+    if (!isAdmin && token) {
+      const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
+      if (!sess || (sess.exp as number) < Date.now()) return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
+      parceiroId = String(sess.parceiroId)
+    }
+
+    const formData = await c.req.formData()
+    // postoId manual (admin ou fallback)
+    const bodyPostoId = formData.get('postoId') as string || ''
+    if (!parceiroId) parceiroId = bodyPostoId
+    if (!parceiroId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+    if (!isAdmin && !token) return c.json({ ok: false, erro: 'Não autorizado' }, 401)
+
+    const file = formData.get('foto') as File | null
+    if (!file) return c.json({ ok: false, erro: 'Arquivo não encontrado' }, 400)
+    if (file.size > 3 * 1024 * 1024) return c.json({ ok: false, erro: 'Imagem muito grande (máx. 3 MB)' }, 400)
+
+    const mime = file.type || 'image/jpeg'
+    const ext  = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg'
+    const bytes = await file.arrayBuffer()
+    const r2Key = `posto-bandeira/${parceiroId}.${ext}`
+
+    if (!r2) return c.json({ ok: false, erro: 'Storage não configurado' }, 500)
+    await r2.put(r2Key, bytes, { httpMetadata: { contentType: mime } })
+
+    const fotoUrl = `/api/posto/foto-bandeira/${parceiroId}`
+
+    // Atualizar parceiro no KV com fotoBandeira
+    const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
+    if (parceiro) {
+      parceiro.fotoBandeira = fotoUrl
+      await kvSetParceiro(kv, parceiroId, parceiro, r2)
+    } else {
+      // Criar entrada mínima no KV se não existir
+      await kv?.put(`parceiro:${parceiroId}`, JSON.stringify({ fotoBandeira: fotoUrl }))
+    }
+
+    // Atualizar também no cache do posto no KV (posto:band:postoId)
+    try {
+      const bandKey = `posto:band:${parceiroId}`
+      const bandRaw = await kv?.get(bandKey)
+      if (bandRaw) {
+        const band = JSON.parse(bandRaw) as Record<string, unknown>
+        band.fotoUrl = fotoUrl
+        await kv?.put(bandKey, JSON.stringify(band), { expirationTtl: 30 * 24 * 3600 })
+      } else {
+        await kv?.put(bandKey, JSON.stringify({ postoId: parceiroId, fotoUrl, ts: Date.now() }), { expirationTtl: 30 * 24 * 3600 })
+      }
+    } catch {}
+
+    return c.json({ ok: true, fotoUrl })
   } catch(e) {
     return c.json({ ok: false, erro: 'Erro interno' }, 500)
   }
