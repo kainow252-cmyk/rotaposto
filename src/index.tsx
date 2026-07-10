@@ -7336,6 +7336,7 @@ const state = {
   lng: -46.6333,
   combustivel: 'gasolina',
   postos: [],
+  postosOrdenados: [], // lista ordenada atual — usada por abrirModalPostoIdx (evita bug de IDs duplicados)
   tabAtiva: 'destaque',
   ordenacao: 'preco',
   map: null,
@@ -7558,6 +7559,7 @@ function atualizarPainelLocalizacao(data) {
 // ═══ RENDER DESTAQUE ══════════════════════════════════════════════════════════
 function renderizarDestaque() {
   const postos = ordenarPostos(state.postos);
+  state.postosOrdenados = postos; // sincroniza índices para abrirModalPostoIdx
   if (!postos.length) {
     document.getElementById('banner-nome').textContent = 'Nenhum posto encontrado';
     document.getElementById('banner-end').textContent = 'Tente aumentar o raio de busca';
@@ -7654,13 +7656,15 @@ function renderizarDestaque() {
 
 // ═══ RENDER LISTA ═════════════════════════════════════════════════════════════
 function renderizarLista() {
+  // Calcular lista ordenada UMA vez e guardar em state para referência nos cliques
   const postos = ordenarPostos(state.postos);
+  state.postosOrdenados = postos; // ← referência estável para abrirModalPostoIdx
   const container = document.getElementById('lista-postos');
   if (!postos.length) {
     container.innerHTML = gerarEmptyState(); return;
   }
-  const menorPreco = postos.sort((a, b) => a.preco - b.preco)[0].preco;
-  container.innerHTML = ordenarPostos(state.postos).map((p, i) =>
+  const menorPreco = [...postos].sort((a, b) => a.preco - b.preco)[0].preco;
+  container.innerHTML = postos.map((p, i) =>
     gerarCardPosto(p, i, menorPreco)
   ).join('');
 }
@@ -7698,7 +7702,7 @@ function gerarCardPosto(p, i, menorPreco) {
   }
 
   return \`
-  <div class="card-posto \${isMelhor ? 'melhor-posto' : ''}" onclick="abrirModalPosto('\${p.id}')" style="animation-delay:\${i * 0.05}s">
+  <div class="card-posto \${isMelhor ? 'melhor-posto' : ''}" onclick="abrirModalPostoIdx(\${i})" style="animation-delay:\${i * 0.05}s">
     <div class="bandeira-box">
       <span class="bandeira-emoji">\${p.emoji || '⛽'}</span>
       <span class="bandeira-txt">\${p.bandeira.substring(0,7)}</span>
@@ -7779,7 +7783,7 @@ function atualizarMapa() {
         <strong>\${p.nome}</strong>
         <div class="pop-preco">R$ \${p.preco.toFixed(2)}</div>
         <div class="pop-dist">📍 \${dist} de você</div>
-        <button class="pop-btn" onclick="abrirModalPosto('\${p.id}')">Ver detalhes</button>
+        <button class="pop-btn" onclick="abrirModalPostoBruto(\${i})">Ver detalhes</button>
       </div>\`);
     state.marcadores.push(marcador);
   });
@@ -7790,9 +7794,31 @@ function atualizarMapa() {
 }
 
 // ═══ MODAL POSTO ══════════════════════════════════════════════════════════════
-function abrirModalPosto(id) {
-  const posto = state.postos.find(p => p.id === id);
+// Abre posto pelo índice na lista ordenada (lista → evita bug de IDs duplicados ANP)
+function abrirModalPostoIdx(idx) {
+  const lista = state.postosOrdenados || ordenarPostos(state.postos);
+  const posto = lista[idx];
   if (!posto) return;
+  _abrirModalPostoComPosto(posto);
+}
+
+// Abre posto pelo índice bruto em state.postos (usado pelo mapa)
+function abrirModalPostoBruto(idx) {
+  const posto = state.postos[idx];
+  if (!posto) return;
+  _abrirModalPostoComPosto(posto);
+}
+
+// Abre posto pelo ID (mantido para compatibilidade — evitar usar em novos contextos)
+function abrirModalPosto(id) {
+  // Busca na lista ordenada, depois em state.postos
+  const lista = state.postosOrdenados || state.postos;
+  const posto = lista.find(p => p.id === id) || state.postos.find(p => p.id === id);
+  if (!posto) return;
+  _abrirModalPostoComPosto(posto);
+}
+
+function _abrirModalPostoComPosto(posto) {
   state.postoSelecionado = posto;
 
   const combustiveis = [
