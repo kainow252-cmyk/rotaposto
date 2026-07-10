@@ -2480,6 +2480,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   let _geoJaObtida = false; // true após localização ser obtida (ou timeout)
   let _mapaLivre = false;   // true = usuário está explorando o mapa, GPS não move
   let postosData = [];
+  let postosListaAtual = []; // ← lista exibida na tela (filtrada+ordenada) — usada por openDetalhes
   let semanaANP = '';   // semana de referência ANP — preenchida pela API
   // Combustível persistido
   var _fuelSalvo = (function() { try { return localStorage.getItem(_FUEL_KEY) || 'gasolina'; } catch(e) { return 'gasolina'; } })();
@@ -3919,7 +3920,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     // ── Exibir todos os postos (com e sem preço real) — ordenados por distância ──
     const postosExibidos = postos;
-    const cards = postosExibidos.slice(0, 15).map((p, i) => {
+    // Salvar lista exibida para openDetalhes usar índice correto (não postosData bruto)
+    postosListaAtual = postosExibidos.slice(0, 15);
+    const cards = postosListaAtual.map((p, i) => {
       const preco = p.preco || p.precos?.[selectedFuel];
       const precoFmt = preco ? 'R$&nbsp;' + preco.toFixed(2).replace('.', ',') : '-';
       const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '-';
@@ -4047,7 +4050,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   function openDetalhes(idx) {
-    var p = postosData[idx] || getDemoPostos()[idx];
+    // CORREÇÃO: usar postosListaAtual (lista filtrada+ordenada exibida na tela)
+    // em vez de postosData (lista bruta) — índices diferentes causavam posto errado
+    var p = postosListaAtual[idx] || postosData[idx] || getDemoPostos()[idx];
     if (!p) return;
     selectedPosto = p;
 
@@ -4208,7 +4213,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   function abrirReportarPreco(idx) {
-    const p = postosData[idx];
+    const p = postosListaAtual[idx] || postosData[idx];
     if (!p) return;
     abrirModal('Informar preço real',
       '<div style="padding:8px 0;">'
