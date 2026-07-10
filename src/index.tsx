@@ -13698,13 +13698,13 @@ function abrirModalEditarParceiro(id) {
   // Foto de bandeira — resetar e carregar se existir
   _epFotoFile = null;
   const epFotoInput = document.getElementById('ep-foto-input');
-  if (epFotoInput) (epFotoInput as HTMLInputElement).value = '';
+  if (epFotoInput) epFotoInput.value = '';
   const epFotoStatus = document.getElementById('ep-foto-status');
   if (epFotoStatus) { epFotoStatus.style.display='none'; epFotoStatus.textContent=''; }
   const epFotoBtnEnviar = document.getElementById('ep-foto-btn-enviar');
   if (epFotoBtnEnviar) epFotoBtnEnviar.style.display='none';
   // Preview da foto atual
-  const epFotoImg = document.getElementById('ep-foto-preview-img') as HTMLImageElement | null;
+  const epFotoImg = document.getElementById('ep-foto-preview-img');
   const epFotoWrap = document.getElementById('ep-foto-preview-wrap');
   if (epFotoImg && epFotoWrap) {
     if (p.fotoBandeira) {
@@ -13737,9 +13737,9 @@ function epHandleFotoChange(inp: HTMLInputElement) {
   _epFotoFile = f;
   const reader = new FileReader();
   reader.onload = function(e) {
-    const img = document.getElementById('ep-foto-preview-img') as HTMLImageElement | null;
+    const img = document.getElementById('ep-foto-preview-img');
     const wrap = document.getElementById('ep-foto-preview-wrap');
-    if (img) { img.src = e.target!.result as string; img.style.display='block'; }
+    if (img) { img.src = e.target.result; img.style.display='block'; }
     if (wrap) wrap.style.fontSize='0';
   };
   reader.readAsDataURL(f);
@@ -13750,7 +13750,7 @@ function epHandleFotoChange(inp: HTMLInputElement) {
 async function epUploadFotoBandeira() {
   if (!_epFotoFile || !_parceiroEditandoId) return;
   const st  = document.getElementById('ep-foto-status');
-  const btn = document.getElementById('ep-foto-btn-enviar') as HTMLButtonElement | null;
+  const btn = document.getElementById('ep-foto-btn-enviar');
   if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Enviando...'; }
   if (st)  { st.textContent='⏳ Enviando foto...'; st.style.color='rgba(255,255,255,0.5)'; st.style.display='block'; }
   try {
@@ -13768,11 +13768,11 @@ async function epUploadFotoBandeira() {
     // Atualiza no objeto _parceiros local
     const idx = _parceiros.findIndex(x => x.id === _parceiroEditandoId);
     if (idx !== -1 && d.fotoUrl) _parceiros[idx].fotoBandeira = d.fotoUrl;
-  } catch(e: any) {
+  } catch(e) {
     if (st) { st.textContent='❌ ' + e.message; st.style.color='#FF5252'; }
   } finally {
     if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-cloud-upload-alt"></i> Enviar foto'; }
-    const inp = document.getElementById('ep-foto-input') as HTMLInputElement | null;
+    const inp = document.getElementById('ep-foto-input');
     if (inp) inp.value='';
   }
 }
