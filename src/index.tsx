@@ -637,7 +637,6 @@ app.get('/api/postos', async (c) => {
             return null
           })(),
           cnpj: p.cnpj,
-          cnpj: p.cnpj,
           googlePlaceId: p.googlePlaceId,
           // Dados do parceiro (admin KV)
           parceiroId: (p as any).parceiroId || null,
@@ -5181,7 +5180,10 @@ app.get('/api/posto/foto-bandeira/:postoId', async (c) => {
         return new Response(obj.body, {
           headers: {
             'Content-Type': obj.httpMetadata?.contentType || `image/${ext}`,
-            'Cache-Control': 'public, max-age=3600',
+            // max-age=0 + must-revalidate: browser sempre re-valida no servidor
+            // ETag gerado do postoId+ext para detectar mudança
+            'Cache-Control': 'public, max-age=0, must-revalidate',
+            'ETag': `"${postoId}-${ext}"`,
           }
         })
       }
@@ -13963,7 +13965,19 @@ async function epUploadFotoBandeira() {
     if (btn) btn.style.display='none';
     // Atualiza no objeto _parceiros local
     const idx = _parceiros.findIndex(x => x.id === _parceiroEditandoId);
-    if (idx !== -1 && d.fotoUrl) _parceiros[idx].fotoBandeira = d.fotoUrl;
+    // Adiciona timestamp para forçar re-carregamento (bustar cache do browser)
+    const fotoUrlComTs = d.fotoUrl ? d.fotoUrl + '?t=' + Date.now() : null;
+    if (idx !== -1 && fotoUrlComTs) _parceiros[idx].fotoBandeira = fotoUrlComTs;
+    // Atualiza o preview com a nova foto (bustar cache)
+    const previewImg = document.getElementById('ep-foto-preview-img');
+    const previewWrap = document.getElementById('ep-foto-preview-wrap');
+    if (previewImg && fotoUrlComTs) {
+      previewImg.src = fotoUrlComTs;
+      previewImg.style.display = 'block';
+      previewImg.style.padding = '0';
+      previewImg.style.objectFit = 'cover';
+      if (previewWrap) previewWrap.style.fontSize = '0';
+    }
   } catch(e) {
     if (st) { st.textContent='❌ ' + e.message; st.style.color='#FF5252'; }
   } finally {
@@ -16593,6 +16607,13 @@ app.post('/api/parceiros/foto-bandeira', async (c) => {
     const r2Key = `posto-bandeira/${parceiroId}.${ext}`
 
     if (!r2) return c.json({ ok: false, erro: 'Storage não configurado' }, 500)
+
+    // Deletar arquivos antigos de outras extensões para evitar servir versão velha
+    for (const oldExt of ['jpg', 'png', 'webp']) {
+      if (oldExt !== ext) {
+        try { await r2.delete(`posto-bandeira/${parceiroId}.${oldExt}`) } catch {}
+      }
+    }
     await r2.put(r2Key, bytes, { httpMetadata: { contentType: mime } })
 
     const fotoUrl = `/api/posto/foto-bandeira/${parceiroId}`
