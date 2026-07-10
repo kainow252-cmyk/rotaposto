@@ -22303,58 +22303,63 @@ function filtrar(f, btn) {
   renderTabela()
 }
 
+function fmtCpf(cpf) {
+  if (!cpf) return '-'
+  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, function(_,a,b,c,d){return a+'.'+b+'.'+c+'-'+d})
+}
+function rowPassageiro(p) {
+  var avatarIcon = p.temSelfie ? '' : '<i class="fas fa-user" style="color:rgba(255,255,255,.3)"></i>'
+  var docsBadge = ''
+  if (!p.temSelfie && !p.temDoc) {
+    docsBadge = '<span class="badge badge-nodocs"><i class="fas fa-image"></i> Sem docs</span>'
+  } else {
+    var ds = p.docsStatus || 'pendente'
+    docsBadge = '<span class="badge badge-' + ds + '">' + ds + '</span>'
+    if (p.temSelfie) docsBadge += ' <button class="btn-sm btn-ver" style="margin-left:4px" onclick="verFoto(\'' + p.id + '\',\'selfie\',\'' + p.nome.replace(/'/g,"\\'") + '\')"><i class="fas fa-camera"></i></button>'
+    if (p.temDoc)    docsBadge += ' <button class="btn-sm btn-ver" style="margin-left:4px" onclick="verFoto(\'' + p.id + '\',\'doc\',\'' + p.nome.replace(/'/g,"\\'") + '\')"><i class="fas fa-id-card"></i></button>'
+  }
+  var geoCell = p.geoLat
+    ? '<a class="geo-link" href="https://maps.google.com/?q=' + p.geoLat + ',' + p.geoLng + '" target="_blank"><i class="fas fa-map-marker-alt"></i> Ver mapa</a><br><span style="font-size:10px;color:rgba(255,255,255,.3)">' + (p.geoEndereco||'') + '</span>'
+    : '<span style="color:rgba(255,255,255,.2);font-size:12px">—</span>'
+  var acaoStatus = p.status === 'ativo'
+    ? '<button class="btn-sm btn-bloquear" onclick="mudarStatus(\'' + p.id + '\',\'inativo\')"><i class="fas fa-ban"></i> Bloquear</button>'
+    : '<button class="btn-sm btn-aprovar" onclick="mudarStatus(\'' + p.id + '\',\'ativo\')"><i class="fas fa-check"></i> Ativar</button>'
+  var acaoDocs = p.docsStatus === 'pendente'
+    ? '<button class="btn-sm btn-aprovar" onclick="aprovarDocs(\'' + p.id + '\',\'aprovado\')"><i class="fas fa-file-check"></i> Aprovar docs</button>'
+    : ''
+  var dataCad = p.criadoEm ? new Date(p.criadoEm).toLocaleDateString('pt-BR') : '-'
+  var st = p.status || 'inativo'
+  return '<tr>' +
+    '<td><div class="user-cell">' +
+      '<div class="avatar" id="av_' + p.id + '" onclick="verFoto(\'' + p.id + '\',\'selfie\',\'' + p.nome.replace(/'/g,"\\'") + '\')">' + avatarIcon + '</div>' +
+      '<div><div style="font-weight:600;font-size:13px">' + p.nome + '</div><div style="font-size:11px;color:rgba(255,255,255,.35)">' + p.id + '</div></div>' +
+    '</div></td>' +
+    '<td><div style="font-size:13px">' + p.email + '</div><div style="font-size:11px;color:rgba(255,255,255,.4)">' + (p.telefone||'-') + '</div></td>' +
+    '<td style="font-size:12px;color:rgba(255,255,255,.5)">' + fmtCpf(p.cpf) + '</td>' +
+    '<td><span class="badge badge-' + st + '">' + st + '</span></td>' +
+    '<td>' + docsBadge + '</td>' +
+    '<td>' + geoCell + '</td>' +
+    '<td style="font-size:11px;color:rgba(255,255,255,.35)">' + dataCad + '</td>' +
+    '<td><div style="display:flex;gap:6px">' + acaoStatus + acaoDocs + '</div></td>' +
+    '</tr>'
+}
 function renderTabela() {
-  const busca = document.getElementById('busca').value.toLowerCase()
-  let lista = todos.filter(p => {
+  var busca = document.getElementById('busca').value.toLowerCase()
+  var lista = todos.filter(function(p) {
     if (filtroAtual === 'ativo' && p.status !== 'ativo') return false
     if (filtroAtual === 'inativo' && p.status !== 'inativo') return false
     if (filtroAtual === 'pendente' && p.docsStatus !== 'pendente') return false
     if (filtroAtual === 'aprovado' && p.docsStatus !== 'aprovado') return false
-    if (busca && !p.nome?.toLowerCase().includes(busca) && !p.email?.toLowerCase().includes(busca)) return false
+    if (busca && (!p.nome || !p.nome.toLowerCase().includes(busca)) && (!p.email || !p.email.toLowerCase().includes(busca))) return false
     return true
   })
-  const tbody = document.getElementById('tbody')
-  const empty = document.getElementById('empty')
+  var tbody = document.getElementById('tbody')
+  var empty = document.getElementById('empty')
   if (!lista.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return }
   empty.style.display = 'none'
-  tbody.innerHTML = lista.map(p => \`
-    <tr>
-      <td>
-        <div class="user-cell">
-          <div class="avatar" id="av_\${p.id}" onclick="verFoto('\${p.id}','selfie','\${p.nome}')">
-            \${p.temSelfie ? '' : '<i class="fas fa-user" style="color:rgba(255,255,255,.3)"></i>'}
-          </div>
-          <div><div style="font-weight:600;font-size:13px">\${p.nome}</div><div style="font-size:11px;color:rgba(255,255,255,.35)">\${p.id}</div></div>
-        </div>
-      </td>
-      <td><div style="font-size:13px">\${p.email}</div><div style="font-size:11px;color:rgba(255,255,255,.4)">\${p.telefone||'-'}</div></td>
-      <td style="font-size:12px;color:rgba(255,255,255,.5)">\${p.cpf ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, function(_,a,b,c,d){return a+'.'+b+'.'+c+'-'+d}) : '-'}</td>
-      <td><span class="badge badge-\${p.status||'inativo'}">\${p.status||'inativo'}</span></td>
-      <td>
-        \${!p.temSelfie && !p.temDoc ? '<span class="badge badge-nodocs"><i class="fas fa-image"></i> Sem docs</span>' :
-          \`<span class="badge badge-\${p.docsStatus||'pendente'}">\${p.docsStatus||'pendente'}</span>
-          \${p.temSelfie ? '<button class="btn-sm btn-ver" style="margin-left:4px" onclick="verFoto(\''+p.id+'\',\'selfie\',\''+p.nome+'\')"><i class="fas fa-camera"></i></button>' : ''}
-          \${p.temDoc ? '<button class="btn-sm btn-ver" style="margin-left:4px" onclick="verFoto(\''+p.id+'\',\'doc\',\''+p.nome+'\')"><i class="fas fa-id-card"></i></button>' : ''}\`
-        }
-      </td>
-      <td>
-        \${p.geoLat ? \`<a class="geo-link" href="https://maps.google.com/?q=\${p.geoLat},\${p.geoLng}" target="_blank"><i class="fas fa-map-marker-alt"></i> Ver mapa</a><br><span style="font-size:10px;color:rgba(255,255,255,.3)">\${p.geoEndereco||''}</span>\` : '<span style="color:rgba(255,255,255,.2);font-size:12px">—</span>'}
-      </td>
-      <td style="font-size:11px;color:rgba(255,255,255,.35)">\${new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
-      <td>
-        <div style="display:flex;gap:6px">
-          \${p.status==='ativo'
-            ? \`<button class="btn-sm btn-bloquear" onclick="mudarStatus('\${p.id}','inativo')"><i class="fas fa-ban"></i> Bloquear</button>\`
-            : \`<button class="btn-sm btn-aprovar" onclick="mudarStatus('\${p.id}','ativo')"><i class="fas fa-check"></i> Ativar</button>\`}
-          \${p.docsStatus==='pendente'
-            ? \`<button class="btn-sm btn-aprovar" onclick="aprovarDocs('\${p.id}','aprovado')"><i class="fas fa-file-check"></i> Aprovar docs</button>\`
-            : ''}
-        </div>
-      </td>
-    </tr>
-  \`).join('')
+  tbody.innerHTML = lista.map(rowPassageiro).join('')
   // Carregar selfies como thumbs
-  lista.filter(p => p.temSelfie).forEach(p => carregarThumb(p.id, 'selfie', 'av_' + p.id, 'passageiro'))
+  lista.filter(function(p){ return p.temSelfie }).forEach(function(p){ carregarThumb(p.id, 'selfie', 'av_' + p.id, 'passageiro') })
 }
 
 async function carregarThumb(id, tipo, elId, entidade) {
@@ -22619,74 +22624,63 @@ function filtrar(f, btn) {
   renderTabela()
 }
 
+function rowMotorista(m) {
+  var nm = m.nome ? m.nome.replace(/'/g,"\\'") : ''
+  var docsIcons = ''
+  if (m.temSelfie) docsIcons += '<button class="btn-sm btn-ver" title="Selfie" onclick="verFoto(\'' + m.id + '\',\'selfie\',\'' + nm + '\')"><i class="fas fa-camera"></i></button>'
+  if (m.temCnh) docsIcons += '<button class="btn-sm btn-ver" title="CNH" onclick="verFoto(\'' + m.id + '\',\'cnh\',\'' + nm + '\')"><i class="fas fa-id-card"></i></button>'
+  if (m.temDocVeiculo) docsIcons += '<button class="btn-sm btn-ver" title="Doc Veículo" onclick="verFoto(\'' + m.id + '\',\'docveiculo\',\'' + nm + '\')"><i class="fas fa-car"></i></button>'
+  var nenhum = !m.temSelfie && !m.temCnh && !m.temDocVeiculo
+  var ds = m.docsStatus || 'pendente'
+  var docsCell = nenhum
+    ? '<span class="badge badge-nodocs">Sem docs</span>'
+    : '<div style="margin-bottom:4px"><span class="badge badge-' + ds + '">' + ds + '</span></div><div class="docs-icons">' + docsIcons + '</div>'
+  var asaasCell = '<span class="badge badge-' + (m.asaasStatus||'sem_cnpj') + '">' + (m.asaasStatus||'sem_cnpj') + '</span>'
+    + (m.asaasWalletId ? '<div class="asaas-ok" title="' + m.asaasWalletId + '"><i class="fas fa-bolt"></i> Split ativo</div>' : '<div class="asaas-no">Sem split</div>')
+  var geoCell = m.geoLat
+    ? '<a class="geo-link" href="https://maps.google.com/?q=' + m.geoLat + ',' + m.geoLng + '" target="_blank"><i class="fas fa-map-marker-alt"></i> Ver mapa</a><br><span style="font-size:10px;color:rgba(255,255,255,.25)">' + (m.geoEndereco||'') + '</span>'
+    : '<span style="color:rgba(255,255,255,.2);font-size:11px">—</span>'
+  var acaoStatus = m.status === 'ativo'
+    ? '<button class="btn-sm btn-bloquear" onclick="mudarStatus(\'' + m.id + '\',\'bloqueado\')"><i class="fas fa-ban"></i> Bloquear</button>'
+    : '<button class="btn-sm btn-aprovar" onclick="mudarStatus(\'' + m.id + '\',\'ativo\')"><i class="fas fa-check"></i> Ativar</button>'
+  var acaoDocs = m.docsStatus === 'pendente'
+    ? '<button class="btn-sm btn-aprovar" onclick="aprovarDocs(\'' + m.id + '\',\'aprovado\')"><i class="fas fa-file-check"></i> Aprovar</button><button class="btn-sm btn-bloquear" onclick="aprovarDocs(\'' + m.id + '\',\'rejeitado\')"><i class="fas fa-times"></i> Rejeitar</button>'
+    : ''
+  var st = m.status || 'inativo'
+  var avatarIcon = m.temSelfie ? '' : '<i class="fas fa-user" style="color:rgba(255,255,255,.3)"></i>'
+  var ganho = 'R$' + ((m.ganhoTotal||0)/100).toFixed(2)
+  return '<tr>' +
+    '<td><div class="user-cell">' +
+      '<div class="avatar" id="av_' + m.id + '" onclick="verFoto(\'' + m.id + '\',\'selfie\',\'' + nm + '\')">' + avatarIcon + '</div>' +
+      '<div><div style="font-weight:600;font-size:13px">' + m.nome + '</div><div style="font-size:10px;color:rgba(255,255,255,.3)">' + m.id + '</div></div>' +
+    '</div></td>' +
+    '<td><div style="font-weight:600">' + (m.veiculo||'-') + '</div><div style="font-size:11px;color:rgba(255,255,255,.4)">' + (m.placa||'-') + '</div></td>' +
+    '<td><div>' + m.email + '</div><div style="font-size:11px;color:rgba(255,255,255,.4)">' + (m.telefone||'-') + '</div></td>' +
+    '<td><span class="badge badge-' + st + '">' + st + '</span></td>' +
+    '<td>' + docsCell + '</td>' +
+    '<td>' + asaasCell + '</td>' +
+    '<td style="text-align:center">' + (m.corridasTotal||0) + '</td>' +
+    '<td style="color:#00C851;font-weight:600">' + ganho + '</td>' +
+    '<td>' + geoCell + '</td>' +
+    '<td><div style="display:flex;gap:5px;flex-wrap:wrap">' + acaoStatus + acaoDocs + '</div></td>' +
+    '</tr>'
+}
 function renderTabela() {
-  const busca = document.getElementById('busca').value.toLowerCase()
-  let lista = todos.filter(m => {
+  var busca = document.getElementById('busca').value.toLowerCase()
+  var lista = todos.filter(function(m) {
     if (filtroAtual === 'ativo' && m.status !== 'ativo') return false
     if (filtroAtual === 'bloqueado' && m.status !== 'bloqueado') return false
     if (filtroAtual === 'docs_pend' && m.docsStatus !== 'pendente') return false
     if (filtroAtual === 'sem_asaas' && m.asaasStatus !== 'sem_cnpj') return false
-    if (busca && !m.nome?.toLowerCase().includes(busca) && !m.email?.toLowerCase().includes(busca) && !m.placa?.toLowerCase().includes(busca)) return false
+    if (busca && (!m.nome||!m.nome.toLowerCase().includes(busca)) && (!m.email||!m.email.toLowerCase().includes(busca)) && (!m.placa||!m.placa.toLowerCase().includes(busca))) return false
     return true
   })
-  const tbody = document.getElementById('tbody')
-  const empty = document.getElementById('empty')
+  var tbody = document.getElementById('tbody')
+  var empty = document.getElementById('empty')
   if (!lista.length) { tbody.innerHTML=''; empty.style.display='block'; return }
   empty.style.display='none'
-  tbody.innerHTML = lista.map(m => {
-    const docsIcons = [
-      m.temSelfie ? \`<button class="btn-sm btn-ver" title="Selfie" onclick="verFoto('\${m.id}','selfie','\${m.nome}')"><i class="fas fa-camera"></i></button>\` : '',
-      m.temCnh ? \`<button class="btn-sm btn-ver" title="CNH" onclick="verFoto('\${m.id}','cnh','\${m.nome}')"><i class="fas fa-id-card"></i></button>\` : '',
-      m.temDocVeiculo ? \`<button class="btn-sm btn-ver" title="Doc Veículo" onclick="verFoto('\${m.id}','docveiculo','\${m.nome}')"><i class="fas fa-car"></i></button>\` : '',
-    ].filter(Boolean).join('')
-    const nenhum = !m.temSelfie && !m.temCnh && !m.temDocVeiculo
-    return \`
-    <tr>
-      <td>
-        <div class="user-cell">
-          <div class="avatar" id="av_\${m.id}" onclick="verFoto('\${m.id}','selfie','\${m.nome}')">
-            \${m.temSelfie ? '' : '<i class="fas fa-user" style="color:rgba(255,255,255,.3)"></i>'}
-          </div>
-          <div>
-            <div style="font-weight:600;font-size:13px">\${m.nome}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.3)">\${m.id}</div>
-          </div>
-        </div>
-      </td>
-      <td><div style="font-weight:600">\${m.veiculo||'-'}</div><div style="font-size:11px;color:rgba(255,255,255,.4)">\${m.placa||'-'}</div></td>
-      <td><div>\${m.email}</div><div style="font-size:11px;color:rgba(255,255,255,.4)">\${m.telefone||'-'}</div></td>
-      <td><span class="badge badge-\${m.status||'inativo'}">\${m.status||'inativo'}</span></td>
-      <td>
-        \${nenhum
-          ? '<span class="badge badge-nodocs">Sem docs</span>'
-          : \`<div style="margin-bottom:4px"><span class="badge badge-\${m.docsStatus||'pendente'}">\${m.docsStatus||'pendente'}</span></div><div class="docs-icons">\${docsIcons}</div>\`
-        }
-      </td>
-      <td>
-        <span class="badge badge-\${m.asaasStatus||'sem_cnpj'}">\${m.asaasStatus||'sem_cnpj'}</span>
-        \${m.asaasWalletId ? '<div class="asaas-ok" title="'+m.asaasWalletId+'"><i class="fas fa-bolt"></i> Split ativo</div>' : '<div class="asaas-no">Sem split</div>'}
-      </td>
-      <td style="text-align:center">\${m.corridasTotal||0}</td>
-      <td style="color:#00C851;font-weight:600">R$\${((m.ganhoTotal||0)/100).toFixed(2)}</td>
-      <td>
-        \${m.geoLat
-          ? \`<a class="geo-link" href="https://maps.google.com/?q=\${m.geoLat},\${m.geoLng}" target="_blank"><i class="fas fa-map-marker-alt"></i> Ver mapa</a><br><span style="font-size:10px;color:rgba(255,255,255,.25)">\${m.geoEndereco||''}</span>\`
-          : '<span style="color:rgba(255,255,255,.2);font-size:11px">—</span>'}
-      </td>
-      <td>
-        <div style="display:flex;gap:5px;flex-wrap:wrap">
-          \${m.status==='ativo'
-            ? \`<button class="btn-sm btn-bloquear" onclick="mudarStatus('\${m.id}','bloqueado')"><i class="fas fa-ban"></i> Bloquear</button>\`
-            : \`<button class="btn-sm btn-aprovar" onclick="mudarStatus('\${m.id}','ativo')"><i class="fas fa-check"></i> Ativar</button>\`}
-          \${m.docsStatus==='pendente'
-            ? \`<button class="btn-sm btn-aprovar" onclick="aprovarDocs('\${m.id}','aprovado')"><i class="fas fa-file-check"></i> Aprovar</button>
-               <button class="btn-sm btn-bloquear" onclick="aprovarDocs('\${m.id}','rejeitado')"><i class="fas fa-times"></i> Rejeitar</button>\`
-            : ''}
-        </div>
-      </td>
-    </tr>\`
-  }).join('')
-  lista.filter(m => m.temSelfie).forEach(m => carregarThumb(m.id, 'selfie', 'av_' + m.id, 'motorista'))
+  tbody.innerHTML = lista.map(rowMotorista).join('')
+  lista.filter(function(m){ return m.temSelfie }).forEach(function(m){ carregarThumb(m.id, 'selfie', 'av_' + m.id, 'motorista') })
 }
 
 async function carregarThumb(id, tipo, elId, entidade) {
@@ -22702,38 +22696,35 @@ async function carregarThumb(id, tipo, elId, entidade) {
 
 async function verFoto(id, tipo, nome) {
   modalId = id
-  const tipoLabel = {selfie:'Selfie',cnh:'CNH',docveiculo:'Doc Veículo',cnhverso:'CNH (verso)'}
-  document.getElementById('modalTitulo').textContent = \`\${tipoLabel[tipo]||tipo} — \${nome}\`
+  var tipoLabel = {selfie:'Selfie',cnh:'CNH',docveiculo:'Doc Veículo',cnhverso:'CNH (verso)'}
+  document.getElementById('modalTitulo').textContent = (tipoLabel[tipo]||tipo) + ' — ' + nome
   document.getElementById('modalInfo').textContent = 'Carregando...'
-  const img = document.getElementById('modalImg')
+  var img = document.getElementById('modalImg')
   img.src = ''; img.style.display = 'none'
   document.getElementById('modalAcoes').innerHTML = ''
-  // Tabs para alternar entre fotos
-  const m = todos.find(x => x.id === id)
-  const tipos = [
-    m?.temSelfie && {k:'selfie',l:'Selfie'},
-    m?.temCnh && {k:'cnh',l:'CNH'},
-    m?.temDocVeiculo && {k:'docveiculo',l:'Doc Veículo'},
-  ].filter(Boolean)
-  document.getElementById('modalTabs').innerHTML = tipos.map(t =>
-    \`<button class="modal-tab \${t.k===tipo?'on':''}" onclick="verFoto('\${id}','\${t.k}','\${nome}')">\${t.l}</button>\`
-  ).join('')
+  var m = todos.find(function(x){ return x.id === id })
+  var tipos = []
+  if (m && m.temSelfie) tipos.push({k:'selfie',l:'Selfie'})
+  if (m && m.temCnh) tipos.push({k:'cnh',l:'CNH'})
+  if (m && m.temDocVeiculo) tipos.push({k:'docveiculo',l:'Doc Veículo'})
+  document.getElementById('modalTabs').innerHTML = tipos.map(function(t) {
+    return '<button class="modal-tab ' + (t.k===tipo?'on':'') + '" onclick="verFoto(\'' + id + '\',\'' + t.k + '\',\'' + nome.replace(/'/g,"\\'") + '\')">' + t.l + '</button>'
+  }).join('')
   document.getElementById('modal').classList.add('open')
   try {
-    const r = await fetch(\`/api/rotasegura/admin/motorista/\${id}/foto/\${tipo}\`, { headers: {'X-Admin-Key':AKEY} })
+    var r = await fetch('/api/rotasegura/admin/motorista/' + id + '/foto/' + tipo, { headers: {'X-Admin-Key':AKEY} })
     if (!r.ok) { document.getElementById('modalInfo').textContent = 'Foto não encontrada'; return }
-    const blob = await r.blob()
+    var blob = await r.blob()
     img.src = URL.createObjectURL(blob)
     img.style.display = 'block'
     document.getElementById('modalInfo').textContent = id
-    const docsAprov = m?.docsStatus === 'aprovado'
-    document.getElementById('modalAcoes').innerHTML = \`
-      \${!docsAprov ? \`<button class="btn-sm btn-aprovar" onclick="aprovarDocs('\${id}','aprovado');fecharModal()"><i class="fas fa-check"></i> Aprovar docs</button>\` : ''}
-      <button class="btn-sm btn-bloquear" onclick="aprovarDocs('\${id}','rejeitado');fecharModal()"><i class="fas fa-times"></i> Rejeitar</button>
-      \${m?.status==='ativo'
-        ? \`<button class="btn-sm btn-bloquear" onclick="mudarStatus('\${id}','bloqueado');fecharModal()"><i class="fas fa-ban"></i> Bloquear motorista</button>\`
-        : \`<button class="btn-sm btn-aprovar" onclick="mudarStatus('\${id}','ativo');fecharModal()"><i class="fas fa-check"></i> Ativar motorista</button>\`}
-    \`
+    var docsAprov = m && m.docsStatus === 'aprovado'
+    var btnAprovar = docsAprov ? '' : '<button class="btn-sm btn-aprovar" onclick="aprovarDocs(\'' + id + '\',\'aprovado\');fecharModal()"><i class="fas fa-check"></i> Aprovar docs</button>'
+    var btnRejeitar = '<button class="btn-sm btn-bloquear" onclick="aprovarDocs(\'' + id + '\',\'rejeitado\');fecharModal()"><i class="fas fa-times"></i> Rejeitar</button>'
+    var btnStatusM = (m && m.status === 'ativo')
+      ? '<button class="btn-sm btn-bloquear" onclick="mudarStatus(\'' + id + '\',\'bloqueado\');fecharModal()"><i class="fas fa-ban"></i> Bloquear motorista</button>'
+      : '<button class="btn-sm btn-aprovar" onclick="mudarStatus(\'' + id + '\',\'ativo\');fecharModal()"><i class="fas fa-check"></i> Ativar motorista</button>'
+    document.getElementById('modalAcoes').innerHTML = btnAprovar + btnRejeitar + btnStatusM
   } catch(e) { document.getElementById('modalInfo').textContent = 'Erro: ' + e.message }
 }
 
