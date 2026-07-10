@@ -22203,8 +22203,8 @@ app.get('/rotasegura/admin', (c) => {
 <div id="loginBox" class="login-box">
   <h2>🔐 Acesso Admin</h2>
   <div id="errLogin" class="err-admin"></div>
-  <input id="adminKey" class="input-admin" type="password" placeholder="Chave de acesso" onkeydown="if(e&&e.key==='Enter')entrar()"/>
-  <button class="btn-admin" onclick="entrar()"><i class="fas fa-sign-in-alt"></i> Entrar</button>
+  <input id="adminKey" class="input-admin" type="password" placeholder="Chave de acesso" onkeydown="if(event.key==='Enter')entrar()"/>
+  <button class="btn-admin" id="btnEntrar" onclick="entrar()"><i class="fas fa-sign-in-alt"></i> Entrar</button>
 </div>
 
 <!-- DASHBOARD -->
@@ -22328,7 +22328,7 @@ function renderTabela() {
         </div>
       </td>
       <td><div style="font-size:13px">\${p.email}</div><div style="font-size:11px;color:rgba(255,255,255,.4)">\${p.telefone||'-'}</div></td>
-      <td style="font-size:12px;color:rgba(255,255,255,.5)">\${p.cpf ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4') : '-'}</td>
+      <td style="font-size:12px;color:rgba(255,255,255,.5)">\${p.cpf ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, function(_,a,b,c,d){return a+'.'+b+'.'+c+'-'+d}) : '-'}</td>
       <td><span class="badge badge-\${p.status||'inativo'}">\${p.status||'inativo'}</span></td>
       <td>
         \${!p.temSelfie && !p.temDoc ? '<span class="badge badge-nodocs"><i class="fas fa-image"></i> Sem docs</span>' :
