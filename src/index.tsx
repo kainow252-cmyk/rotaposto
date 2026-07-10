@@ -16115,6 +16115,10 @@ function preencherModalComANP(idxStr) {
   document.getElementById('ep-estado').value           = p.uf || '';
   document.getElementById('ep-bairro').value           = p.bairro || '';
   document.getElementById('ep-bandeira').value         = p.bandeira || '';
+  // Endereço/logradouro da ANP → campo ep-rua (importante para geocodificação)
+  if (p.endereco) document.getElementById('ep-rua').value = p.endereco;
+  document.getElementById('ep-num').value = '';
+  document.getElementById('ep-cep').value = '';
 
   // Preços ANP (só preenche se existir)
   if (p.precos) {
@@ -16140,6 +16144,36 @@ function preencherModalComANP(idxStr) {
   document.getElementById('ep-cuponsAtivos').checked   = false;
   popularSelectPlanosModal('');  // seleciona o primeiro plano disponível
   document.getElementById('ep-deletar-btn').style.display = 'none';
+
+  // Resetar seção de foto para posto novo da ANP
+  _epFotoFile = null;
+  var _inp2 = document.getElementById('ep-foto-input');
+  if (_inp2) _inp2.value = '';
+  var _st2 = document.getElementById('ep-foto-status');
+  if (_st2) { _st2.style.display='none'; _st2.textContent=''; }
+  var _btnEnv2 = document.getElementById('ep-foto-btn-enviar');
+  if (_btnEnv2) _btnEnv2.style.display='none';
+  var _img2 = document.getElementById('ep-foto-preview-img');
+  var _wrap2 = document.getElementById('ep-foto-preview-wrap');
+  // Tentar mostrar logo SVG da bandeira se disponível
+  var _svgAnp = _adminBandeiraLogoUrl(p.bandeira || p.nome || '');
+  if (_img2 && _wrap2) {
+    if (_svgAnp) {
+      _img2.src = _svgAnp; _img2.style.display='block'; _img2.style.padding='10px';
+      _img2.style.objectFit='contain'; _wrap2.style.fontSize='0';
+    } else {
+      _img2.src=''; _img2.style.display='none'; _wrap2.style.fontSize='28px';
+    }
+  }
+  // Foto externa (URL) — limpar campo
+  var _epFotoExterna2 = document.getElementById('ep-fotoExterna');
+  if (_epFotoExterna2) _epFotoExterna2.value = '';
+  epPreviewFotoExterna('');
+
+  // Lat/lng da ANP
+  if (p.lat) document.getElementById('ep-lat').value = p.lat;
+  if (p.lng) document.getElementById('ep-lng').value = p.lng;
+
   const _mel2 = document.getElementById('modal-parceiro-edit');
   _mel2.style.display = 'flex'; _mel2.scrollTop = 0;
   const _min2 = _mel2.querySelector('.modal-inner'); if (_min2) _min2.scrollTop = 0;
@@ -18503,7 +18537,8 @@ app.post('/api/parceiros/foto-bandeira', async (c) => {
 
     return c.json({ ok: true, fotoUrl, fotoUrlComTs, uploadTs })
   } catch(e) {
-    return c.json({ ok: false, erro: 'Erro interno' }, 500)
+    console.error('[foto-bandeira] erro:', e)
+    return c.json({ ok: false, erro: 'Erro interno: ' + String(e) }, 500)
   }
 })
 
