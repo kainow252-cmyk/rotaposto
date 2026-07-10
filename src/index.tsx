@@ -10788,7 +10788,7 @@ function normalizarParceiro(data: Record<string,unknown>, id: string, uploaded: 
     totalCliques:     data.totalCliques     || 0,
     totalCupons:      data.totalCupons      || 0,
     totalImpressoes:  data.totalImpressoes  || 0,
-    // Foto de bandeira
+    // Foto de bandeira (só retorna se realmente salva — nunca gera URL automática)
     fotoBandeira:     data.fotoBandeira     || null,
     endereco:         data.endereco         || {},
     lat:              data.lat              || null,
@@ -10833,7 +10833,7 @@ app.put('/api/admin/parceiros/:id', async (c) => {
 
   // Preços combustível (objeto aninhado)
   if (body.precos && typeof body.precos === 'object') {
-    const precosAntigos = (atual.precos as Record<string,unknown>) || {}
+    const precosAntigos = ((atual?.precos) as Record<string,unknown>) || {}
     const precosNovos   = body.precos as Record<string,unknown>
     atualizado.precos = {
       gasolina:          Number(precosNovos.gasolina          ?? precosAntigos.gasolina          ?? 0),
@@ -11973,7 +11973,23 @@ app.get('/admin', (c) => {
           <div class="form-group">
             <label>Bandeira</label>
             <select id="ep-bandeira" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
-              <option value="">Sem bandeira</option><option>Petrobras BR</option><option>Shell</option><option>Ipiranga</option><option>Ale</option><option>Raízen</option><option>Independente</option><option>Outra</option>
+              <option value="">— Selecionar bandeira —</option>
+              <option value="Petrobras BR">Petrobras BR</option>
+              <option value="Shell">Shell</option>
+              <option value="Ipiranga">Ipiranga</option>
+              <option value="Raízen">Raízen</option>
+              <option value="ALE">ALE</option>
+              <option value="Texaco">Texaco</option>
+              <option value="Esso">Esso</option>
+              <option value="Vibra">Vibra</option>
+              <option value="Liquigás">Liquigás</option>
+              <option value="Copagaz">Copagaz</option>
+              <option value="Ultragaz">Ultragaz</option>
+              <option value="SuperGasBrás">SuperGasBrás</option>
+              <option value="PitStop">PitStop</option>
+              <option value="Bandeirante">Bandeirante</option>
+              <option value="Independente">Independente</option>
+              <option value="Outra">Outra</option>
             </select>
           </div>
           <div class="form-group">
@@ -11991,7 +12007,7 @@ app.get('/admin', (c) => {
             <div style="display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap">
               <div id="ep-foto-preview-wrap" style="width:72px;height:72px;border-radius:12px;background:#0A1520;border:2px dashed rgba(255,109,0,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:28px;position:relative">
                 ⛽
-                <img id="ep-foto-preview-img" src="" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px;"/>
+                <img id="ep-foto-preview-img" src="" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px;" onerror="this.style.display='none'"/>
               </div>
               <div style="flex:1;min-width:180px">
                 <input type="file" id="ep-foto-input" accept="image/*" style="display:none" onchange="epHandleFotoChange(this)"/>
@@ -13707,7 +13723,9 @@ function abrirModalEditarParceiro(id) {
   const epFotoImg = document.getElementById('ep-foto-preview-img');
   const epFotoWrap = document.getElementById('ep-foto-preview-wrap');
   if (epFotoImg && epFotoWrap) {
-    if (p.fotoBandeira) {
+    // Só exibir se fotoBandeira for URL real (http ou /api/parceiros/foto)
+    var fotoReal = p.fotoBandeira && (p.fotoBandeira.startsWith('http') || p.fotoBandeira.startsWith('/api/parceiros'));
+    if (fotoReal) {
       epFotoImg.src = p.fotoBandeira + '?t=' + Date.now();
       epFotoImg.style.display = 'block';
       epFotoWrap.style.fontSize = '0';
