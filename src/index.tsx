@@ -550,10 +550,13 @@ app.get('/api/postos', async (c) => {
           if (p.fotoUrl && !merged.fotoGoogle) {
             merged.fotoGoogle = p.fotoUrl   // preservar foto Google original
           }
-          // Prioridade: fotoExterna (URL colada admin) → fotoBandeira (upload admin)
-          const fotoParceiroUrl = (parceiro.fotoExterna && String(parceiro.fotoExterna).startsWith('http'))
+          // Prioridade: fotoBandeira (upload manual admin) > fotoExterna (URL colada admin / Google)
+          // fotoBandeira é intencional — o admin fez upload da logo. Deve prevalecer sempre.
+          const fotoBandeiraAdmin = parceiro.fotoBandeira ? String(parceiro.fotoBandeira) : null
+          const fotoExternaAdmin = (parceiro.fotoExterna && String(parceiro.fotoExterna).startsWith('http'))
             ? String(parceiro.fotoExterna)
-            : (parceiro.fotoBandeira ? String(parceiro.fotoBandeira) : null)
+            : null
+          const fotoParceiroUrl = fotoBandeiraAdmin || fotoExternaAdmin
           if (fotoParceiroUrl) {
             merged.fotoUrl = fotoParceiroUrl  // logo do parceiro → badges, lista, mapa
           }
