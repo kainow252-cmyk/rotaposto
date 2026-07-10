@@ -3006,10 +3006,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       var stripContent, stripBg;
       if (logoUrlBalloon) {
         stripBg = '#fff';
-        // onerror: esconde a img e mostra o fundo colorido da bandeira (sem innerHTML)
+        // onerror usa &apos; para evitar quebra de string JS no HTML gerado
         stripContent = '<img src="' + logoUrlBalloon + '" width="26" height="26"'
           + ' style="object-fit:contain;border-radius:4px;display:block"'
-          + ' onerror="this.style.display=\'none\'">';
+          + ' onerror="this.style.display=&apos;none&apos;">';
       } else {
         stripBg = bandInfo2.cor;
         // Letra inicial da bandeira como fallback visual
