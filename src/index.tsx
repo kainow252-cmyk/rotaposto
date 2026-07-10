@@ -5329,6 +5329,11 @@ app.get('/posto/:id', async (c) => {
     .footer-rp{text-align:center;padding:24px 16px;color:#999;font-size:12px}
     .footer-rp a{color:var(--laranja);text-decoration:none;font-weight:600}
 
+    /* Hero foto do posto */
+    .posto-hero{width:100%;height:180px;object-fit:cover;display:block;background:#eee}
+    .posto-hero-wrap{position:relative;overflow:hidden;max-height:180px}
+    .posto-hero-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,rgba(0,0,0,0.35))}
+
     /* Loader */
     .loader{text-align:center;padding:40px;color:#999}
     .spinner{display:inline-block;width:32px;height:32px;border:3px solid #eee;border-top-color:var(--laranja);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:12px}
@@ -5339,6 +5344,11 @@ app.get('/posto/:id', async (c) => {
   </style>
 </head>
 <body>
+
+<!-- Hero foto externa do posto (visível só se fotoExterna estiver configurada) -->
+<div id="posto-hero-wrap" class="posto-hero-wrap" style="display:none">
+  <img id="posto-hero-img" class="posto-hero" alt="Foto do posto" onerror="document.getElementById('posto-hero-wrap').style.display='none'"/>
+</div>
 
 <div class="header">
   <div class="header-top">
@@ -5427,16 +5437,23 @@ function renderHeader(p) {
   if (p.cidade) parts.push('<i class="fas fa-map-marker-alt"></i> ' + p.cidade);
   if (p.seloVerificado) parts.push('<span class="badge-selo">✓ Verificado</span>');
   sub.innerHTML = parts.join(' · ');
-  // Foto do posto: prioridade fotoExterna → fotoBandeira (upload admin) → emoji da bandeira
+  // Hero banner: fotoExterna (foto panorâmica do posto) — exibida ACIMA do header
+  var heroWrap = document.getElementById('posto-hero-wrap');
+  var heroImg  = document.getElementById('posto-hero-img');
+  if (p.fotoExterna && heroWrap && heroImg) {
+    heroImg.src = p.fotoExterna;
+    heroWrap.style.display = 'block';
+  }
+  // Logo do header: fotoBandeira (logo/upload do admin) → emoji da bandeira
   var logoEl = document.getElementById('posto-logo');
-  var fotoUrl = p.fotoExterna || p.fotoBandeira || '';
-  if (fotoUrl) {
+  var logoUrl = p.fotoBandeira || '';
+  if (logoUrl) {
     var img = document.createElement('img');
-    img.src = fotoUrl;
+    img.src = logoUrl;
     img.alt = p.nomePosto;
-    img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:16px';
+    img.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:16px;padding:4px';
     img.onerror = function() {
-      logoEl.removeChild(img);
+      if (img.parentNode) img.parentNode.removeChild(img);
       var logos = { 'Petrobras BR':'🟢', 'Shell':'🔴', 'Ipiranga':'🟡', 'Ale':'🔵', 'ALE':'🔵' };
       logoEl.textContent = (p.bandeira && logos[p.bandeira]) ? logos[p.bandeira] : '⛽';
     };
@@ -12528,7 +12545,7 @@ app.get('/admin', (c) => {
           </div>
           <!-- Foto / Logo da Bandeira (Admin) -->
           <div class="form-group" style="grid-column:1/-1">
-            <label style="color:#FF6D00">📸 Foto / Logo do Posto</label>
+            <label style="color:#FF6D00">🏷️ Logo da Bandeira / Posto <span style="font-weight:400;font-size:11px;color:rgba(255,255,255,0.45)">(aparece no círculo do cabeçalho da página do posto)</span></label>
             <div style="display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap">
               <div id="ep-foto-preview-wrap" style="width:72px;height:72px;border-radius:12px;background:#0A1520;border:2px dashed rgba(255,109,0,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:28px;position:relative">
                 ⛽
@@ -12549,11 +12566,11 @@ app.get('/admin', (c) => {
             </div>
           </div>
 
-          <!-- Foto Externa (URL) -->
+          <!-- Foto Externa (URL) — banner panorâmico, separado do logo -->
           <div class="form-group" style="grid-column:1/-1;margin-top:10px">
-            <label style="display:block;font-size:10px;font-weight:900;color:#4FC3F7;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🔗 Foto do Posto — URL externa <span style="font-weight:400;color:rgba(255,255,255,0.4);text-transform:none;letter-spacing:0">(cola link de imagem — prioridade máxima sobre upload)</span></label>
+            <label style="display:block;font-size:10px;font-weight:900;color:#4FC3F7;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🖼️ Foto Panorâmica do Posto — URL externa <span style="font-weight:400;color:rgba(255,255,255,0.4);text-transform:none;letter-spacing:0">(aparece como banner/hero acima do cabeçalho — diferente da logo)</span></label>
             <div style="display:flex;gap:8px;align-items:center">
-              <input id="ep-fotoExterna" type="url" placeholder="https://exemplo.com/foto-do-posto.jpg"
+              <input id="ep-fotoExterna" type="url" placeholder="https://exemplo.com/foto-fachada-do-posto.jpg"
                 style="flex:1;background:#0A1520;border:1.5px solid rgba(79,195,247,0.3);border-radius:9px;color:#fff;font-size:13px;padding:9px 12px;outline:none"
                 oninput="epPreviewFotoExterna(this.value)"/>
               <button type="button" onclick="epSalvarFotoExterna()" style="padding:10px 16px;background:#0288D1;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px">
@@ -12561,9 +12578,9 @@ app.get('/admin', (c) => {
               </button>
             </div>
             <div id="ep-foto-externa-preview" style="margin-top:8px;display:none;align-items:center;gap:8px">
-              <img id="ep-foto-externa-img" src="" alt="preview" style="width:60px;height:60px;object-fit:cover;border-radius:10px;border:2px solid rgba(79,195,247,0.3)"
+              <img id="ep-foto-externa-img" src="" alt="preview" style="width:120px;height:60px;object-fit:cover;border-radius:10px;border:2px solid rgba(79,195,247,0.3)"
                 onerror="document.getElementById('ep-foto-externa-preview').style.display='none'"/>
-              <span style="font-size:11px;color:rgba(255,255,255,0.5)">Preview da URL</span>
+              <span style="font-size:11px;color:rgba(255,255,255,0.5)">Preview — banner panorâmico (aparece acima do header na página do posto)</span>
             </div>
           </div>
         </div>
