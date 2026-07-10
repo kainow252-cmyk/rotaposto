@@ -2457,12 +2457,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
   // ── Estado dos filtros ────────────────────────────────────────────────────
-  var _FILTROS_KEY = 'rp_filtros_v1';
+  var _FILTROS_KEY = 'rp_filtros_v2';   // v2: padrão ordenar = distância
   var _FUEL_KEY    = 'rp_fuel_v1';
 
   var _filtrosDefault = {
     raioKm: 5,
-    ordenar: 'preco',
+    ordenar: 'distancia',
     somenteAbertos: false,
     somentePrecoReal: false,
     avaliacaoMin: 0,
@@ -3615,7 +3615,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _contarFiltrosAtivos() {
     var n = 0;
     if (filtros.raioKm !== 5) n++;
-    if (filtros.ordenar !== 'preco') n++;
+    if (filtros.ordenar !== 'distancia') n++;
     if (filtros.somenteAbertos) n++;
     if (filtros.somentePrecoReal) n++;
     if (filtros.avaliacaoMin > 0) n++;
@@ -3736,7 +3736,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       _render: renderModalContent,
       _resetar: function() {
         var t = window['_tmpFiltros'];
-        t.raioKm = 5; t.ordenar = 'preco'; t.somenteAbertos = false;
+        t.raioKm = 5; t.ordenar = 'distancia'; t.somenteAbertos = false;
         t.somentePrecoReal = false; t.avaliacaoMin = 0; t.somenteComDesconto = false;
         renderModalContent();
       }
@@ -3805,17 +3805,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       postos = postos.filter(p => !p.distancia || p.distancia <= filtros.raioKm);
     }
     // Ordenar
-    if (filtros.ordenar === 'distancia') {
-      postos.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
-    } else if (filtros.ordenar === 'avaliacao') {
-      postos.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    } else {
-      // Padrão: menor preço
+    if (filtros.ordenar === 'preco') {
       postos.sort((a, b) => {
         const pa = a.preco || a.precos?.[selectedFuel] || 999;
         const pb = b.preco || b.precos?.[selectedFuel] || 999;
         return pa - pb;
       });
+    } else if (filtros.ordenar === 'avaliacao') {
+      postos.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    } else {
+      // Padrão: distância mais próxima
+      postos.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
     }
     // Badge de filtros ativos na lista
     var nFiltros = _contarFiltrosAtivos();
@@ -3868,9 +3868,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '</div>'
       + '</div>';
 
-    // ── Exibir somente postos com preço real (ANP ou colaborativo) ──
-    const postosExibidos = postos.filter(p => p.fontePreco === 'anp' || p.fontePreco === 'colaborativo');
-    const cards = (postosExibidos.length > 0 ? postosExibidos : postos).slice(0, 15).map((p, i) => {
+    // ── Exibir todos os postos (com e sem preço real) — ordenados por distância ──
+    const postosExibidos = postos;
+    const cards = postosExibidos.slice(0, 15).map((p, i) => {
       const preco = p.preco || p.precos?.[selectedFuel];
       const precoFmt = preco ? 'R$&nbsp;' + preco.toFixed(2).replace('.', ',') : '-';
       const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '-';
@@ -3940,7 +3940,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         +   '</div>'
         +   (endStr ? '<div style="font-size:11px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + endStr + '</div>' : '')
         +   '<div style="display:flex;align-items:center;gap:4px;margin-top:5px;flex-wrap:wrap;">'
-        +     (isBest ? '<span style="font-size:10px;background:#E8F5E9;color:#00A651;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #C8E6C9;">✓ Melhor preço</span>' : '')
+        +     (isBest ? '<span style="font-size:10px;background:#E8F5E9;color:#00A651;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #C8E6C9;">📍 Mais próximo</span>' : '')
         +     abertoStr
         +     badgeFonte
         +   '</div>'
