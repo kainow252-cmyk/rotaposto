@@ -12285,6 +12285,12 @@ app.get('/admin', (c) => {
     .modal-close-btn:hover{background:rgba(255,82,82,0.2);color:#FF5252}
     .modal-body{padding:20px 24px}
     .modal-footer{position:sticky;bottom:0;background:#1A1D23;border-top:1px solid rgba(255,255,255,0.08);padding:14px 24px;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+    /* Planos — hovers sem onmouseover inline */
+    .plano-novo-card:hover{border-color:rgba(255,255,255,0.28)!important;background:rgba(255,255,255,0.05)!important}
+    .plano-save-btn:hover{transform:translateY(-2px)!important;filter:brightness(1.12)}
+    .plano-switch-ativo:hover{border-color:rgba(0,200,83,0.4)!important}
+    .plano-switch-destaque:hover{border-color:rgba(255,214,0,0.4)!important}
+    .plano-switch-destaque-app:hover{border-color:rgba(255,165,0,0.35)!important}
     /* Responsivo mobile */
     @media(max-width:768px){
       .main{margin-left:0;padding:12px}
@@ -16119,7 +16125,7 @@ function renderizarAbasPlanosApp() {
     + 'cursor:pointer;border-radius:20px;padding:0;text-align:center;flex-shrink:0;'
     + 'border:2.5px dashed rgba(255,255,255,0.12);background:rgba(255,255,255,0.02);'
     + 'transition:all 0.2s;min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px'
-    + '" onmouseover="this.style.borderColor=\'rgba(255,255,255,0.25)\';this.style.background=\'rgba(255,255,255,0.04)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,0.12)\';this.style.background=\'rgba(255,255,255,0.02)\'">'
+    + '" class="plano-novo-card">'
     + '<div style="width:40px;height:40px;border-radius:50%;border:2px dashed rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04)">'
     + '<i class="fas fa-plus" style="font-size:16px;color:rgba(255,255,255,0.3)"></i></div>'
     + '<div style="font-size:11px;font-weight:800;color:rgba(255,255,255,0.25);letter-spacing:0.5px">Novo Plano</div>'
@@ -16180,8 +16186,8 @@ function renderizarPlanoAppSelecionado() {
   // Nome + descrição
   +   '<div style="flex:1;min-width:200px">'
   +     '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Nome do plano</div>'
-  +     '<input id="pa-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g, '&quot;') + '" style="width:100%;background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:18px;font-weight:900;padding:8px 14px;font-family:inherit;outline:none;margin-bottom:8px;box-sizing:border-box;transition:border-color 0.15s" onfocus="this.style.borderColor=\'' + cor + '\'" onblur="this.style.borderColor=\'rgba(255,255,255,0.1)\'" placeholder="Nome do plano">'
-  +     '<input id="pa-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g, '&quot;') + '" style="width:100%;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.06);border-radius:10px;color:rgba(255,255,255,0.5);font-size:12px;padding:7px 14px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s" onfocus="this.style.borderColor=\'' + cor + '55\'" onblur="this.style.borderColor=\'rgba(255,255,255,0.06)\'" placeholder="Subtítulo exibido no app...">'
+  +     '<input id="pa-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g, '&quot;') + '" style="width:100%;background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:18px;font-weight:900;padding:8px 14px;font-family:inherit;outline:none;margin-bottom:8px;box-sizing:border-box;transition:border-color 0.15s" placeholder="Nome do plano">'
+  +     '<input id="pa-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g, '&quot;') + '" style="width:100%;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.06);border-radius:10px;color:rgba(255,255,255,0.5);font-size:12px;padding:7px 14px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s" placeholder="Subtítulo exibido no app...">'
   +   '</div>'
   // Cor
   +   '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0">'
@@ -16208,7 +16214,7 @@ function renderizarPlanoAppSelecionado() {
 
   // ── Toggle Destaque ──
   + '<div style="padding:16px 28px;border-bottom:1px solid rgba(255,255,255,0.06)">'
-  +   '<label style="display:flex;align-items:center;gap:12px;cursor:pointer;width:fit-content;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.07);border-radius:12px;padding:12px 20px;transition:border-color 0.15s" onmouseover="this.style.borderColor=\'rgba(255,165,0,0.3)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,0.07)\'">'
+  +   '<label style="display:flex;align-items:center;gap:12px;cursor:pointer;width:fit-content;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.07);border-radius:12px;padding:12px 20px;transition:border-color 0.15s" class="plano-switch-destaque-app">'
   +     '<input id="pa-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FFD600;width:18px;height:18px;cursor:pointer">'
   +     '<span style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.75)">⭐ Plano em Destaque</span>'
   +     '<span style="font-size:11px;color:rgba(255,255,255,0.3);margin-left:4px">— aparece primeiro na tela do app</span>'
@@ -16229,7 +16235,7 @@ function renderizarPlanoAppSelecionado() {
   +   '<div style="font-size:10px;color:rgba(255,255,255,0.15);font-family:monospace;background:rgba(255,255,255,0.04);padding:4px 10px;border-radius:6px">ID: ' + p.id + '</div>'
   +   '<div style="display:flex;gap:10px;align-items:center">'
   +     (!isProtected ? '<button onclick="deletarPlanoApp(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.1);color:#FF5252;border:1.5px solid rgba(255,82,82,0.2);padding:9px 18px;border-radius:12px;cursor:pointer;font-size:12px;font-weight:800;font-family:inherit"><i class="fas fa-trash" style="margin-right:6px"></i>Excluir</button>' : '')
-  +     '<button onclick="salvarPlanoApp(' + i + ',&apos;' + p.id + '&apos;)" id="pa-save-btn-' + i + '" style="background:linear-gradient(135deg,' + cor + ' 0%,' + cor + 'cc 100%);color:#fff;border:none;padding:11px 32px;border-radius:12px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(' + rgb + ',0.35);transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 24px rgba(' + rgb + ',0.5)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 4px 16px rgba(' + rgb + ',0.35)\'"><i class="fas fa-save" style="margin-right:8px"></i>Salvar alterações</button>'
+  +     '<button onclick="salvarPlanoApp(' + i + ',&apos;' + p.id + '&apos;)" id="pa-save-btn-' + i + '" class="plano-save-btn" style="background:linear-gradient(135deg,' + cor + ' 0%,' + cor + 'cc 100%);color:#fff;border:none;padding:11px 32px;border-radius:12px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;transition:transform 0.15s,filter 0.15s"><i class="fas fa-save" style="margin-right:8px"></i>Salvar alterações</button>'
   +   '</div>'
   + '</div>'
   + '</div>';
@@ -16478,7 +16484,7 @@ function renderizarAbasPlanos() {
     + 'cursor:pointer;border-radius:20px;padding:0;text-align:center;flex-shrink:0;width:140px;'
     + 'border:2.5px dashed rgba(255,255,255,0.12);background:rgba(255,255,255,0.02);'
     + 'transition:all 0.2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:145px'
-    + '" onmouseover="this.style.borderColor=\'rgba(255,255,255,0.25)\';this.style.background=\'rgba(255,255,255,0.04)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,0.12)\';this.style.background=\'rgba(255,255,255,0.02)\'">'
+    + '" class="plano-novo-card">'
     + '<div style="width:40px;height:40px;border-radius:50%;border:2px dashed rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04)">'
     + '<i class="fas fa-plus" style="font-size:16px;color:rgba(255,255,255,0.3)"></i></div>'
     + '<div style="font-size:11px;font-weight:800;color:rgba(255,255,255,0.25);letter-spacing:0.5px">Novo Plano</div>'
@@ -16550,8 +16556,8 @@ function renderizarPlanoSelecionado() {
   +   '</div>'
   +   '<div style="flex:1;min-width:200px">'
   +     '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Nome do plano</div>'
-  +     '<input id="pp-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g,'&quot;') + '" style="width:100%;background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:18px;font-weight:900;padding:8px 14px;font-family:inherit;outline:none;margin-bottom:8px;box-sizing:border-box;transition:border-color 0.15s" onfocus="this.style.borderColor=\'' + cor + '\'" onblur="this.style.borderColor=\'rgba(255,255,255,0.1)\'" placeholder="Nome do plano">'
-  +     '<input id="pp-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g,'&quot;') + '" style="width:100%;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.06);border-radius:10px;color:rgba(255,255,255,0.5);font-size:12px;padding:7px 14px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s" onfocus="this.style.borderColor=\'' + cor + '55\'" onblur="this.style.borderColor=\'rgba(255,255,255,0.06)\'" placeholder="Descrição exibida no checkout...">'
+  +     '<input id="pp-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g,'&quot;') + '" style="width:100%;background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:18px;font-weight:900;padding:8px 14px;font-family:inherit;outline:none;margin-bottom:8px;box-sizing:border-box;transition:border-color 0.15s" placeholder="Nome do plano">'
+  +     '<input id="pp-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g,'&quot;') + '" style="width:100%;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.06);border-radius:10px;color:rgba(255,255,255,0.5);font-size:12px;padding:7px 14px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s" placeholder="Descrição exibida no checkout...">'
   +   '</div>'
   +   '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0">'
   +     '<div style="font-size:9px;color:rgba(255,255,255,0.3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Cor</div>'
@@ -16587,10 +16593,10 @@ function renderizarPlanoSelecionado() {
 
   // ── Switches ──
   + '<div style="padding:16px 28px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;gap:16px;flex-wrap:wrap">'
-  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:rgba(0,200,83,0.06);border:1.5px solid rgba(0,200,83,0.15);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);transition:border-color 0.15s" onmouseover="this.style.borderColor=\'rgba(0,200,83,0.35)\'" onmouseout="this.style.borderColor=\'rgba(0,200,83,0.15)\'">'
+  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:rgba(0,200,83,0.06);border:1.5px solid rgba(0,200,83,0.15);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);transition:border-color 0.15s" class="plano-switch-ativo">'
   +     '<input id="pp-ativo-' + i + '" type="checkbox" ' + (p.ativo ? 'checked' : '') + ' style="accent-color:#00C853;width:17px;height:17px;cursor:pointer">✅ Plano Ativo'
   +   '</label>'
-  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:rgba(255,214,0,0.06);border:1.5px solid rgba(255,214,0,0.15);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);transition:border-color 0.15s" onmouseover="this.style.borderColor=\'rgba(255,214,0,0.35)\'" onmouseout="this.style.borderColor=\'rgba(255,214,0,0.15)\'">'
+  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:rgba(255,214,0,0.06);border:1.5px solid rgba(255,214,0,0.15);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);transition:border-color 0.15s" class="plano-switch-destaque">'
   +     '<input id="pp-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FFD600;width:17px;height:17px;cursor:pointer">⭐ Mais Popular'
   +   '</label>'
   + '</div>'
@@ -16606,7 +16612,7 @@ function renderizarPlanoSelecionado() {
   +   '<div style="font-size:10px;color:rgba(255,255,255,0.15);font-family:monospace;background:rgba(255,255,255,0.04);padding:4px 10px;border-radius:6px">ID: ' + p.id + '</div>'
   +   '<div style="display:flex;gap:10px;align-items:center">'
   +     (!isProtected ? '<button onclick="deletarPlanoPostoInline(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.1);color:#FF5252;border:1.5px solid rgba(255,82,82,0.2);padding:9px 18px;border-radius:12px;cursor:pointer;font-size:12px;font-weight:800;font-family:inherit"><i class="fas fa-trash" style="margin-right:6px"></i>Excluir</button>' : '')
-  +     '<button onclick="salvarPlanoPostoInline(' + i + ',&apos;' + p.id + '&apos;)" style="background:linear-gradient(135deg,' + cor + ' 0%,' + cor + 'cc 100%);color:#fff;border:none;padding:11px 32px;border-radius:12px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(' + rgb + ',0.35);transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 24px rgba(' + rgb + ',0.5)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 4px 16px rgba(' + rgb + ',0.35)\'"><i class="fas fa-save" style="margin-right:8px"></i>Salvar alterações</button>'
+  +     '<button onclick="salvarPlanoPostoInline(' + i + ',&apos;' + p.id + '&apos;)" class="plano-save-btn" style="background:linear-gradient(135deg,' + cor + ' 0%,' + cor + 'cc 100%);color:#fff;border:none;padding:11px 32px;border-radius:12px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;transition:transform 0.15s,filter 0.15s"><i class="fas fa-save" style="margin-right:8px"></i>Salvar alterações</button>'
   +   '</div>'
   + '</div>'
   + '</div>';
