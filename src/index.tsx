@@ -350,7 +350,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v17', build: '20260710d' })
+  return c.json({ version: 'v17', build: '20260710e' })
 })
 
 app.get('/api/debug/env', async (c) => {
@@ -1716,14 +1716,116 @@ app.post('/api/pix/assinar', async (c) => {
       }
     }
 
-    // Criar nova assinatura na Woovi
-    const resultado = await criarAssinaturaPIX(c.env as any, nome, emailFinal, cpfLimpo, planoValido)
+    // ── Fallback em cascata: Asaas → Mercado Pago → Woovi ────────────────────
+    const configPag = kv ? await getConfigPagamento(kv) : null
+    const gatewayPreferido = configPag?.gateway || 'asaas'
+    const valorCentavos = PLANOS[planoValido]?.valor || 990
+    const ciclo: 'monthly' | 'yearly' = planoValido === 'anual' ? 'yearly' : 'monthly'
 
-    if (!resultado.sucesso) {
-      return c.json({ sucesso: false, mensagem: resultado.error || 'Erro ao gerar PIX' }, 500)
+    let resultado: any = null
+    let gatewayUsado = ''
+    const erros: string[] = []
+
+    // 1ª tentativa: Asaas
+    if (!resultado) {
+      try {
+        const asaasKey = (c.env as any)?.ASAAS_API_KEY || configPag?.asaasApiKey || ''
+        if (asaasKey) {
+          console.log('[PIX assinar] Tentando Asaas...')
+          const r = await assinarComAsaas(c.env as any, {
+            userId, nome, email: emailFinal, cpf: cpfLimpo,
+            valorCentavos, planoNome: `RotaPosto ${planoValido}`,
+            planoId: planoValido, ciclo,
+            referencia: `rp-asaas-${userId}-${Date.now()}`
+          })
+          if (r.sucesso && r.brcode) {
+            resultado = { sucesso: true, subscriptionId: r.subscriptionId, orderId: r.paymentId,
+              qrCode: r.qrCode, brcode: r.brcode, expiraEm: r.expiraEm, gateway: 'asaas', demo: r.demo }
+            gatewayUsado = 'asaas'
+            console.log('[PIX assinar] ✅ Asaas OK')
+          } else {
+            erros.push('Asaas: ' + (r.error || 'falha'))
+            console.warn('[PIX assinar] ⚠️ Asaas falhou:', r.error)
+          }
+        } else {
+          erros.push('Asaas: sem API Key')
+        }
+      } catch (e: any) {
+        erros.push('Asaas: ' + e.message)
+        console.warn('[PIX assinar] ⚠️ Asaas exception:', e.message)
+      }
     }
 
-    // Salvar no KV
+    // 2ª tentativa: Mercado Pago (PIX via preapproval)
+    if (!resultado) {
+      try {
+        const mpToken = (c.env as any)?.MP_ACCESS_TOKEN || configPag?.mpAccessToken || ''
+        if (mpToken) {
+          console.log('[PIX assinar] Tentando Mercado Pago...')
+          // MP não tem PIX recorrente nativo — cria cobrança PIX avulsa como fallback
+          const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${mpToken}`, 'Content-Type': 'application/json',
+              'X-Idempotency-Key': `rp-mp-pix-${userId}-${Date.now()}` },
+            body: JSON.stringify({
+              transaction_amount: valorCentavos / 100,
+              description: `RotaPosto ${planoValido}`,
+              payment_method_id: 'pix',
+              payer: { email: emailFinal, first_name: nome.split(' ')[0],
+                identification: { type: 'CPF', number: cpfLimpo } },
+              external_reference: `rp-mp-${userId}-${Date.now()}`
+            }),
+            signal: AbortSignal.timeout(12000)
+          })
+          const mpData = await mpRes.json() as any
+          const brcode = mpData?.point_of_interaction?.transaction_data?.qr_code
+          const qrImg  = mpData?.point_of_interaction?.transaction_data?.qr_code_base64
+          if (mpRes.ok && brcode) {
+            resultado = { sucesso: true, subscriptionId: String(mpData.id), orderId: String(mpData.id),
+              qrCode: qrImg ? `data:image/png;base64,${qrImg}` : `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(brcode)}`,
+              brcode, expiraEm: mpData?.date_of_expiration, gateway: 'mercadopago', demo: false }
+            gatewayUsado = 'mercadopago'
+            console.log('[PIX assinar] ✅ Mercado Pago OK')
+          } else {
+            erros.push('MP: ' + (mpData?.message || mpRes.status))
+            console.warn('[PIX assinar] ⚠️ MP falhou:', mpData?.message)
+          }
+        } else {
+          erros.push('MP: sem Access Token')
+        }
+      } catch (e: any) {
+        erros.push('MP: ' + e.message)
+        console.warn('[PIX assinar] ⚠️ MP exception:', e.message)
+      }
+    }
+
+    // 3ª tentativa: Woovi (fallback final)
+    if (!resultado) {
+      try {
+        console.log('[PIX assinar] Tentando Woovi...')
+        const r = await criarAssinaturaPIX(c.env as any, nome, emailFinal, cpfLimpo, planoValido)
+        if (r.sucesso && r.brcode) {
+          resultado = { sucesso: true, subscriptionId: r.subscriptionId, orderId: undefined,
+            qrCode: r.qrCode, brcode: r.brcode, expiraEm: undefined, gateway: 'woovi', demo: r.demo }
+          gatewayUsado = 'woovi'
+          console.log('[PIX assinar] ✅ Woovi OK')
+        } else {
+          erros.push('Woovi: ' + (r.error || 'falha'))
+          console.warn('[PIX assinar] ⚠️ Woovi falhou:', r.error)
+        }
+      } catch (e: any) {
+        erros.push('Woovi: ' + e.message)
+        console.warn('[PIX assinar] ⚠️ Woovi exception:', e.message)
+      }
+    }
+
+    // Todos falharam
+    if (!resultado || !resultado.sucesso) {
+      console.error('[PIX assinar] Todos os gateways falharam:', erros)
+      return c.json({ sucesso: false, mensagem: 'Serviço de pagamento temporariamente indisponível. Tente novamente em instantes.' }, 500)
+    }
+
+    // Salvar no KV com o gateway que funcionou
     const assinatura: AssinaturaUsuario = {
       userId,
       nome,
@@ -1731,32 +1833,42 @@ app.post('/api/pix/assinar', async (c) => {
       cpf: cpfLimpo,
       plano: planoValido,
       status: 'PENDING',
+      gateway: gatewayUsado as any,
       subscriptionId: resultado.subscriptionId,
+      orderId: resultado.orderId,
       qrCode: resultado.qrCode,
       brcode: resultado.brcode,
+      qrExpiraEm: resultado.expiraEm,
       criadaEm: Date.now(),
       pagamentos: 0
     }
 
     if (kv) {
       await kvSetAssinatura(kv, assinatura)
+      // Índice reverso para webhook (Asaas e MP)
+      if (resultado.orderId && gatewayUsado === 'asaas') {
+        await kvSetPaymentIndex(kv, resultado.orderId, userId)
+      }
     }
+
+    console.log(`[PIX assinar] Gateway usado: ${gatewayUsado} | userId: ${userId} | plano: ${planoValido}`)
 
     return c.json({
       sucesso: true,
       plano: planoValido,
-      valor: PLANOS[planoValido].valor / 100,
+      valor: valorCentavos / 100,
       subscriptionId: resultado.subscriptionId,
       qrCode: resultado.qrCode,
       brcode: resultado.brcode,
       demo: resultado.demo || false,
+      gateway: gatewayUsado,
       mensagem: 'QR Code PIX gerado! Escaneie para ativar o plano Premium.',
       instrucoes: [
         '1. Abra seu app de banco',
         '2. Escaneie o QR Code PIX ou copie o codigo',
-        '3. Confirme o pagamento de R$ ' + (PLANOS[planoValido].valor / 100).toFixed(2).replace('.', ','),
+        '3. Confirme o pagamento de R$ ' + (valorCentavos / 100).toFixed(2).replace('.', ','),
         '4. Seu plano Premium sera ativado automaticamente!',
-        '5. As proximas cobranças serao automaticas todo mes'
+        '5. As proximas cobranças serao geradas automaticamente todo mes'
       ]
     })
   } catch (e: any) {
