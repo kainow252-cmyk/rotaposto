@@ -2998,7 +2998,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
       // Balloon simples: ícone fixo de posto + preço
       const bandInfo2 = getBandeiraCor(p.bandeira || p.nome);
-      const pumpIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M18 4l2 2v11h-2V6l-2-2H6L4 6v14H2V4l2-2h12zm-4 4H8v6h6V8zm-2 4H10v-2h2v2zM7 18h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>';
+      const pumpIcon = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='white'><path d='M18 4l2 2v11h-2V6l-2-2H6L4 6v14H2V4l2-2h12zm-4 4H8v6h6V8zm-2 4H10v-2h2v2zM7 18h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z'/></svg>";
       const balloonHtml =
         '<div class="map-balloon'+bestClass+'">'
         + '<div class="map-balloon-strip" style="background:'+bandInfo2.cor+'">' + pumpIcon + '</div>'
@@ -3043,23 +3043,36 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     const dist = p.distancia ? p.distancia.toFixed(1).replace('.', ',') + ' km' : '-';
     const tempo = calcTempo(p.distancia);
 
-    const logoEl = document.getElementById('map-card-logo');
-    const bandInfo = getBandeiraCor(p.bandeira || p.nome);
+    var logoEl = document.getElementById('map-card-logo');
+    var bandInfo = getBandeiraCor(p.bandeira || p.nome);
+
+    function _makePumpSvg(color) {
+      var ns = 'http://www.w3.org/2000/svg';
+      var s = document.createElementNS(ns, 'svg');
+      s.setAttribute('width', '28'); s.setAttribute('height', '28');
+      s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', color);
+      var path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', 'M18 4l2 2v11h-2V6l-2-2H6L4 6v14H2V4l2-2h12zm-4 4H8v6h6V8zm-2 4H10v-2h2v2zM7 18h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z');
+      s.appendChild(path);
+      return s;
+    }
+
     // Mostrar foto do posto no card, com fallback para ícone de bomba
+    logoEl.innerHTML = '';
     if (p.fotoUrl) {
       var _imgFoto = document.createElement('img');
       _imgFoto.src = p.fotoUrl;
       _imgFoto.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:10px;';
       _imgFoto.alt = '';
       _imgFoto.onerror = function() {
-        logoEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="'+bandInfo.corTxt+'"><path d="M18 4l2 2v11h-2V6l-2-2H6L4 6v14H2V4l2-2h12zm-4 4H8v6h6V8zm-2 4H10v-2h2v2zM7 18h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>';
+        logoEl.innerHTML = '';
+        logoEl.appendChild(_makePumpSvg(bandInfo.corTxt));
         logoEl.style.background = bandInfo.bg;
       };
-      logoEl.innerHTML = '';
       logoEl.appendChild(_imgFoto);
       logoEl.style.background = 'transparent';
     } else {
-      logoEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="'+bandInfo.corTxt+'"><path d="M18 4l2 2v11h-2V6l-2-2H6L4 6v14H2V4l2-2h12zm-4 4H8v6h6V8zm-2 4H10v-2h2v2zM7 18h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>';
+      logoEl.appendChild(_makePumpSvg(bandInfo.corTxt));
       logoEl.style.background = bandInfo.bg;
     }
     const nomeEl = document.getElementById('map-card-nome');
