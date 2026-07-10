@@ -5228,6 +5228,8 @@ app.get('/api/posto/:id', async (c) => {
         seloVerificado: parceiro.seloVerificado || false,
         cuponsAtivos: parceiro.cuponsAtivos || false,
         foto: parceiro.foto || '',
+        fotoExterna: parceiro.fotoExterna || '',
+        fotoBandeira: parceiro.fotoBandeira || '',
         descricao: parceiro.descricao || '',
         lat: parceiro.lat || null,
         lng: parceiro.lng || null,
@@ -5271,7 +5273,8 @@ app.get('/posto/:id', async (c) => {
     .header{background:linear-gradient(135deg,#FF6D00,#FF8C42);padding:20px 16px 32px;color:#fff;position:relative}
     .header-top{display:flex;align-items:center;gap:12px;margin-bottom:16px}
     .header-back{background:rgba(255,255,255,0.2);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
-    .posto-logo{width:64px;height:64px;border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+    .posto-logo{width:64px;height:64px;border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.15);overflow:hidden;position:relative}
+    .posto-logo img{width:100%;height:100%;object-fit:cover;border-radius:16px}
     .posto-info{flex:1}
     .posto-nome{font-size:20px;font-weight:800;line-height:1.2;margin-bottom:4px}
     .posto-sub{font-size:13px;opacity:0.85;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -5420,10 +5423,28 @@ function renderHeader(p) {
   if (p.cidade) parts.push('<i class="fas fa-map-marker-alt"></i> ' + p.cidade);
   if (p.seloVerificado) parts.push('<span class="badge-selo">✓ Verificado</span>');
   sub.innerHTML = parts.join(' · ');
-  if (p.bandeira) {
-    var logos = { 'Petrobras BR':'🟢', 'Shell':'🔴', 'Ipiranga':'🟡', 'Ale':'🔵' };
-    document.getElementById('posto-logo').textContent = logos[p.bandeira] || '⛽';
+
+  // Foto do posto: prioridade fotoExterna → fotoBandeira (upload admin) → emoji da bandeira
+  var logoEl = document.getElementById('posto-logo');
+  var fotoUrl = p.fotoExterna || p.fotoBandeira || '';
+  if (fotoUrl) {
+    var img = document.createElement('img');
+    img.src = fotoUrl;
+    img.alt = p.nomePosto;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:16px';
+    img.onerror = function() {
+      // Fallback para emoji se imagem falhar
+      logoEl.removeChild(img);
+      var logos = { 'Petrobras BR':'🟢', 'Shell':'🔴', 'Ipiranga':'🟡', 'Ale':'🔵', 'ALE':'🔵' };
+      logoEl.textContent = (p.bandeira && logos[p.bandeira]) ? logos[p.bandeira] : '⛽';
+    };
+    logoEl.textContent = '';
+    logoEl.appendChild(img);
+  } else if (p.bandeira) {
+    var logos = { 'Petrobras BR':'🟢', 'Shell':'🔴', 'Ipiranga':'🟡', 'Ale':'🔵', 'ALE':'🔵' };
+    logoEl.textContent = logos[p.bandeira] || '⛽';
   }
+
   if (!p.whatsapp) document.getElementById('btn-wpp').style.display = 'none';
 }
 
@@ -10984,6 +11005,7 @@ function normalizarParceiro(data: Record<string,unknown>, id: string, uploaded: 
     // Foto de bandeira (só retorna se realmente salva — nunca gera URL automática)
     fotoBandeira:     data.fotoBandeira     || null,
     fotoTs:           data.fotoTs           || null,   // timestamp do último upload (cache-bust)
+    fotoExterna:      data.fotoExterna      || null,   // URL externa de foto do posto (admin cola)
     endereco:         data.endereco         || {},
     lat:              data.lat              || null,
     lng:              data.lng              || null,
@@ -11018,7 +11040,8 @@ app.put('/api/admin/parceiros/:id', async (c) => {
     'nomePosto','email','tel','telTelemarketing',
     'cidade','estado','bairro','cnpj','bandeira',
     'plano','status','seloVerificado','pinDourado',
-    'notificacoesAtivas','cuponsAtivos','topoLista'
+    'notificacoesAtivas','cuponsAtivos','topoLista',
+    'fotoExterna'
   ]
   const atualizado: Record<string,unknown> = { ...base }
   for (const campo of campos) {
@@ -12300,6 +12323,23 @@ app.get('/admin', (c) => {
                 </div>
                 <div id="ep-foto-status" style="font-size:11px;font-weight:700;margin-top:6px;display:none"></div>
               </div>
+            </div>
+          </div>
+
+          <!-- Foto Externa (URL) -->
+          <div class="form-group" style="grid-column:1/-1">
+            <label style="color:#4FC3F7">🔗 Foto do Posto — URL externa <span style="color:rgba(255,255,255,0.3);font-weight:400;font-size:11px">(cole um link de imagem; aparece na página pública do posto)</span></label>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+              <input id="ep-fotoExterna" type="url" placeholder="https://exemplo.com/foto-do-posto.jpg"
+                style="flex:1;background:#0A1520;border:1.5px solid rgba(79,195,247,0.3);border-radius:10px;padding:11px 14px;color:#4FC3F7;font-size:13px;outline:none"
+                oninput="epPreviewFotoExterna(this.value)"/>
+              <button type="button" onclick="epSalvarFotoExterna()" style="padding:10px 16px;background:#0288D1;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px">
+                <i class="fas fa-save"></i> Salvar URL
+              </button>
+            </div>
+            <div id="ep-foto-externa-preview" style="margin-top:8px;display:none">
+              <img id="ep-foto-externa-img" src="" alt="preview" style="width:80px;height:80px;object-fit:cover;border-radius:10px;border:2px solid rgba(79,195,247,0.3)" onerror="document.getElementById('ep-foto-externa-preview').style.display='none'"/>
+              <span style="font-size:11px;color:rgba(255,255,255,0.4);margin-left:8px">Preview</span>
             </div>
           </div>
         </div>
@@ -14238,6 +14278,11 @@ function abrirModalEditarParceiro(id) {
     }
   }
 
+  // Foto externa — preencher campo e mostrar preview se já cadastrada
+  const epFotoExterna = document.getElementById('ep-fotoExterna');
+  if (epFotoExterna) epFotoExterna.value = p.fotoExterna || '';
+  epPreviewFotoExterna(p.fotoExterna || '');
+
   document.getElementById('modal-parceiro-edit').style.display = 'block';
   document.getElementById('modal-parceiro-edit').scrollTop = 0;
 }
@@ -14308,6 +14353,43 @@ async function epUploadFotoBandeira() {
     if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-cloud-upload-alt"></i> Enviar foto'; }
     const inp = document.getElementById('ep-foto-input');
     if (inp) inp.value='';
+  }
+}
+
+// ── Foto externa (URL colada pelo admin) ──────────────────
+function epPreviewFotoExterna(url) {
+  const prev = document.getElementById('ep-foto-externa-preview');
+  const img  = document.getElementById('ep-foto-externa-img');
+  if (!prev || !img) return;
+  if (url && url.startsWith('http')) {
+    img.src = url;
+    prev.style.display = 'flex';
+    prev.style.alignItems = 'center';
+  } else {
+    prev.style.display = 'none';
+  }
+}
+
+async function epSalvarFotoExterna() {
+  const inp = document.getElementById('ep-fotoExterna');
+  if (!inp) return;
+  const url = inp.value.trim();
+  if (!_parceiroEditandoId) { showToast('❌ Nenhum posto selecionado', 'err'); return; }
+  if (url && !url.startsWith('http')) { showToast('⚠️ URL inválida. Deve começar com http', 'err'); return; }
+  try {
+    const r = await fetch('/api/admin/parceiros/' + encodeURIComponent(_parceiroEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fotoExterna: url || null })
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao salvar');
+    // Atualizar em memória
+    const idx = _parceiros.findIndex(x => x.id === _parceiroEditandoId);
+    if (idx !== -1) _parceiros[idx].fotoExterna = url || null;
+    showToast(url ? '✅ URL de foto salva! Aparece na página do posto.' : '✅ Foto externa removida.', 'ok');
+  } catch(e) {
+    showToast('❌ ' + e.message, 'err');
   }
 }
 
