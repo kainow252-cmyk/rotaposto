@@ -550,12 +550,8 @@ app.get('/api/postos', async (c) => {
           if (p.fotoUrl && !merged.fotoGoogle) {
             merged.fotoGoogle = p.fotoUrl   // preservar foto Google original
           }
-          // Prioridade: fotoExterna (URL colada admin) → fotoBandeira (upload admin)
-          const fotoParceiroUrl = (parceiro.fotoExterna && String(parceiro.fotoExterna).startsWith('http'))
-            ? String(parceiro.fotoExterna)
-            : (parceiro.fotoBandeira ? String(parceiro.fotoBandeira) : null)
-          if (fotoParceiroUrl) {
-            merged.fotoUrl = fotoParceiroUrl  // logo do parceiro → badges, lista, mapa
+          if (parceiro.fotoBandeira) {
+            merged.fotoUrl = String(parceiro.fotoBandeira)  // logo do parceiro → badges
           }
           // Marcar como parceiro para o app
           const pId = parceiro.id ? String(parceiro.id) : ('posto_' + cnpjSoNum)
@@ -5232,8 +5228,6 @@ app.get('/api/posto/:id', async (c) => {
         seloVerificado: parceiro.seloVerificado || false,
         cuponsAtivos: parceiro.cuponsAtivos || false,
         foto: parceiro.foto || '',
-        fotoExterna: parceiro.fotoExterna || '',
-        fotoBandeira: parceiro.fotoBandeira || '',
         descricao: parceiro.descricao || '',
         lat: parceiro.lat || null,
         lng: parceiro.lng || null,
@@ -5277,8 +5271,7 @@ app.get('/posto/:id', async (c) => {
     .header{background:linear-gradient(135deg,#FF6D00,#FF8C42);padding:20px 16px 32px;color:#fff;position:relative}
     .header-top{display:flex;align-items:center;gap:12px;margin-bottom:16px}
     .header-back{background:rgba(255,255,255,0.2);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
-    .posto-logo{width:64px;height:64px;border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.15);overflow:hidden;position:relative}
-    .posto-logo img{width:100%;height:100%;object-fit:cover;border-radius:16px}
+    .posto-logo{width:64px;height:64px;border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,0.15)}
     .posto-info{flex:1}
     .posto-nome{font-size:20px;font-weight:800;line-height:1.2;margin-bottom:4px}
     .posto-sub{font-size:13px;opacity:0.85;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -5427,28 +5420,10 @@ function renderHeader(p) {
   if (p.cidade) parts.push('<i class="fas fa-map-marker-alt"></i> ' + p.cidade);
   if (p.seloVerificado) parts.push('<span class="badge-selo">✓ Verificado</span>');
   sub.innerHTML = parts.join(' · ');
-
-  // Foto do posto: prioridade fotoExterna → fotoBandeira (upload admin) → emoji da bandeira
-  var logoEl = document.getElementById('posto-logo');
-  var fotoUrl = p.fotoExterna || p.fotoBandeira || '';
-  if (fotoUrl) {
-    var img = document.createElement('img');
-    img.src = fotoUrl;
-    img.alt = p.nomePosto;
-    img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:16px';
-    img.onerror = function() {
-      // Fallback para emoji se imagem falhar
-      logoEl.removeChild(img);
-      var logos = { 'Petrobras BR':'🟢', 'Shell':'🔴', 'Ipiranga':'🟡', 'Ale':'🔵', 'ALE':'🔵' };
-      logoEl.textContent = (p.bandeira && logos[p.bandeira]) ? logos[p.bandeira] : '⛽';
-    };
-    logoEl.textContent = '';
-    logoEl.appendChild(img);
-  } else if (p.bandeira) {
-    var logos = { 'Petrobras BR':'🟢', 'Shell':'🔴', 'Ipiranga':'🟡', 'Ale':'🔵', 'ALE':'🔵' };
-    logoEl.textContent = logos[p.bandeira] || '⛽';
+  if (p.bandeira) {
+    var logos = { 'Petrobras BR':'🟢', 'Shell':'🔴', 'Ipiranga':'🟡', 'Ale':'🔵' };
+    document.getElementById('posto-logo').textContent = logos[p.bandeira] || '⛽';
   }
-
   if (!p.whatsapp) document.getElementById('btn-wpp').style.display = 'none';
 }
 
@@ -10888,114 +10863,6 @@ app.delete('/api/admin/postos/:id', async (c) => {
   return c.json({ ok: true, id })
 })
 
-// ─── POST /api/admin/script/propagar-logos — propaga fotoBandeira/fotoExterna para posto:band KV ──
-app.post('/api/admin/script/propagar-logos', async (c) => {
-  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
-  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
-  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
-
-  const kv = getKV(c.env as any)
-  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
-  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
-
-  const resultados: Array<Record<string,unknown>> = []
-  let atualizados = 0, ignorados = 0, erros = 0
-
-  // 1. Listar todos os parceiros do R2
-  const listaR2: Array<{ id: string; data: Record<string,unknown> }> = []
-  if (r2) {
-    try {
-      const listed = await r2.list({ prefix: 'parceiro--' })
-      for (const obj of listed.objects) {
-        const id = obj.key.replace('parceiro--', '')
-        if (id.startsWith('email_') || id.startsWith('cnpj_')) continue
-        try {
-          const data = await r2Get(r2, `parceiro:${id}`) as Record<string,unknown> | null
-          if (data && data.id) listaR2.push({ id: String(data.id), data })
-        } catch {}
-      }
-    } catch(e) { console.warn('[propagar-logos] r2.list erro:', e) }
-  }
-  // Fallback KV
-  if (listaR2.length === 0 && kv) {
-    try {
-      const kvList = await kv.list({ prefix: 'parceiro:' })
-      for (const k of kvList.keys) {
-        const seg = k.name.replace('parceiro:', '')
-        if (seg.startsWith('sess_') || seg.startsWith('email_') || seg.startsWith('cnpj_')) continue
-        try {
-          const raw = await kv.get(k.name)
-          if (!raw) continue
-          const data = JSON.parse(raw) as Record<string,unknown>
-          if (data?.id) listaR2.push({ id: String(data.id), data })
-        } catch {}
-      }
-    } catch {}
-  }
-
-  // 2. Para cada parceiro com foto, propagar para posto:band:*
-  for (const { id, data } of listaR2) {
-    // Foto a usar: fotoExterna tem prioridade, depois fotoBandeira
-    const fotoExterna  = data.fotoExterna  ? String(data.fotoExterna)  : null
-    const fotoBandeira = data.fotoBandeira ? String(data.fotoBandeira) : null
-    const fotoUrl = fotoExterna || fotoBandeira
-
-    if (!fotoUrl) {
-      ignorados++
-      resultados.push({ id, nomePosto: data.nomePosto, status: 'sem_foto_pular' })
-      continue
-    }
-
-    const fotoTs = data.fotoTs ? Number(data.fotoTs) : Date.now()
-
-    try {
-      // 2a. Atualizar posto:band:{parceiroId}
-      const bandKey = `posto:band:${id}`
-      const bandRaw = await kv.get(bandKey)
-      let band: Record<string,unknown> = bandRaw ? JSON.parse(bandRaw) : { postoId: id }
-      band.fotoUrl  = fotoUrl
-      band.fotoTs   = fotoTs
-      band.fotoExterna = fotoExterna || null
-      await kv.put(bandKey, JSON.stringify(band), { expirationTtl: 365 * 24 * 3600 })
-
-      // 2b. Se tem CNPJ, atualizar também posto:band:posto_{cnpj}
-      const cnpjStr = data.cnpj ? String(data.cnpj).replace(/[^0-9]/g, '') : ''
-      if (cnpjStr && cnpjStr.length >= 11) {
-        const cnpjBandKey = `posto:band:posto_${cnpjStr}`
-        const cnpjBandRaw = await kv.get(cnpjBandKey)
-        let cnpjBand: Record<string,unknown> = cnpjBandRaw
-          ? JSON.parse(cnpjBandRaw)
-          : { postoId: `posto_${cnpjStr}`, cnpj: cnpjStr }
-        cnpjBand.fotoUrl  = fotoUrl
-        cnpjBand.fotoTs   = fotoTs
-        cnpjBand.fotoExterna = fotoExterna || null
-        cnpjBand.parceiroId  = id
-        await kv.put(cnpjBandKey, JSON.stringify(cnpjBand), { expirationTtl: 365 * 24 * 3600 })
-      }
-
-      atualizados++
-      resultados.push({
-        id, nomePosto: data.nomePosto || id,
-        cnpj: data.cnpj || null,
-        fotoUrl, tipo: fotoExterna ? 'fotoExterna' : 'fotoBandeira',
-        status: 'propagado'
-      })
-    } catch(e) {
-      erros++
-      resultados.push({ id, nomePosto: data.nomePosto, status: 'erro', msg: String(e) })
-    }
-  }
-
-  return c.json({
-    ok: true,
-    total: listaR2.length,
-    atualizados,
-    ignorados,
-    erros,
-    resultados
-  })
-})
-
 // ─── GET /api/admin/parceiros — lista TODOS os postos (R2 + KV fallback + p_teste persistido) ──
 app.get('/api/admin/parceiros', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -11117,7 +10984,6 @@ function normalizarParceiro(data: Record<string,unknown>, id: string, uploaded: 
     // Foto de bandeira (só retorna se realmente salva — nunca gera URL automática)
     fotoBandeira:     data.fotoBandeira     || null,
     fotoTs:           data.fotoTs           || null,   // timestamp do último upload (cache-bust)
-    fotoExterna:      data.fotoExterna      || null,   // URL externa de foto do posto (admin cola)
     endereco:         data.endereco         || {},
     lat:              data.lat              || null,
     lng:              data.lng              || null,
@@ -11152,8 +11018,7 @@ app.put('/api/admin/parceiros/:id', async (c) => {
     'nomePosto','email','tel','telTelemarketing',
     'cidade','estado','bairro','cnpj','bandeira',
     'plano','status','seloVerificado','pinDourado',
-    'notificacoesAtivas','cuponsAtivos','topoLista',
-    'fotoExterna'
+    'notificacoesAtivas','cuponsAtivos','topoLista'
   ]
   const atualizado: Record<string,unknown> = { ...base }
   for (const campo of campos) {
@@ -12263,16 +12128,11 @@ app.get('/admin', (c) => {
   <section id="section-postos-parceiros" style="display:none">
     <div class="page-header">
       <h2>⭐ Postos Parceiros</h2>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">
         <span id="parceiros-count" style="background:rgba(255,214,0,0.12);color:#FFD600;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">–</span>
-        <button id="btn-propagar-logos" onclick="rodarPropagacaoLogos()" style="background:linear-gradient(135deg,#1565C0,#0D47A1);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Raleway',sans-serif" title="Propaga foto de cada parceiro para a lista e mapa de usuários">
-          <i class="fas fa-share-alt"></i> Propagar logos no mapa/lista
-        </button>
         <button class="btn-refresh" onclick="toggleParceirosTabela(true);carregarParceirosCadastrados()"><i class="fas fa-sync-alt"></i> Atualizar</button>
       </div>
     </div>
-    <!-- Resultado da propagação de logos -->
-    <div id="propagar-logos-resultado" style="display:none;background:rgba(21,101,192,0.12);border:1px solid rgba(21,101,192,0.3);border-radius:12px;padding:14px 18px;margin-bottom:14px;font-size:12px;color:#90CAF9"></div>
 
     <!-- Filtros -->
     <div class="section-card" style="padding:16px 20px;margin-bottom:14px">
@@ -12440,23 +12300,6 @@ app.get('/admin', (c) => {
                 </div>
                 <div id="ep-foto-status" style="font-size:11px;font-weight:700;margin-top:6px;display:none"></div>
               </div>
-            </div>
-          </div>
-
-          <!-- Foto Externa (URL) -->
-          <div class="form-group" style="grid-column:1/-1">
-            <label style="color:#4FC3F7">🔗 Foto do Posto — URL externa <span style="color:rgba(255,255,255,0.3);font-weight:400;font-size:11px">(cole um link de imagem; aparece na página pública do posto)</span></label>
-            <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-              <input id="ep-fotoExterna" type="url" placeholder="https://exemplo.com/foto-do-posto.jpg"
-                style="flex:1;background:#0A1520;border:1.5px solid rgba(79,195,247,0.3);border-radius:10px;padding:11px 14px;color:#4FC3F7;font-size:13px;outline:none"
-                oninput="epPreviewFotoExterna(this.value)"/>
-              <button type="button" onclick="epSalvarFotoExterna()" style="padding:10px 16px;background:#0288D1;color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px">
-                <i class="fas fa-save"></i> Salvar URL
-              </button>
-            </div>
-            <div id="ep-foto-externa-preview" style="margin-top:8px;display:none">
-              <img id="ep-foto-externa-img" src="" alt="preview" style="width:80px;height:80px;object-fit:cover;border-radius:10px;border:2px solid rgba(79,195,247,0.3)" onerror="document.getElementById('ep-foto-externa-preview').style.display='none'"/>
-              <span style="font-size:11px;color:rgba(255,255,255,0.4);margin-left:8px">Preview</span>
             </div>
           </div>
         </div>
@@ -13532,7 +13375,7 @@ async function confirmarAtivarPremium() {
 async function banirUsuario(uid) {
   const u = _appUsuarios.find(x => x.uid === uid);
   const label = (u && u.nome) ? u.nome : uid.substring(0, 18) + '…';
-  if (!confirm('Banir PERMANENTEMENTE ' + label + '?\n\nIsso suspende a conta e remove a sessão.\nO usuário será deslogado imediatamente.')) return;
+  if (!confirm('Banir PERMANENTEMENTE ' + label + '?' + '\\n\\n' + 'Isso suspende a conta e remove a sessão.' + '\\n' + 'O usuário será deslogado imediatamente.')) return;
   try {
     const res = await fetch('/api/admin/app-usuarios/' + encodeURIComponent(uid) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -14123,44 +13966,6 @@ function toggleParceirosTabela(forcarAbrir) {
   }
 }
 
-// ─── Propagar logos de todos os parceiros para mapa/lista ────────────────────
-async function rodarPropagacaoLogos() {
-  const btn = document.getElementById('btn-propagar-logos');
-  const resultado = document.getElementById('propagar-logos-resultado');
-  if (!btn || !resultado) return;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Propagando...';
-  btn.style.pointerEvents = 'none';
-  resultado.style.display = 'block';
-  resultado.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rodando script — varrendo parceiros e propagando fotos para mapa e lista...';
-  try {
-    const r = await fetch('/api/admin/script/propagar-logos?key=' + encodeURIComponent(ADMIN_KEY), {
-      method: 'POST'
-    });
-    const d = await r.json();
-    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao propagar');
-    const linhas = (d.resultados || []).map(function(x) {
-      const icone = x.status === 'propagado' ? '✅' : x.status === 'sem_foto_pular' ? '⚪' : '❌';
-      const tipo = x.tipo ? ' <span style="color:#FFD600">[' + x.tipo + ']</span>' : '';
-      const url = x.fotoUrl ? ' <a href="' + x.fotoUrl + '" target="_blank" style="color:#64B5F6;font-size:10px">ver foto</a>' : '';
-      return icone + ' <b>' + (x.nomePosto || x.id) + '</b>' + tipo + url;
-    }).join('<br>');
-    resultado.innerHTML =
-      '<b style="color:#fff">✅ Propagação concluída!</b><br>' +
-      '<span style="color:#A5D6A7">Postos com foto: <b>' + d.atualizados + '</b></span> &nbsp;|&nbsp; ' +
-      '<span style="color:#FFCC80">Sem foto: <b>' + d.ignorados + '</b></span> &nbsp;|&nbsp; ' +
-      '<span style="color:#EF9A9A">Erros: <b>' + d.erros + '</b></span> &nbsp;|&nbsp; ' +
-      'Total: <b>' + d.total + '</b>' +
-      (linhas ? '<div style="margin-top:10px;max-height:200px;overflow-y:auto;font-size:11px;line-height:1.8">' + linhas + '</div>' : '');
-    showToast('✅ ' + d.atualizados + ' posto(s) com logo propagado no mapa/lista!', 'ok');
-  } catch(e) {
-    resultado.innerHTML = '❌ Erro: ' + e.message;
-    showToast('❌ Erro ao propagar logos: ' + e.message, 'err');
-  } finally {
-    btn.innerHTML = '<i class="fas fa-share-alt"></i> Propagar logos no mapa/lista';
-    btn.style.pointerEvents = '';
-  }
-}
-
 // ─── Toggle ativar/desativar posto direto na tabela ───────────────────────────
 async function toggleStatusParceiro(el) {
   const id = el.dataset.pid;
@@ -14433,11 +14238,6 @@ function abrirModalEditarParceiro(id) {
     }
   }
 
-  // Foto externa — preencher campo e mostrar preview se já cadastrada
-  const epFotoExterna = document.getElementById('ep-fotoExterna');
-  if (epFotoExterna) epFotoExterna.value = p.fotoExterna || '';
-  epPreviewFotoExterna(p.fotoExterna || '');
-
   document.getElementById('modal-parceiro-edit').style.display = 'block';
   document.getElementById('modal-parceiro-edit').scrollTop = 0;
 }
@@ -14508,43 +14308,6 @@ async function epUploadFotoBandeira() {
     if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-cloud-upload-alt"></i> Enviar foto'; }
     const inp = document.getElementById('ep-foto-input');
     if (inp) inp.value='';
-  }
-}
-
-// ── Foto externa (URL colada pelo admin) ──────────────────
-function epPreviewFotoExterna(url) {
-  const prev = document.getElementById('ep-foto-externa-preview');
-  const img  = document.getElementById('ep-foto-externa-img');
-  if (!prev || !img) return;
-  if (url && url.startsWith('http')) {
-    img.src = url;
-    prev.style.display = 'flex';
-    prev.style.alignItems = 'center';
-  } else {
-    prev.style.display = 'none';
-  }
-}
-
-async function epSalvarFotoExterna() {
-  const inp = document.getElementById('ep-fotoExterna');
-  if (!inp) return;
-  const url = inp.value.trim();
-  if (!_parceiroEditandoId) { showToast('❌ Nenhum posto selecionado', 'err'); return; }
-  if (url && !url.startsWith('http')) { showToast('⚠️ URL inválida. Deve começar com http', 'err'); return; }
-  try {
-    const r = await fetch('/api/admin/parceiros/' + encodeURIComponent(_parceiroEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fotoExterna: url || null })
-    });
-    const d = await r.json();
-    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao salvar');
-    // Atualizar em memória
-    const idx = _parceiros.findIndex(x => x.id === _parceiroEditandoId);
-    if (idx !== -1) _parceiros[idx].fotoExterna = url || null;
-    showToast(url ? '✅ URL de foto salva! Aparece na página do posto.' : '✅ Foto externa removida.', 'ok');
-  } catch(e) {
-    showToast('❌ ' + e.message, 'err');
   }
 }
 
