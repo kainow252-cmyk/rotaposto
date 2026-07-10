@@ -2747,7 +2747,7 @@ function perfHandleFotoChange(inp) {
   _perfFotoFile = f;
   // Preview local
   const reader = new FileReader();
-  reader.onload = function(e) { _perfMostrarFotoBandeira(e.target.result as string); };
+  reader.onload = function(e) { _perfMostrarFotoBandeira(e.target.result); };
   reader.readAsDataURL(f);
   const st = document.getElementById('perf-foto-status');
   st.textContent = '📸 ' + f.name + ' selecionado. Clique em "Enviar foto" para salvar.';
