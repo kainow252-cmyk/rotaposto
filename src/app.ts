@@ -2996,12 +2996,20 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       const logoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
       const bestClass = isBest ? ' best' : '';
 
-      // Balloon simples: ícone fixo de posto + preço
+      // Balloon: logo da bandeira (SVG ou foto) + preço
       const bandInfo2 = getBandeiraCor(p.bandeira || p.nome);
+      // Logo: prioridade → fotoUrl do parceiro → SVG da bandeira → ícone bomba
+      const logoUrlBalloon = (p.fotoUrl && (p.fotoUrl.startsWith('http') || p.fotoUrl.startsWith('/api')))
+        ? p.fotoUrl
+        : getBandeiraLogoUrl(p.bandeira || p.nome);
       const pumpIcon = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='white'><path d='M18 4l2 2v11h-2V6l-2-2H6L4 6v14H2V4l2-2h12zm-4 4H8v6h6V8zm-2 4H10v-2h2v2zM7 18h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z'/></svg>";
+      const stripContent = logoUrlBalloon
+        ? '<img src="'+logoUrlBalloon+'" width="26" height="26" style="object-fit:contain;border-radius:4px" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\''+pumpIcon+'\'">'
+        : pumpIcon;
+      const stripBg = logoUrlBalloon ? '#fff' : bandInfo2.cor;
       const balloonHtml =
         '<div class="map-balloon'+bestClass+'">'
-        + '<div class="map-balloon-strip" style="background:'+bandInfo2.cor+'">' + pumpIcon + '</div>'
+        + '<div class="map-balloon-strip" style="background:'+stripBg+'">'+stripContent+'</div>'
         + '<span class="map-balloon-preco">'+precoFmt+'</span>'
         + '</div>';
 
