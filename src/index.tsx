@@ -6330,6 +6330,11 @@ app.get('/app_old', (c) => {
       gap: 2px;
       flex-shrink: 0;
     }
+    .bandeira-box.bandeira-box-logo {
+      background: #fff;
+      padding: 2px;
+      overflow: hidden;
+    }
     .bandeira-box .bandeira-emoji { font-size: 18px; }
     .bandeira-box .bandeira-txt {
       font-size: 7px; font-weight: 800;
@@ -7718,12 +7723,25 @@ function gerarCardPosto(p, i, menorPreco) {
     deslocHtml = '<div style="font-size:9px;color:rgba(0,0,0,0.35);margin-top:1px">Desloc: ~R$ ' + p.custoDeslocamento.toFixed(2) + '</div>';
   }
 
+  // Logo do parceiro (fotoUrl) tem prioridade sobre emoji+bandeira
+  const bandeiraCellHtml = p.fotoUrl
+    ? \`<div class="bandeira-box bandeira-box-logo">
+        <img src="\${p.fotoUrl}" alt="\${p.bandeira}"
+          style="width:42px;height:42px;object-fit:contain;border-radius:8px;"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;height:100%">
+          <span class="bandeira-emoji">\${p.emoji || '⛽'}</span>
+          <span class="bandeira-txt">\${p.bandeira.substring(0,7)}</span>
+        </div>
+      </div>\`
+    : \`<div class="bandeira-box">
+        <span class="bandeira-emoji">\${p.emoji || '⛽'}</span>
+        <span class="bandeira-txt">\${p.bandeira.substring(0,7)}</span>
+      </div>\`;
+
   return \`
   <div class="card-posto \${isMelhor ? 'melhor-posto' : ''}" onclick="abrirModalPostoIdx(\${i})" style="animation-delay:\${i * 0.05}s">
-    <div class="bandeira-box">
-      <span class="bandeira-emoji">\${p.emoji || '⛽'}</span>
-      <span class="bandeira-txt">\${p.bandeira.substring(0,7)}</span>
-    </div>
+    \${bandeiraCellHtml}
     <div class="posto-info">
       <div class="posto-nome">\${p.nome}</div>
       <div class="posto-end">\${p.endereco || p.bairro || p.cidade}</div>
@@ -7850,12 +7868,20 @@ function _abrirModalPostoComPosto(posto) {
     ? (posto.distancia * 1000).toFixed(0) + 'm'
     : posto.distancia.toFixed(1) + 'km';
 
-  document.getElementById('modal-content').innerHTML = \`
-    <div class="modal-bandeira-row">
-      <div class="modal-bandeira-box">
+  const modalBandeiraHtml = posto.fotoUrl
+    ? \`<div class="modal-bandeira-box" style="background:#fff;padding:3px;overflow:hidden">
+        <img src="\${posto.fotoUrl}" alt="\${posto.bandeira}"
+          style="width:46px;height:46px;object-fit:contain;border-radius:9px;"
+          onerror="this.parentElement.style.background='';this.parentElement.innerHTML='<span style=\\'font-size:22px\\'>\${posto.emoji}</span><span style=\\'font-size:9px;color:rgba(255,255,255,0.7);font-weight:800\\'>\${posto.bandeira.substring(0,7)}</span>'">
+      </div>\`
+    : \`<div class="modal-bandeira-box">
         <span style="font-size:22px">\${posto.emoji}</span>
         <span style="font-size:9px;color:rgba(255,255,255,0.7);font-weight:800">\${posto.bandeira.substring(0,7)}</span>
-      </div>
+      </div>\`;
+
+  document.getElementById('modal-content').innerHTML = \`
+    <div class="modal-bandeira-row">
+      \${modalBandeiraHtml}
       <div>
         <div class="modal-nome">\${posto.nome}</div>
         <div class="modal-sub"><i class="fas fa-map-pin" style="color:var(--laranja)"></i> \${posto.endereco}, \${posto.cidade} • \${dist}</div>
