@@ -13390,8 +13390,8 @@ async function toggleSuspenderUsuario(uid, suspender) {
   const label = (u && u.nome) ? u.nome : uid.substring(0, 18) + '…';
   const acao = suspender ? 'Suspender' : 'Reativar';
   const msg = suspender
-    ? 'Suspender ' + label + '?\nO usuário será deslogado imediatamente e não poderá entrar no app.'
-    : 'Reativar ' + label + '?\nO usuário poderá entrar no app novamente.';
+    ? 'Suspender ' + label + '?' + '\\n' + 'O usuário será deslogado imediatamente e não poderá entrar no app.'
+    : 'Reativar ' + label + '?' + '\\n' + 'O usuário poderá entrar no app novamente.';
   if (!confirm(msg)) return;
   try {
     const res = await fetch('/api/admin/app-usuarios/' + encodeURIComponent(uid) + '?key=' + encodeURIComponent(ADMIN_KEY), {
