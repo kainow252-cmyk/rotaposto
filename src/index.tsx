@@ -13723,9 +13723,9 @@ function abrirModalEditarParceiro(id) {
 }
 
 // ── Foto de bandeira no Admin ─────────────────────────────
-let _epFotoFile: File | null = null;
+var _epFotoFile = null;
 
-function epHandleFotoChange(inp: HTMLInputElement) {
+function epHandleFotoChange(inp) {
   const f = inp.files && inp.files[0];
   if (!f) return;
   const st  = document.getElementById('ep-foto-status');
