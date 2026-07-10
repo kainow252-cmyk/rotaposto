@@ -9059,7 +9059,7 @@ async function onGoogleOneTapCredential(response) {
   if (!response || !response.credential) return;
   const idToken = response.credential;
 
-  const btn = document.getElementById('btn-google-login') as HTMLButtonElement | null;
+  const btn = document.getElementById('btn-google-login');
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;margin:0 auto"></div>';
@@ -9169,7 +9169,7 @@ async function loginGoogle() {
   // SEMPRE usar fluxo PKCE redirect — não depende de Firebase Authorized Domains,
   // Firebase Hosting (__/firebase/init.json) nem de signInWithPopup.
   // Resolve definitivamente: signInWithIdp 400, __/firebase/init.json 404, COOP popup-blocked.
-  const btn = document.getElementById('btn-google-login') as HTMLButtonElement | null;
+  const btn = document.getElementById('btn-google-login');
   const SVG_GOOGLE = \`<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continuar com Google\`;
 
   if (btn) {
@@ -15064,7 +15064,7 @@ function fecharPainelEnriquecimento() {
 
 // ── Etapa 1: Logos por Bandeira em Massa (auto-paginado, só sem logo) ──────────────────────
 async function rodarLogosEmMassa() {
-  var btn = document.getElementById('btn-logos-bandeira') as HTMLButtonElement | null;
+  var btn = document.getElementById('btn-logos-bandeira');
   var wrap = document.getElementById('logos-prog-wrap');
   var bar  = document.getElementById('logos-prog-bar');
   var stat = document.getElementById('logos-prog-status');
@@ -15079,7 +15079,7 @@ async function rodarLogosEmMassa() {
   if (cnt)  cnt.textContent  = '0 logos salvos';
 
   var totalLogos = 0, totalProcessados = 0, lote = 0;
-  var cursor: string | null = null;
+  var cursor = null;
 
   try {
     while (true) {
@@ -15113,9 +15113,9 @@ async function rodarLogosEmMassa() {
     if (stat) stat.innerHTML  = '<span style="color:#FFD600">✅ Concluído!</span> ' + totalProcessados + ' postos varridos';
     if (cnt)  cnt.innerHTML   = '<b style="color:#FFD600">' + totalLogos + '</b> logos salvos';
     showToast('🏷️ ' + totalLogos + ' logos aplicados em ' + totalProcessados + ' postos!', 'ok');
-  } catch(e: any) {
-    if (stat) stat.innerHTML = '<span style="color:#FF5252">❌ Erro: ' + e.message + '</span>';
-    showToast('❌ Erro logos: ' + e.message, 'err');
+  } catch(e) {
+    if (stat) stat.innerHTML = '<span style="color:#FF5252">❌ Erro: ' + (e.message||e) + '</span>';
+    showToast('❌ Erro logos: ' + (e.message||e), 'err');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-play"></i> Aplicar logos agora';
@@ -15137,8 +15137,8 @@ async function rodarFotosGoogleEmMassa() {
   _fotosGoogleRodando = true;
   _fotosGooglePausar  = false;
 
-  var btnPlay  = document.getElementById('btn-fotos-google') as HTMLButtonElement | null;
-  var btnPause = document.getElementById('btn-fotos-google-pause') as HTMLButtonElement | null;
+  var btnPlay  = document.getElementById('btn-fotos-google');
+  var btnPause = document.getElementById('btn-fotos-google-pause');
   var wrap     = document.getElementById('fotos-prog-wrap');
   var bar      = document.getElementById('fotos-prog-bar');
   var stat     = document.getElementById('fotos-prog-status');
@@ -15158,9 +15158,9 @@ async function rodarFotosGoogleEmMassa() {
   if (cnt)   cnt.textContent  = '0 fotos salvas';
 
   var totalFotos = 0, totalLotes = 0, totalProcessados = 0;
-  var cursor: string | null = null;
+  var cursor = null;
 
-  function addLog(txt: string) {
+  function addLog(txt) {
     if (!logEl) return;
     logEl.innerHTML = txt + '<br>' + logEl.innerHTML;
   }
@@ -15189,10 +15189,10 @@ async function rodarFotosGoogleEmMassa() {
       if (stat)   stat.textContent   = 'Buscando… lote ' + totalLotes;
 
       // Log das últimas ações do lote
-      var novos = (d.resultados || []).filter(function(x: any) { return x.status === 'atualizado'; });
+      var novos = (d.resultados || []).filter(function(x) { return x.status === 'atualizado'; });
       if (novos.length) {
-        var linha = novos.map(function(x: any) {
-          var ac = (x.acoes || []).map(function(a: string) {
+        var linha = novos.map(function(x) {
+          var ac = (x.acoes || []).map(function(a) {
             if (a === 'foto_google:ok')             return '📸✓';
             if (a === 'foto_google:nao_encontrada') return '📸✗';
             if (a.startsWith('logo_svg:'))          return '🏷️';
@@ -15221,9 +15221,9 @@ async function rodarFotosGoogleEmMassa() {
       // Pausa entre lotes (Google Places rate limit)
       await new Promise(function(res) { setTimeout(res, 400); });
     }
-  } catch(e: any) {
-    if (stat) stat.innerHTML = '<span style="color:#FF5252">❌ Erro: ' + e.message + '</span>';
-    showToast('❌ Erro fotos Google: ' + e.message, 'err');
+  } catch(e) {
+    if (stat) stat.innerHTML = '<span style="color:#FF5252">❌ Erro: ' + (e.message||e) + '</span>';
+    showToast('❌ Erro fotos Google: ' + (e.message||e), 'err');
   } finally {
     _fotosGoogleRodando = false;
     _fotosGooglePausar  = false;
