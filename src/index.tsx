@@ -17626,7 +17626,7 @@ function renderIntegracaoStatus() {
       + '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;word-break:break-all;margin-bottom:10px">Secret alternativo: ' + it.varEnv + '</div>'
       + '<div style="display:flex;gap:8px">'
       +   '<button onclick="testarGatewayEspecifico(&apos;' + it.id + '&apos;)" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.1);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-bolt" style="margin-right:5px"></i>Testar Conexão</button>'
-      +   (it.temEnv ? '' : '<button onclick="showSection(\'pagamentos\',null);setTimeout(function(){document.getElementById(\'cred-input-' + (it.id==='woovi'?'woovi':it.id==='mercadopago'?'mp':'pb') + '\').focus()},200)" style="background:rgba(255,179,0,0.08);color:#FFB300;border:1px solid rgba(255,179,0,0.2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-key" style="margin-right:5px"></i>Inserir Chave</button>')
+      +   (it.temEnv ? '' : '<button onclick="irParaCredenciais()" style="background:rgba(255,179,0,0.08);color:#FFB300;border:1px solid rgba(255,179,0,0.2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-key" style="margin-right:5px"></i>Inserir Chave</button>')
       + '</div>'
       + '</div>';
   }).join('');
