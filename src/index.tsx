@@ -13478,6 +13478,43 @@ app.get('/admin', (c) => {
     </div>
   </section>
 
+  <!-- ══ MODAL UPLOAD LOGO POSTO MAPA ══ -->
+  <div id="modal-logo-posto-band" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9100;align-items:center;justify-content:center">
+    <div style="background:#0D1F2D;border-radius:16px;padding:24px;width:min(96vw,420px);box-shadow:0 20px 60px rgba(0,0,0,0.5);border:1px solid rgba(255,109,0,0.25)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <div>
+          <div style="font-size:14px;font-weight:900;color:#fff">📸 Enviar Logo do Posto</div>
+          <div id="logo-band-nome" style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px"></div>
+        </div>
+        <button onclick="fecharModalLogoBand()" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:20px;cursor:pointer;padding:4px">✕</button>
+      </div>
+
+      <!-- Preview atual -->
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+        <div id="logo-band-preview-wrap" style="width:70px;height:70px;border-radius:12px;background:#0A1520;border:2px dashed rgba(255,109,0,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:28px">
+          ⛽
+          <img id="logo-band-preview-img" src="" style="display:none;width:100%;height:100%;object-fit:contain;padding:4px;" onerror="this.style.display='none'"/>
+        </div>
+        <div style="flex:1">
+          <input type="file" id="logo-band-input" accept="image/*" style="display:none" onchange="logoHandleChange(this)"/>
+          <button onclick="document.getElementById('logo-band-input').click()" style="padding:8px 14px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);border:1.5px dashed rgba(255,255,255,0.2);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+            <i class="fas fa-upload"></i> Selecionar imagem
+          </button>
+          <div id="logo-band-status" style="font-size:11px;font-weight:700;margin-top:6px;display:none"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px">
+        <button id="logo-band-btn-enviar" onclick="enviarLogoBand()" disabled style="flex:1;padding:10px;background:#FF6D00;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:900;cursor:pointer;opacity:0.4">
+          <i class="fas fa-cloud-upload-alt"></i> Enviar Logo
+        </button>
+        <button onclick="fecharModalLogoBand()" style="padding:10px 16px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.1);border-radius:10px;cursor:pointer;font-size:12px">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ PREÇOS REPORTADOS ══ -->
   <section id="section-precos" style="display:none">
     <div class="page-header">
@@ -15238,6 +15275,92 @@ async function rodarAutoFotosANP() {
   abrirPainelEnriquecimento();
 }
 
+// ─── Upload de logo para postos do mapa (google-*, osm-*, anp-*) ─────────────
+var _logoBandPostoId = null;
+var _logoBandFile = null;
+
+function abrirUploadLogoPostoBand(postoId, nome) {
+  _logoBandPostoId = postoId;
+  _logoBandFile = null;
+  document.getElementById('logo-band-nome').textContent = nome || postoId;
+  // Resetar UI
+  var inp = document.getElementById('logo-band-input');
+  if (inp) inp.value = '';
+  var st = document.getElementById('logo-band-status');
+  if (st) { st.style.display='none'; st.textContent=''; }
+  var btn = document.getElementById('logo-band-btn-enviar');
+  if (btn) { btn.disabled=true; btn.style.opacity='0.4'; }
+  var img = document.getElementById('logo-band-preview-img');
+  var wrap = document.getElementById('logo-band-preview-wrap');
+  if (img) { img.src=''; img.style.display='none'; }
+  if (wrap) wrap.style.fontSize='28px';
+  document.getElementById('modal-logo-posto-band').style.display='flex';
+}
+
+function fecharModalLogoBand() {
+  document.getElementById('modal-logo-posto-band').style.display='none';
+  _logoBandPostoId = null;
+  _logoBandFile = null;
+}
+
+function logoHandleChange(inp) {
+  var f = inp.files && inp.files[0];
+  if (!f) return;
+  var st = document.getElementById('logo-band-status');
+  if (f.size > 3 * 1024 * 1024) {
+    if (st) { st.textContent='⚠️ Imagem muito grande (máx. 3 MB).'; st.style.color='#FF5252'; st.style.display='block'; }
+    return;
+  }
+  _logoBandFile = f;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = document.getElementById('logo-band-preview-img');
+    var wrap = document.getElementById('logo-band-preview-wrap');
+    if (img) { img.src = e.target.result; img.style.display='block'; }
+    if (wrap) wrap.style.fontSize='0';
+  };
+  reader.readAsDataURL(f);
+  if (st) { st.textContent='📸 ' + f.name + ' — clique em "Enviar Logo".'; st.style.color='rgba(255,255,255,0.5)'; st.style.display='block'; }
+  var btn = document.getElementById('logo-band-btn-enviar');
+  if (btn) { btn.disabled=false; btn.style.opacity='1'; }
+}
+
+async function enviarLogoBand() {
+  if (!_logoBandFile || !_logoBandPostoId) return;
+  var st  = document.getElementById('logo-band-status');
+  var btn = document.getElementById('logo-band-btn-enviar');
+  if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Enviando...'; }
+  if (st)  { st.textContent='⏳ Enviando logo...'; st.style.color='rgba(255,255,255,0.5)'; st.style.display='block'; }
+  try {
+    var form = new FormData();
+    form.append('logo', _logoBandFile);
+    form.append('postoId', _logoBandPostoId);
+    var r = await fetch('/api/admin/posto-band/logo?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST', body: form
+    });
+    var d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao enviar');
+    if (st) { st.textContent='✅ Logo salvo! Já aparece no mapa e lista.'; st.style.color='#00C853'; }
+    showToast('✅ Logo do posto salvo com sucesso!', 'ok');
+    // Atualizar preview com a nova logo
+    var img = document.getElementById('logo-band-preview-img');
+    if (img) { img.src = d.logoUrl + '?t=' + Date.now(); img.style.display='block'; }
+    _logoBandFile = null;
+    var inp = document.getElementById('logo-band-input');
+    if (inp) inp.value = '';
+    // Fechar modal após 1.5s e recarregar lista
+    setTimeout(function() {
+      fecharModalLogoBand();
+      carregarPostos();
+    }, 1500);
+  } catch(e) {
+    if (st) { st.textContent='❌ ' + (e.message||e); st.style.color='#FF5252'; }
+    showToast('❌ Erro ao enviar logo: ' + (e.message||e), 'err');
+  } finally {
+    if (btn) { btn.disabled=false; btn.style.opacity='1'; btn.innerHTML='<i class="fas fa-cloud-upload-alt"></i> Enviar Logo'; }
+  }
+}
+
 // ─── Toggle ativar/desativar posto direto na tabela ───────────────────────────
 async function toggleStatusParceiro(el) {
   const id = el.dataset.pid;
@@ -16198,10 +16321,23 @@ async function carregarPostos() {
     document.getElementById('postos-count').textContent = postos.length + ' postos';
     tbody.innerHTML = postos.map(p => {
       const fonteBadge = p.fonte === 'anp' ? '<span class="badge badge-anp">ANP</span>' : p.fonte === 'osm' ? '<span class="badge badge-osm">OSM</span>' : '<span class="badge badge-collab">Colab</span>';
-      return \`<tr><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${p.nome}</td><td>\${p.bandeira}</td><td>\${fonteBadge}</td><td style="color:#69F0AE;font-weight:800">\${p.precos?.gasolina ? 'R$ ' + p.precos.gasolina.toFixed(2) : '–'}</td><td>\${p.precos?.etanol ? 'R$ ' + p.precos.etanol.toFixed(2) : '–'}</td><td>\${p.precos?.diesel ? 'R$ ' + p.precos.diesel.toFixed(2) : '–'}</td><td style="color:rgba(255,255,255,0.5)">\${p.cidade}</td></tr>\`;
-    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Nenhum posto encontrado</td></tr>';
+      const logoCell = p.fotoUrl
+        ? \`<img src="\${p.fotoUrl}" style="width:32px;height:32px;object-fit:contain;border-radius:6px;background:#fff;padding:2px" onerror="this.style.display='none'">\`
+        : '<span style="font-size:18px;opacity:0.25">⛽</span>';
+      const nomeEsc = (p.nome||'').replace(/\\\\/g,'\\\\\\\\').replace(/'/g,"\\\\'");
+      const btnLogo = \`<button onclick="abrirUploadLogoPostoBand('\${p.id}','\${nomeEsc}')" style="background:rgba(255,109,0,0.13);color:#FF6D00;border:1px solid rgba(255,109,0,0.25);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700"><i class="fas fa-image"></i> Logo</button>\`;
+      return \`<tr>
+        <td style="text-align:center;width:42px">\${logoCell}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${p.nome}</td>
+        <td>\${p.bandeira}</td><td>\${fonteBadge}</td>
+        <td style="color:#69F0AE;font-weight:800">\${p.precos?.gasolina ? 'R$ ' + p.precos.gasolina.toFixed(2) : '–'}</td>
+        <td>\${p.precos?.etanol ? 'R$ ' + p.precos.etanol.toFixed(2) : '–'}</td>
+        <td>\${p.precos?.diesel ? 'R$ ' + p.precos.diesel.toFixed(2) : '–'}</td>
+        <td>\${btnLogo}</td>
+      </tr>\`;
+    }).join('') || '<tr><td colspan="8" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Nenhum posto encontrado</td></tr>';
   } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:#FF6D00;text-align:center;padding:24px">Erro ao carregar postos</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="color:#FF6D00;text-align:center;padding:24px">Erro ao carregar postos</td></tr>';
   }
 }
 
@@ -18540,6 +18676,84 @@ app.post('/api/parceiros/foto-bandeira', async (c) => {
     console.error('[foto-bandeira] erro:', e)
     return c.json({ ok: false, erro: 'Erro interno: ' + String(e) }, 500)
   }
+})
+
+// ── POST /api/admin/posto-band/logo — upload de logo para qualquer posto:band:* do KV ──────────
+// Usado para postos Google/OSM que não têm parceiroId cadastrado
+app.post('/api/admin/posto-band/logo', async (c) => {
+  try {
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+    const adminKey = c.req.query('key') || ''
+    if (adminKey !== ADMIN_PASS) return c.json({ ok: false, erro: 'Não autorizado' }, 401)
+    if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+    if (!r2) return c.json({ ok: false, erro: 'Storage não configurado' }, 500)
+
+    const formData = await c.req.formData()
+    const postoId = (formData.get('postoId') as string || '').trim()
+    if (!postoId) return c.json({ ok: false, erro: 'postoId obrigatório' }, 400)
+
+    const file = formData.get('logo') as File | null
+    if (!file) return c.json({ ok: false, erro: 'Arquivo não encontrado' }, 400)
+    if (file.size > 3 * 1024 * 1024) return c.json({ ok: false, erro: 'Imagem muito grande (máx. 3 MB)' }, 400)
+
+    const mime = file.type || 'image/jpeg'
+    const ext  = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg'
+    const bytes = await file.arrayBuffer()
+
+    // Salvar no R2: usa mesmo path do posto-bandeira para reaproveitar endpoint GET
+    // Sanitiza o postoId para usar como chave de arquivo (remove chars problemáticos)
+    const safeId = postoId.replace(/[^a-zA-Z0-9_\-]/g, '_')
+    const r2LogoKey = `posto-bandeira/${safeId}.${ext}`
+
+    // Limpar extensões antigas
+    for (const oldExt of ['jpg', 'png', 'webp']) {
+      if (oldExt !== ext) {
+        try { await r2.delete(`posto-bandeira/${safeId}.${oldExt}`) } catch {}
+      }
+    }
+    await r2.put(r2LogoKey, bytes, { httpMetadata: { contentType: mime } })
+
+    const uploadTs = Date.now()
+    const logoUrl = `/api/admin/posto-band/logo-img/${safeId}`
+
+    // Atualizar o KV posto:band:{postoId} com fotoUrl = logoUrl (logo tem prioridade)
+    const bandKey = `posto:band:${postoId}`
+    const bandRaw = await kv.get(bandKey)
+    const band: Record<string, unknown> = bandRaw ? JSON.parse(bandRaw) : { postoId }
+    band.fotoUrl  = logoUrl
+    band.logoUrl  = logoUrl
+    band.fotoTs   = uploadTs
+    band.logoUploadAdmin = true
+    await kv.put(bandKey, JSON.stringify(band), { expirationTtl: 365 * 24 * 3600 })
+
+    return c.json({ ok: true, logoUrl, uploadTs, postoId, safeId })
+  } catch(e) {
+    console.error('[posto-band/logo] erro:', e)
+    return c.json({ ok: false, erro: 'Erro interno: ' + String(e) }, 500)
+  }
+})
+
+// ── GET /api/admin/posto-band/logo-img/:safeId — serve logo de posto do mapa ─────────────────
+app.get('/api/admin/posto-band/logo-img/:safeId', async (c) => {
+  try {
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    if (!r2) return c.notFound()
+    const safeId = c.req.param('safeId')
+    for (const ext of ['png', 'jpg', 'webp']) {
+      const obj = await r2.get(`posto-bandeira/${safeId}.${ext}`)
+      if (obj) {
+        return new Response(obj.body, {
+          headers: {
+            'Content-Type': obj.httpMetadata?.contentType || `image/${ext}`,
+            'Cache-Control': 'no-cache',
+          }
+        })
+      }
+    }
+    return c.notFound()
+  } catch { return c.notFound() }
 })
 
 // ── POST /api/parceiros/perfil ────────────────────────────────────────────────
