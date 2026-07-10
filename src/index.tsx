@@ -10886,6 +10886,10 @@ app.put('/api/admin/parceiros/:id', async (c) => {
   for (const campo of campos) {
     if (campo in body) atualizado[campo] = body[campo]
   }
+  // Preservar sempre fotoBandeira existente (nunca apagar foto salva via upload)
+  if (!atualizado.fotoBandeira && base.fotoBandeira) {
+    atualizado.fotoBandeira = base.fotoBandeira
+  }
 
   // Preços combustível (objeto aninhado)
   if (body.precos && typeof body.precos === 'object') {
@@ -13788,8 +13792,12 @@ function abrirModalEditarParceiro(id) {
   const epFotoImg = document.getElementById('ep-foto-preview-img');
   const epFotoWrap = document.getElementById('ep-foto-preview-wrap');
   if (epFotoImg && epFotoWrap) {
-    // Só exibir se fotoBandeira for URL real (http ou /api/parceiros/foto)
-    var fotoReal = p.fotoBandeira && (p.fotoBandeira.startsWith('http') || p.fotoBandeira.startsWith('/api/parceiros'));
+    // Exibir se fotoBandeira for URL real (http, /api/parceiros ou /api/posto)
+    var fotoReal = p.fotoBandeira && (
+      p.fotoBandeira.startsWith('http') ||
+      p.fotoBandeira.startsWith('/api/parceiros') ||
+      p.fotoBandeira.startsWith('/api/posto')
+    );
     if (fotoReal) {
       epFotoImg.src = p.fotoBandeira + '?t=' + Date.now();
       epFotoImg.style.display = 'block';
@@ -16484,14 +16492,15 @@ app.post('/api/parceiros/foto-bandeira', async (c) => {
 
     const fotoUrl = `/api/posto/foto-bandeira/${parceiroId}`
 
-    // Atualizar parceiro no KV com fotoBandeira
+    // Atualizar parceiro no KV/R2 com fotoBandeira (args corretos: kv, id, data, _ttl, r2)
     const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
     if (parceiro) {
       parceiro.fotoBandeira = fotoUrl
-      await kvSetParceiro(kv, parceiroId, parceiro, r2)
+      await kvSetParceiro(kv, parceiroId, parceiro, undefined, r2)
     } else {
-      // Criar entrada mínima no KV se não existir
-      await kv?.put(`parceiro:${parceiroId}`, JSON.stringify({ fotoBandeira: fotoUrl }))
+      // Criar entrada mínima se não existir (salva em KV e R2)
+      const minimo = { id: parceiroId, fotoBandeira: fotoUrl, criadoEm: new Date().toISOString() }
+      await kvSetParceiro(kv, parceiroId, minimo, undefined, r2)
     }
 
     // Atualizar também no cache do posto no KV (posto:band:postoId)
@@ -16550,7 +16559,7 @@ app.post('/api/parceiros/perfil', async (c) => {
     if (body.lat) updated.lat = body.lat
     if (body.lng) updated.lng = body.lng
 
-    await kvSetParceiro(kv, parceiroId, updated, r2)
+    await kvSetParceiro(kv, parceiroId, updated, undefined, r2)
 
     // Se tiver lat/lng, atualizar também no R2/KV de postos para o mapa do app
     if (body.lat && body.lng) {
