@@ -13155,6 +13155,7 @@ app.get('/admin', (c) => {
     <div class="nav-item" id="nav-planos-app" onclick="showSection('planos-app',this)"><i class="fas fa-mobile-alt"></i>Planos do App</div>
     <div class="nav-item" id="nav-planos" onclick="showSection('planos',this)"><i class="fas fa-store"></i>Planos dos Postos</div>
     <div class="nav-item" id="nav-pagamentos" onclick="showSection('pagamentos',this)"><i class="fas fa-credit-card"></i>Pagamentos</div>
+    <div class="nav-item" id="nav-chaves-api" onclick="irParaCredenciais()" style="padding-left:32px;font-size:11px;opacity:0.7"><i class="fas fa-key" style="font-size:11px"></i>Chaves de API</div>
     <div class="nav-item" id="nav-menu-app" onclick="showSection('menu-app',this)"><i class="fas fa-sliders-h"></i>Menu do App</div>
     <div class="nav-section">Postos & Dados</div>
     <div class="nav-item" id="nav-postos-parceiros" onclick="showSection('postos-parceiros',this)"><i class="fas fa-star"></i>Postos Parceiros</div>
@@ -14485,16 +14486,17 @@ app.get('/admin', (c) => {
         <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button onclick="salvarGateway()" id="btn-salvar-gateway" style="background:#FF6D00;color:#fff;border:none;padding:10px 24px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit"><i class="fas fa-save" style="margin-right:7px"></i>Salvar Gateway</button>
           <button onclick="testarGateway()" id="btn-testar-gateway" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.12);padding:10px 20px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit"><i class="fas fa-bolt" style="margin-right:7px"></i>Testar Conexão</button>
+          <button onclick="irParaCredenciais()" style="background:rgba(255,179,0,0.12);color:#FFB300;border:1px solid rgba(255,179,0,0.3);padding:10px 18px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit"><i class="fas fa-key" style="margin-right:7px"></i>Editar Chaves API</button>
           <span id="gateway-status-msg" style="font-size:13px;font-weight:700"></span>
         </div>
       </div>
     </div>
 
     <!-- ── Credenciais de Integração ── -->
-    <div class="section-card" style="margin-bottom:16px">
-      <div class="section-header" style="display:flex;align-items:center;justify-content:space-between">
-        <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.7)"><i class="fas fa-key" style="margin-right:8px;opacity:0.6"></i>Credenciais de Integração</h3>
-        <span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600">Salvas com segurança no KV</span>
+    <div class="section-card" id="card-credenciais" style="margin-bottom:16px;border:1.5px solid rgba(255,179,0,0.25);box-shadow:0 0 0 3px rgba(255,179,0,0.05)">
+      <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,179,0,0.06)">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.9)"><i class="fas fa-key" style="margin-right:8px;color:#FFB300"></i>Chaves de API — Credenciais</h3>
+        <span style="font-size:11px;color:rgba(255,179,0,0.7);font-weight:700;background:rgba(255,179,0,0.1);padding:4px 10px;border-radius:8px;border:1px solid rgba(255,179,0,0.2)">🔐 Salvas com segurança</span>
       </div>
       <div class="section-body">
         <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:18px">Insira as chaves de cada gateway. As chaves ficam salvas e são usadas automaticamente. Você pode alterar a qualquer momento.</div>
@@ -17654,6 +17656,26 @@ async function salvarGateway() {
   }
 }
 
+// Navega para a seção Pagamentos e rola até o card de credenciais
+function irParaCredenciais() {
+  // Primeiro ativar a seção pagamentos
+  var navEl = document.getElementById('nav-pagamentos');
+  showSection('pagamentos', navEl);
+  // Aguardar render e scrollar até o card
+  setTimeout(function() {
+    var card = document.getElementById('card-credenciais');
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Piscar o card para chamar atenção
+      card.style.transition = 'box-shadow 0.3s';
+      card.style.boxShadow = '0 0 0 3px #FFB300, 0 0 24px rgba(255,179,0,0.4)';
+      setTimeout(function() {
+        card.style.boxShadow = '0 0 0 3px rgba(255,179,0,0.05)';
+      }, 1200);
+    }
+  }, 120);
+}
+
 async function testarGateway() { await testarGatewayEspecifico(_pgConfig.gateway); }
 
 async function testarGatewayEspecifico(gw) {
@@ -17715,28 +17737,51 @@ var _credCors = { woovi: '#00C853', mp: '#42A5F5', pb: '#FFB300' };
 
 // Chamada após carregar config — preenche os inputs com valor mascarado
 function _popularInputsCredenciais(config) {
+  var totalConfiguradas = 0;
   ['woovi', 'mp', 'pb'].forEach(function(id) {
     var kvField = _credMap[id];
     var val = config[kvField] || '';
     var el = document.getElementById('cred-input-' + id);
     var statusEl = document.getElementById('cred-status-' + id);
     var btn = document.getElementById('btn-cred-' + id);
+    var card = el ? el.closest('div[style*="background:#0A1520"]') : null;
     if (!el) return;
     if (val) {
+      totalConfiguradas++;
       // Mostrar valor mascarado (últimos 6 chars visíveis)
-      el.value = val.length > 10 ? '••••••••••••' + val.slice(-6) : val;
+      var masked = val.length > 10 ? '••••••••••••' + val.slice(-6) : val;
+      el.value = masked;
+      el.placeholder = masked;
       el.dataset.original = val;
       el.dataset.preenchido = '1';
       if (statusEl) { statusEl.textContent = '✅ Configurada'; statusEl.style.color = '#00C853'; }
+      // Borda verde no card
+      if (card) card.style.borderColor = 'rgba(0,200,83,0.35)';
     } else {
       el.value = '';
       el.dataset.original = '';
       el.dataset.preenchido = '';
-      if (statusEl) { statusEl.textContent = '⚠ Não configurada'; statusEl.style.color = 'rgba(255,255,255,0.3)'; }
+      if (statusEl) { statusEl.textContent = '⚠ Insira a chave'; statusEl.style.color = '#FFB300'; }
+      // Borda laranja no card quando sem chave
+      if (card) card.style.borderColor = 'rgba(255,179,0,0.25)';
     }
     // Botão começa desabilitado (habilita só ao digitar)
     if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
   });
+  // Atualizar header do card com resumo
+  var headerBadge = document.querySelector('#card-credenciais .section-header span');
+  if (headerBadge) {
+    if (totalConfiguradas === 3) {
+      headerBadge.textContent = '✅ Todas configuradas';
+      headerBadge.style.color = '#00C853';
+    } else if (totalConfiguradas > 0) {
+      headerBadge.textContent = totalConfiguradas + '/3 configuradas';
+      headerBadge.style.color = '#FFB300';
+    } else {
+      headerBadge.textContent = '⚠ Nenhuma chave inserida';
+      headerBadge.style.color = '#FF5252';
+    }
+  }
 }
 
 function marcarCredAlterada(id) {
@@ -17794,12 +17839,18 @@ async function salvarCredencial(id) {
     const data = await res.json();
     if (data.ok) {
       // Mascarar novamente após salvar
-      el.value = val.length > 10 ? '••••••••••••' + val.slice(-6) : val;
+      var masked = val.length > 10 ? '••••••••••••' + val.slice(-6) : val;
+      el.value = masked;
+      el.placeholder = masked;
       el.dataset.original = val;
       el.dataset.preenchido = '1';
       el.type = 'password';
-      document.getElementById('eye-' + id).textContent = '👁';
+      var eyeEl = document.getElementById('eye-' + id);
+      if (eyeEl) eyeEl.textContent = '👁';
       if (statusEl) { statusEl.textContent = '✅ Configurada'; statusEl.style.color = '#00C853'; }
+      // Atualizar borda do card pai
+      var card = el.closest('div[style*="background:#0A1520"]');
+      if (card) card.style.borderColor = 'rgba(0,200,83,0.35)';
       if (msg) { msg.textContent = '✅ Chave salva com sucesso!'; msg.style.color = '#00C853'; }
       mostrarToastPagamentos('✅ Credencial salva!', _credCors[id]);
       // Atualizar flag temEnv local
