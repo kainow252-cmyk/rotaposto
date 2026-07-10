@@ -10873,6 +10873,214 @@ app.delete('/api/admin/planos-posto/:id', async (c) => {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// CONFIG DE PAGAMENTO — gateway ativo, métodos, credenciais
+// KV key: "admin:config_pagamento"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const PAGAMENTO_CONFIG_KEY = 'admin:config_pagamento'
+
+interface ConfigPagamento {
+  gateway: 'woovi' | 'mercadopago'  // gateway ativo
+  pixAtivo: boolean
+  cartaoAtivo: boolean
+  // Credenciais salvas pelo admin (opcionais — fallback para env secrets)
+  wooviAppId?: string
+  mpPublicKey?: string
+  // Status: definido ao testar conexão
+  statusWoovi?: 'ok' | 'erro' | 'nao_configurado'
+  statusMP?:    'ok' | 'erro' | 'nao_configurado'
+  atualizadoEm?: number
+}
+
+async function getConfigPagamento(kv: KVNamespace): Promise<ConfigPagamento> {
+  try {
+    const raw = await kv.get(PAGAMENTO_CONFIG_KEY)
+    if (raw) return JSON.parse(raw) as ConfigPagamento
+  } catch {}
+  return { gateway: 'woovi', pixAtivo: true, cartaoAtivo: true }
+}
+
+// GET /api/admin/config/pagamento
+app.get('/api/admin/config/pagamento', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const config = await getConfigPagamento(kv)
+  // Verificar credenciais nos env secrets
+  const temWooviEnv = Boolean((c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY)
+  const temMPEnv    = Boolean((c.env as any)?.MP_ACCESS_TOKEN)
+  return c.json({ config, temWooviEnv, temMPEnv })
+})
+
+// POST /api/admin/config/pagamento
+app.post('/api/admin/config/pagamento', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const body = await c.req.json() as Partial<ConfigPagamento>
+  const atual = await getConfigPagamento(kv)
+  const nova: ConfigPagamento = {
+    ...atual,
+    ...body,
+    atualizadoEm: Date.now()
+  }
+  await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify(nova), { expirationTtl: 365 * 24 * 3600 })
+  return c.json({ ok: true, config: nova })
+})
+
+// POST /api/admin/config/pagamento/testar — testa conexão com o gateway
+app.post('/api/admin/config/pagamento/testar', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const { gateway } = await c.req.json() as { gateway: string }
+  const config = await getConfigPagamento(kv)
+
+  if (gateway === 'woovi') {
+    const wooviKey = (c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || config.wooviAppId || ''
+    if (!wooviKey) {
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusWoovi: 'nao_configurado', atualizadoEm: Date.now() }))
+      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'App ID da Woovi não configurado.' })
+    }
+    try {
+      const r = await fetch('https://api.openpix.com.br/api/v1/customer?limit=1', {
+        headers: { Authorization: wooviKey },
+        signal: AbortSignal.timeout(8000)
+      })
+      const statusWoovi = r.ok ? 'ok' : 'erro'
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusWoovi, atualizadoEm: Date.now() }))
+      return c.json({ ok: r.ok, status: statusWoovi, mensagem: r.ok ? '✅ Woovi conectado!' : `Erro HTTP ${r.status}` })
+    } catch (e) {
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusWoovi: 'erro', atualizadoEm: Date.now() }))
+      return c.json({ ok: false, status: 'erro', mensagem: 'Falha de rede: ' + String(e) })
+    }
+  }
+
+  if (gateway === 'mercadopago') {
+    const mpToken = (c.env as any)?.MP_ACCESS_TOKEN || ''
+    if (!mpToken) {
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusMP: 'nao_configurado', atualizadoEm: Date.now() }))
+      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'Access Token do Mercado Pago não configurado.' })
+    }
+    try {
+      const r = await fetch('https://api.mercadopago.com/v1/payment_methods', {
+        headers: { Authorization: `Bearer ${mpToken}` },
+        signal: AbortSignal.timeout(8000)
+      })
+      const statusMP = r.ok ? 'ok' : 'erro'
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusMP, atualizadoEm: Date.now() }))
+      return c.json({ ok: r.ok, status: statusMP, mensagem: r.ok ? '✅ Mercado Pago conectado!' : `Erro HTTP ${r.status}` })
+    } catch (e) {
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusMP: 'erro', atualizadoEm: Date.now() }))
+      return c.json({ ok: false, status: 'erro', mensagem: 'Falha de rede: ' + String(e) })
+    }
+  }
+
+  return c.json({ erro: 'Gateway inválido' }, 400)
+})
+
+// POST /api/admin/planos/criar-no-gateway — cria plano/charge no gateway e salva ID externo no KV
+app.post('/api/admin/planos/criar-no-gateway', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const body = await c.req.json() as any
+  const { planoId, tipoCatalogo } = body  // tipoCatalogo: 'app' | 'posto'
+  const config = await getConfigPagamento(kv)
+
+  // Buscar plano no catálogo correto
+  let plano: any = null
+  if (tipoCatalogo === 'app') {
+    const planos = await getPlanosConfig(kv)
+    plano = planos.find((p: any) => p.id === planoId)
+  } else {
+    const planos = await getPlanosPostoConfig(kv)
+    plano = planos.find((p: any) => p.id === planoId)
+  }
+  if (!plano) return c.json({ erro: 'Plano não encontrado' }, 404)
+
+  const valorCentavos = plano.valor || 0
+  const ciclo = plano.ciclo || 'monthly'
+  const nome = plano.nome || planoId
+
+  if (config.gateway === 'woovi') {
+    const wooviKey = (c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || config.wooviAppId || ''
+    if (!wooviKey) return c.json({ erro: 'Woovi não configurado' }, 400)
+    // Woovi Subscription Plan (plan recorrente)
+    try {
+      const r = await fetch('https://api.openpix.com.br/api/v1/subscriptionplan', {
+        method: 'POST',
+        headers: { Authorization: wooviKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: nome,
+          value: valorCentavos,
+          interval: ciclo === 'yearly' ? 'YEARLY' : 'MONTHLY',
+          description: plano.descricao || nome
+        })
+      })
+      const data = await r.json() as any
+      if (!r.ok) return c.json({ erro: data.error || `Erro Woovi ${r.status}` }, 500)
+      const gatewayId = data.subscriptionPlan?.globalID || data.globalID || ('woovi_' + Date.now())
+      // Salvar gatewayId no plano
+      await _salvarGatewayIdNoPlano(kv, tipoCatalogo, planoId, 'wooviPlanId', gatewayId)
+      return c.json({ ok: true, gateway: 'woovi', gatewayId, mensagem: `Plano criado na Woovi! ID: ${gatewayId}` })
+    } catch (e) {
+      return c.json({ erro: 'Erro ao criar plano na Woovi: ' + String(e) }, 500)
+    }
+  }
+
+  if (config.gateway === 'mercadopago') {
+    const mpToken = (c.env as any)?.MP_ACCESS_TOKEN || ''
+    if (!mpToken) return c.json({ erro: 'Mercado Pago não configurado' }, 400)
+    try {
+      const r = await fetch('https://api.mercadopago.com/preapproval_plan', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${mpToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: nome,
+          auto_recurring: {
+            frequency: ciclo === 'yearly' ? 12 : 1,
+            frequency_type: 'months',
+            transaction_amount: valorCentavos / 100,
+            currency_id: 'BRL'
+          },
+          back_url: 'https://rotaposto.com.br/app'
+        })
+      })
+      const data = await r.json() as any
+      if (!r.ok) return c.json({ erro: data.message || `Erro MP ${r.status}` }, 500)
+      const gatewayId = data.id || ('mp_' + Date.now())
+      await _salvarGatewayIdNoPlano(kv, tipoCatalogo, planoId, 'mpPlanId', gatewayId)
+      return c.json({ ok: true, gateway: 'mercadopago', gatewayId, mensagem: `Plano criado no Mercado Pago! ID: ${gatewayId}` })
+    } catch (e) {
+      return c.json({ erro: 'Erro ao criar plano no Mercado Pago: ' + String(e) }, 500)
+    }
+  }
+
+  return c.json({ erro: 'Gateway ativo inválido' }, 400)
+})
+
+async function _salvarGatewayIdNoPlano(kv: KVNamespace, tipoCatalogo: string, planoId: string, campo: string, valor: string) {
+  if (tipoCatalogo === 'app') {
+    const planos = await getPlanosConfig(kv)
+    const idx = planos.findIndex((p: any) => p.id === planoId)
+    if (idx !== -1) { planos[idx][campo] = valor; await kv.put(PLANOS_KV_KEY, JSON.stringify(planos)) }
+  } else {
+    const planos = await getPlanosPostoConfig(kv)
+    const idx = planos.findIndex((p: any) => p.id === planoId)
+    if (idx !== -1) { planos[idx][campo] = valor; await kv.put(PLANOS_POSTO_KV_KEY, JSON.stringify(planos)) }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PIX RECORRENTE B2B — POSTOS PARCEIROS
 // KV key: "assin:posto:{postoId}" → JSON AssinaturaPostoPix
 // KV index reverso: "sub:posto:{subscriptionId}" → postoId
@@ -12489,6 +12697,7 @@ app.get('/admin', (c) => {
     <div class="nav-section">Planos & Produtos</div>
     <div class="nav-item" id="nav-planos-app" onclick="showSection('planos-app',this)"><i class="fas fa-mobile-alt"></i>Planos do App</div>
     <div class="nav-item" id="nav-planos" onclick="showSection('planos',this)"><i class="fas fa-store"></i>Planos dos Postos</div>
+    <div class="nav-item" id="nav-pagamentos" onclick="showSection('pagamentos',this)"><i class="fas fa-credit-card"></i>Pagamentos</div>
     <div class="nav-item" id="nav-menu-app" onclick="showSection('menu-app',this)"><i class="fas fa-sliders-h"></i>Menu do App</div>
     <div class="nav-section">Postos & Dados</div>
     <div class="nav-item" id="nav-postos-parceiros" onclick="showSection('postos-parceiros',this)"><i class="fas fa-star"></i>Postos Parceiros</div>
@@ -13796,6 +14005,104 @@ app.get('/admin', (c) => {
 
 
 
+  <!-- ══ PAGAMENTOS ══ -->
+  <section id="section-pagamentos" style="display:none">
+    <div class="page-header" style="margin-bottom:24px">
+      <div>
+        <h2 style="margin:0">💳 Pagamentos</h2>
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Gateway de pagamento, métodos ativos e integração</div>
+      </div>
+      <button onclick="carregarConfigPagamento()" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.12);padding:9px 18px;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit"><i class="fas fa-sync-alt" style="margin-right:6px"></i>Atualizar</button>
+    </div>
+
+    <!-- ── Seletor de Gateway ── -->
+    <div class="section-card" style="margin-bottom:16px">
+      <div class="section-header">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.7)"><i class="fas fa-plug" style="margin-right:8px;opacity:0.6"></i>Gateway de Pagamento</h3>
+      </div>
+      <div class="section-body">
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:16px">Escolha qual gateway processa os pagamentos do app. Você pode alternar a qualquer momento — novas assinaturas usarão o gateway ativo.</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap" id="gateway-cards">
+          <!-- renderizado por JS -->
+        </div>
+        <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button onclick="salvarGateway()" id="btn-salvar-gateway" style="background:#FF6D00;color:#fff;border:none;padding:10px 24px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit"><i class="fas fa-save" style="margin-right:7px"></i>Salvar Gateway</button>
+          <button onclick="testarGateway()" id="btn-testar-gateway" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.12);padding:10px 20px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit"><i class="fas fa-bolt" style="margin-right:7px"></i>Testar Conexão</button>
+          <span id="gateway-status-msg" style="font-size:13px;font-weight:700"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Métodos de Pagamento ── -->
+    <div class="section-card" style="margin-bottom:16px">
+      <div class="section-header">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.7)"><i class="fas fa-money-bill-wave" style="margin-right:8px;opacity:0.6"></i>Métodos Ativos no App</h3>
+      </div>
+      <div class="section-body">
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:16px">Controle quais formas de pagamento aparecem para o usuário na tela de assinatura.</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+
+          <!-- PIX -->
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#0A1520;border-radius:14px;padding:16px 20px;border:1px solid rgba(255,255,255,0.08)" id="metodo-row-pix">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:42px;height:42px;border-radius:12px;background:rgba(0,183,110,0.15);display:flex;align-items:center;justify-content:center;font-size:22px">📱</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:#fff">PIX</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px">Pagamento instantâneo via Woovi/OpenPix</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span id="metodo-status-pix" style="font-size:11px;font-weight:700;min-width:44px;text-align:right"></span>
+              <div onclick="toggleMetodo('pix')" id="metodo-track-pix" style="position:relative;width:50px;height:28px;border-radius:14px;cursor:pointer;transition:background 0.25s;flex-shrink:0">
+                <div id="metodo-knob-pix" style="position:absolute;top:4px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);transition:left 0.25s;pointer-events:none"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cartão -->
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#0A1520;border-radius:14px;padding:16px 20px;border:1px solid rgba(255,255,255,0.08)" id="metodo-row-cartao">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:42px;height:42px;border-radius:12px;background:rgba(66,165,245,0.15);display:flex;align-items:center;justify-content:center;font-size:22px">💳</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:#fff">Cartão de Crédito</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px">Recorrente automático via Mercado Pago</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span id="metodo-status-cartao" style="font-size:11px;font-weight:700;min-width:44px;text-align:right"></span>
+              <div onclick="toggleMetodo('cartao')" id="metodo-track-cartao" style="position:relative;width:50px;height:28px;border-radius:14px;cursor:pointer;transition:background 0.25s;flex-shrink:0">
+                <div id="metodo-knob-cartao" style="position:absolute;top:4px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);transition:left 0.25s;pointer-events:none"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px">
+          <button onclick="salvarMetodos()" style="background:#FF6D00;color:#fff;border:none;padding:10px 24px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit"><i class="fas fa-save" style="margin-right:7px"></i>Salvar Métodos</button>
+          <span id="metodos-status-msg" style="font-size:13px;font-weight:700;margin-left:12px"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Status dos Gateways ── -->
+    <div class="section-card">
+      <div class="section-header">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.7)"><i class="fas fa-signal" style="margin-right:8px;opacity:0.6"></i>Status da Integração</h3>
+      </div>
+      <div class="section-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" id="integracao-status-grid">
+          <!-- renderizado por JS -->
+        </div>
+        <div style="margin-top:14px;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6">
+          As credenciais (App ID Woovi / Access Token MP) devem ser configuradas como <strong style="color:rgba(255,255,255,0.4)">Secrets</strong> no painel do Cloudflare Workers.<br>
+          Variáveis: <code style="color:#FF6D00">WOOVI_APP_ID</code> ou <code style="color:#FF6D00">OPENPIX_KEY</code> &nbsp;|&nbsp; <code style="color:#42A5F5">MP_ACCESS_TOKEN</code>
+        </div>
+      </div>
+    </div>
+
+    <div id="pagamentos-toast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#00C853;color:#fff;padding:13px 28px;border-radius:100px;font-weight:800;font-size:13px;z-index:9999;box-shadow:0 6px 28px rgba(0,200,83,0.5);letter-spacing:0.2px;white-space:nowrap;transition:all 0.3s"></div>
+  </section>
+
   <!-- ══ MENU DO APP ══ -->
   <section id="section-menu-app" style="display:none">
     <div class="page-header">
@@ -14200,6 +14507,7 @@ function showSection(name, el) {
   if (name === 'permissoes') carregarPermissoes();
   if (name === 'planos') carregarEstatisticasPlanos();
   if (name === 'planos-app') carregarPlanosApp();
+  if (name === 'pagamentos') carregarConfigPagamento();
   if (name === 'niveis') carregarEstatisticasNiveis();
   if (name === 'menu-app') carregarMenuApp();
   if (name === 'equipe') carregarEquipe();
@@ -16611,6 +16919,218 @@ async function alterarPermissao(uid, acao) {
 //  PRODUTOS & PLANOS — Admin
 // ════════════════════════════════════════════════════════════
 
+// ─── PAGAMENTOS — config gateway + métodos ───────────────────────────────────
+var _pgConfig = { gateway: 'woovi', pixAtivo: true, cartaoAtivo: true, statusWoovi: null, statusMP: null };
+var _pgTemWooviEnv = false;
+var _pgTemMPEnv = false;
+
+async function carregarConfigPagamento() {
+  try {
+    const res = await fetch('/api/admin/config/pagamento?key=' + encodeURIComponent(ADMIN_KEY));
+    const data = await res.json();
+    _pgConfig = data.config || _pgConfig;
+    _pgTemWooviEnv = data.temWooviEnv || false;
+    _pgTemMPEnv    = data.temMPEnv    || false;
+  } catch(e) { console.warn('carregarConfigPagamento:', e); }
+  renderGatewayCards();
+  renderMetodoToggles();
+  renderIntegracaoStatus();
+}
+
+function renderGatewayCards() {
+  var el = document.getElementById('gateway-cards');
+  if (!el) return;
+  var gateways = [
+    {
+      id: 'woovi',
+      nome: 'Woovi / OpenPix',
+      sub: 'PIX recorrente nativo',
+      icon: '📱',
+      cor: '#00C853',
+      desc: 'Melhor para PIX recorrente. Suporta assinaturas automáticas via QR Code.',
+      temEnv: _pgTemWooviEnv,
+      status: _pgConfig.statusWoovi
+    },
+    {
+      id: 'mercadopago',
+      nome: 'Mercado Pago',
+      sub: 'Cartão + PIX',
+      icon: '💳',
+      cor: '#42A5F5',
+      desc: 'Suporta cartão de crédito recorrente e PIX. Ideal para usuários que preferem cartão.',
+      temEnv: _pgTemMPEnv,
+      status: _pgConfig.statusMP
+    }
+  ];
+  el.innerHTML = gateways.map(function(g) {
+    var ativo = _pgConfig.gateway === g.id;
+    var statusDot = g.status === 'ok' ? '#00C853' : g.status === 'erro' ? '#FF5252' : 'rgba(255,255,255,0.2)';
+    var statusTxt = g.status === 'ok' ? '● Conectado' : g.status === 'erro' ? '● Erro' : '○ Não testado';
+    var statusColor = g.status === 'ok' ? '#00C853' : g.status === 'erro' ? '#FF5252' : 'rgba(255,255,255,0.25)';
+    return '<div onclick="selecionarGateway(&apos;' + g.id + '&apos;)" style="'
+      + 'cursor:pointer;border-radius:16px;padding:20px;flex:1;min-width:240px;max-width:320px;'
+      + 'background:' + (ativo ? 'rgba(' + (g.id==='woovi'?'0,200,83':'66,165,245') + ',0.08)' : 'rgba(255,255,255,0.03)') + ';'
+      + 'border:2px solid ' + (ativo ? g.cor : 'rgba(255,255,255,0.08)') + ';'
+      + 'transition:all 0.2s;position:relative'
+      + '">'
+      + (ativo ? '<div style="position:absolute;top:12px;right:12px;background:' + g.cor + ';color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px">ATIVO</div>' : '')
+      + '<div style="font-size:32px;margin-bottom:10px">' + g.icon + '</div>'
+      + '<div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:2px">' + g.nome + '</div>'
+      + '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:10px">' + g.sub + '</div>'
+      + '<div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5;margin-bottom:12px">' + g.desc + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between">'
+      +   '<span style="font-size:11px;color:' + statusColor + ';font-weight:700">' + statusTxt + '</span>'
+      +   '<span style="font-size:10px;color:rgba(255,255,255,0.2)">' + (g.temEnv ? '🔑 Secret configurado' : '⚠ Sem credencial') + '</span>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function selecionarGateway(id) {
+  _pgConfig.gateway = id;
+  renderGatewayCards();
+}
+
+function renderMetodoToggles() {
+  _renderToggle('pix',    _pgConfig.pixAtivo);
+  _renderToggle('cartao', _pgConfig.cartaoAtivo);
+}
+
+function _renderToggle(id, ativo) {
+  var track = document.getElementById('metodo-track-' + id);
+  var knob  = document.getElementById('metodo-knob-' + id);
+  var status= document.getElementById('metodo-status-' + id);
+  var row   = document.getElementById('metodo-row-' + id);
+  if (!track) return;
+  track.style.background = ativo ? '#FF6D00' : 'rgba(255,255,255,0.1)';
+  knob.style.left = ativo ? '27px' : '4px';
+  if (status) { status.textContent = ativo ? 'Ativo' : 'Inativo'; status.style.color = ativo ? '#FF6D00' : 'rgba(255,255,255,0.25)'; }
+  if (row) { row.style.borderColor = ativo ? 'rgba(255,109,0,0.3)' : 'rgba(255,255,255,0.08)'; row.style.opacity = ativo ? '1' : '0.55'; }
+}
+
+function toggleMetodo(id) {
+  if (id === 'pix')    _pgConfig.pixAtivo    = !_pgConfig.pixAtivo;
+  if (id === 'cartao') _pgConfig.cartaoAtivo = !_pgConfig.cartaoAtivo;
+  renderMetodoToggles();
+}
+
+function renderIntegracaoStatus() {
+  var el = document.getElementById('integracao-status-grid');
+  if (!el) return;
+  var items = [
+    {
+      nome: 'Woovi / OpenPix', icon: '📱', cor: '#00C853',
+      temEnv: _pgTemWooviEnv, status: _pgConfig.statusWoovi,
+      varEnv: 'WOOVI_APP_ID ou OPENPIX_KEY'
+    },
+    {
+      nome: 'Mercado Pago', icon: '💳', cor: '#42A5F5',
+      temEnv: _pgTemMPEnv, status: _pgConfig.statusMP,
+      varEnv: 'MP_ACCESS_TOKEN'
+    }
+  ];
+  el.innerHTML = items.map(function(it) {
+    var statusTxt = it.status === 'ok' ? '✅ Conectado' : it.status === 'erro' ? '❌ Erro de conexão' : '○ Não testado';
+    var statusColor = it.status === 'ok' ? '#00C853' : it.status === 'erro' ? '#FF5252' : 'rgba(255,255,255,0.3)';
+    return '<div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(255,255,255,0.07)">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+      +   '<span style="font-size:24px">' + it.icon + '</span>'
+      +   '<div style="font-size:14px;font-weight:700;color:#fff">' + it.nome + '</div>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      +   '<span style="font-size:11px;color:rgba(255,255,255,0.35)">Secret no Cloudflare:</span>'
+      +   '<span style="font-size:11px;font-weight:700;color:' + (it.temEnv ? '#00C853' : '#FF5252') + '">' + (it.temEnv ? '✅ Configurado' : '❌ Ausente') + '</span>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+      +   '<span style="font-size:11px;color:rgba(255,255,255,0.35)">Conexão API:</span>'
+      +   '<span style="font-size:11px;font-weight:700;color:' + statusColor + '">' + statusTxt + '</span>'
+      + '</div>'
+      + '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;word-break:break-all">' + it.varEnv + '</div>'
+      + '<div style="margin-top:10px">'
+      +   '<button onclick="testarGatewayEspecifico(&apos;' + (it.nome.includes('Woovi') ? 'woovi' : 'mercadopago') + '&apos;)" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.1);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-bolt" style="margin-right:5px"></i>Testar</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+async function salvarGateway() {
+  var btn = document.getElementById('btn-salvar-gateway');
+  var msg = document.getElementById('gateway-status-msg');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>Salvando...'; }
+  try {
+    const res = await fetch('/api/admin/config/pagamento?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gateway: _pgConfig.gateway })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (msg) { msg.textContent = '✅ Gateway salvo!'; msg.style.color = '#00C853'; }
+      mostrarToastPagamentos('✅ Gateway ' + _pgConfig.gateway + ' ativado!', '#00C853');
+    } else {
+      if (msg) { msg.textContent = '❌ Erro: ' + (data.erro || ''); msg.style.color = '#FF5252'; }
+    }
+  } catch(e) {
+    if (msg) { msg.textContent = '❌ ' + e.message; msg.style.color = '#FF5252'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save" style="margin-right:7px"></i>Salvar Gateway'; }
+    setTimeout(function() { if (msg) msg.textContent = ''; }, 4000);
+  }
+}
+
+async function testarGateway() { await testarGatewayEspecifico(_pgConfig.gateway); }
+
+async function testarGatewayEspecifico(gw) {
+  var btn = document.getElementById('btn-testar-gateway');
+  var msg = document.getElementById('gateway-status-msg');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>Testando...'; }
+  try {
+    const res = await fetch('/api/admin/config/pagamento/testar?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gateway: gw })
+    });
+    const data = await res.json();
+    if (msg) { msg.textContent = data.mensagem || ''; msg.style.color = data.ok ? '#00C853' : '#FF5252'; }
+    mostrarToastPagamentos(data.mensagem || (data.ok ? '✅ OK' : '❌ Falhou'), data.ok ? '#00C853' : '#FF5252');
+    // Recarregar para atualizar status
+    await carregarConfigPagamento();
+  } catch(e) {
+    if (msg) { msg.textContent = '❌ ' + e.message; msg.style.color = '#FF5252'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-bolt" style="margin-right:7px"></i>Testar Conexão'; }
+    setTimeout(function() { if (msg) msg.textContent = ''; }, 5000);
+  }
+}
+
+async function salvarMetodos() {
+  var msg = document.getElementById('metodos-status-msg');
+  try {
+    const res = await fetch('/api/admin/config/pagamento?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pixAtivo: _pgConfig.pixAtivo, cartaoAtivo: _pgConfig.cartaoAtivo })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (msg) { msg.textContent = '✅ Salvo!'; msg.style.color = '#00C853'; }
+      mostrarToastPagamentos('✅ Métodos salvos!', '#00C853');
+    } else {
+      if (msg) { msg.textContent = '❌ Erro'; msg.style.color = '#FF5252'; }
+    }
+  } catch(e) {
+    if (msg) { msg.textContent = '❌ ' + e.message; msg.style.color = '#FF5252'; }
+  }
+  setTimeout(function() { if (msg) msg.textContent = ''; }, 4000);
+}
+
+function mostrarToastPagamentos(msg, cor) {
+  const t = document.getElementById('pagamentos-toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.background = cor || '#00C853';
+  t.style.display = 'block';
+  t.style.opacity = '1';
+  setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.style.display = 'none'; t.style.opacity = '1'; }, 400); }, 3500);
+}
+
 // ─── PLANOS DO APP (B2C) — edição de preços e benefícios ────────────────────
 let _planosAppData = [];
 var _planoAppTabIdx = null;
@@ -16748,12 +17268,17 @@ function renderizarPlanoAppSelecionado() {
   +   '</div>'
   + '</div>'
 
-  // ── Toggle Destaque ──
-  + '<div style="padding:12px 24px;border-bottom:1px solid rgba(255,255,255,0.06)">'
-  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;width:fit-content">'
+  // ── Toggles: Ativo + Destaque ──
+  + '<div style="padding:12px 24px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;flex-wrap:wrap;gap:18px;align-items:center">'
+  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">'
+  +     '<input id="pa-ativo-' + i + '" type="checkbox" ' + (p.ativo !== false ? 'checked' : '') + ' style="accent-color:#00C853;width:16px;height:16px;cursor:pointer">'
+  +     '<span style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.7)">✅ Plano Ativo</span>'
+  +     '<span style="font-size:11px;color:rgba(255,255,255,0.3)">— exibido no app</span>'
+  +   '</label>'
+  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">'
   +     '<input id="pa-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FFD600;width:16px;height:16px;cursor:pointer">'
   +     '<span style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.7)">⭐ Plano em Destaque</span>'
-  +     '<span style="font-size:11px;color:rgba(255,255,255,0.3)">— aparece primeiro no app</span>'
+  +     '<span style="font-size:11px;color:rgba(255,255,255,0.3)">— aparece primeiro</span>'
   +   '</label>'
   + '</div>'
 
@@ -16766,12 +17291,20 @@ function renderizarPlanoAppSelecionado() {
   +   '<div id="pa-features-' + i + '">' + (featuresHtml || '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.2);font-size:12px">Nenhum benefício cadastrado.</div>') + '</div>'
   + '</div>'
 
-  // ── Rodapé: ID + ações ──
-  + '<div style="padding:14px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'
-  +   '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace">ID: ' + p.id + '</div>'
-  +   '<div style="display:flex;gap:8px;align-items:center">'
+  // ── Rodapé: ID + gateway + ações ──
+  + '<div style="padding:14px 24px;border-top:1px solid rgba(255,255,255,0.06)">'
+  // Info gateway externo
+  +   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">'
+  +     '<span style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace">ID: ' + p.id + '</span>'
+  +     (p.wooviPlanId ? '<span style="font-size:10px;background:rgba(0,200,83,0.1);color:#00C853;padding:2px 8px;border-radius:4px;font-family:monospace">🟢 Woovi: ' + p.wooviPlanId + '</span>' : '')
+  +     (p.mpPlanId    ? '<span style="font-size:10px;background:rgba(66,165,245,0.1);color:#42A5F5;padding:2px 8px;border-radius:4px;font-family:monospace">🔵 MP: ' + p.mpPlanId + '</span>' : '')
+  +   '</div>'
+  // Botões de ação
+  +   '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+  +     '<button onclick="criarPlanoNoGateway(&apos;' + p.id + '&apos;,&apos;app&apos;,this)" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit"><i class="fas fa-plug" style="margin-right:5px"></i>Criar no Gateway</button>'
   +     (!isProtected ? '<button onclick="deletarPlanoApp(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.08);color:rgba(255,82,82,0.8);border:1px solid rgba(255,82,82,0.15);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit"><i class="fas fa-trash" style="margin-right:5px"></i>Excluir</button>' : '')
   +     '<button onclick="salvarPlanoApp(' + i + ',&apos;' + p.id + '&apos;)" id="pa-save-btn-' + i + '" class="plano-save-btn" style="background:#FF6D00;color:#fff;border:none;padding:9px 24px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;transition:transform 0.15s,filter 0.15s"><i class="fas fa-save" style="margin-right:7px"></i>Salvar alterações</button>'
+  +     '<span id="pa-gateway-msg-' + i + '" style="font-size:12px;font-weight:700"></span>'
   +   '</div>'
   + '</div>'
   + '</div>';
@@ -16819,6 +17352,7 @@ async function salvarPlanoApp(idx, id) {
   const emojiEl   = document.getElementById('pa-emoji-' + idx);
   const corEl     = document.getElementById('pa-cor-' + idx);
   const destaqueEl= document.getElementById('pa-destaque-' + idx);
+  const ativoEl   = document.getElementById('pa-ativo-' + idx);
   if (!nomeEl) return;
   const body = {
     nome:     nomeEl.value.trim(),
@@ -16828,6 +17362,7 @@ async function salvarPlanoApp(idx, id) {
     emoji:    emojiEl ? emojiEl.value.trim() : '',
     cor:      corEl   ? corEl.value : '',
     destaque: destaqueEl ? destaqueEl.checked : false,
+    ativo:    ativoEl   ? ativoEl.checked   : true,
     features: _planosAppData[idx] ? _planosAppData[idx].features : []
   };
   try {
@@ -16849,6 +17384,35 @@ async function salvarPlanoApp(idx, id) {
     }
   } catch(e) {
     mostrarToastPlanosApp('❌ Erro de rede: ' + e.message, '#FF5252');
+  }
+}
+
+async function criarPlanoNoGateway(planoId, tipoCatalogo, btnEl) {
+  if (!confirm('Criar o plano "' + planoId + '" no gateway de pagamento ativo? Isso cria um produto no Woovi/MP.')) return;
+  var msgEl = document.getElementById((tipoCatalogo === 'app' ? 'pa' : 'pp') + '-gateway-msg-' + (_planoAppTabIdx !== null ? _planoAppTabIdx : _planoTabIdx));
+  if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+  try {
+    const res = await fetch('/api/admin/planos/criar-no-gateway?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planoId, tipoCatalogo })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (msgEl) { msgEl.textContent = '✅ ' + (data.mensagem || 'Criado!'); msgEl.style.color = '#00C853'; }
+      mostrarToastPlanosApp('✅ ' + data.mensagem, '#00C853');
+      // Recarregar para mostrar o ID externo
+      if (tipoCatalogo === 'app') { var sv = _planoAppTabIdx; await carregarPlanosApp(); _planoAppTabIdx = sv; renderizarAbasPlanosApp(); renderizarPlanoAppSelecionado(); }
+      else { var sv2 = _planoTabIdx; await carregarEstatisticasPlanos(); _planoTabIdx = sv2; renderizarAbasPlanos(); renderizarPlanoSelecionado(); }
+    } else {
+      if (msgEl) { msgEl.textContent = '❌ ' + (data.erro || 'Falhou'); msgEl.style.color = '#FF5252'; }
+      mostrarToastPlanosApp('❌ ' + (data.erro || 'Falha ao criar no gateway'), '#FF5252');
+    }
+  } catch(e) {
+    if (msgEl) { msgEl.textContent = '❌ ' + e.message; msgEl.style.color = '#FF5252'; }
+    mostrarToastPlanosApp('❌ Erro: ' + e.message, '#FF5252');
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-plug" style="margin-right:5px"></i>Criar no Gateway'; }
+    setTimeout(function() { if (msgEl) msgEl.textContent = ''; }, 6000);
   }
 }
 
@@ -17133,11 +17697,19 @@ function renderizarPlanoSelecionado() {
   + '</div>'
 
   // ── Rodapé ──
-  + '<div style="padding:14px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'
-  +   '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace">ID: ' + p.id + '</div>'
-  +   '<div style="display:flex;gap:10px;align-items:center">'
+  + '<div style="padding:14px 24px;border-top:1px solid rgba(255,255,255,0.06)">'
+  // Info gateway externo
+  +   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">'
+  +     '<span style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace">ID: ' + p.id + '</span>'
+  +     (p.wooviPlanId ? '<span style="font-size:10px;background:rgba(0,200,83,0.1);color:#00C853;padding:2px 8px;border-radius:4px;font-family:monospace">🟢 Woovi: ' + p.wooviPlanId + '</span>' : '')
+  +     (p.mpPlanId    ? '<span style="font-size:10px;background:rgba(66,165,245,0.1);color:#42A5F5;padding:2px 8px;border-radius:4px;font-family:monospace">🔵 MP: ' + p.mpPlanId + '</span>' : '')
+  +   '</div>'
+  // Botões de ação
+  +   '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+  +     '<button onclick="criarPlanoNoGateway(&apos;' + p.id + '&apos;,&apos;posto&apos;,this)" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit"><i class="fas fa-plug" style="margin-right:5px"></i>Criar no Gateway</button>'
   +     (!isProtected ? '<button onclick="deletarPlanoPostoInline(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.08);color:rgba(255,82,82,0.8);border:1px solid rgba(255,82,82,0.15);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit"><i class="fas fa-trash" style="margin-right:5px"></i>Excluir</button>' : '')
   +     '<button onclick="salvarPlanoPostoInline(' + i + ',&apos;' + p.id + '&apos;)" class="plano-save-btn" style="background:#FF6D00;color:#fff;border:none;padding:9px 24px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;transition:transform 0.15s,filter 0.15s"><i class="fas fa-save" style="margin-right:7px"></i>Salvar alterações</button>'
+  +     '<span id="pp-gateway-msg-' + i + '" style="font-size:12px;font-weight:700"></span>'
   +   '</div>'
   + '</div>'
   + '</div>';
