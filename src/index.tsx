@@ -21867,9 +21867,6 @@ app.get('/rotasegura/login', (c) => {
     .logo-icon{width:72px;height:72px;background:linear-gradient(135deg,#00C851,#007E33);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 14px;box-shadow:0 8px 24px rgba(0,200,81,.35)}
     .logo-title{font-size:24px;font-weight:800;letter-spacing:-.5px}
     .logo-sub{font-size:13px;color:rgba(255,255,255,.4);margin-top:4px}
-    .tabs{display:flex;background:rgba(255,255,255,.05);border-radius:12px;padding:4px;margin-bottom:28px;gap:4px}
-    .tab{flex:1;padding:10px;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;background:transparent;color:rgba(255,255,255,.5)}
-    .tab.ativo{background:rgba(0,200,81,.15);color:#00C851;border:1px solid rgba(0,200,81,.3)}
     .form-group{margin-bottom:16px}
     .form-label{font-size:12px;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block}
     .form-input{width:100%;padding:13px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;color:#fff;font-size:15px;outline:none;transition:border .2s;-webkit-appearance:none}
@@ -21878,13 +21875,15 @@ app.get('/rotasegura/login', (c) => {
     .btn-main{width:100%;padding:15px;background:linear-gradient(135deg,#00C851,#00963d);border:none;border-radius:13px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;transition:all .2s;box-shadow:0 6px 20px rgba(0,200,81,.3);display:flex;align-items:center;justify-content:center;gap:10px}
     .btn-main:active{transform:scale(.97)}
     .btn-main:disabled{opacity:.6;cursor:default;transform:none}
-    .divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:rgba(255,255,255,.2);font-size:12px}
-    .divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
+    .btn-secondary{width:100%;padding:14px;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:13px;color:rgba(255,255,255,.65);font-size:15px;font-weight:600;cursor:pointer;margin-top:10px;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px}
+    .btn-secondary:hover,.btn-secondary:active{border-color:rgba(0,200,81,.4);color:#00C851;background:rgba(0,200,81,.06)}
     .err{background:rgba(255,68,88,.12);border:1px solid rgba(255,68,88,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#ff8a95;margin-bottom:14px;display:none}
-
     .input-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .form-section{display:none}
     .form-section.ativo{display:block}
+    .back-link{display:flex;align-items:center;gap:6px;background:none;border:none;color:rgba(255,255,255,.4);font-size:13px;cursor:pointer;padding:0;margin-bottom:20px;font-family:inherit}
+    .back-link:hover{color:#00C851}
+    .form-title{font-size:18px;font-weight:700;margin-bottom:20px;color:#fff}
   </style>
 </head>
 <body>
@@ -21895,14 +21894,9 @@ app.get('/rotasegura/login', (c) => {
     <div class="logo-sub">Corridas com segurança</div>
   </div>
 
-  <div class="tabs">
-    <button class="tab ativo" onclick="mudarAba('login')">Entrar</button>
-    <button class="tab" onclick="mudarAba('cadastro')">Criar conta</button>
-  </div>
-
   <div id="msgErro" class="err"></div>
 
-  <!-- Login -->
+  <!-- Login (visível por padrão) -->
   <div id="secaoLogin" class="form-section ativo">
     <div class="form-group">
       <label class="form-label">E-mail</label>
@@ -21915,10 +21909,17 @@ app.get('/rotasegura/login', (c) => {
     <button class="btn-main" id="btnLogin" onclick="fazerLogin()">
       <i class="fas fa-arrow-right-to-bracket"></i> Entrar
     </button>
+    <button class="btn-secondary" onclick="mudarAba('cadastro')">
+      <i class="fas fa-user-plus"></i> Criar conta
+    </button>
   </div>
 
-  <!-- Cadastro -->
+  <!-- Cadastro (oculto, abre ao clicar em Criar conta) -->
   <div id="secaoCadastro" class="form-section">
+    <button class="back-link" onclick="mudarAba('login')">
+      <i class="fas fa-arrow-left"></i> Voltar
+    </button>
+    <div class="form-title">Criar conta</div>
     <div class="form-group">
       <label class="form-label">Nome completo</label>
       <input id="cadNome" class="form-input" type="text" placeholder="Seu nome" autocomplete="name"/>
@@ -21942,19 +21943,18 @@ app.get('/rotasegura/login', (c) => {
       <input id="cadSenha" class="form-input" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"/>
     </div>
     <button class="btn-main" id="btnCadastro" onclick="fazerCadastro()">
-      <i class="fas fa-user-plus"></i> Criar conta grátis
+      <i class="fas fa-user-plus"></i> Criar conta
     </button>
   </div>
-
 
 </div>
 
 <script>
 function mudarAba(aba) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('ativo', (aba==='login'&&i===0)||(aba==='cadastro'&&i===1)))
   document.getElementById('secaoLogin').classList.toggle('ativo', aba==='login')
   document.getElementById('secaoCadastro').classList.toggle('ativo', aba==='cadastro')
   document.getElementById('msgErro').style.display = 'none'
+  window.scrollTo(0,0)
 }
 
 function mostrarErro(msg) {
@@ -22060,9 +22060,6 @@ app.get('/rotasegura/motorista/login', (c) => {
     .logo-icon{width:72px;height:72px;background:linear-gradient(135deg,#1a6aff,#0044cc);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 14px;box-shadow:0 8px 24px rgba(26,106,255,.35)}
     .logo-title{font-size:22px;font-weight:800}
     .logo-sub{font-size:12px;color:rgba(255,255,255,.4);margin-top:4px}
-    .tabs{display:flex;background:rgba(255,255,255,.05);border-radius:12px;padding:4px;margin-bottom:24px;gap:4px}
-    .tab{flex:1;padding:10px;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;background:transparent;color:rgba(255,255,255,.5)}
-    .tab.ativo{background:rgba(26,106,255,.15);color:#4d8bff;border:1px solid rgba(26,106,255,.3)}
     .form-group{margin-bottom:14px}
     .form-label{font-size:11px;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block}
     .form-input{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:11px;color:#fff;font-size:14px;outline:none;transition:border .2s;-webkit-appearance:none}
@@ -22072,10 +22069,14 @@ app.get('/rotasegura/motorista/login', (c) => {
     .btn-main{width:100%;padding:15px;background:linear-gradient(135deg,#1a6aff,#0044cc);border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;transition:all .2s;box-shadow:0 6px 20px rgba(26,106,255,.3);display:flex;align-items:center;justify-content:center;gap:10px}
     .btn-main:active{transform:scale(.97)}
     .btn-main:disabled{opacity:.6;cursor:default;transform:none}
+    .btn-secondary{width:100%;padding:14px;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:13px;color:rgba(255,255,255,.65);font-size:15px;font-weight:600;cursor:pointer;margin-top:10px;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px;font-family:inherit}
+    .btn-secondary:hover,.btn-secondary:active{border-color:rgba(26,106,255,.5);color:#4d8bff;background:rgba(26,106,255,.06)}
     .err{background:rgba(255,68,88,.12);border:1px solid rgba(255,68,88,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#ff8a95;margin-bottom:14px;display:none}
     .info-box{background:rgba(26,106,255,.08);border:1px solid rgba(26,106,255,.2);border-radius:10px;padding:12px 14px;font-size:12px;color:rgba(255,255,255,.6);margin-bottom:16px;line-height:1.6}
     .info-box i{color:#4d8bff;margin-right:6px}
-
+    .back-link{display:flex;align-items:center;gap:6px;background:none;border:none;color:rgba(255,255,255,.4);font-size:13px;cursor:pointer;padding:0;margin-bottom:18px;font-family:inherit}
+    .back-link:hover{color:#4d8bff}
+    .form-title{font-size:17px;font-weight:700;margin-bottom:18px;color:#fff}
     .form-section{display:none}
     .form-section.ativo{display:block}
     .asaas-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,200,81,.1);border:1px solid rgba(0,200,81,.2);border-radius:20px;padding:4px 12px;font-size:11px;color:#00C851;margin:0 auto 20px;font-weight:600}
@@ -22102,30 +22103,32 @@ app.get('/rotasegura/motorista/login', (c) => {
     <div class="asaas-badge"><i class="fas fa-bolt"></i> Pagamentos via Asaas · Split automático 80/20</div>
   </div>
 
-  <div class="tabs" style="margin-top:16px">
-    <button class="tab ativo" onclick="mudarAba('login')">Entrar</button>
-    <button class="tab" onclick="mudarAba('cadastro')">Quero dirigir</button>
-  </div>
-
   <div id="msgErro" class="err"></div>
 
-  <!-- Login -->
+  <!-- Login (visível por padrão) -->
   <div id="secaoLogin" class="form-section ativo">
     <div class="form-group">
       <label class="form-label">E-mail</label>
-      <input id="loginEmail" class="form-input" type="email" placeholder="seu@email.com"/>
+      <input id="loginEmail" class="form-input" type="email" placeholder="seu@email.com" autocomplete="email"/>
     </div>
     <div class="form-group">
       <label class="form-label">Senha</label>
-      <input id="loginSenha" class="form-input" type="password" placeholder="••••••••"/>
+      <input id="loginSenha" class="form-input" type="password" placeholder="••••••••" autocomplete="current-password"/>
     </div>
     <button class="btn-main" id="btnLogin" onclick="fazerLogin()">
       <i class="fas fa-steering-wheel"></i> Entrar e dirigir
     </button>
+    <button class="btn-secondary" onclick="mudarAba('cadastro')">
+      <i class="fas fa-user-plus"></i> Quero ser motorista
+    </button>
   </div>
 
-  <!-- Cadastro Motorista -->
+  <!-- Cadastro Motorista (oculto, abre ao clicar) -->
   <div id="secaoCadastro" class="form-section">
+    <button class="back-link" onclick="mudarAba('login')">
+      <i class="fas fa-arrow-left"></i> Voltar
+    </button>
+    <div class="form-title">Cadastro de Motorista</div>
     <div class="info-box">
       <i class="fas fa-info-circle"></i>
       Ao se cadastrar, criamos automaticamente sua <strong>subconta Asaas</strong> para receber <strong>80%</strong> de cada corrida via PIX. Informe o CNPJ (MEI) para ativar os pagamentos.
@@ -22220,10 +22223,10 @@ app.get('/rotasegura/motorista/login', (c) => {
 
 <script>
 function mudarAba(aba) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('ativo', (aba==='login'&&i===0)||(aba==='cadastro'&&i===1)))
   document.getElementById('secaoLogin').classList.toggle('ativo', aba==='login')
   document.getElementById('secaoCadastro').classList.toggle('ativo', aba==='cadastro')
   document.getElementById('msgErro').style.display = 'none'
+  window.scrollTo(0,0)
 }
 
 function mostrarErro(msg) {
