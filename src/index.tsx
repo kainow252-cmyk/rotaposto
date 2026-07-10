@@ -550,8 +550,12 @@ app.get('/api/postos', async (c) => {
           if (p.fotoUrl && !merged.fotoGoogle) {
             merged.fotoGoogle = p.fotoUrl   // preservar foto Google original
           }
-          if (parceiro.fotoBandeira) {
-            merged.fotoUrl = String(parceiro.fotoBandeira)  // logo do parceiro → badges
+          // Prioridade: fotoExterna (URL colada admin) → fotoBandeira (upload admin)
+          const fotoParceiroUrl = (parceiro.fotoExterna && String(parceiro.fotoExterna).startsWith('http'))
+            ? String(parceiro.fotoExterna)
+            : (parceiro.fotoBandeira ? String(parceiro.fotoBandeira) : null)
+          if (fotoParceiroUrl) {
+            merged.fotoUrl = fotoParceiroUrl  // logo do parceiro → badges, lista, mapa
           }
           // Marcar como parceiro para o app
           const pId = parceiro.id ? String(parceiro.id) : ('posto_' + cnpjSoNum)
@@ -10884,6 +10888,114 @@ app.delete('/api/admin/postos/:id', async (c) => {
   return c.json({ ok: true, id })
 })
 
+// ─── POST /api/admin/script/propagar-logos — propaga fotoBandeira/fotoExterna para posto:band KV ──
+app.post('/api/admin/script/propagar-logos', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+
+  const kv = getKV(c.env as any)
+  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+
+  const resultados: Array<Record<string,unknown>> = []
+  let atualizados = 0, ignorados = 0, erros = 0
+
+  // 1. Listar todos os parceiros do R2
+  const listaR2: Array<{ id: string; data: Record<string,unknown> }> = []
+  if (r2) {
+    try {
+      const listed = await r2.list({ prefix: 'parceiro--' })
+      for (const obj of listed.objects) {
+        const id = obj.key.replace('parceiro--', '')
+        if (id.startsWith('email_') || id.startsWith('cnpj_')) continue
+        try {
+          const data = await r2Get(r2, `parceiro:${id}`) as Record<string,unknown> | null
+          if (data && data.id) listaR2.push({ id: String(data.id), data })
+        } catch {}
+      }
+    } catch(e) { console.warn('[propagar-logos] r2.list erro:', e) }
+  }
+  // Fallback KV
+  if (listaR2.length === 0 && kv) {
+    try {
+      const kvList = await kv.list({ prefix: 'parceiro:' })
+      for (const k of kvList.keys) {
+        const seg = k.name.replace('parceiro:', '')
+        if (seg.startsWith('sess_') || seg.startsWith('email_') || seg.startsWith('cnpj_')) continue
+        try {
+          const raw = await kv.get(k.name)
+          if (!raw) continue
+          const data = JSON.parse(raw) as Record<string,unknown>
+          if (data?.id) listaR2.push({ id: String(data.id), data })
+        } catch {}
+      }
+    } catch {}
+  }
+
+  // 2. Para cada parceiro com foto, propagar para posto:band:*
+  for (const { id, data } of listaR2) {
+    // Foto a usar: fotoExterna tem prioridade, depois fotoBandeira
+    const fotoExterna  = data.fotoExterna  ? String(data.fotoExterna)  : null
+    const fotoBandeira = data.fotoBandeira ? String(data.fotoBandeira) : null
+    const fotoUrl = fotoExterna || fotoBandeira
+
+    if (!fotoUrl) {
+      ignorados++
+      resultados.push({ id, nomePosto: data.nomePosto, status: 'sem_foto_pular' })
+      continue
+    }
+
+    const fotoTs = data.fotoTs ? Number(data.fotoTs) : Date.now()
+
+    try {
+      // 2a. Atualizar posto:band:{parceiroId}
+      const bandKey = `posto:band:${id}`
+      const bandRaw = await kv.get(bandKey)
+      let band: Record<string,unknown> = bandRaw ? JSON.parse(bandRaw) : { postoId: id }
+      band.fotoUrl  = fotoUrl
+      band.fotoTs   = fotoTs
+      band.fotoExterna = fotoExterna || null
+      await kv.put(bandKey, JSON.stringify(band), { expirationTtl: 365 * 24 * 3600 })
+
+      // 2b. Se tem CNPJ, atualizar também posto:band:posto_{cnpj}
+      const cnpjStr = data.cnpj ? String(data.cnpj).replace(/[^0-9]/g, '') : ''
+      if (cnpjStr && cnpjStr.length >= 11) {
+        const cnpjBandKey = `posto:band:posto_${cnpjStr}`
+        const cnpjBandRaw = await kv.get(cnpjBandKey)
+        let cnpjBand: Record<string,unknown> = cnpjBandRaw
+          ? JSON.parse(cnpjBandRaw)
+          : { postoId: `posto_${cnpjStr}`, cnpj: cnpjStr }
+        cnpjBand.fotoUrl  = fotoUrl
+        cnpjBand.fotoTs   = fotoTs
+        cnpjBand.fotoExterna = fotoExterna || null
+        cnpjBand.parceiroId  = id
+        await kv.put(cnpjBandKey, JSON.stringify(cnpjBand), { expirationTtl: 365 * 24 * 3600 })
+      }
+
+      atualizados++
+      resultados.push({
+        id, nomePosto: data.nomePosto || id,
+        cnpj: data.cnpj || null,
+        fotoUrl, tipo: fotoExterna ? 'fotoExterna' : 'fotoBandeira',
+        status: 'propagado'
+      })
+    } catch(e) {
+      erros++
+      resultados.push({ id, nomePosto: data.nomePosto, status: 'erro', msg: String(e) })
+    }
+  }
+
+  return c.json({
+    ok: true,
+    total: listaR2.length,
+    atualizados,
+    ignorados,
+    erros,
+    resultados
+  })
+})
+
 // ─── GET /api/admin/parceiros — lista TODOS os postos (R2 + KV fallback + p_teste persistido) ──
 app.get('/api/admin/parceiros', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -12151,11 +12263,16 @@ app.get('/admin', (c) => {
   <section id="section-postos-parceiros" style="display:none">
     <div class="page-header">
       <h2>⭐ Postos Parceiros</h2>
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span id="parceiros-count" style="background:rgba(255,214,0,0.12);color:#FFD600;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">–</span>
+        <button id="btn-propagar-logos" onclick="rodarPropagacaoLogos()" style="background:linear-gradient(135deg,#1565C0,#0D47A1);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Raleway',sans-serif" title="Propaga foto de cada parceiro para a lista e mapa de usuários">
+          <i class="fas fa-share-alt"></i> Propagar logos no mapa/lista
+        </button>
         <button class="btn-refresh" onclick="toggleParceirosTabela(true);carregarParceirosCadastrados()"><i class="fas fa-sync-alt"></i> Atualizar</button>
       </div>
     </div>
+    <!-- Resultado da propagação de logos -->
+    <div id="propagar-logos-resultado" style="display:none;background:rgba(21,101,192,0.12);border:1px solid rgba(21,101,192,0.3);border-radius:12px;padding:14px 18px;margin-bottom:14px;font-size:12px;color:#90CAF9"></div>
 
     <!-- Filtros -->
     <div class="section-card" style="padding:16px 20px;margin-bottom:14px">
@@ -14003,6 +14120,44 @@ function toggleParceirosTabela(forcarAbrir) {
     body.style.display = 'none';
     if (icon) { icon.style.transform = 'rotate(0deg)'; icon.style.color = 'rgba(255,255,255,0.3)'; }
     if (hint) { hint.style.display = ''; hint.textContent = 'clique para ver'; }
+  }
+}
+
+// ─── Propagar logos de todos os parceiros para mapa/lista ────────────────────
+async function rodarPropagacaoLogos() {
+  const btn = document.getElementById('btn-propagar-logos');
+  const resultado = document.getElementById('propagar-logos-resultado');
+  if (!btn || !resultado) return;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Propagando...';
+  btn.style.pointerEvents = 'none';
+  resultado.style.display = 'block';
+  resultado.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rodando script — varrendo parceiros e propagando fotos para mapa e lista...';
+  try {
+    const r = await fetch('/api/admin/script/propagar-logos?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST'
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao propagar');
+    const linhas = (d.resultados || []).map(function(x) {
+      const icone = x.status === 'propagado' ? '✅' : x.status === 'sem_foto_pular' ? '⚪' : '❌';
+      const tipo = x.tipo ? ' <span style="color:#FFD600">[' + x.tipo + ']</span>' : '';
+      const url = x.fotoUrl ? ' <a href="' + x.fotoUrl + '" target="_blank" style="color:#64B5F6;font-size:10px">ver foto</a>' : '';
+      return icone + ' <b>' + (x.nomePosto || x.id) + '</b>' + tipo + url;
+    }).join('<br>');
+    resultado.innerHTML =
+      '<b style="color:#fff">✅ Propagação concluída!</b><br>' +
+      '<span style="color:#A5D6A7">Postos com foto: <b>' + d.atualizados + '</b></span> &nbsp;|&nbsp; ' +
+      '<span style="color:#FFCC80">Sem foto: <b>' + d.ignorados + '</b></span> &nbsp;|&nbsp; ' +
+      '<span style="color:#EF9A9A">Erros: <b>' + d.erros + '</b></span> &nbsp;|&nbsp; ' +
+      'Total: <b>' + d.total + '</b>' +
+      (linhas ? '<div style="margin-top:10px;max-height:200px;overflow-y:auto;font-size:11px;line-height:1.8">' + linhas + '</div>' : '');
+    showToast('✅ ' + d.atualizados + ' posto(s) com logo propagado no mapa/lista!', 'ok');
+  } catch(e) {
+    resultado.innerHTML = '❌ Erro: ' + e.message;
+    showToast('❌ Erro ao propagar logos: ' + e.message, 'err');
+  } finally {
+    btn.innerHTML = '<i class="fas fa-share-alt"></i> Propagar logos no mapa/lista';
+    btn.style.pointerEvents = '';
   }
 }
 
