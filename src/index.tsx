@@ -13723,10 +13723,8 @@ function filtrarParceiros() {
   const plano   = (document.getElementById('pc-filtro-plano').value || '').toLowerCase();
   const status  = (document.getElementById('pc-filtro-status').value || '').toLowerCase();
   const temFiltro = !!(q || estado || cidade || bairro || plano || status);
-  // Abre accordion automaticamente quando começa a filtrar; fecha quando limpa tudo
+  // Abre accordion automaticamente quando há filtro ativo
   if (temFiltro) toggleParceirosTabela(true);
-  // Se !temFiltro mas a tabela está aberta, mantém aberta (não fecha)
-  // (fechar manual é via clique no header)
 
   const filtrado = _parceiros.filter(p => {
     if (q && !(
@@ -13743,7 +13741,6 @@ function filtrarParceiros() {
     return true;
   });
 
-  const temFiltro = q || estado || cidade || bairro || plano || status;
   const resultEl = document.getElementById('pc-filtro-resultado');
   if (temFiltro) {
     resultEl.style.display = 'block';
