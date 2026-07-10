@@ -711,12 +711,15 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       box-shadow: var(--shadow);
     }
     .plan-posto-logo {
-      width: 38px; height: 38px; border-radius: 10px;
+      width: 48px; height: 48px; border-radius: 12px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px; flex-shrink: 0;
+      font-size: 20px; flex-shrink: 0;
       background: var(--gray-bg);
       border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
     }
+    .plan-posto-logo img { width:100%; height:100%; object-fit:contain; padding:5px; }
     .plan-posto-info { flex: 1; }
     .plan-posto-nome { font-size: 14px; font-weight: 700; color: var(--black); margin-bottom: 2px; }
     .plan-posto-end { font-size: 12px; color: var(--gray); }
@@ -2073,7 +2076,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
         <!-- Card posto destino -->
         <div class="plan-posto-card" id="plan-posto-card" style="display:none;">
-          <div class="plan-posto-logo" id="plan-logo">⛽</div>
+          <div class="plan-posto-logo" id="plan-logo"><img id="plan-logo-img" src="" alt="" style="width:100%;height:100%;object-fit:contain;padding:5px;"/></div>
           <div class="plan-posto-info">
             <div class="plan-posto-nome" id="plan-nome">—</div>
             <div class="plan-posto-end" id="plan-end">—</div>
@@ -3204,30 +3207,25 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // Atualizar info do card posto
     if (dest) {
       const preco = dest.preco || dest.precos?.[selectedFuel] || 0;
-      var planLogoEl = document.getElementById('plan-logo');
-      var planLogoSvg = getBandeiraLogoUrl(dest.bandeira || dest.nome);
+      var planLogoEl  = document.getElementById('plan-logo');
+      var planLogoImg = document.getElementById('plan-logo-img');
+      var planBandInfo = getBandeiraCor(dest.bandeira || dest.nome);
+      var planLogoSvg  = getBandeiraLogoUrl(dest.bandeira || dest.nome);
       // Plan-logo usa apenas logo parceiro (/api) ou SVG — NUNCA foto Google (http)
       var planLogoFoto = dest.fotoUrl && dest.fotoUrl.startsWith('/api') ? dest.fotoUrl : null;
-      var planLogoUrl = planLogoFoto || planLogoSvg;
-      var _planEmoji = getEmoji(dest.bandeira || dest.nome);
-      if (planLogoUrl) {
-        var _imgPlan = document.createElement('img');
-        _imgPlan.src = planLogoUrl;
-        _imgPlan.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:6px;padding:2px;';
-        _imgPlan.alt = '';
-        _imgPlan.onerror = function() {
-          if (planLogoFoto && planLogoSvg && _imgPlan.src !== location.origin + planLogoSvg) {
-            _imgPlan.src = planLogoSvg;
-          } else {
-            planLogoEl.textContent = _planEmoji;
-            planLogoEl.style.background = '';
+      var planLogoSrc  = planLogoFoto || planLogoSvg;
+      if (planLogoImg && planLogoSrc) {
+        planLogoImg.src = planLogoSrc;
+        planLogoImg.onerror = function() {
+          if (planLogoFoto && planLogoImg.src !== location.origin + planLogoSvg) {
+            planLogoImg.src = planLogoSvg;
           }
         };
-        planLogoEl.innerHTML = '';
-        planLogoEl.appendChild(_imgPlan);
-        planLogoEl.style.background = '#fff';
-      } else {
-        planLogoEl.textContent = _planEmoji;
+        // Fundo: cor da bandeira se logo parceiro, branco se SVG
+        planLogoEl.style.background = planLogoFoto ? planBandInfo.cor : '#fff';
+        planLogoEl.style.borderColor = planBandInfo.border || planBandInfo.cor;
+      } else if (planLogoEl) {
+        planLogoEl.style.background = planBandInfo.cor;
       }
       document.getElementById('plan-nome').textContent = dest.nome;
       document.getElementById('plan-end').textContent = dest.endereco || dest.nome;
@@ -3641,7 +3639,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     });
 
     // Card destino (genérico — não é posto)
-    document.getElementById('plan-logo').textContent = detectarIconeLugar(nome + ' ' + endereco);
+    var _planLogoImgGen = document.getElementById('plan-logo-img');
+    if (_planLogoImgGen) { _planLogoImgGen.src = '/static/logos/independente.svg'; }
+    document.getElementById('plan-logo').style.background = '#f5f5f5';
     document.getElementById('plan-nome').textContent = nome;
     document.getElementById('plan-end').textContent = endereco || '';
     document.getElementById('plan-preco').innerHTML = '—';
