@@ -3793,25 +3793,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     const precos5 = postos.slice(0, 5).map(p => p.preco || p.precos?.[selectedFuel]).filter(v => v > 0);
     const todosIguais = precos5.length > 1 && precos5.every(v => Math.abs(v - precos5[0]) < 0.01);
 
-    // Banner de status dos dados
-    let banner = '';
-    if (temPrecoReal) {
-      banner = '<div style="margin:0 0 10px;padding:9px 14px;background:#F0FFF4;border-radius:12px;border-left:3px solid #00A651;display:flex;align-items:center;gap:8px;">'
-        + '<span style="font-size:14px;">✅</span>'
-        + '<div style="font-size:12px;color:#1A6B35;line-height:1.4;">'
-        + '<b>Atualização via Agência Nacional do Petróleo, Gás Natural e Biocombustíveis</b>'
-        + ''
-        + '</div>'
-        + '</div>';
-    } else if (todosIguais) {
-      banner = '<div style="margin:0 0 10px;padding:9px 14px;background:#FFF8E1;border-radius:12px;border-left:3px solid #FFA000;display:flex;align-items:flex-start;gap:8px;">'
-        + '<span style="font-size:14px;">📊</span>'
-        + '<div style="font-size:12px;color:#7A5200;line-height:1.5;">'
-        + '<b>Preços são médias municipais ANP</b> — valores similares por cidade. '
-        + '<span style="color:#FF6D00;font-weight:600;cursor:pointer;" onclick="reportarPrecoProximo()">Sabe o preço real? Informe! 👉</span>'
-        + '</div>'
-        + '</div>';
-    }
+    // Banner de status dos dados — sempre exibe origem ANP
+    const bannerBg    = temPrecoReal ? '#F0FFF4' : '#F0FFF4';
+    const bannerBorda = temPrecoReal ? '#00A651' : '#00A651';
+    const bannerIcon  = temPrecoReal ? '✅' : '✅';
+    const bannerCor   = '#1A6B35';
+    const banner = '<div style="margin:0 0 10px;padding:9px 14px;background:'+bannerBg+';border-radius:12px;border-left:3px solid '+bannerBorda+';display:flex;align-items:center;gap:8px;">'
+      + '<span style="font-size:14px;">'+bannerIcon+'</span>'
+      + '<div style="font-size:12px;color:'+bannerCor+';line-height:1.4;">'
+      + '<b>Atualização via Agência Nacional do Petróleo, Gás Natural e Biocombustíveis</b>'
+      + '</div>'
+      + '</div>';
 
     // ── Exibir somente postos com preço real (ANP ou colaborativo) ──
     const postosExibidos = postos.filter(p => p.fontePreco === 'anp' || p.fontePreco === 'colaborativo');
