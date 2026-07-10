@@ -12323,17 +12323,10 @@ app.get('/admin', (c) => {
     <div class="nav-item" id="nav-app-usuarios" onclick="showSection('app-usuarios',this)"><i class="fas fa-mobile-alt"></i>Usuários do App</div>
     <div class="nav-item" id="nav-dados-usuarios" onclick="showSection('dados-usuarios',this)"><i class="fas fa-id-card"></i>Dados & Contatos</div>
     <div class="nav-item" id="nav-assinaturas" onclick="showSection('assinaturas',this)"><i class="fas fa-crown"></i>Assinaturas</div>
-    <!-- Grupo colapsável: Planos & Produtos -->
-    <div class="nav-group-header" id="navg-planos" onclick="toggleNavGroup('navg-planos','navgb-planos')">
-      <i class="fas fa-layer-group nav-group-icon"></i>
-      Planos & Produtos
-      <i class="fas fa-chevron-right nav-group-chevron"></i>
-    </div>
-    <div class="nav-group-body" id="navgb-planos">
-      <div class="nav-subitem" id="nav-planos-app" onclick="showSection('planos-app',this)"><i class="fas fa-mobile-alt"></i>Planos do App</div>
-      <div class="nav-subitem" id="nav-planos" onclick="showSection('planos',this)"><i class="fas fa-store"></i>Planos dos Postos</div>
-      <div class="nav-subitem" id="nav-menu-app" onclick="showSection('menu-app',this)"><i class="fas fa-sliders-h"></i>Menu do App</div>
-    </div>
+    <div class="nav-section">Planos & Produtos</div>
+    <div class="nav-item" id="nav-planos-app" onclick="showSection('planos-app',this)"><i class="fas fa-mobile-alt"></i>Planos do App</div>
+    <div class="nav-item" id="nav-planos" onclick="showSection('planos',this)"><i class="fas fa-store"></i>Planos dos Postos</div>
+    <div class="nav-item" id="nav-menu-app" onclick="showSection('menu-app',this)"><i class="fas fa-sliders-h"></i>Menu do App</div>
     <div class="nav-section">Postos & Dados</div>
     <div class="nav-item" id="nav-postos-parceiros" onclick="showSection('postos-parceiros',this)"><i class="fas fa-star"></i>Postos Parceiros</div>
     <div class="nav-item" id="nav-postos" onclick="showSection('postos',this)"><i class="fas fa-gas-pump"></i>Postos (Mapa)</div>
@@ -13895,12 +13888,8 @@ function _openNavGroup(bodyId) {
   if (h) h.classList.add('open');
 }
 
-// Itens que pertencem a cada grupo: subitem-id → grupo-body-id
-var _navGroups = {
-  'nav-planos-app': 'navgb-planos',
-  'nav-planos':     'navgb-planos',
-  'nav-menu-app':   'navgb-planos'
-};
+// Itens que pertencem a cada grupo: subitem-id → grupo-body-id (vazio — sem grupos colapsáveis)
+var _navGroups = {};
 
 function showSection(name, el) {
   document.querySelectorAll('main section').forEach(s => s.style.display = 'none');
