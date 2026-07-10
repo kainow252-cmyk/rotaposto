@@ -21856,6 +21856,61 @@ app.post('/api/rotasegura/admin/passageiro/:id/status', async (c) => {
   return c.json({ ok: true })
 })
 
+// ── Admin: upload de foto para motorista ─────────────────────────────────────
+app.post('/api/rotasegura/admin/motorista/:id/foto', async (c) => {
+  if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  const id = c.req.param('id')
+  const motorista = await kvGetMotorista(kv, id)
+  if (!motorista) return c.json({ erro: 'Motorista não encontrado' }, 404)
+  try {
+    const body = await c.req.json()
+    const { tipo, dataUrl } = body
+    // tipo: selfie | cnh | docveiculo | cnhverso
+    const campoMap: Record<string, string> = {
+      selfie: 'fotoSelfie', cnh: 'fotoCnh',
+      docveiculo: 'fotoDocVeiculo', cnhverso: 'fotoCnhVerso'
+    }
+    const campo = campoMap[tipo]
+    if (!campo) return c.json({ erro: 'Tipo inválido. Use: selfie, cnh, docveiculo, cnhverso' }, 400)
+    if (!dataUrl || !dataUrl.startsWith('data:')) return c.json({ erro: 'dataUrl inválido' }, 400)
+    if (dataUrl.length > 1_500_000) return c.json({ erro: 'Imagem muito grande (máx ~1MB)' }, 413)
+    ;(motorista as any)[campo] = dataUrl
+    if (!motorista.docsStatus || motorista.docsStatus === 'sem_docs') motorista.docsStatus = 'pendente'
+    await kvSaveMotorista(kv, motorista)
+    return c.json({ ok: true, campo, tipo })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao salvar foto', detalhe: String(e) }, 500)
+  }
+})
+
+// ── Admin: upload de foto para passageiro ────────────────────────────────────
+app.post('/api/rotasegura/admin/passageiro/:id/foto', async (c) => {
+  if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  const id = c.req.param('id')
+  const passageiro = await kvGetPassageiro(kv, id)
+  if (!passageiro) return c.json({ erro: 'Passageiro não encontrado' }, 404)
+  try {
+    const body = await c.req.json()
+    const { tipo, dataUrl } = body
+    // tipo: selfie | doc
+    const campoMap: Record<string, string> = { selfie: 'fotoSelfie', doc: 'fotoDoc' }
+    const campo = campoMap[tipo]
+    if (!campo) return c.json({ erro: 'Tipo inválido. Use: selfie, doc' }, 400)
+    if (!dataUrl || !dataUrl.startsWith('data:')) return c.json({ erro: 'dataUrl inválido' }, 400)
+    if (dataUrl.length > 1_500_000) return c.json({ erro: 'Imagem muito grande (máx ~1MB)' }, 413)
+    ;(passageiro as any)[campo] = dataUrl
+    if (!passageiro.docsStatus || passageiro.docsStatus === 'sem_docs') passageiro.docsStatus = 'pendente'
+    await kvSavePassageiro(kv, passageiro)
+    return c.json({ ok: true, campo, tipo })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao salvar foto', detalhe: String(e) }, 500)
+  }
+})
+
 // ── Admin: estatísticas gerais ────────────────────────────────────────────────
 app.get('/api/rotasegura/admin/stats', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
