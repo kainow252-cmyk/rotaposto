@@ -21059,6 +21059,1323 @@ app.get('/download/apk', async (c) => {
   return new Response(obj.body, { headers })
 })
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── ROTASEGURA — App de corridas (inspirado no Uber) ─────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Tipos RotaSegura ────────────────────────────────────────────────────────────
+interface CorridaRS {
+  id: string
+  status: 'aguardando' | 'motorista_aceito' | 'em_corrida' | 'concluida' | 'cancelada'
+  passageiro: { nome: string; telefone: string; foto?: string }
+  motorista?: { nome: string; telefone: string; foto?: string; placa: string; veiculo: string; avaliacao: number; lat?: number; lng?: number }
+  origem: { lat: number; lng: number; endereco: string }
+  destino: { lat: number; lng: number; endereco: string }
+  preco: number
+  distanciaKm: number
+  criadaEm: number
+  aceitaEm?: number
+  iniciadaEm?: number
+  finalizadaEm?: number
+}
+
+// ── API: Solicitar corrida ──────────────────────────────────────────────────────
+app.post('/api/rotasegura/solicitar', async (c) => {
+  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const body = await c.req.json()
+    const { nomePassageiro, telefonePassageiro, origemLat, origemLng, origemEndereco, destinoLat, destinoLng, destinoEndereco } = body
+
+    if (!origemLat || !origemLng || !destinoLat || !destinoLng) {
+      return c.json({ erro: 'Origem e destino são obrigatórios' }, 400)
+    }
+
+    // Calcular distância aproximada (Haversine)
+    const R = 6371
+    const dLat = (destinoLat - origemLat) * Math.PI / 180
+    const dLng = (destinoLng - origemLng) * Math.PI / 180
+    const a = Math.sin(dLat/2)**2 + Math.cos(origemLat*Math.PI/180) * Math.cos(destinoLat*Math.PI/180) * Math.sin(dLng/2)**2
+    const distanciaKm = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 10) / 10
+    const preco = Math.round((5.5 + distanciaKm * 2.2) * 100) / 100
+
+    const corridaId = `rs_${Date.now()}_${Math.random().toString(36).slice(2,8)}`
+    const corrida: CorridaRS = {
+      id: corridaId,
+      status: 'aguardando',
+      passageiro: { nome: nomePassageiro || 'Passageiro', telefone: telefonePassageiro || '' },
+      origem: { lat: origemLat, lng: origemLng, endereco: origemEndereco || 'Origem' },
+      destino: { lat: destinoLat, lng: destinoLng, endereco: destinoEndereco || 'Destino' },
+      preco,
+      distanciaKm,
+      criadaEm: Date.now()
+    }
+
+    await kv.put(`rotasegura:corrida:${corridaId}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 4 })
+
+    // Adicionar à fila de disponíveis para motoristas
+    const filaRaw = await kv.get('rotasegura:fila_disponivel')
+    const fila: string[] = filaRaw ? JSON.parse(filaRaw) : []
+    fila.push(corridaId)
+    await kv.put('rotasegura:fila_disponivel', JSON.stringify(fila), { expirationTtl: 60 * 60 * 4 })
+
+    return c.json({ ok: true, corridaId, preco, distanciaKm })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao solicitar corrida', detalhe: String(e) }, 500)
+  }
+})
+
+// ── API: Status da corrida ──────────────────────────────────────────────────────
+app.get('/api/rotasegura/status/:corridaId', async (c) => {
+  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  const corridaId = c.req.param('corridaId')
+  const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
+  if (!raw) return c.json({ erro: 'Corrida não encontrada' }, 404)
+
+  const corrida = JSON.parse(raw) as CorridaRS
+  return c.json({ ok: true, corrida })
+})
+
+// ── API: Cancelar corrida ───────────────────────────────────────────────────────
+app.post('/api/rotasegura/cancelar', async (c) => {
+  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const { corridaId } = await c.req.json()
+    const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
+    if (!raw) return c.json({ erro: 'Corrida não encontrada' }, 404)
+
+    const corrida = JSON.parse(raw) as CorridaRS
+    corrida.status = 'cancelada'
+    await kv.put(`rotasegura:corrida:${corridaId}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 2 })
+
+    // Remover da fila
+    const filaRaw = await kv.get('rotasegura:fila_disponivel')
+    if (filaRaw) {
+      const fila: string[] = JSON.parse(filaRaw).filter((id: string) => id !== corridaId)
+      await kv.put('rotasegura:fila_disponivel', JSON.stringify(fila), { expirationTtl: 60 * 60 * 4 })
+    }
+
+    return c.json({ ok: true })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao cancelar', detalhe: String(e) }, 500)
+  }
+})
+
+// ── API: Motorista — buscar corrida disponível ──────────────────────────────────
+app.get('/api/rotasegura/motorista/disponivel', async (c) => {
+  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ corrida: null })
+
+  const filaRaw = await kv.get('rotasegura:fila_disponivel')
+  if (!filaRaw) return c.json({ corrida: null })
+
+  const fila: string[] = JSON.parse(filaRaw)
+  for (const corridaId of fila) {
+    const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
+    if (raw) {
+      const corrida = JSON.parse(raw) as CorridaRS
+      if (corrida.status === 'aguardando') {
+        return c.json({ corrida })
+      }
+    }
+  }
+  return c.json({ corrida: null })
+})
+
+// ── API: Motorista — aceitar corrida ───────────────────────────────────────────
+app.post('/api/rotasegura/motorista/aceitar', async (c) => {
+  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const { corridaId, nomeMotorista, telefoneMotorista, placa, veiculo, motoristaNome, motoristaLat, motoristaLng } = await c.req.json()
+    const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
+    if (!raw) return c.json({ erro: 'Corrida não encontrada' }, 404)
+
+    const corrida = JSON.parse(raw) as CorridaRS
+    if (corrida.status !== 'aguardando') return c.json({ erro: 'Corrida não está disponível' }, 409)
+
+    corrida.status = 'motorista_aceito'
+    corrida.aceitaEm = Date.now()
+    corrida.motorista = {
+      nome: nomeMotorista || motoristaNome || 'Motorista',
+      telefone: telefoneMotorista || '',
+      placa: placa || 'ABC-1234',
+      veiculo: veiculo || 'Carro',
+      avaliacao: 4.8,
+      lat: motoristaLat,
+      lng: motoristaLng
+    }
+
+    await kv.put(`rotasegura:corrida:${corridaId}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 4 })
+
+    // Remover da fila
+    const filaRaw = await kv.get('rotasegura:fila_disponivel')
+    if (filaRaw) {
+      const fila: string[] = JSON.parse(filaRaw).filter((id: string) => id !== corridaId)
+      await kv.put('rotasegura:fila_disponivel', JSON.stringify(fila), { expirationTtl: 60 * 60 * 4 })
+    }
+
+    return c.json({ ok: true, corrida })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao aceitar corrida', detalhe: String(e) }, 500)
+  }
+})
+
+// ── API: Motorista — atualizar localização ─────────────────────────────────────
+app.post('/api/rotasegura/motorista/localizacao', async (c) => {
+  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const { corridaId, lat, lng } = await c.req.json()
+    const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
+    if (!raw) return c.json({ erro: 'Corrida não encontrada' }, 404)
+
+    const corrida = JSON.parse(raw) as CorridaRS
+    if (corrida.motorista) {
+      corrida.motorista.lat = lat
+      corrida.motorista.lng = lng
+    }
+    await kv.put(`rotasegura:corrida:${corridaId}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 4 })
+    return c.json({ ok: true })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao atualizar localização', detalhe: String(e) }, 500)
+  }
+})
+
+// ── API: Motorista — iniciar corrida ───────────────────────────────────────────
+app.post('/api/rotasegura/motorista/iniciar', async (c) => {
+  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const { corridaId } = await c.req.json()
+    const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
+    if (!raw) return c.json({ erro: 'Corrida não encontrada' }, 404)
+
+    const corrida = JSON.parse(raw) as CorridaRS
+    corrida.status = 'em_corrida'
+    corrida.iniciadaEm = Date.now()
+    await kv.put(`rotasegura:corrida:${corridaId}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 4 })
+    return c.json({ ok: true, corrida })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao iniciar corrida', detalhe: String(e) }, 500)
+  }
+})
+
+// ── API: Motorista — finalizar corrida ─────────────────────────────────────────
+app.post('/api/rotasegura/motorista/finalizar', async (c) => {
+  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const { corridaId } = await c.req.json()
+    const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
+    if (!raw) return c.json({ erro: 'Corrida não encontrada' }, 404)
+
+    const corrida = JSON.parse(raw) as CorridaRS
+    corrida.status = 'concluida'
+    corrida.finalizadaEm = Date.now()
+    await kv.put(`rotasegura:corrida:${corridaId}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 24 })
+    return c.json({ ok: true, corrida })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao finalizar corrida', detalhe: String(e) }, 500)
+  }
+})
+
+// ── APP PASSAGEIRO: /rotasegura ────────────────────────────────────────────────
+app.get('/rotasegura', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>RotaSegura — Sua corrida segura</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0a0a;color:#fff;height:100dvh;overflow:hidden;position:relative}
+    #map{position:fixed;inset:0;z-index:1}
+    /* Header */
+    .header{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 16px 0;pointer-events:none}
+    .header-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+    .logo{background:linear-gradient(135deg,#00C851,#007E33);border-radius:12px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 15px rgba(0,200,81,.4);pointer-events:all;flex-shrink:0}
+    .logo-text{font-size:18px;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.8);color:#fff}
+    .logo-sub{font-size:11px;color:rgba(255,255,255,.7);text-shadow:0 1px 4px rgba(0,0,0,.8)}
+    /* Searchbar */
+    .search-card{pointer-events:all;background:rgba(15,15,15,.97);backdrop-filter:blur(20px);border-radius:16px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08)}
+    .search-row{display:flex;align-items:center;gap:12px;cursor:pointer;padding:4px 0}
+    .search-dot{width:12px;height:12px;border-radius:50%;background:#00C851;box-shadow:0 0 8px rgba(0,200,81,.6);flex-shrink:0}
+    .search-dot.dest{background:#ff4458;box-shadow:0 0 8px rgba(255,68,88,.6)}
+    .search-line{width:2px;height:16px;background:rgba(255,255,255,.15);margin:4px 0 4px 5px}
+    .search-input{background:transparent;border:none;outline:none;color:#fff;font-size:15px;width:100%;cursor:pointer;caret-color:#00C851}
+    .search-input::placeholder{color:rgba(255,255,255,.4)}
+    /* Autocomplete */
+    .autocomplete-list{background:rgba(15,15,15,.98);border-radius:12px;margin-top:8px;overflow:hidden;border:1px solid rgba(255,255,255,.08);display:none}
+    .autocomplete-item{padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background .15s;border-bottom:1px solid rgba(255,255,255,.05)}
+    .autocomplete-item:last-child{border-bottom:none}
+    .autocomplete-item:hover,.autocomplete-item:active{background:rgba(255,255,255,.08)}
+    .autocomplete-item i{color:#00C851;width:16px;flex-shrink:0}
+    .autocomplete-item span{font-size:13px;color:rgba(255,255,255,.85);line-height:1.3}
+    /* Bottom sheet */
+    .bottom-sheet{position:fixed;bottom:0;left:0;right:0;z-index:100;transition:transform .35s cubic-bezier(.4,0,.2,1)}
+    .sheet-handle{width:40px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:0 auto 14px}
+    .sheet-inner{background:rgba(12,12,12,.97);backdrop-filter:blur(24px);border-radius:24px 24px 0 0;padding:14px 20px 32px;border-top:1px solid rgba(255,255,255,.08)}
+    /* Estados do sheet */
+    .state-idle{display:block}
+    .state-preco{display:none}
+    .state-aguardando{display:none}
+    .state-motorista{display:none}
+    .state-em-corrida{display:none}
+    .state-concluida{display:none}
+    /* Tipo de corrida */
+    .tipo-titulo{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.4);margin-bottom:10px}
+    .tipos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+    .tipo-card{background:rgba(255,255,255,.05);border:2px solid transparent;border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;transition:all .2s}
+    .tipo-card.ativo{border-color:#00C851;background:rgba(0,200,81,.1)}
+    .tipo-card i{font-size:22px;display:block;margin-bottom:4px}
+    .tipo-card .tipo-nome{font-size:11px;font-weight:600;color:rgba(255,255,255,.85)}
+    .tipo-card .tipo-preco{font-size:12px;color:#00C851;font-weight:700;margin-top:2px}
+    /* Rota info */
+    .rota-info{display:flex;gap:12px;margin-bottom:16px;background:rgba(255,255,255,.04);border-radius:12px;padding:12px}
+    .rota-info-item{flex:1;text-align:center}
+    .rota-info-label{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px}
+    .rota-info-val{font-size:18px;font-weight:700;color:#fff;margin-top:2px}
+    .rota-info-sub{font-size:10px;color:rgba(255,255,255,.4)}
+    /* Botão principal */
+    .btn-solicitar{width:100%;padding:16px;background:linear-gradient(135deg,#00C851,#00963d);border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 6px 24px rgba(0,200,81,.35);display:flex;align-items:center;justify-content:center;gap:10px}
+    .btn-solicitar:active{transform:scale(.97)}
+    .btn-solicitar:disabled{opacity:.5;cursor:default}
+    .btn-cancelar{width:100%;padding:14px;background:transparent;border:2px solid rgba(255,68,88,.5);border-radius:14px;color:#ff4458;font-size:15px;font-weight:600;cursor:pointer;margin-top:10px;transition:all .2s}
+    .btn-cancelar:active{background:rgba(255,68,88,.1)}
+    /* Aguardando */
+    .aguardando-anim{text-align:center;padding:10px 0 16px}
+    .spinner-ring{width:60px;height:60px;border:3px solid rgba(0,200,81,.2);border-top-color:#00C851;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .aguardando-txt{font-size:16px;font-weight:600;margin-bottom:4px}
+    .aguardando-sub{font-size:12px;color:rgba(255,255,255,.5)}
+    /* Card motorista */
+    .motorista-card{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.08)}
+    .motorista-avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;border:2px solid rgba(0,200,81,.4)}
+    .motorista-info{flex:1}
+    .motorista-nome{font-size:16px;font-weight:700}
+    .motorista-veiculo{font-size:12px;color:rgba(255,255,255,.5);margin-top:2px}
+    .motorista-placa{background:rgba(255,255,255,.08);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:700;letter-spacing:1px;margin-top:4px;display:inline-block}
+    .stars{color:#FFD700;font-size:13px;margin-top:3px}
+    .eta-badge{background:rgba(0,200,81,.15);border:1px solid rgba(0,200,81,.3);border-radius:10px;padding:8px 14px;text-align:center;margin-bottom:14px}
+    .eta-num{font-size:24px;font-weight:800;color:#00C851}
+    .eta-label{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px}
+    /* Concluída */
+    .concluida-wrap{text-align:center;padding:10px 0 16px}
+    .concluida-icon{font-size:48px;margin-bottom:10px}
+    .concluida-txt{font-size:18px;font-weight:700;margin-bottom:4px;color:#00C851}
+    .concluida-preco{font-size:28px;font-weight:800;margin:10px 0 4px}
+    .concluida-sub{font-size:12px;color:rgba(255,255,255,.4)}
+    .btn-nova{width:100%;padding:14px;background:linear-gradient(135deg,#00C851,#00963d);border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px}
+    /* Floating btn minha localização */
+    .fab-loc{position:fixed;right:16px;z-index:99;bottom:280px;width:44px;height:44px;background:rgba(15,15,15,.92);backdrop-filter:blur(12px);border:none;border-radius:50%;color:#00C851;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.4);transition:all .2s}
+    .fab-loc:active{transform:scale(.92)}
+    /* Destino marker */
+    .leaflet-div-icon{background:transparent;border:none}
+    .pin-origem{width:14px;height:14px;background:#00C851;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(0,200,81,.25)}
+    .pin-destino{width:0;height:0;position:relative;display:flex;justify-content:center}
+    .pin-destino svg{filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+    /* Snackbar */
+    .snack{position:fixed;bottom:200px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(30,30,30,.97);color:#fff;padding:10px 20px;border-radius:24px;font-size:13px;z-index:999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1)}
+    .snack.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- Header / Busca -->
+<div class="header">
+  <div class="header-top">
+    <div class="logo">🛡️</div>
+    <div>
+      <div class="logo-text">RotaSegura</div>
+      <div class="logo-sub">Corridas com segurança</div>
+    </div>
+  </div>
+  <div class="search-card" id="searchCard">
+    <div class="search-row" id="rowOrigem">
+      <div class="search-dot"></div>
+      <input id="inputOrigem" class="search-input" placeholder="Sua localização atual" readonly/>
+    </div>
+    <div class="search-line"></div>
+    <div class="search-row" id="rowDestino">
+      <div class="search-dot dest"></div>
+      <input id="inputDestino" class="search-input" placeholder="Para onde você vai?" autocomplete="off"/>
+    </div>
+    <div class="autocomplete-list" id="autocompleteList"></div>
+  </div>
+</div>
+
+<!-- Botão: Minha localização -->
+<button class="fab-loc" id="btnLoc" title="Minha localização">
+  <i class="fas fa-location-crosshairs"></i>
+</button>
+
+<!-- Bottom Sheet -->
+<div class="bottom-sheet" id="bottomSheet">
+  <div class="sheet-inner">
+    <div class="sheet-handle"></div>
+
+    <!-- Estado: idle (sem destino) -->
+    <div class="state-idle" id="stateIdle">
+      <div style="text-align:center;padding:10px 0 14px">
+        <div style="font-size:32px;margin-bottom:8px">🗺️</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px">Onde você quer ir?</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4)">Digite o destino no campo acima</div>
+      </div>
+    </div>
+
+    <!-- Estado: preco (destino selecionado) -->
+    <div class="state-preco" id="statePreco">
+      <p class="tipo-titulo">Escolha o tipo de corrida</p>
+      <div class="rota-info" id="rotaInfo">
+        <div class="rota-info-item">
+          <div class="rota-info-label">Distância</div>
+          <div class="rota-info-val" id="infoDistancia">--</div>
+          <div class="rota-info-sub">km</div>
+        </div>
+        <div style="width:1px;background:rgba(255,255,255,.1)"></div>
+        <div class="rota-info-item">
+          <div class="rota-info-label">Tempo est.</div>
+          <div class="rota-info-val" id="infoTempo">--</div>
+          <div class="rota-info-sub">min</div>
+        </div>
+        <div style="width:1px;background:rgba(255,255,255,.1)"></div>
+        <div class="rota-info-item">
+          <div class="rota-info-label">Preço</div>
+          <div class="rota-info-val" id="infoPreco" style="color:#00C851">--</div>
+          <div class="rota-info-sub">R$</div>
+        </div>
+      </div>
+      <div class="tipos-grid">
+        <div class="tipo-card ativo" data-tipo="eco" onclick="selecionarTipo(this,'eco')">
+          <i>🚗</i><div class="tipo-nome">Eco</div><div class="tipo-preco" id="precoEco">R$ --</div>
+        </div>
+        <div class="tipo-card" data-tipo="confort" onclick="selecionarTipo(this,'confort')">
+          <i>🚙</i><div class="tipo-nome">Confort</div><div class="tipo-preco" id="precoConfort">R$ --</div>
+        </div>
+        <div class="tipo-card" data-tipo="moto" onclick="selecionarTipo(this,'moto')">
+          <i>🏍️</i><div class="tipo-nome">Moto</div><div class="tipo-preco" id="precoMoto">R$ --</div>
+        </div>
+      </div>
+      <button class="btn-solicitar" id="btnSolicitar" onclick="solicitarCorrida()">
+        <i class="fas fa-shield-halved"></i> Solicitar RotaSegura
+      </button>
+      <button class="btn-cancelar" onclick="voltarInicio()">Cancelar</button>
+    </div>
+
+    <!-- Estado: aguardando motorista -->
+    <div class="state-aguardando" id="stateAguardando">
+      <div class="aguardando-anim">
+        <div class="spinner-ring"></div>
+        <div class="aguardando-txt">Procurando motorista...</div>
+        <div class="aguardando-sub">Aguarde, estamos buscando o motorista mais próximo</div>
+      </div>
+      <button class="btn-cancelar" onclick="cancelarCorrida()">Cancelar corrida</button>
+    </div>
+
+    <!-- Estado: motorista a caminho -->
+    <div class="state-motorista" id="stateMotorista">
+      <div class="motorista-card">
+        <div class="motorista-avatar" id="motoristaAvatar">👨‍✈️</div>
+        <div class="motorista-info">
+          <div class="motorista-nome" id="motoristaNome">---</div>
+          <div class="motorista-veiculo" id="motoristaVeiculo">---</div>
+          <div class="motorista-placa" id="motoristaPlaca">---</div>
+          <div class="stars">⭐⭐⭐⭐⭐ <span id="motoristaAvaliacao">4.8</span></div>
+        </div>
+      </div>
+      <div class="eta-badge">
+        <div class="eta-num" id="etaNum">~5</div>
+        <div class="eta-label">min para chegar</div>
+      </div>
+      <button class="btn-cancelar" onclick="cancelarCorrida()">Cancelar corrida</button>
+    </div>
+
+    <!-- Estado: em corrida -->
+    <div class="state-em-corrida" id="stateEmCorrida">
+      <div style="text-align:center;margin-bottom:12px">
+        <div style="font-size:13px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px">Em corrida</div>
+        <div style="font-size:17px;font-weight:700;margin-top:4px" id="emCorridaDestino">---</div>
+      </div>
+      <div class="motorista-card">
+        <div class="motorista-avatar">👨‍✈️</div>
+        <div class="motorista-info">
+          <div class="motorista-nome" id="emCorridaMotorista">---</div>
+          <div class="motorista-placa" id="emCorridaPlaca">---</div>
+          <div class="stars">⭐ <span id="emCorridaAvaliacao">4.8</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estado: concluída -->
+    <div class="state-concluida" id="stateConcluida">
+      <div class="concluida-wrap">
+        <div class="concluida-icon">✅</div>
+        <div class="concluida-txt">Corrida finalizada!</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4)">Obrigado por usar o RotaSegura</div>
+        <div class="concluida-preco" id="concluidaPreco">R$ --</div>
+        <div class="concluida-sub">Valor total da corrida</div>
+      </div>
+      <button class="btn-nova" onclick="voltarInicio()">
+        <i class="fas fa-plus"></i> Nova corrida
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="snack" id="snack"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Estado global ─────────────────────────────────────────────────
+const ST = {
+  map: null, origem: null, destino: null,
+  markerOrigem: null, markerDestino: null, polyline: null,
+  corridaId: null, polling: null, tipo: 'eco',
+  basePreco: 0, distKm: 0
+}
+
+// ── Inicializar mapa ─────────────────────────────────────────────
+function initMap() {
+  ST.map = L.map('map', {
+    zoomControl: false, attributionControl: false,
+    center: [-15.793889, -47.882778], zoom: 13
+  })
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19
+  }).addTo(ST.map)
+  L.control.zoom({ position: 'bottomright' }).addTo(ST.map)
+  obterLocalizacao()
+}
+
+// ── Geolocalização ───────────────────────────────────────────────
+function obterLocalizacao() {
+  if (!navigator.geolocation) return
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords
+    ST.origem = { lat, lng }
+    ST.map.setView([lat, lng], 15)
+    atualizarMarkerOrigem(lat, lng)
+    reverseGeocode(lat, lng).then(end => {
+      document.getElementById('inputOrigem').value = end
+    })
+  }, () => {}, { enableHighAccuracy: true, timeout: 8000 })
+}
+
+// ── Markers ──────────────────────────────────────────────────────
+function criarIconOrigem() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="pin-origem"></div>',
+    iconSize: [14, 14], iconAnchor: [7, 7]
+  })
+}
+function criarIconDestino() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="pin-destino"><svg width="28" height="36" viewBox="0 0 28 36"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="#ff4458"/><circle cx="14" cy="14" r="6" fill="white"/></svg></div>',
+    iconSize: [28, 36], iconAnchor: [14, 36]
+  })
+}
+function atualizarMarkerOrigem(lat, lng) {
+  if (ST.markerOrigem) ST.map.removeLayer(ST.markerOrigem)
+  ST.markerOrigem = L.marker([lat, lng], { icon: criarIconOrigem() }).addTo(ST.map)
+}
+function atualizarMarkerDestino(lat, lng) {
+  if (ST.markerDestino) ST.map.removeLayer(ST.markerDestino)
+  ST.markerDestino = L.marker([lat, lng], { icon: criarIconDestino() }).addTo(ST.map)
+}
+
+// ── Autocomplete Nominatim ───────────────────────────────────────
+let debounceTimer = null
+document.getElementById('inputDestino').addEventListener('input', function() {
+  clearTimeout(debounceTimer)
+  const q = this.value.trim()
+  if (q.length < 3) { fecharAutocomplete(); return }
+  debounceTimer = setTimeout(() => buscarEnderecos(q), 400)
+})
+document.getElementById('inputDestino').addEventListener('focus', function() {
+  if (this.value.trim().length >= 3) buscarEnderecos(this.value.trim())
+})
+
+async function buscarEnderecos(q) {
+  try {
+    const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&countrycodes=br&limit=5&q=' + encodeURIComponent(q), {
+      headers: { 'Accept-Language': 'pt-BR' }
+    })
+    const data = await r.json()
+    renderAutocomplete(data)
+  } catch(e) {}
+}
+
+function renderAutocomplete(items) {
+  const el = document.getElementById('autocompleteList')
+  if (!items.length) { el.style.display = 'none'; return }
+  el.innerHTML = items.map(item => {
+    const nome = item.display_name.split(',').slice(0,3).join(', ')
+    return '<div class="autocomplete-item" onclick="selecionarDestino(' + item.lat + ',' + item.lon + ',\\'' + nome.replace(/'/g,"\\'") + '\\')">' +
+      '<i class="fas fa-map-marker-alt"></i><span>' + nome + '</span></div>'
+  }).join('')
+  el.style.display = 'block'
+}
+
+function fecharAutocomplete() {
+  document.getElementById('autocompleteList').style.display = 'none'
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const r = await fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng, {
+      headers: { 'Accept-Language': 'pt-BR' }
+    })
+    const d = await r.json()
+    const a = d.address
+    return [a.road || a.pedestrian, a.suburb || a.neighbourhood, a.city || a.town].filter(Boolean).join(', ') || d.display_name.split(',').slice(0,2).join(', ')
+  } catch(e) { return 'Localização atual' }
+}
+
+// ── Selecionar destino ───────────────────────────────────────────
+function selecionarDestino(lat, lng, endereco) {
+  lat = parseFloat(lat); lng = parseFloat(lng)
+  ST.destino = { lat, lng, endereco }
+  document.getElementById('inputDestino').value = endereco
+  fecharAutocomplete()
+  atualizarMarkerDestino(lat, lng)
+  desenharRota()
+  if (ST.origem) {
+    const bounds = L.latLngBounds([[ST.origem.lat, ST.origem.lng], [lat, lng]])
+    ST.map.fitBounds(bounds, { padding: [80, 80], maxZoom: 15 })
+  }
+  calcularPrecos()
+  mostrarEstado('preco')
+}
+
+// ── Desenhar rota ────────────────────────────────────────────────
+function desenharRota() {
+  if (ST.polyline) ST.map.removeLayer(ST.polyline)
+  if (!ST.origem || !ST.destino) return
+  ST.polyline = L.polyline([
+    [ST.origem.lat, ST.origem.lng],
+    [ST.destino.lat, ST.destino.lng]
+  ], { color: '#00C851', weight: 4, dashArray: '8, 6', opacity: .85 }).addTo(ST.map)
+}
+
+// ── Calcular preços ──────────────────────────────────────────────
+function calcularPrecos() {
+  if (!ST.origem || !ST.destino) return
+  const R = 6371
+  const dLat = (ST.destino.lat - ST.origem.lat) * Math.PI / 180
+  const dLng = (ST.destino.lng - ST.origem.lng) * Math.PI / 180
+  const a = Math.sin(dLat/2)**2 + Math.cos(ST.origem.lat*Math.PI/180) * Math.cos(ST.destino.lat*Math.PI/180) * Math.sin(dLng/2)**2
+  const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+  ST.distKm = Math.round(d * 10) / 10
+  const tempo = Math.round(d / 0.5)
+
+  const eco = Math.round((4.5 + d * 1.9) * 100) / 100
+  const confort = Math.round((6 + d * 2.4) * 100) / 100
+  const moto = Math.round((3.5 + d * 1.5) * 100) / 100
+  ST.basePreco = eco
+
+  document.getElementById('infoDistancia').textContent = ST.distKm.toFixed(1)
+  document.getElementById('infoTempo').textContent = tempo
+  document.getElementById('infoPreco').textContent = eco.toFixed(2)
+  document.getElementById('precoEco').textContent = 'R$ ' + eco.toFixed(2)
+  document.getElementById('precoConfort').textContent = 'R$ ' + confort.toFixed(2)
+  document.getElementById('precoMoto').textContent = 'R$ ' + moto.toFixed(2)
+}
+
+// ── Selecionar tipo ──────────────────────────────────────────────
+function selecionarTipo(el, tipo) {
+  document.querySelectorAll('.tipo-card').forEach(c => c.classList.remove('ativo'))
+  el.classList.add('ativo')
+  ST.tipo = tipo
+  const precoEl = el.querySelector('.tipo-preco').textContent.replace('R$ ','')
+  document.getElementById('infoPreco').textContent = precoEl
+}
+
+// ── Solicitar corrida ────────────────────────────────────────────
+async function solicitarCorrida() {
+  if (!ST.origem || !ST.destino) { snack('Selecione um destino!'); return }
+  const btn = document.getElementById('btnSolicitar')
+  btn.disabled = true
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Aguarde...'
+
+  try {
+    const r = await fetch('/api/rotasegura/solicitar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nomePassageiro: 'Passageiro RotaSegura',
+        origemLat: ST.origem.lat, origemLng: ST.origem.lng,
+        origemEndereco: document.getElementById('inputOrigem').value || 'Origem',
+        destinoLat: ST.destino.lat, destinoLng: ST.destino.lng,
+        destinoEndereco: ST.destino.endereco
+      })
+    })
+    const d = await r.json()
+    if (d.ok) {
+      ST.corridaId = d.corridaId
+      mostrarEstado('aguardando')
+      iniciarPolling()
+    } else {
+      snack(d.erro || 'Erro ao solicitar corrida')
+      btn.disabled = false
+      btn.innerHTML = '<i class="fas fa-shield-halved"></i> Solicitar RotaSegura'
+    }
+  } catch(e) {
+    snack('Erro de conexão. Tente novamente.')
+    btn.disabled = false
+    btn.innerHTML = '<i class="fas fa-shield-halved"></i> Solicitar RotaSegura'
+  }
+}
+
+// ── Polling de status ────────────────────────────────────────────
+function iniciarPolling() {
+  if (ST.polling) clearInterval(ST.polling)
+  ST.polling = setInterval(async () => {
+    if (!ST.corridaId) return
+    try {
+      const r = await fetch('/api/rotasegura/status/' + ST.corridaId)
+      const d = await r.json()
+      if (!d.ok) return
+      const corrida = d.corrida
+      if (corrida.status === 'motorista_aceito') {
+        clearInterval(ST.polling)
+        mostrarMotorista(corrida)
+        // Continuar polling para atualizar localização
+        ST.polling = setInterval(() => atualizarCorrida(), 5000)
+      } else if (corrida.status === 'em_corrida') {
+        mostrarEmCorrida(corrida)
+      } else if (corrida.status === 'concluida') {
+        clearInterval(ST.polling)
+        mostrarConcluida(corrida)
+      } else if (corrida.status === 'cancelada') {
+        clearInterval(ST.polling)
+        snack('Corrida cancelada')
+        voltarInicio()
+      }
+    } catch(e) {}
+  }, 4000)
+}
+
+async function atualizarCorrida() {
+  if (!ST.corridaId) return
+  try {
+    const r = await fetch('/api/rotasegura/status/' + ST.corridaId)
+    const d = await r.json()
+    if (!d.ok) return
+    const corrida = d.corrida
+    if (corrida.motorista?.lat && corrida.motorista?.lng) {
+      const pos = [corrida.motorista.lat, corrida.motorista.lng]
+      if (ST.markerMotorista) ST.map.removeLayer(ST.markerMotorista)
+      const icone = L.divIcon({
+        className: '',
+        html: '<div style="width:32px;height:32px;background:#00C851;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)">🚗</div>',
+        iconSize: [32, 32], iconAnchor: [16, 16]
+      })
+      ST.markerMotorista = L.marker(pos, { icon: icone }).addTo(ST.map)
+    }
+    if (corrida.status === 'em_corrida') { clearInterval(ST.polling); mostrarEmCorrida(corrida) }
+    else if (corrida.status === 'concluida') { clearInterval(ST.polling); mostrarConcluida(corrida) }
+  } catch(e) {}
+}
+
+// ── Estados de UI ────────────────────────────────────────────────
+function mostrarEstado(estado) {
+  ['idle','preco','aguardando','motorista','em-corrida','concluida'].forEach(s => {
+    const el = document.getElementById('state' + s.split('-').map(p => p[0].toUpperCase()+p.slice(1)).join(''))
+    if (el) el.style.display = (s === estado) ? 'block' : 'none'
+  })
+}
+
+function mostrarMotorista(corrida) {
+  const m = corrida.motorista
+  document.getElementById('motoristaNome').textContent = m.nome
+  document.getElementById('motoristaVeiculo').textContent = m.veiculo
+  document.getElementById('motoristaPlaca').textContent = m.placa
+  document.getElementById('motoristaAvaliacao').textContent = m.avaliacao
+  const eta = Math.max(2, Math.round(ST.distKm * 1.5))
+  document.getElementById('etaNum').textContent = '~' + eta
+  mostrarEstado('motorista')
+  snack('✅ Motorista encontrado!')
+}
+
+function mostrarEmCorrida(corrida) {
+  if (document.getElementById('stateEmCorrida').style.display === 'block') return
+  const m = corrida.motorista
+  document.getElementById('emCorridaDestino').textContent = corrida.destino.endereco
+  document.getElementById('emCorridaMotorista').textContent = m?.nome || '---'
+  document.getElementById('emCorridaPlaca').textContent = m?.placa || '---'
+  document.getElementById('emCorridaAvaliacao').textContent = m?.avaliacao || '4.8'
+  mostrarEstado('em-corrida')
+  snack('🚗 Você está a bordo!')
+}
+
+function mostrarConcluida(corrida) {
+  document.getElementById('concluidaPreco').textContent = 'R$ ' + corrida.preco.toFixed(2)
+  mostrarEstado('concluida')
+}
+
+async function cancelarCorrida() {
+  if (!ST.corridaId) { voltarInicio(); return }
+  if (ST.polling) clearInterval(ST.polling)
+  try {
+    await fetch('/api/rotasegura/cancelar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ corridaId: ST.corridaId })
+    })
+  } catch(e) {}
+  snack('Corrida cancelada')
+  voltarInicio()
+}
+
+function voltarInicio() {
+  if (ST.polling) clearInterval(ST.polling)
+  ST.corridaId = null
+  ST.destino = null
+  if (ST.markerDestino) { ST.map.removeLayer(ST.markerDestino); ST.markerDestino = null }
+  if (ST.polyline) { ST.map.removeLayer(ST.polyline); ST.polyline = null }
+  if (ST.markerMotorista) { ST.map.removeLayer(ST.markerMotorista); ST.markerMotorista = null }
+  document.getElementById('inputDestino').value = ''
+  const btn = document.getElementById('btnSolicitar')
+  btn.disabled = false
+  btn.innerHTML = '<i class="fas fa-shield-halved"></i> Solicitar RotaSegura'
+  mostrarEstado('idle')
+  if (ST.origem) ST.map.setView([ST.origem.lat, ST.origem.lng], 15)
+}
+
+// ── Btn localização ──────────────────────────────────────────────
+document.getElementById('btnLoc').onclick = () => {
+  if (ST.origem) ST.map.setView([ST.origem.lat, ST.origem.lng], 16)
+  else obterLocalizacao()
+}
+
+// ── Snackbar ─────────────────────────────────────────────────────
+function snack(msg) {
+  const el = document.getElementById('snack')
+  el.textContent = msg
+  el.classList.add('show')
+  setTimeout(() => el.classList.remove('show'), 3000)
+}
+
+// ── Fechar autocomplete ao clicar fora ───────────────────────────
+document.addEventListener('click', e => {
+  if (!e.target.closest('#searchCard')) fecharAutocomplete()
+})
+
+// ── Init ─────────────────────────────────────────────────────────
+window.addEventListener('load', initMap)
+</script>
+</body>
+</html>`
+  return c.html(html)
+})
+
+// ── APP MOTORISTA: /rotasegura/motorista ───────────────────────────────────────
+app.get('/rotasegura/motorista', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>RotaSegura — Motorista</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d0d0d;color:#fff;height:100dvh;overflow:hidden}
+    #map{position:fixed;inset:0;z-index:1}
+    /* Header motorista */
+    .moto-header{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 16px}
+    .moto-header-inner{background:rgba(12,12,12,.96);backdrop-filter:blur(20px);border-radius:16px;padding:12px 16px;border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between}
+    .moto-logo{display:flex;align-items:center;gap:10px}
+    .moto-logo-icon{background:linear-gradient(135deg,#1a6aff,#0044cc);border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px}
+    .moto-logo-text{font-size:16px;font-weight:700}
+    .moto-logo-sub{font-size:11px;color:rgba(255,255,255,.4)}
+    /* Toggle online */
+    .toggle-wrap{display:flex;align-items:center;gap:10px}
+    .toggle-label{font-size:12px;font-weight:600;color:rgba(255,255,255,.6)}
+    .toggle-switch{position:relative;width:52px;height:28px}
+    .toggle-switch input{opacity:0;width:0;height:0}
+    .toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,.15);border-radius:28px;cursor:pointer;transition:background .3s}
+    .toggle-slider:before{content:'';position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .3s}
+    input:checked + .toggle-slider{background:#00C851}
+    input:checked + .toggle-slider:before{transform:translateX(24px)}
+    .status-dot{width:8px;height:8px;border-radius:50%;background:#ff4458;flex-shrink:0;transition:background .3s}
+    .status-dot.online{background:#00C851;box-shadow:0 0 6px rgba(0,200,81,.5)}
+    /* Ganhos */
+    .ganhos-bar{position:fixed;top:90px;left:16px;right:16px;z-index:99}
+    .ganhos-card{background:rgba(12,12,12,.9);backdrop-filter:blur(16px);border-radius:12px;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,.06)}
+    .ganho-item{text-align:center}
+    .ganho-val{font-size:16px;font-weight:700;color:#00C851}
+    .ganho-label{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.4px}
+    /* Bottom sheet motorista */
+    .moto-sheet{position:fixed;bottom:0;left:0;right:0;z-index:100}
+    .moto-sheet-inner{background:rgba(10,10,10,.97);backdrop-filter:blur(24px);border-radius:24px 24px 0 0;padding:14px 20px 36px;border-top:1px solid rgba(255,255,255,.08)}
+    .sheet-handle{width:40px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:0 auto 16px}
+    /* Estado offline */
+    .estado-offline{text-align:center;padding:14px 0 10px}
+    .offline-icon{font-size:40px;margin-bottom:10px;opacity:.4}
+    .offline-txt{font-size:15px;font-weight:600;color:rgba(255,255,255,.6)}
+    .offline-sub{font-size:12px;color:rgba(255,255,255,.3);margin-top:4px}
+    /* Card corrida disponível */
+    .corrida-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px;margin-bottom:12px}
+    .corrida-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+    .corrida-preco{font-size:28px;font-weight:800;color:#00C851}
+    .corrida-dist{font-size:12px;color:rgba(255,255,255,.4);text-align:right}
+    .corrida-dist span{display:block;font-size:18px;font-weight:700;color:#fff}
+    .rota-linha{display:flex;gap:12px;align-items:flex-start;margin:8px 0}
+    .rota-dot-wrap{display:flex;flex-direction:column;align-items:center;padding-top:4px;width:16px}
+    .rota-dot-g{width:10px;height:10px;border-radius:50%;background:#00C851;flex-shrink:0}
+    .rota-dot-r{width:10px;height:10px;border-radius:50%;background:#ff4458;flex-shrink:0}
+    .rota-line{width:2px;height:28px;background:rgba(255,255,255,.15);margin:3px 0}
+    .rota-end{font-size:12px;color:rgba(255,255,255,.7);line-height:1.4}
+    .rota-end strong{display:block;font-size:13px;color:#fff;margin-bottom:2px}
+    .btns-aceitar{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+    .btn-recusar{padding:14px;background:transparent;border:2px solid rgba(255,68,88,.4);border-radius:12px;color:#ff4458;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+    .btn-recusar:active{background:rgba(255,68,88,.1)}
+    .btn-aceitar{padding:14px;background:linear-gradient(135deg,#00C851,#00963d);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(0,200,81,.3)}
+    .btn-aceitar:active{transform:scale(.97)}
+    /* Passageiro aceito */
+    .pass-card{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.08)}
+    .pass-avatar{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid rgba(255,255,255,.1);flex-shrink:0}
+    .pass-nome{font-size:16px;font-weight:700}
+    .pass-avaliacao{font-size:12px;color:#FFD700;margin-top:3px}
+    .pass-telefone{font-size:12px;color:rgba(255,255,255,.4);margin-top:2px}
+    .destino-badge{background:rgba(255,68,88,.1);border:1px solid rgba(255,68,88,.3);border-radius:10px;padding:8px 12px;margin-bottom:14px;display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.7)}
+    .destino-badge i{color:#ff4458}
+    /* Botões de ação motorista */
+    .btn-acao{width:100%;padding:16px;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:10px}
+    .btn-cheguei{background:linear-gradient(135deg,#1a6aff,#0044cc);color:#fff;box-shadow:0 4px 16px rgba(26,106,255,.3)}
+    .btn-iniciar{background:linear-gradient(135deg,#FF6B35,#e55a25);color:#fff;box-shadow:0 4px 16px rgba(255,107,53,.3)}
+    .btn-finalizar{background:linear-gradient(135deg,#00C851,#00963d);color:#fff;box-shadow:0 4px 16px rgba(0,200,81,.3)}
+    .btn-acao:active{transform:scale(.97)}
+    /* Status corrida motorista */
+    .status-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+    .status-tag.caminho{background:rgba(26,106,255,.2);color:#4d8bff;border:1px solid rgba(26,106,255,.3)}
+    .status-tag.bordo{background:rgba(255,107,53,.2);color:#ff8a65;border:1px solid rgba(255,107,53,.3)}
+    /* Ganhos concluída */
+    .ganho-corrida{text-align:center;padding:10px 0 16px}
+    .ganho-corrida-val{font-size:36px;font-weight:800;color:#00C851;margin:10px 0 4px}
+    /* Aguardando no online */
+    .aguardando-online{text-align:center;padding:10px 0 10px}
+    .pulse-ring{width:50px;height:50px;border-radius:50%;border:3px solid rgba(0,200,81,.3);margin:0 auto 10px;animation:pulse 1.5s ease-in-out infinite}
+    @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.6}}
+    /* Floating btn */
+    .fab-loc{position:fixed;right:16px;bottom:220px;z-index:99;width:44px;height:44px;background:rgba(15,15,15,.92);backdrop-filter:blur(12px);border:none;border-radius:50%;color:#1a6aff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+    .fab-loc:active{transform:scale(.92)}
+    .snack{position:fixed;bottom:200px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(30,30,30,.97);color:#fff;padding:10px 20px;border-radius:24px;font-size:13px;z-index:999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1)}
+    .snack.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- Header -->
+<div class="moto-header">
+  <div class="moto-header-inner">
+    <div class="moto-logo">
+      <div class="moto-logo-icon">🚗</div>
+      <div>
+        <div class="moto-logo-text">RotaSegura</div>
+        <div class="moto-logo-sub">Modo Motorista</div>
+      </div>
+    </div>
+    <div class="toggle-wrap">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="toggle-label" id="toggleLabel">Offline</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleOnline" onchange="toggleStatus()"/>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Ganhos do dia -->
+<div class="ganhos-bar" id="ganhosBar" style="display:none">
+  <div class="ganhos-card">
+    <div class="ganho-item">
+      <div class="ganho-val" id="ganhoHoje">R$ 0,00</div>
+      <div class="ganho-label">Hoje</div>
+    </div>
+    <div class="ganho-item">
+      <div class="ganho-val" id="corridasHoje">0</div>
+      <div class="ganho-label">Corridas</div>
+    </div>
+    <div class="ganho-item">
+      <div class="ganho-val" id="avaliacaoMedia">5.0 ⭐</div>
+      <div class="ganho-label">Avaliação</div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Sheet -->
+<div class="moto-sheet" id="motoSheet">
+  <div class="moto-sheet-inner">
+    <div class="sheet-handle"></div>
+
+    <!-- Offline -->
+    <div id="stateOffline">
+      <div class="estado-offline">
+        <div class="offline-icon">🔴</div>
+        <div class="offline-txt">Você está offline</div>
+        <div class="offline-sub">Ative o toggle acima para receber corridas</div>
+      </div>
+    </div>
+
+    <!-- Online aguardando -->
+    <div id="stateOnlineAguardando" style="display:none">
+      <div class="aguardando-online">
+        <div class="pulse-ring"></div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px">Aguardando corridas...</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4)">Procurando passageiros próximos</div>
+      </div>
+    </div>
+
+    <!-- Corrida disponível -->
+    <div id="stateCorrida" style="display:none">
+      <div class="corrida-card">
+        <div class="corrida-header">
+          <div>
+            <div style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Nova corrida</div>
+            <div class="corrida-preco" id="corridaPreco">R$ --</div>
+          </div>
+          <div class="corrida-dist">
+            <div>Distância</div>
+            <span id="corridaDist">-- km</span>
+          </div>
+        </div>
+        <div class="rota-linha">
+          <div class="rota-dot-wrap">
+            <div class="rota-dot-g"></div>
+            <div class="rota-line"></div>
+            <div class="rota-dot-r"></div>
+          </div>
+          <div>
+            <div class="rota-end"><strong>Origem</strong><span id="corridaOrigem">---</span></div>
+            <div class="rota-end" style="margin-top:12px"><strong>Destino</strong><span id="corridaDestino">---</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="btns-aceitar">
+        <button class="btn-recusar" onclick="recusarCorrida()"><i class="fas fa-times"></i> Recusar</button>
+        <button class="btn-aceitar" onclick="aceitarCorrida()"><i class="fas fa-check"></i> Aceitar corrida</button>
+      </div>
+    </div>
+
+    <!-- A caminho do passageiro -->
+    <div id="stateACaminho" style="display:none">
+      <div class="status-tag caminho"><i class="fas fa-route"></i> A caminho do passageiro</div>
+      <div class="pass-card">
+        <div class="pass-avatar">👤</div>
+        <div>
+          <div class="pass-nome" id="passNome">---</div>
+          <div class="pass-avaliacao">⭐⭐⭐⭐⭐ 4.9</div>
+          <div class="pass-telefone" id="passEnd">---</div>
+        </div>
+      </div>
+      <div class="destino-badge">
+        <i class="fas fa-flag-checkered"></i>
+        <span id="aDestino">---</span>
+      </div>
+      <button class="btn-acao btn-cheguei" onclick="chegouPassageiro()">
+        <i class="fas fa-location-dot"></i> Cheguei ao passageiro
+      </button>
+    </div>
+
+    <!-- Em corrida -->
+    <div id="stateEmCorrida" style="display:none">
+      <div class="status-tag bordo"><i class="fas fa-car"></i> Em corrida</div>
+      <div class="pass-card">
+        <div class="pass-avatar">👤</div>
+        <div>
+          <div class="pass-nome" id="emNome">---</div>
+          <div class="pass-avaliacao">⭐⭐⭐⭐⭐ 4.9</div>
+        </div>
+      </div>
+      <div class="destino-badge">
+        <i class="fas fa-map-marker-alt"></i>
+        <span id="emDestino">---</span>
+      </div>
+      <button class="btn-acao btn-finalizar" onclick="finalizarCorrida()">
+        <i class="fas fa-flag-checkered"></i> Finalizar corrida
+      </button>
+    </div>
+
+    <!-- Corrida concluída -->
+    <div id="stateConcluida" style="display:none">
+      <div class="ganho-corrida">
+        <div style="font-size:13px;color:rgba(255,255,255,.5)">Corrida concluída!</div>
+        <div class="ganho-corrida-val" id="concluidaGanho">R$ --</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4)">Valor recebido</div>
+      </div>
+      <button class="btn-acao btn-finalizar" onclick="novaCorridaMotorista()" style="margin-top:8px">
+        <i class="fas fa-search"></i> Buscar nova corrida
+      </button>
+    </div>
+  </div>
+</div>
+
+<button class="fab-loc" id="btnLocM" title="Minha localização">
+  <i class="fas fa-location-crosshairs"></i>
+</button>
+<div class="snack" id="snack"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const MT = {
+  map: null, online: false, loc: null,
+  corridaAtual: null, markerPos: null, markerOrigem: null, markerDestino: null, polyline: null,
+  polling: null, ganhoTotal: 0, corridasTotal: 0
+}
+
+// ── Mapa ─────────────────────────────────────────────────────────
+function initMap() {
+  MT.map = L.map('map', {
+    zoomControl: false, attributionControl: false,
+    center: [-15.793889, -47.882778], zoom: 13
+  })
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(MT.map)
+  L.control.zoom({ position: 'bottomright' }).addTo(MT.map)
+  obterLoc()
+}
+
+function obterLoc() {
+  if (!navigator.geolocation) return
+  navigator.geolocation.watchPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords
+    MT.loc = { lat, lng }
+    MT.map.setView([lat, lng], 15)
+    atualizarPosMarker(lat, lng)
+  }, () => {}, { enableHighAccuracy: true })
+}
+
+function atualizarPosMarker(lat, lng) {
+  if (MT.markerPos) MT.map.removeLayer(MT.markerPos)
+  MT.markerPos = L.marker([lat, lng], { icon: L.divIcon({
+    className: '',
+    html: '<div style="width:36px;height:36px;background:linear-gradient(135deg,#1a6aff,#0044cc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid #fff;box-shadow:0 3px 12px rgba(26,106,255,.5)">🚗</div>',
+    iconSize: [36, 36], iconAnchor: [18, 18]
+  })}).addTo(MT.map)
+}
+
+// ── Toggle online/offline ────────────────────────────────────────
+function toggleStatus() {
+  MT.online = document.getElementById('toggleOnline').checked
+  document.getElementById('toggleLabel').textContent = MT.online ? 'Online' : 'Offline'
+  const dot = document.getElementById('statusDot')
+  dot.classList.toggle('online', MT.online)
+  document.getElementById('ganhosBar').style.display = MT.online ? 'block' : 'none'
+
+  if (MT.online) {
+    mostrarEstadoM('online-aguardando')
+    snack('✅ Você está online! Buscando corridas...')
+    iniciarBuscaCorridas()
+  } else {
+    if (MT.polling) clearInterval(MT.polling)
+    mostrarEstadoM('offline')
+    snack('🔴 Você está offline')
+  }
+}
+
+// ── Buscar corridas ──────────────────────────────────────────────
+function iniciarBuscaCorridas() {
+  if (MT.polling) clearInterval(MT.polling)
+  MT.polling = setInterval(async () => {
+    if (!MT.online || MT.corridaAtual) return
+    try {
+      const r = await fetch('/api/rotasegura/motorista/disponivel')
+      const d = await r.json()
+      if (d.corrida) {
+        MT.corridaAtual = d.corrida
+        mostrarCorridaDisponivel(d.corrida)
+      }
+    } catch(e) {}
+  }, 5000)
+}
+
+function mostrarCorridaDisponivel(corrida) {
+  document.getElementById('corridaPreco').textContent = 'R$ ' + corrida.preco.toFixed(2)
+  document.getElementById('corridaDist').textContent = corrida.distanciaKm + ' km'
+  document.getElementById('corridaOrigem').textContent = corrida.origem.endereco
+  document.getElementById('corridaDestino').textContent = corrida.destino.endereco
+
+  // Mostrar rota no mapa
+  if (MT.markerOrigem) MT.map.removeLayer(MT.markerOrigem)
+  if (MT.markerDestino) MT.map.removeLayer(MT.markerDestino)
+  if (MT.polyline) MT.map.removeLayer(MT.polyline)
+
+  MT.markerOrigem = L.marker([corrida.origem.lat, corrida.origem.lng], { icon: L.divIcon({
+    className: '',
+    html: '<div style="width:12px;height:12px;background:#00C851;border-radius:50%;border:3px solid #fff;box-shadow:0 0 8px rgba(0,200,81,.5)"></div>',
+    iconSize: [12, 12], iconAnchor: [6, 6]
+  })}).addTo(MT.map)
+
+  MT.markerDestino = L.marker([corrida.destino.lat, corrida.destino.lng], { icon: L.divIcon({
+    className: '',
+    html: '<div style="width:0;height:0"><svg width="24" height="32" viewBox="0 0 28 36"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="#ff4458"/><circle cx="14" cy="14" r="6" fill="white"/></svg></div>',
+    iconSize: [24, 32], iconAnchor: [12, 32]
+  })}).addTo(MT.map)
+
+  MT.polyline = L.polyline([[corrida.origem.lat, corrida.origem.lng], [corrida.destino.lat, corrida.destino.lng]], {
+    color: '#00C851', weight: 3, dashArray: '8, 6', opacity: .8
+  }).addTo(MT.map)
+
+  const bounds = L.latLngBounds([[corrida.origem.lat, corrida.origem.lng], [corrida.destino.lat, corrida.destino.lng]])
+  MT.map.fitBounds(bounds, { padding: [80, 80], maxZoom: 14 })
+
+  mostrarEstadoM('corrida')
+  snack('🚗 Nova corrida disponível!')
+}
+
+// ── Aceitar corrida ──────────────────────────────────────────────
+async function aceitarCorrida() {
+  if (!MT.corridaAtual) return
+  try {
+    const r = await fetch('/api/rotasegura/motorista/aceitar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        corridaId: MT.corridaAtual.id,
+        nomeMotorista: 'Motorista RotaSegura',
+        placa: 'RSG-0001',
+        veiculo: 'Sedan',
+        motoristaLat: MT.loc?.lat,
+        motoristaLng: MT.loc?.lng
+      })
+    })
+    const d = await r.json()
+    if (d.ok) {
+      document.getElementById('passNome').textContent = MT.corridaAtual.passageiro.nome
+      document.getElementById('passEnd').textContent = MT.corridaAtual.origem.endereco
+      document.getElementById('aDestino').textContent = MT.corridaAtual.destino.endereco
+      mostrarEstadoM('a-caminho')
+      snack('✅ Corrida aceita! A caminho do passageiro')
+      // Enviar localização periodicamente
+      iniciarEnvioLocalizacao()
+    }
+  } catch(e) {
+    snack('Erro ao aceitar corrida')
+  }
+}
+
+function iniciarEnvioLocalizacao() {
+  setInterval(() => {
+    if (!MT.corridaAtual || !MT.loc) return
+    fetch('/api/rotasegura/motorista/localizacao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ corridaId: MT.corridaAtual.id, lat: MT.loc.lat, lng: MT.loc.lng })
+    }).catch(() => {})
+  }, 5000)
+}
+
+// ── Recusar corrida ──────────────────────────────────────────────
+function recusarCorrida() {
+  MT.corridaAtual = null
+  if (MT.markerOrigem) { MT.map.removeLayer(MT.markerOrigem); MT.markerOrigem = null }
+  if (MT.markerDestino) { MT.map.removeLayer(MT.markerDestino); MT.markerDestino = null }
+  if (MT.polyline) { MT.map.removeLayer(MT.polyline); MT.polyline = null }
+  mostrarEstadoM('online-aguardando')
+  snack('Corrida recusada. Buscando nova...')
+}
+
+// ── Chegou ao passageiro ─────────────────────────────────────────
+async function chegouPassageiro() {
+  if (!MT.corridaAtual) return
+  try {
+    await fetch('/api/rotasegura/motorista/iniciar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ corridaId: MT.corridaAtual.id })
+    })
+    document.getElementById('emNome').textContent = MT.corridaAtual.passageiro.nome
+    document.getElementById('emDestino').textContent = MT.corridaAtual.destino.endereco
+    mostrarEstadoM('em-corrida')
+    snack('🚗 Corrida iniciada!')
+    if (MT.loc) MT.map.setView([MT.corridaAtual.destino.lat, MT.corridaAtual.destino.lng], 14)
+  } catch(e) {
+    snack('Erro ao iniciar corrida')
+  }
+}
+
+// ── Finalizar corrida ────────────────────────────────────────────
+async function finalizarCorrida() {
+  if (!MT.corridaAtual) return
+  try {
+    await fetch('/api/rotasegura/motorista/finalizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ corridaId: MT.corridaAtual.id })
+    })
+    const preco = MT.corridaAtual.preco
+    MT.ganhoTotal += preco
+    MT.corridasTotal++
+    document.getElementById('ganhoHoje').textContent = 'R$ ' + MT.ganhoTotal.toFixed(2).replace('.',',')
+    document.getElementById('corridasHoje').textContent = MT.corridasTotal
+    document.getElementById('concluidaGanho').textContent = 'R$ ' + preco.toFixed(2)
+    mostrarEstadoM('concluida')
+    snack('✅ Corrida finalizada! + R$ ' + preco.toFixed(2))
+    MT.corridaAtual = null
+  } catch(e) {
+    snack('Erro ao finalizar corrida')
+  }
+}
+
+function novaCorridaMotorista() {
+  mostrarEstadoM('online-aguardando')
+  snack('Buscando nova corrida...')
+}
+
+// ── Estados ──────────────────────────────────────────────────────
+function mostrarEstadoM(estado) {
+  const mapa = {
+    'offline': 'stateOffline',
+    'online-aguardando': 'stateOnlineAguardando',
+    'corrida': 'stateCorrida',
+    'a-caminho': 'stateACaminho',
+    'em-corrida': 'stateEmCorrida',
+    'concluida': 'stateConcluida'
+  }
+  Object.values(mapa).forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none' })
+  const alvo = mapa[estado]
+  if (alvo) { const el = document.getElementById(alvo); if(el) el.style.display = 'block' }
+}
+
+// ── Snackbar ──────────────────────────────────────────────────────
+function snack(msg) {
+  const el = document.getElementById('snack')
+  el.textContent = msg
+  el.classList.add('show')
+  setTimeout(() => el.classList.remove('show'), 3000)
+}
+
+document.getElementById('btnLocM').onclick = () => {
+  if (MT.loc) MT.map.setView([MT.loc.lat, MT.loc.lng], 16)
+}
+
+window.addEventListener('load', initMap)
+</script>
+</body>
+</html>`
+  return c.html(html)
+})
+
 // ─── Export: fetch handler + scheduled (cron) ─────────────────────────────────
 export default {
   fetch: app.fetch,
