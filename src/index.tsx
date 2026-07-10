@@ -9855,6 +9855,7 @@ app.get('/api/admin/app-usuarios', async (c) => {
           cidade: perfil.cidade || '—',
           estado: perfil.estado || '—',
           cpf: perfil.cpf || '—',
+          suspenso: Boolean(perfil.suspenso),
           // Dados de sessão
           deviceId: sess.deviceId || '—',
           loginEm: sess.updatedAt || sess.createdAt ? new Date(sess.updatedAt || sess.createdAt).toISOString() : '—',
@@ -9888,6 +9889,7 @@ app.get('/api/admin/app-usuarios', async (c) => {
           cidade: perfil.cidade || '—',
           estado: perfil.estado || '—',
           cpf: perfil.cpf || '—',
+          suspenso: Boolean(perfil.suspenso),
           deviceId: '—',
           loginEm: perfil.ultimoLogin ? new Date(perfil.ultimoLogin).toISOString() : '—',
           criadoEm: perfil.criadoEm ? new Date(perfil.criadoEm).toISOString() : '—',
@@ -9913,6 +9915,41 @@ app.get('/api/admin/app-usuarios', async (c) => {
   }
 })
 
+// ─── PUT /api/admin/app-usuarios/:uid — editar perfil + suspender/reativar ────
+app.put('/api/admin/app-usuarios/:uid', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const uid = c.req.param('uid')
+  const body = await c.req.json() as Record<string, unknown>
+
+  // Carregar perfil atual
+  const profileRaw = await kv.get(`profile:${uid}`)
+  const perfil: Record<string, unknown> = profileRaw ? JSON.parse(profileRaw) : { uid }
+
+  // Campos editáveis pelo admin
+  if ('nome' in body)      perfil.name      = body.nome
+  if ('email' in body)     perfil.email     = body.email
+  if ('telefone' in body)  perfil.telefone  = body.telefone
+  if ('cidade' in body)    perfil.cidade    = body.cidade
+  if ('estado' in body)    perfil.estado    = body.estado
+  if ('suspenso' in body)  perfil.suspenso  = Boolean(body.suspenso)
+
+  perfil.uid = uid
+  perfil.adminAtualizadoEm = new Date().toISOString()
+
+  await kv.put(`profile:${uid}`, JSON.stringify(perfil))
+
+  // Se suspender: remove sessão para deslogar imediatamente
+  if (body.suspenso === true) {
+    try { await kv.delete(`session:${uid}`) } catch {}
+  }
+
+  return c.json({ ok: true, uid, suspenso: perfil.suspenso })
+})
+
 // ─── DELETE /api/admin/app-usuarios/:uid — banir/remover sessão ───────────────
 app.delete('/api/admin/app-usuarios/:uid', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -9922,6 +9959,16 @@ app.delete('/api/admin/app-usuarios/:uid', async (c) => {
   if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
   const uid = c.req.param('uid')
   await kv.delete(`session:${uid}`)
+  // Marca perfil como banido permanentemente
+  try {
+    const profileRaw = await kv.get(`profile:${uid}`)
+    if (profileRaw) {
+      const perfil = JSON.parse(profileRaw) as Record<string, unknown>
+      perfil.suspenso = true
+      perfil.banidoEm = new Date().toISOString()
+      await kv.put(`profile:${uid}`, JSON.stringify(perfil))
+    }
+  } catch {}
   return c.json({ ok: true, uid })
 })
 
@@ -11834,12 +11881,17 @@ app.get('/admin', (c) => {
           <span id="au-result-count" style="font-size:11px;color:rgba(255,255,255,0.35);font-weight:600"></span>
         </div>
         <!-- Barra de filtros -->
-        <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center">
+        <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;align-items:center">
           <input id="au-search" type="text" placeholder="🔍 Buscar por nome, e-mail, CPF, cidade ou UID..." oninput="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 12px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;min-width:0"/>
           <select id="au-filtro-plano" onchange="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer;white-space:nowrap">
             <option value="">Todos os planos</option>
             <option value="premium">👑 Premium</option>
             <option value="gratuito">🆓 Gratuito</option>
+          </select>
+          <select id="au-filtro-status" onchange="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer;white-space:nowrap">
+            <option value="">Todos os status</option>
+            <option value="ativo">✅ Ativo</option>
+            <option value="suspenso">🚫 Suspenso</option>
           </select>
           <select id="au-filtro-provider" onchange="filtrarAppUsuarios()" style="background:#0A1520;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;cursor:pointer;white-space:nowrap">
             <option value="">Todos os provedores</option>
@@ -11862,13 +11914,14 @@ app.get('/admin', (c) => {
       <div style="overflow-x:auto">
         <table style="min-width:900px;width:100%">
           <thead><tr>
-            <th style="width:220px">Cliente</th>
-            <th style="text-align:center;width:130px">CPF</th>
-            <th style="text-align:center;width:120px">Cidade / UF</th>
-            <th style="text-align:center;width:90px">Provider</th>
-            <th style="text-align:center;width:90px">Plano</th>
-            <th style="text-align:center;width:110px">Cadastro</th>
-            <th style="text-align:center;width:110px">Ações</th>
+            <th style="width:210px">Cliente</th>
+            <th style="text-align:center;width:120px">CPF</th>
+            <th style="text-align:center;width:110px">Cidade / UF</th>
+            <th style="text-align:center;width:80px">Provider</th>
+            <th style="text-align:center;width:80px">Plano</th>
+            <th style="text-align:center;width:90px">Status</th>
+            <th style="text-align:center;width:100px">Cadastro</th>
+            <th style="text-align:center;width:120px">Ações</th>
           </tr></thead>
           <tbody id="app-usuarios-tbody">
             <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
@@ -11877,6 +11930,52 @@ app.get('/admin', (c) => {
       </div>
     </div>
   </section>
+
+  <!-- Modal Editar Usuário do App -->
+  <div id="modal-editar-usuario" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;overflow-y:auto;padding:20px;align-items:flex-start;justify-content:center">
+    <div style="background:#1A1D23;border:1px solid rgba(255,255,255,0.1);border-radius:18px;max-width:500px;width:100%;margin:40px auto;padding:28px;position:relative">
+      <button onclick="fecharModalEditarUsuario()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px">✕</button>
+      <div style="margin-bottom:20px">
+        <h3 style="font-size:16px;font-weight:900;color:#fff;margin:0 0 4px"><i class="fas fa-user-edit" style="color:#42A5F5;margin-right:8px"></i>Editar Usuário</h3>
+        <div id="au-edit-header-nome" style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.7)">—</div>
+        <div id="au-edit-header-email" style="font-size:11px;color:rgba(255,255,255,0.35);font-family:monospace">—</div>
+      </div>
+      <div style="font-size:10px;font-weight:900;color:#42A5F5;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Dados Cadastrais</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Nome completo</label>
+          <input id="au-edit-nome" type="text" placeholder="Nome do usuário"/>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>E-mail</label>
+          <input id="au-edit-email" type="email" placeholder="email@exemplo.com"/>
+        </div>
+        <div class="form-group">
+          <label>Telefone</label>
+          <input id="au-edit-telefone" type="text" placeholder="(27) 99999-9999"/>
+        </div>
+        <div class="form-group">
+          <label>Estado (UF)</label>
+          <select id="au-edit-estado" style="background:#0A1520;border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:'Raleway',sans-serif;font-weight:600;outline:none;width:100%">
+            <option value="">— UF —</option>
+            <option>AC</option><option>AL</option><option>AM</option><option>AP</option><option>BA</option><option>CE</option>
+            <option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MG</option><option>MS</option>
+            <option>MT</option><option>PA</option><option>PB</option><option>PE</option><option>PI</option><option>PR</option>
+            <option>RJ</option><option>RN</option><option>RO</option><option>RR</option><option>RS</option><option>SC</option>
+            <option>SE</option><option>SP</option><option>TO</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Cidade</label>
+          <input id="au-edit-cidade" type="text" placeholder="Cidade do usuário"/>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="fecharModalEditarUsuario()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700">Cancelar</button>
+        <button id="au-edit-salvar-btn" onclick="salvarEdicaoUsuario()" style="background:linear-gradient(135deg,#42A5F5,#1976D2);border:none;color:#fff;padding:10px 24px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:800"><i class="fas fa-save"></i> Salvar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ══ DADOS & CONTATOS DOS USUÁRIOS ══ -->
   <section id="section-dados-usuarios" style="display:none">
@@ -13173,13 +13272,20 @@ function renderAppUsuarios(lista) {
     const localidade = [u.cidade, u.estado].filter(Boolean).join(' / ') || '—';
     const dataCadastro = fmtDate(u.criadoEm || u.loginEm);
     const uidSafe = (u.uid || '').replace(/'/g, '');
-    return \`<tr class="tr-hover">
+    const isSuspenso = Boolean(u.suspenso);
+    const statusBadge = isSuspenso
+      ? '<span style="display:inline-block;padding:3px 8px;border-radius:100px;font-size:10px;font-weight:800;background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25)"><i class="fas fa-ban" style="margin-right:3px"></i>Suspenso</span>'
+      : '<span style="display:inline-block;padding:3px 8px;border-radius:100px;font-size:10px;font-weight:800;background:rgba(105,240,174,0.12);color:#69F0AE;border:1px solid rgba(105,240,174,0.25)"><i class="fas fa-check-circle" style="margin-right:3px"></i>Ativo</span>';
+    const btnSuspender = isSuspenso
+      ? '<button class="btn-success" data-uid="' + uidSafe + '" onclick="toggleSuspenderUsuario(this.dataset.uid,false)" title="Reativar usuário"><i class="fas fa-user-check"></i></button>'
+      : '<button class="btn-warning" data-uid="' + uidSafe + '" onclick="toggleSuspenderUsuario(this.dataset.uid,true)" title="Suspender usuário" style="background:rgba(255,152,0,0.15);color:#FF9800;border:1px solid rgba(255,152,0,0.3)"><i class="fas fa-user-slash"></i></button>';
+    return \`<tr class="tr-hover" \${isSuspenso ? 'style="opacity:0.6"' : ''}>
       <td>
         <div style="display:flex;align-items:center;gap:10px;min-width:0">
           \${_auAvatar(u)}
           <div style="min-width:0">
-            <div style="font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px" title="\${nome}">\${nome || '<span style="color:rgba(255,255,255,0.3);font-style:italic">Sem nome</span>'}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;margin-top:1px" title="\${email}">\${email || '<span style="font-style:italic">Sem e-mail</span>'}</div>
+            <div style="font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px" title="\${nome}">\${nome || '<span style="color:rgba(255,255,255,0.3);font-style:italic">Sem nome</span>'}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;margin-top:1px" title="\${email}">\${email || '<span style="font-style:italic">Sem e-mail</span>'}</div>
             <div style="font-size:9px;color:rgba(255,255,255,0.2);font-family:monospace;margin-top:2px;cursor:pointer" onclick="copiarUID('\${uidSafe}')" title="Clique para copiar UID">\${uidSafe.substring(0,14)}…</div>
           </div>
         </div>
@@ -13188,12 +13294,14 @@ function renderAppUsuarios(lista) {
       <td style="text-align:center"><span style="font-size:11px;color:rgba(255,255,255,0.6)">\${localidade}</span></td>
       <td style="text-align:center">\${_auProviderBadge(u.provider)}</td>
       <td style="text-align:center">\${planoBadge(u.plano)}</td>
+      <td style="text-align:center">\${statusBadge}</td>
       <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.4)">\${dataCadastro}</td>
       <td style="text-align:center">
-        <div style="display:inline-flex;gap:5px;flex-wrap:nowrap;justify-content:center">
-          <button class="btn-info" data-uid="\${uidSafe}" onclick="verDetalheUsuario(this.dataset.uid)" title="Detalhes"><i class="fas fa-eye"></i></button>
+        <div style="display:inline-flex;gap:4px;flex-wrap:nowrap;justify-content:center">
+          <button class="btn-info" data-uid="\${uidSafe}" onclick="abrirModalEditarUsuario(this.dataset.uid)" title="Editar usuário"><i class="fas fa-pen"></i></button>
           <button class="btn-success" data-uid="\${uidSafe}" onclick="abrirModalAtivar(this.dataset.uid)" title="Ativar Premium"><i class="fas fa-crown"></i></button>
-          <button class="btn-danger" data-uid="\${uidSafe}" onclick="banirUsuario(this.dataset.uid)" title="Banir"><i class="fas fa-ban"></i></button>
+          \${btnSuspender}
+          <button class="btn-danger" data-uid="\${uidSafe}" onclick="banirUsuario(this.dataset.uid)" title="Banir permanentemente"><i class="fas fa-trash"></i></button>
         </div>
       </td>
     </tr>\`;
@@ -13203,6 +13311,7 @@ function renderAppUsuarios(lista) {
 function filtrarAppUsuarios() {
   const q = (document.getElementById('au-search').value || '').toLowerCase().trim();
   const plano = document.getElementById('au-filtro-plano').value;
+  const filtroStatus = document.getElementById('au-filtro-status').value;
   const provider = document.getElementById('au-filtro-provider').value;
   const estado = document.getElementById('au-filtro-estado').value.toUpperCase();
 
@@ -13221,6 +13330,8 @@ function filtrarAppUsuarios() {
     if (plano === 'premium') lista = lista.filter(u => u.plano && u.plano !== 'gratuito');
     else lista = lista.filter(u => !u.plano || u.plano === 'gratuito');
   }
+  if (filtroStatus === 'suspenso') lista = lista.filter(u => u.suspenso);
+  if (filtroStatus === 'ativo') lista = lista.filter(u => !u.suspenso);
   if (provider) lista = lista.filter(u => (u.provider || '').includes(provider));
   if (estado) lista = lista.filter(u => (u.estado || '').toUpperCase() === estado);
 
@@ -13264,13 +13375,86 @@ async function confirmarAtivarPremium() {
 async function banirUsuario(uid) {
   const u = _appUsuarios.find(x => x.uid === uid);
   const label = (u && u.nome) ? u.nome : uid.substring(0, 18) + '…';
-  if (!confirm('Banir usuário ' + label + '? Isso removerá a sessão e deslogará o usuário.')) return;
+  if (!confirm('Banir PERMANENTEMENTE ' + label + '?\n\nIsso suspende a conta e remove a sessão.\nO usuário será deslogado imediatamente.')) return;
   try {
     const res = await fetch('/api/admin/app-usuarios/' + encodeURIComponent(uid) + '?key=' + encodeURIComponent(ADMIN_KEY), { method: 'DELETE' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     showToast('✅ Usuário banido!', 'ok');
     carregarAppUsuarios();
   } catch(e) { showToast('❌ Erro: ' + e.message, 'err'); }
+}
+
+// ─── Suspender / Reativar usuário ─────────────────────────────────────────────
+async function toggleSuspenderUsuario(uid, suspender) {
+  const u = _appUsuarios.find(x => x.uid === uid);
+  const label = (u && u.nome) ? u.nome : uid.substring(0, 18) + '…';
+  const acao = suspender ? 'Suspender' : 'Reativar';
+  const msg = suspender
+    ? 'Suspender ' + label + '?\nO usuário será deslogado imediatamente e não poderá entrar no app.'
+    : 'Reativar ' + label + '?\nO usuário poderá entrar no app novamente.';
+  if (!confirm(msg)) return;
+  try {
+    const res = await fetch('/api/admin/app-usuarios/' + encodeURIComponent(uid) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suspenso: suspender })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // Atualiza em memória e re-renderiza sem precisar reload
+    const idx = _appUsuarios.findIndex(x => x.uid === uid);
+    if (idx !== -1) _appUsuarios[idx].suspenso = suspender;
+    filtrarAppUsuarios();
+    showToast(suspender ? '🚫 Usuário suspenso!' : '✅ Usuário reativado!', suspender ? '' : 'ok');
+  } catch(e) { showToast('❌ Erro: ' + e.message, 'err'); }
+}
+
+// ─── Modal Editar Usuário ─────────────────────────────────────────────────────
+let _auEditandoUid = '';
+function abrirModalEditarUsuario(uid) {
+  const u = _appUsuarios.find(x => x.uid === uid);
+  if (!u) return;
+  _auEditandoUid = uid;
+  const fv = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  fv('au-edit-nome',     u.nome     !== '—' ? u.nome     : '');
+  fv('au-edit-email',    u.email    !== '—' ? u.email    : '');
+  fv('au-edit-telefone', u.telefone !== '—' ? u.telefone : '');
+  fv('au-edit-cidade',   u.cidade   !== '—' ? u.cidade   : '');
+  fv('au-edit-estado',   u.estado   !== '—' ? u.estado   : '');
+  // Header do modal
+  const headerNome = document.getElementById('au-edit-header-nome');
+  if (headerNome) headerNome.textContent = u.nome !== '—' ? u.nome : 'Usuário';
+  const headerEmail = document.getElementById('au-edit-header-email');
+  if (headerEmail) headerEmail.textContent = u.email !== '—' ? u.email : uid.substring(0,20) + '…';
+  document.getElementById('modal-editar-usuario').style.display = 'flex';
+}
+function fecharModalEditarUsuario() {
+  document.getElementById('modal-editar-usuario').style.display = 'none';
+  _auEditandoUid = '';
+}
+async function salvarEdicaoUsuario() {
+  if (!_auEditandoUid) return;
+  const fv = (id) => (document.getElementById(id)?.value || '').trim();
+  const body = { nome: fv('au-edit-nome'), email: fv('au-edit-email'), telefone: fv('au-edit-telefone'), cidade: fv('au-edit-cidade'), estado: fv('au-edit-estado') };
+  const btn = document.getElementById('au-edit-salvar-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
+  try {
+    const res = await fetch('/api/admin/app-usuarios/' + encodeURIComponent(_auEditandoUid) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // Atualiza em memória
+    const idx = _appUsuarios.findIndex(x => x.uid === _auEditandoUid);
+    if (idx !== -1) {
+      if (body.nome) _appUsuarios[idx].nome = body.nome;
+      if (body.email) _appUsuarios[idx].email = body.email;
+      if (body.telefone) _appUsuarios[idx].telefone = body.telefone;
+      if (body.cidade) _appUsuarios[idx].cidade = body.cidade;
+      if (body.estado) _appUsuarios[idx].estado = body.estado;
+    }
+    fecharModalEditarUsuario();
+    filtrarAppUsuarios();
+    showToast('✅ Usuário atualizado!', 'ok');
+  } catch(e) { showToast('❌ Erro: ' + e.message, 'err'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar'; } }
 }
 
 function verDetalheUsuario(uid) {
