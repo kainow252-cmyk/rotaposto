@@ -5173,17 +5173,27 @@ app.get('/api/posto/foto-bandeira/:postoId', async (c) => {
     const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     if (!r2) return c.notFound()
     const postoId = c.req.param('postoId')
+    // Buscar timestamp do upload no parceiro para ETag dinâmico
+    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    let fotoTs = ''
+    try {
+      // Tenta pegar fotoTs do parceiro (muda a cada upload)
+      const parceiro = await kvGetParceiro(kv, postoId, r2) as Record<string, unknown> | null
+      if (parceiro?.fotoTs) fotoTs = String(parceiro.fotoTs)
+    } catch {}
+
     // Tenta jpg, png, webp
     for (const ext of ['jpg', 'png', 'webp']) {
       const obj = await r2.get(`posto-bandeira/${postoId}.${ext}`)
       if (obj) {
+        // ETag dinâmico: postoId + ext + timestamp do upload → muda a cada troca de imagem
+        const etag = fotoTs ? `"${postoId}-${ext}-${fotoTs}"` : `"${postoId}-${ext}"`
         return new Response(obj.body, {
           headers: {
             'Content-Type': obj.httpMetadata?.contentType || `image/${ext}`,
-            // max-age=0 + must-revalidate: browser sempre re-valida no servidor
-            // ETag gerado do postoId+ext para detectar mudança
-            'Cache-Control': 'public, max-age=0, must-revalidate',
-            'ETag': `"${postoId}-${ext}"`,
+            'Cache-Control': 'no-cache',
+            'Surrogate-Control': 'no-store',
+            'ETag': etag,
           }
         })
       }
@@ -12216,6 +12226,9 @@ app.get('/admin', (c) => {
             </button>
           </div>
           <div id="ep-geo-status" style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:8px"></div>
+          <div id="ep-sem-coords-aviso" style="display:none;background:rgba(255,152,0,0.12);border:1px solid rgba(255,152,0,0.3);border-radius:8px;padding:8px 12px;font-size:11px;color:#FFB300;margin-bottom:8px">
+            ⚠️ <strong>Sem coordenadas:</strong> este posto não aparece na busca. Clique em <strong>Localizar</strong> ou salve o endereço para geocodificar automaticamente.
+          </div>
           <!-- Mini mapa -->
           <div id="ep-mapa-wrap" style="display:none;border-radius:10px;overflow:hidden;border:1px solid rgba(66,165,245,0.2)">
             <iframe id="ep-mapa-frame" style="width:100%;height:200px;border:none" src="" loading="lazy"></iframe>
@@ -13860,6 +13873,9 @@ function abrirModalEditarParceiro(id) {
   const epMapaWrap = document.getElementById('ep-mapa-wrap');
   epMapaWrap.style.display = 'none';
   document.getElementById('ep-geo-status').textContent = '';
+  // Aviso de sem coordenadas
+  const avisoSemCoords = document.getElementById('ep-sem-coords-aviso');
+  if (avisoSemCoords) avisoSemCoords.style.display = (p.lat && p.lng) ? 'none' : 'block';
   if (p.lat && p.lng) {
     _epAtualizarMapa(p.lat, p.lng, [end.rua || p.rua, end.numero, end.cidade || p.cidade].filter(Boolean).join(', '));
   }
@@ -13965,10 +13981,10 @@ async function epUploadFotoBandeira() {
     if (btn) btn.style.display='none';
     // Atualiza no objeto _parceiros local
     const idx = _parceiros.findIndex(x => x.id === _parceiroEditandoId);
-    // Adiciona timestamp para forçar re-carregamento (bustar cache do browser)
-    const fotoUrlComTs = d.fotoUrl ? d.fotoUrl + '?t=' + Date.now() : null;
+    // Usa fotoUrlComTs do servidor (inclui ?v=uploadTs) — garante cache-bust consistente
+    const fotoUrlComTs = d.fotoUrlComTs || (d.fotoUrl ? d.fotoUrl + '?t=' + Date.now() : null);
     if (idx !== -1 && fotoUrlComTs) _parceiros[idx].fotoBandeira = fotoUrlComTs;
-    // Atualiza o preview com a nova foto (bustar cache)
+    // Atualiza o preview com a nova foto (sem cache)
     const previewImg = document.getElementById('ep-foto-preview-img');
     const previewWrap = document.getElementById('ep-foto-preview-wrap');
     if (previewImg && fotoUrlComTs) {
@@ -13978,6 +13994,8 @@ async function epUploadFotoBandeira() {
       previewImg.style.objectFit = 'cover';
       if (previewWrap) previewWrap.style.fontSize = '0';
     }
+    // Recarregar linha da tabela admin para refletir nova foto imediatamente
+    try { if (typeof carregarParceiros === 'function') carregarParceiros(); } catch {}
   } catch(e) {
     if (st) { st.textContent='❌ ' + e.message; st.style.color='#FF5252'; }
   } finally {
@@ -14050,6 +14068,8 @@ async function epGeocodificar() {
     document.getElementById('ep-lng').value = lng.toFixed(6);
     stat.textContent = '✅ Localizado: ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
     stat.style.color = '#69F0AE';
+    const avisoCoords = document.getElementById('ep-sem-coords-aviso');
+    if (avisoCoords) avisoCoords.style.display = 'none';
     _epAtualizarMapa(lat, lng, endStr);
   } catch(e) { stat.textContent = '❌ Erro: ' + e.message; stat.style.color = '#FF5252'; }
 }
@@ -14128,13 +14148,38 @@ async function salvarParceiroModal() {
   };
   if (latVal && lngVal) { body.lat = parseFloat(latVal); body.lng = parseFloat(lngVal); }
 
+  // Geocodificação automática: se não tem lat/lng mas tem endereço, buscar coordenadas
+  if (!body.lat && !body.lng) {
+    const rua    = body.endereco?.rua    || '';
+    const cidade = body.endereco?.cidade || body.cidade || '';
+    const estado = body.endereco?.estado || body.estado || '';
+    const num    = body.endereco?.numero || '';
+    const q = [rua, num, cidade, estado, 'Brasil'].filter(Boolean).join(', ');
+    if (rua && cidade) {
+      if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Geocodificando...';
+      try {
+        const geoRes = await fetch('/api/geocode?q=' + encodeURIComponent(q));
+        const geoData = await geoRes.json();
+        if (geoData.resultados && geoData.resultados.length > 0) {
+          body.lat = parseFloat(geoData.resultados[0].lat);
+          body.lng = parseFloat(geoData.resultados[0].lng);
+          document.getElementById('ep-lat').value = body.lat.toFixed(6);
+          document.getElementById('ep-lng').value = body.lng.toFixed(6);
+          showToast('📍 Coordenadas geocodificadas automaticamente!', 'ok');
+        }
+      } catch {}
+      if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+    }
+  }
+
   try {
     const res = await fetch('/api/admin/parceiros/' + encodeURIComponent(_parceiroEditandoId) + '?key=' + encodeURIComponent(ADMIN_KEY), {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     });
     const data = await res.json();
     if (!res.ok || data.erro) throw new Error(data.erro || 'Erro ao salvar');
-    showToast('✅ Posto atualizado com sucesso!', 'ok');
+      const coordMsg = body.lat ? ' (coords: ' + body.lat.toFixed(4) + ', ' + body.lng.toFixed(4) + ')' : ' - sem coordenadas, posto nao aparece na busca';
+    showToast('Posto atualizado!' + coordMsg, 'ok');
     fecharModalParceiro();
     await carregarParceirosCadastrados();
   } catch(e) {
@@ -16616,33 +16661,38 @@ app.post('/api/parceiros/foto-bandeira', async (c) => {
     }
     await r2.put(r2Key, bytes, { httpMetadata: { contentType: mime } })
 
+    // Timestamp do upload — usado como ETag no GET para forçar re-fetch após troca
+    const uploadTs = Date.now()
     const fotoUrl = `/api/posto/foto-bandeira/${parceiroId}`
+    // Versão com timestamp para bust de cache imediato no frontend
+    const fotoUrlComTs = `${fotoUrl}?v=${uploadTs}`
 
-    // Atualizar parceiro no KV/R2 com fotoBandeira (args corretos: kv, id, data, _ttl, r2)
+    // Atualizar parceiro no KV/R2 com fotoBandeira e timestamp do upload
     const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
     if (parceiro) {
       parceiro.fotoBandeira = fotoUrl
+      parceiro.fotoTs = uploadTs          // timestamp para ETag dinâmico
       await kvSetParceiro(kv, parceiroId, parceiro, undefined, r2)
     } else {
-      // Criar entrada mínima se não existir (salva em KV e R2)
-      const minimo = { id: parceiroId, fotoBandeira: fotoUrl, criadoEm: new Date().toISOString() }
+      const minimo = { id: parceiroId, fotoBandeira: fotoUrl, fotoTs: uploadTs, criadoEm: new Date().toISOString() }
       await kvSetParceiro(kv, parceiroId, minimo, undefined, r2)
     }
 
-    // Atualizar também no cache do posto no KV (posto:band:postoId)
+    // Atualizar cache posto:band no KV (fonte do fotoUrl para usuários)
     try {
       const bandKey = `posto:band:${parceiroId}`
       const bandRaw = await kv?.get(bandKey)
       if (bandRaw) {
         const band = JSON.parse(bandRaw) as Record<string, unknown>
         band.fotoUrl = fotoUrl
+        band.fotoTs  = uploadTs
         await kv?.put(bandKey, JSON.stringify(band), { expirationTtl: 30 * 24 * 3600 })
       } else {
-        await kv?.put(bandKey, JSON.stringify({ postoId: parceiroId, fotoUrl, ts: Date.now() }), { expirationTtl: 30 * 24 * 3600 })
+        await kv?.put(bandKey, JSON.stringify({ postoId: parceiroId, fotoUrl, fotoTs: uploadTs, ts: uploadTs }), { expirationTtl: 30 * 24 * 3600 })
       }
     } catch {}
 
-    return c.json({ ok: true, fotoUrl })
+    return c.json({ ok: true, fotoUrl, fotoUrlComTs, uploadTs })
   } catch(e) {
     return c.json({ ok: false, erro: 'Erro interno' }, 500)
   }
