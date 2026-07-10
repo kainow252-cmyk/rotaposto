@@ -4639,11 +4639,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       var precoNum = typeof p.preco === 'number' ? p.preco : parseFloat(p.preco);
       var precoTxt = precoNum > 0 && !isNaN(precoNum) ? 'R$ ' + precoNum.toFixed(2).replace('.', ',') + ' /L' : '';
       var dataTxt = p.salvoEm ? new Date(p.salvoEm).toLocaleDateString('pt-BR') : '';
-      html += '<div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);display:flex;align-items:center;gap:12px;cursor:pointer;active:opacity:0.8"'
-        + ' onclick="_abrirFavoritoNaMapa(\'' + String(p.id).replace(/'/g,"&#39;") + '\')">'
+      var postoIdEsc = String(p.id || p.nome || '').replace(/"/g, '&quot;');
+      html += '<div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);display:flex;align-items:center;gap:12px;cursor:pointer"'
+        + ' data-posto-id="' + postoIdEsc + '" onclick="_abrirFavoritoNaMapa(this.dataset.postoId)">'
         + '<div style="width:44px;height:44px;border-radius:12px;background:#F5F5F5;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">'
-        + (p.fotoUrl ? '<img src="' + p.fotoUrl + '" style="width:100%;height:100%;object-fit:contain;padding:4px" onerror="this.style.display=\'none\'">' : '<span style="font-size:22px">⛽</span>')
-        + '</div>'
+        + (p.fotoUrl ? '<img src="' + p.fotoUrl + '" style="width:100%;height:100%;object-fit:contain;padding:4px" onerror="this.hidden=true">' : '<span style="font-size:22px">⛽</span>')
         + '<div style="flex:1;min-width:0">'
         + '<div style="font-size:14px;font-weight:700;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (p.nome || '') + '</div>'
         + (p.endereco ? '<div style="font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.endereco + '</div>' : '')
