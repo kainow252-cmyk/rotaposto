@@ -21615,6 +21615,269 @@ app.post('/api/rotasegura/passageiro/logout', async (c) => {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// ─── ROTASEGURA — Upload de documentos + Geolocalização ───────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const RS_ADMIN_KEY = 'rotasegura-admin-2026'  // Trocar por env secret em prod
+
+// ── Motorista: salvar docs (base64) ──────────────────────────────────────────
+app.post('/api/rotasegura/motorista/docs', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
+  if (!auth || auth.tipo !== 'motorista') return c.json({ erro: 'Não autenticado' }, 401)
+
+  try {
+    const body = await c.req.json()
+    const motorista = await kvGetMotorista(kv, auth.userId)
+    if (!motorista) return c.json({ erro: 'Motorista não encontrado' }, 404)
+
+    // Aceita: fotoSelfie, fotoCnh, fotoDocVeiculo, fotoCnhVerso (base64 data URL)
+    const campos = ['fotoSelfie','fotoCnh','fotoDocVeiculo','fotoCnhVerso'] as const
+    let atualizado = false
+    for (const campo of campos) {
+      if (body[campo] && typeof body[campo] === 'string') {
+        // Limitar a 800KB por foto (base64 ~= 1.33x do original)
+        if (body[campo].length > 1_100_000) {
+          return c.json({ erro: `${campo} muito grande (máx 800KB)` }, 413)
+        }
+        ;(motorista as any)[campo] = body[campo]
+        atualizado = true
+      }
+    }
+    // Geolocalização
+    if (body.geoLat && body.geoLng) {
+      motorista.geoLat = Number(body.geoLat)
+      motorista.geoLng = Number(body.geoLng)
+      motorista.geoEndereco = body.geoEndereco || ''
+      atualizado = true
+    }
+    if (!atualizado) return c.json({ erro: 'Nenhum campo enviado' }, 400)
+
+    motorista.docsStatus = 'pendente'  // admin precisa aprovar
+    await kvSaveMotorista(kv, motorista)
+
+    const docsEnviados = campos.filter(c2 => !!(motorista as any)[c2])
+    return c.json({ ok: true, docsEnviados, docsStatus: 'pendente' })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao salvar docs', detalhe: String(e) }, 500)
+  }
+})
+
+// ── Passageiro: salvar docs (selfie + geo) ────────────────────────────────────
+app.post('/api/rotasegura/passageiro/docs', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
+  if (!auth || auth.tipo !== 'passageiro') return c.json({ erro: 'Não autenticado' }, 401)
+
+  try {
+    const body = await c.req.json()
+    const passageiro = await kvGetPassageiro(kv, auth.userId)
+    if (!passageiro) return c.json({ erro: 'Passageiro não encontrado' }, 404)
+
+    if (body.fotoSelfie) {
+      if (body.fotoSelfie.length > 1_100_000) return c.json({ erro: 'Selfie muito grande (máx 800KB)' }, 413)
+      passageiro.fotoSelfie = body.fotoSelfie
+    }
+    if (body.fotoDoc) {
+      if (body.fotoDoc.length > 1_100_000) return c.json({ erro: 'Documento muito grande (máx 800KB)' }, 413)
+      passageiro.fotoDoc = body.fotoDoc
+    }
+    if (body.geoLat && body.geoLng) {
+      passageiro.geoLat = Number(body.geoLat)
+      passageiro.geoLng = Number(body.geoLng)
+      passageiro.geoEndereco = body.geoEndereco || ''
+    }
+    passageiro.docsStatus = 'pendente'
+    await kvSavePassageiro(kv, passageiro)
+    return c.json({ ok: true })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao salvar docs', detalhe: String(e) }, 500)
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── ROTASEGURA — APIs Admin ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function rsAdminAuth(c: any): boolean {
+  const key = c.req.header('X-Admin-Key') || c.req.query('k')
+  return key === RS_ADMIN_KEY
+}
+
+// ── Admin: listar motoristas ──────────────────────────────────────────────────
+app.get('/api/rotasegura/admin/motoristas', async (c) => {
+  if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  try {
+    const lista = await kv.list({ prefix: 'rs:motorista:' })
+    const ids = lista.keys
+      .filter((k: any) => !k.name.includes(':email:') && !k.name.includes(':cpf:') && !k.name.includes(':cnpj:'))
+      .map((k: any) => k.name.replace('rs:motorista:', ''))
+    const motoristas = await Promise.all(
+      ids.map(async (id: string) => {
+        const m = await kvGetMotorista(kv, id)
+        if (!m) return null
+        return {
+          id: m.id, nome: m.nome, email: m.email, telefone: m.telefone,
+          cpf: m.cpf, cnpj: m.cnpj, cnh: m.cnh, veiculo: m.veiculo, placa: m.placa,
+          status: m.status, docsStatus: m.docsStatus,
+          asaasStatus: m.asaasStatus, asaasWalletId: m.asaasWalletId,
+          avaliacao: m.avaliacao, corridasTotal: m.corridasTotal,
+          ganhoTotal: m.ganhoTotal, criadoEm: m.criadoEm,
+          geoLat: m.geoLat, geoLng: m.geoLng, geoEndereco: m.geoEndereco,
+          temSelfie: !!m.fotoSelfie, temCnh: !!m.fotoCnh,
+          temDocVeiculo: !!m.fotoDocVeiculo,
+          cep: m.cep, logradouro: m.logradouro, bairro: m.bairro
+        }
+      })
+    )
+    return c.json({ ok: true, motoristas: motoristas.filter(Boolean), total: motoristas.filter(Boolean).length })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao listar', detalhe: String(e) }, 500)
+  }
+})
+
+// ── Admin: listar passageiros ─────────────────────────────────────────────────
+app.get('/api/rotasegura/admin/passageiros', async (c) => {
+  if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  try {
+    const lista = await kv.list({ prefix: 'rs:passageiro:' })
+    const ids = lista.keys
+      .filter((k: any) => !k.name.includes(':email:'))
+      .map((k: any) => k.name.replace('rs:passageiro:', ''))
+    const passageiros = await Promise.all(
+      ids.map(async (id: string) => {
+        const p = await kvGetPassageiro(kv, id)
+        if (!p) return null
+        return {
+          id: p.id, nome: p.nome, email: p.email, telefone: p.telefone,
+          cpf: p.cpf, status: p.status, docsStatus: p.docsStatus,
+          avaliacao: p.avaliacao, criadoEm: p.criadoEm,
+          geoLat: p.geoLat, geoLng: p.geoLng, geoEndereco: p.geoEndereco,
+          temSelfie: !!p.fotoSelfie, temDoc: !!p.fotoDoc,
+          asaasCustomerId: p.asaasCustomerId
+        }
+      })
+    )
+    return c.json({ ok: true, passageiros: passageiros.filter(Boolean), total: passageiros.filter(Boolean).length })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao listar', detalhe: String(e) }, 500)
+  }
+})
+
+// ── Admin: ver foto de motorista ──────────────────────────────────────────────
+app.get('/api/rotasegura/admin/motorista/:id/foto/:tipo', async (c) => {
+  if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  const id = c.req.param('id')
+  const tipo = c.req.param('tipo') // selfie | cnh | docveiculo
+  const motorista = await kvGetMotorista(kv, id)
+  if (!motorista) return c.json({ erro: 'Não encontrado' }, 404)
+  const mapa: Record<string, string | undefined> = {
+    selfie: motorista.fotoSelfie,
+    cnh: motorista.fotoCnh,
+    docveiculo: motorista.fotoDocVeiculo,
+    cnhverso: motorista.fotoCnhVerso,
+  }
+  const foto = mapa[tipo]
+  if (!foto) return c.json({ erro: 'Foto não encontrada' }, 404)
+  // Retorna como imagem diretamente se for data URL
+  if (foto.startsWith('data:')) {
+    const [meta, data] = foto.split(',')
+    const mime = meta.split(':')[1].split(';')[0]
+    const bin = atob(data)
+    const buf = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+    return new Response(buf, { headers: { 'Content-Type': mime } })
+  }
+  return c.json({ foto })
+})
+
+// ── Admin: ver foto de passageiro ─────────────────────────────────────────────
+app.get('/api/rotasegura/admin/passageiro/:id/foto/:tipo', async (c) => {
+  if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  const id = c.req.param('id')
+  const tipo = c.req.param('tipo')
+  const passageiro = await kvGetPassageiro(kv, id)
+  if (!passageiro) return c.json({ erro: 'Não encontrado' }, 404)
+  const mapa: Record<string, string | undefined> = {
+    selfie: passageiro.fotoSelfie,
+    doc: passageiro.fotoDoc,
+  }
+  const foto = mapa[tipo]
+  if (!foto) return c.json({ erro: 'Foto não encontrada' }, 404)
+  if (foto.startsWith('data:')) {
+    const [meta, data] = foto.split(',')
+    const mime = meta.split(':')[1].split(';')[0]
+    const bin = atob(data)
+    const buf = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+    return new Response(buf, { headers: { 'Content-Type': mime } })
+  }
+  return c.json({ foto })
+})
+
+// ── Admin: aprovar / rejeitar docs de motorista ───────────────────────────────
+app.post('/api/rotasegura/admin/motorista/:id/status', async (c) => {
+  if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  const id = c.req.param('id')
+  const { status, docsStatus, obs } = await c.req.json()
+  const motorista = await kvGetMotorista(kv, id)
+  if (!motorista) return c.json({ erro: 'Não encontrado' }, 404)
+  if (status) motorista.status = status
+  if (docsStatus) motorista.docsStatus = docsStatus
+  if (obs) motorista.docsObs = obs
+  await kvSaveMotorista(kv, motorista)
+  return c.json({ ok: true })
+})
+
+// ── Admin: aprovar / rejeitar docs de passageiro ──────────────────────────────
+app.post('/api/rotasegura/admin/passageiro/:id/status', async (c) => {
+  if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  const id = c.req.param('id')
+  const { status, docsStatus, obs } = await c.req.json()
+  const passageiro = await kvGetPassageiro(kv, id)
+  if (!passageiro) return c.json({ erro: 'Não encontrado' }, 404)
+  if (status) passageiro.status = status
+  if (docsStatus) passageiro.docsStatus = docsStatus
+  await kvSavePassageiro(kv, passageiro)
+  return c.json({ ok: true })
+})
+
+// ── Admin: estatísticas gerais ────────────────────────────────────────────────
+app.get('/api/rotasegura/admin/stats', async (c) => {
+  if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+  try {
+    const [motLista, pasLista, corLista] = await Promise.all([
+      kv.list({ prefix: 'rs:motorista:' }),
+      kv.list({ prefix: 'rs:passageiro:' }),
+      kv.list({ prefix: 'rotasegura:corrida:' }),
+    ])
+    const nMotoristas = motLista.keys.filter((k: any) =>
+      !k.name.includes(':email:') && !k.name.includes(':cpf:') && !k.name.includes(':cnpj:')).length
+    const nPassageiros = pasLista.keys.filter((k: any) => !k.name.includes(':email:')).length
+    const nCorridas = corLista.keys.length
+    return c.json({ ok: true, motoristas: nMotoristas, passageiros: nPassageiros, corridas: nCorridas })
+  } catch (e) {
+    return c.json({ erro: 'Erro', detalhe: String(e) }, 500)
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // ─── ROTASEGURA — App de corridas (inspirado no Uber) ─────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -21850,6 +22113,660 @@ app.post('/api/rotasegura/motorista/finalizar', async (c) => {
   }
 })
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── ADMIN PASSAGEIRO: /rotasegura/admin ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+app.get('/rotasegura/admin', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RotaSegura — Admin Passageiros</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d0f14;color:#e0e0e0;min-height:100vh}
+    .topbar{background:#111520;border-bottom:1px solid rgba(255,255,255,.07);padding:14px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100}
+    .topbar-logo{width:36px;height:36px;background:linear-gradient(135deg,#00C851,#007E33);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .topbar-title{font-size:16px;font-weight:700;color:#fff}
+    .topbar-sub{font-size:11px;color:rgba(255,255,255,.35);margin-left:auto}
+    .topbar-link{font-size:12px;color:#4d8bff;text-decoration:none;margin-left:16px}
+    .content{padding:24px;max-width:1200px;margin:0 auto}
+    /* Login admin */
+    .login-box{max-width:360px;margin:80px auto;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:36px 28px}
+    .login-box h2{font-size:20px;font-weight:700;margin-bottom:24px;text-align:center}
+    .input-admin{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;font-size:14px;outline:none;margin-bottom:14px}
+    .input-admin:focus{border-color:#00C851}
+    .btn-admin{width:100%;padding:13px;background:linear-gradient(135deg,#00C851,#007E33);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+    .err-admin{background:rgba(255,68,88,.12);border:1px solid rgba(255,68,88,.3);border-radius:8px;padding:10px;font-size:13px;color:#ff8a95;margin-bottom:12px;display:none}
+    /* Stats */
+    .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px}
+    .stat-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px 20px}
+    .stat-val{font-size:32px;font-weight:800;color:#00C851}
+    .stat-label{font-size:12px;color:rgba(255,255,255,.4);margin-top:4px}
+    /* Filtros */
+    .filters{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+    .filter-btn{padding:7px 16px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;transition:all .2s}
+    .filter-btn.on{background:rgba(0,200,81,.15);border-color:rgba(0,200,81,.4);color:#00C851}
+    .search-adm{flex:1;min-width:180px;padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:#fff;font-size:13px;outline:none}
+    /* Tabela */
+    .table-wrap{overflow-x:auto;border-radius:14px;border:1px solid rgba(255,255,255,.07)}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    thead{background:rgba(255,255,255,.04)}
+    th{padding:12px 14px;text-align:left;color:rgba(255,255,255,.4);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+    td{padding:12px 14px;border-top:1px solid rgba(255,255,255,.05);vertical-align:middle}
+    tr:hover td{background:rgba(255,255,255,.02)}
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+    .badge-ativo{background:rgba(0,200,81,.12);color:#00C851;border:1px solid rgba(0,200,81,.2)}
+    .badge-inativo{background:rgba(255,255,255,.06);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.1)}
+    .badge-pendente{background:rgba(255,193,7,.1);color:#ffc107;border:1px solid rgba(255,193,7,.25)}
+    .badge-aprovado{background:rgba(0,200,81,.12);color:#00C851;border:1px solid rgba(0,200,81,.2)}
+    .badge-rejeitado{background:rgba(255,68,88,.12);color:#ff4458;border:1px solid rgba(255,68,88,.2)}
+    .badge-nodocs{background:rgba(255,255,255,.05);color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.08)}
+    .btn-sm{padding:5px 12px;border-radius:7px;border:none;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+    .btn-aprovar{background:rgba(0,200,81,.15);color:#00C851;border:1px solid rgba(0,200,81,.3)}
+    .btn-aprovar:hover{background:rgba(0,200,81,.3)}
+    .btn-bloquear{background:rgba(255,68,88,.1);color:#ff4458;border:1px solid rgba(255,68,88,.25)}
+    .btn-bloquear:hover{background:rgba(255,68,88,.25)}
+    .btn-ver{background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12)}
+    .btn-ver:hover{background:rgba(255,255,255,.14)}
+    .avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid rgba(255,255,255,.1);overflow:hidden;flex-shrink:0}
+    .avatar img{width:100%;height:100%;object-fit:cover}
+    .user-cell{display:flex;align-items:center;gap:10px}
+    /* Modal de foto */
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;align-items:center;justify-content:center}
+    .modal.open{display:flex}
+    .modal-inner{background:#181c26;border-radius:16px;padding:24px;max-width:500px;width:90%;position:relative}
+    .modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer}
+    .modal-img{width:100%;border-radius:10px;margin-top:12px;max-height:400px;object-fit:contain}
+    .modal-title{font-size:15px;font-weight:700}
+    .modal-info{font-size:12px;color:rgba(255,255,255,.4);margin-top:4px}
+    .modal-actions{display:flex;gap:10px;margin-top:16px}
+    .empty{text-align:center;padding:60px 20px;color:rgba(255,255,255,.25)}
+    .empty i{font-size:40px;margin-bottom:12px;display:block}
+    .geo-link{font-size:11px;color:#4d8bff;text-decoration:none}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">🛡️</div>
+  <div>
+    <div class="topbar-title">RotaSegura Admin</div>
+  </div>
+  <span class="topbar-sub">Painel de Passageiros</span>
+  <a href="/rotasegura/motorista/ladmin" class="topbar-link"><i class="fas fa-car"></i> Ver Motoristas</a>
+</div>
+
+<!-- LOGIN -->
+<div id="loginBox" class="login-box">
+  <h2>🔐 Acesso Admin</h2>
+  <div id="errLogin" class="err-admin"></div>
+  <input id="adminKey" class="input-admin" type="password" placeholder="Chave de acesso" onkeydown="if(e&&e.key==='Enter')entrar()"/>
+  <button class="btn-admin" onclick="entrar()"><i class="fas fa-sign-in-alt"></i> Entrar</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" style="display:none">
+  <div class="content">
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="filters">
+      <button class="filter-btn on" onclick="filtrar('todos',this)">Todos</button>
+      <button class="filter-btn" onclick="filtrar('ativo',this)">Ativos</button>
+      <button class="filter-btn" onclick="filtrar('inativo',this)">Inativos</button>
+      <button class="filter-btn" onclick="filtrar('pendente',this)">Docs Pendentes</button>
+      <button class="filter-btn" onclick="filtrar('aprovado',this)">Docs Aprovados</button>
+      <input id="busca" class="search-adm" type="search" placeholder="🔍  Buscar por nome ou e-mail..." oninput="renderTabela()"/>
+      <button class="btn-sm btn-ver" onclick="carregarDados()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Passageiro</th>
+            <th>Contato</th>
+            <th>CPF</th>
+            <th>Status</th>
+            <th>Docs</th>
+            <th>Localização</th>
+            <th>Cadastro</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div id="empty" class="empty" style="display:none"><i class="fas fa-users-slash"></i>Nenhum passageiro encontrado</div>
+  </div>
+</div>
+
+<!-- Modal de Foto -->
+<div id="modal" class="modal" onclick="if(event.target===this)fecharModal()">
+  <div class="modal-inner">
+    <button class="modal-close" onclick="fecharModal()">✕</button>
+    <div class="modal-title" id="modalTitulo"></div>
+    <div class="modal-info" id="modalInfo"></div>
+    <img id="modalImg" class="modal-img" src="" alt=""/>
+    <div class="modal-actions" id="modalAcoes"></div>
+  </div>
+</div>
+
+<script>
+const ADMIN_KEY_STORE = 'rs_admin_key'
+let AKEY = ''
+let todos = []
+let filtroAtual = 'todos'
+
+function entrar() {
+  const k = document.getElementById('adminKey').value.trim()
+  if (!k) return
+  AKEY = k
+  localStorage.setItem(ADMIN_KEY_STORE, k)
+  carregarDados()
+}
+
+async function carregarDados() {
+  try {
+    const r = await fetch('/api/rotasegura/admin/passageiros', { headers: { 'X-Admin-Key': AKEY } })
+    if (r.status === 401) { mostrarLoginErro('Chave incorreta'); return }
+    const d = await r.json()
+    if (!d.ok) { mostrarLoginErro(d.erro); return }
+    todos = d.passageiros || []
+    document.getElementById('loginBox').style.display = 'none'
+    document.getElementById('dashboard').style.display = 'block'
+
+    // Stats
+    const rs = await fetch('/api/rotasegura/admin/stats', { headers: { 'X-Admin-Key': AKEY } })
+    const sd = await rs.json()
+    document.getElementById('statsRow').innerHTML = \`
+      <div class="stat-card"><div class="stat-val">\${sd.passageiros||0}</div><div class="stat-label"><i class="fas fa-users"></i> Passageiros</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:#4d8bff">\${sd.motoristas||0}</div><div class="stat-label"><i class="fas fa-car"></i> Motoristas</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:#ffc107">\${sd.corridas||0}</div><div class="stat-label"><i class="fas fa-route"></i> Corridas</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:#ff4458">\${todos.filter(p=>p.docsStatus==='pendente').length}</div><div class="stat-label"><i class="fas fa-clock"></i> Docs Pendentes</div></div>
+    \`
+    renderTabela()
+  } catch(e) { mostrarLoginErro('Erro de conexão: ' + e.message) }
+}
+
+function mostrarLoginErro(msg) {
+  const el = document.getElementById('errLogin')
+  el.textContent = msg; el.style.display = 'block'
+}
+
+function filtrar(f, btn) {
+  filtroAtual = f
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('on'))
+  btn.classList.add('on')
+  renderTabela()
+}
+
+function renderTabela() {
+  const busca = document.getElementById('busca').value.toLowerCase()
+  let lista = todos.filter(p => {
+    if (filtroAtual === 'ativo' && p.status !== 'ativo') return false
+    if (filtroAtual === 'inativo' && p.status !== 'inativo') return false
+    if (filtroAtual === 'pendente' && p.docsStatus !== 'pendente') return false
+    if (filtroAtual === 'aprovado' && p.docsStatus !== 'aprovado') return false
+    if (busca && !p.nome?.toLowerCase().includes(busca) && !p.email?.toLowerCase().includes(busca)) return false
+    return true
+  })
+  const tbody = document.getElementById('tbody')
+  const empty = document.getElementById('empty')
+  if (!lista.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return }
+  empty.style.display = 'none'
+  tbody.innerHTML = lista.map(p => \`
+    <tr>
+      <td>
+        <div class="user-cell">
+          <div class="avatar" id="av_\${p.id}" onclick="verFoto('\${p.id}','selfie','\${p.nome}')">
+            \${p.temSelfie ? '' : '<i class="fas fa-user" style="color:rgba(255,255,255,.3)"></i>'}
+          </div>
+          <div><div style="font-weight:600;font-size:13px">\${p.nome}</div><div style="font-size:11px;color:rgba(255,255,255,.35)">\${p.id}</div></div>
+        </div>
+      </td>
+      <td><div style="font-size:13px">\${p.email}</div><div style="font-size:11px;color:rgba(255,255,255,.4)">\${p.telefone||'-'}</div></td>
+      <td style="font-size:12px;color:rgba(255,255,255,.5)">\${p.cpf ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4') : '-'}</td>
+      <td><span class="badge badge-\${p.status||'inativo'}">\${p.status||'inativo'}</span></td>
+      <td>
+        \${!p.temSelfie && !p.temDoc ? '<span class="badge badge-nodocs"><i class="fas fa-image"></i> Sem docs</span>' :
+          \`<span class="badge badge-\${p.docsStatus||'pendente'}">\${p.docsStatus||'pendente'}</span>
+          \${p.temSelfie ? '<button class="btn-sm btn-ver" style="margin-left:4px" onclick="verFoto(\''+p.id+'\',\'selfie\',\''+p.nome+'\')"><i class="fas fa-camera"></i></button>' : ''}
+          \${p.temDoc ? '<button class="btn-sm btn-ver" style="margin-left:4px" onclick="verFoto(\''+p.id+'\',\'doc\',\''+p.nome+'\')"><i class="fas fa-id-card"></i></button>' : ''}\`
+        }
+      </td>
+      <td>
+        \${p.geoLat ? \`<a class="geo-link" href="https://maps.google.com/?q=\${p.geoLat},\${p.geoLng}" target="_blank"><i class="fas fa-map-marker-alt"></i> Ver mapa</a><br><span style="font-size:10px;color:rgba(255,255,255,.3)">\${p.geoEndereco||''}</span>\` : '<span style="color:rgba(255,255,255,.2);font-size:12px">—</span>'}
+      </td>
+      <td style="font-size:11px;color:rgba(255,255,255,.35)">\${new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          \${p.status==='ativo'
+            ? \`<button class="btn-sm btn-bloquear" onclick="mudarStatus('\${p.id}','inativo')"><i class="fas fa-ban"></i> Bloquear</button>\`
+            : \`<button class="btn-sm btn-aprovar" onclick="mudarStatus('\${p.id}','ativo')"><i class="fas fa-check"></i> Ativar</button>\`}
+          \${p.docsStatus==='pendente'
+            ? \`<button class="btn-sm btn-aprovar" onclick="aprovarDocs('\${p.id}','aprovado')"><i class="fas fa-file-check"></i> Aprovar docs</button>\`
+            : ''}
+        </div>
+      </td>
+    </tr>
+  \`).join('')
+  // Carregar selfies como thumbs
+  lista.filter(p => p.temSelfie).forEach(p => carregarThumb(p.id, 'selfie', 'av_' + p.id, 'passageiro'))
+}
+
+async function carregarThumb(id, tipo, elId, entidade) {
+  try {
+    const r = await fetch(\`/api/rotasegura/admin/\${entidade}/\${id}/foto/\${tipo}\`, { headers: {'X-Admin-Key':AKEY} })
+    if (!r.ok) return
+    const blob = await r.blob()
+    const url = URL.createObjectURL(blob)
+    const el = document.getElementById(elId)
+    if (el) el.innerHTML = \`<img src="\${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>\`
+  } catch{}
+}
+
+async function verFoto(id, tipo, nome) {
+  const tipoLabel = {selfie:'Selfie',doc:'Documento',cnh:'CNH',docveiculo:'Doc Veículo',cnhverso:'CNH (verso)'}
+  document.getElementById('modalTitulo').textContent = \`\${tipoLabel[tipo]||tipo} — \${nome}\`
+  document.getElementById('modalInfo').textContent = 'Carregando...'
+  document.getElementById('modalImg').src = ''
+  document.getElementById('modalAcoes').innerHTML = ''
+  document.getElementById('modal').classList.add('open')
+  try {
+    const r = await fetch(\`/api/rotasegura/admin/passageiro/\${id}/foto/\${tipo}\`, { headers: {'X-Admin-Key':AKEY} })
+    if (!r.ok) { document.getElementById('modalInfo').textContent = 'Foto não encontrada'; return }
+    const blob = await r.blob()
+    const url = URL.createObjectURL(blob)
+    document.getElementById('modalImg').src = url
+    document.getElementById('modalInfo').textContent = id
+    document.getElementById('modalAcoes').innerHTML = \`
+      <button class="btn-sm btn-aprovar" onclick="aprovarDocs('\${id}','aprovado');fecharModal()"><i class="fas fa-check"></i> Aprovar docs</button>
+      <button class="btn-sm btn-bloquear" onclick="aprovarDocs('\${id}','rejeitado');fecharModal()"><i class="fas fa-times"></i> Rejeitar</button>
+    \`
+  } catch(e) { document.getElementById('modalInfo').textContent = 'Erro: ' + e.message }
+}
+
+function fecharModal() { document.getElementById('modal').classList.remove('open') }
+
+async function mudarStatus(id, status) {
+  await fetch(\`/api/rotasegura/admin/passageiro/\${id}/status\`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-Admin-Key':AKEY},
+    body: JSON.stringify({ status })
+  })
+  const p = todos.find(x => x.id === id)
+  if (p) p.status = status
+  renderTabela()
+}
+
+async function aprovarDocs(id, docsStatus) {
+  await fetch(\`/api/rotasegura/admin/passageiro/\${id}/status\`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-Admin-Key':AKEY},
+    body: JSON.stringify({ docsStatus })
+  })
+  const p = todos.find(x => x.id === id)
+  if (p) p.docsStatus = docsStatus
+  renderTabela()
+}
+
+// Auto-login se tiver chave salva
+const savedKey = localStorage.getItem(ADMIN_KEY_STORE)
+if (savedKey) { AKEY = savedKey; carregarDados() }
+</script>
+</body>
+</html>`
+  return c.html(html)
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── ADMIN MOTORISTA: /rotasegura/motorista/ladmin ────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+app.get('/rotasegura/motorista/ladmin', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RotaSegura — Admin Motoristas</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d0f14;color:#e0e0e0;min-height:100vh}
+    .topbar{background:#111520;border-bottom:1px solid rgba(255,255,255,.07);padding:14px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100}
+    .topbar-logo{width:36px;height:36px;background:linear-gradient(135deg,#1a6aff,#0044cc);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .topbar-title{font-size:16px;font-weight:700;color:#fff}
+    .topbar-sub{font-size:11px;color:rgba(255,255,255,.35);margin-left:auto}
+    .topbar-link{font-size:12px;color:#00C851;text-decoration:none;margin-left:16px}
+    .content{padding:24px;max-width:1300px;margin:0 auto}
+    .login-box{max-width:360px;margin:80px auto;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:36px 28px}
+    .login-box h2{font-size:20px;font-weight:700;margin-bottom:24px;text-align:center}
+    .input-admin{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;font-size:14px;outline:none;margin-bottom:14px}
+    .input-admin:focus{border-color:#1a6aff}
+    .btn-admin{width:100%;padding:13px;background:linear-gradient(135deg,#1a6aff,#0044cc);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+    .err-admin{background:rgba(255,68,88,.12);border:1px solid rgba(255,68,88,.3);border-radius:8px;padding:10px;font-size:13px;color:#ff8a95;margin-bottom:12px;display:none}
+    .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px}
+    .stat-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px 20px}
+    .stat-val{font-size:30px;font-weight:800;color:#4d8bff}
+    .stat-label{font-size:12px;color:rgba(255,255,255,.4);margin-top:4px}
+    .filters{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+    .filter-btn{padding:7px 16px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;transition:all .2s}
+    .filter-btn.on{background:rgba(26,106,255,.15);border-color:rgba(26,106,255,.4);color:#4d8bff}
+    .search-adm{flex:1;min-width:180px;padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;color:#fff;font-size:13px;outline:none}
+    .table-wrap{overflow-x:auto;border-radius:14px;border:1px solid rgba(255,255,255,.07)}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    thead{background:rgba(255,255,255,.04)}
+    th{padding:11px 13px;text-align:left;color:rgba(255,255,255,.4);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+    td{padding:11px 13px;border-top:1px solid rgba(255,255,255,.05);vertical-align:middle}
+    tr:hover td{background:rgba(255,255,255,.02)}
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+    .badge-ativo{background:rgba(0,200,81,.12);color:#00C851;border:1px solid rgba(0,200,81,.2)}
+    .badge-inativo,.badge-bloqueado{background:rgba(255,68,88,.1);color:#ff4458;border:1px solid rgba(255,68,88,.2)}
+    .badge-pendente{background:rgba(255,193,7,.1);color:#ffc107;border:1px solid rgba(255,193,7,.25)}
+    .badge-aprovado{background:rgba(0,200,81,.12);color:#00C851;border:1px solid rgba(0,200,81,.2)}
+    .badge-rejeitado{background:rgba(255,68,88,.12);color:#ff4458;border:1px solid rgba(255,68,88,.2)}
+    .badge-nodocs{background:rgba(255,255,255,.05);color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.08)}
+    .badge-sem_cnpj{background:rgba(255,193,7,.08);color:#ffc107;border:1px solid rgba(255,193,7,.2)}
+    .badge-erro{background:rgba(255,68,88,.1);color:#ff4458;border:1px solid rgba(255,68,88,.2)}
+    .btn-sm{padding:5px 11px;border-radius:7px;border:none;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+    .btn-aprovar{background:rgba(0,200,81,.15);color:#00C851;border:1px solid rgba(0,200,81,.3)}
+    .btn-aprovar:hover{background:rgba(0,200,81,.3)}
+    .btn-bloquear{background:rgba(255,68,88,.1);color:#ff4458;border:1px solid rgba(255,68,88,.25)}
+    .btn-bloquear:hover{background:rgba(255,68,88,.25)}
+    .btn-ver{background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12)}
+    .btn-ver:hover{background:rgba(255,255,255,.14)}
+    .avatar{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid rgba(255,255,255,.1);overflow:hidden;flex-shrink:0;cursor:pointer}
+    .user-cell{display:flex;align-items:center;gap:10px}
+    .docs-icons{display:flex;gap:4px;align-items:center}
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:999;align-items:center;justify-content:center}
+    .modal.open{display:flex}
+    .modal-inner{background:#181c26;border-radius:16px;padding:24px;max-width:520px;width:92%;position:relative;max-height:90vh;overflow-y:auto}
+    .modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer}
+    .modal-img{width:100%;border-radius:10px;margin-top:12px;max-height:380px;object-fit:contain}
+    .modal-title{font-size:15px;font-weight:700}
+    .modal-info{font-size:12px;color:rgba(255,255,255,.4);margin-top:4px}
+    .modal-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+    .modal-tabs{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
+    .modal-tab{padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer}
+    .modal-tab.on{background:rgba(26,106,255,.2);border-color:#4d8bff;color:#4d8bff}
+    .empty{text-align:center;padding:60px 20px;color:rgba(255,255,255,.25)}
+    .empty i{font-size:40px;margin-bottom:12px;display:block}
+    .geo-link{font-size:11px;color:#4d8bff;text-decoration:none}
+    .asaas-ok{color:#00C851;font-size:11px}
+    .asaas-no{color:rgba(255,255,255,.3);font-size:11px}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">🚗</div>
+  <div>
+    <div class="topbar-title">RotaSegura — Motoristas</div>
+  </div>
+  <span class="topbar-sub">Painel Admin</span>
+  <a href="/rotasegura/admin" class="topbar-link"><i class="fas fa-users"></i> Ver Passageiros</a>
+</div>
+
+<!-- LOGIN -->
+<div id="loginBox" class="login-box">
+  <h2>🔐 Acesso Admin</h2>
+  <div id="errLogin" class="err-admin"></div>
+  <input id="adminKey" class="input-admin" type="password" placeholder="Chave de acesso" onkeydown="if(event.key==='Enter')entrar()"/>
+  <button class="btn-admin" onclick="entrar()"><i class="fas fa-sign-in-alt"></i> Entrar</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" style="display:none">
+  <div class="content">
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="filters">
+      <button class="filter-btn on" onclick="filtrar('todos',this)">Todos</button>
+      <button class="filter-btn" onclick="filtrar('ativo',this)">Ativos</button>
+      <button class="filter-btn" onclick="filtrar('bloqueado',this)">Bloqueados</button>
+      <button class="filter-btn" onclick="filtrar('docs_pend',this)">Docs Pendentes</button>
+      <button class="filter-btn" onclick="filtrar('sem_asaas',this)">Sem Asaas</button>
+      <input id="busca" class="search-adm" type="search" placeholder="🔍  Buscar nome, e-mail, placa..." oninput="renderTabela()"/>
+      <button class="btn-sm btn-ver" onclick="carregarDados()"><i class="fas fa-sync-alt"></i></button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Motorista</th>
+            <th>Veículo / Placa</th>
+            <th>Contato</th>
+            <th>Status</th>
+            <th>Documentos</th>
+            <th>Asaas</th>
+            <th>Corridas</th>
+            <th>Ganhos</th>
+            <th>Localização</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div id="empty" class="empty" style="display:none"><i class="fas fa-car-side"></i>Nenhum motorista encontrado</div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal" class="modal" onclick="if(event.target===this)fecharModal()">
+  <div class="modal-inner">
+    <button class="modal-close" onclick="fecharModal()">✕</button>
+    <div class="modal-title" id="modalTitulo"></div>
+    <div class="modal-info" id="modalInfo"></div>
+    <div class="modal-tabs" id="modalTabs"></div>
+    <img id="modalImg" class="modal-img" src="" alt="" style="display:none"/>
+    <div class="modal-actions" id="modalAcoes"></div>
+  </div>
+</div>
+
+<script>
+const ADMIN_KEY_STORE = 'rs_admin_key'
+let AKEY = ''
+let todos = []
+let filtroAtual = 'todos'
+let modalId = ''
+
+function entrar() {
+  const k = document.getElementById('adminKey').value.trim()
+  if (!k) return
+  AKEY = k
+  localStorage.setItem(ADMIN_KEY_STORE, k)
+  carregarDados()
+}
+
+async function carregarDados() {
+  try {
+    const r = await fetch('/api/rotasegura/admin/motoristas', { headers: { 'X-Admin-Key': AKEY } })
+    if (r.status === 401) { mostrarLoginErro('Chave incorreta'); return }
+    const d = await r.json()
+    if (!d.ok) { mostrarLoginErro(d.erro); return }
+    todos = d.motoristas || []
+    document.getElementById('loginBox').style.display = 'none'
+    document.getElementById('dashboard').style.display = 'block'
+
+    const rs = await fetch('/api/rotasegura/admin/stats', { headers: { 'X-Admin-Key': AKEY } })
+    const sd = await rs.json()
+    const comAsaas = todos.filter(m => m.asaasStatus === 'aprovado').length
+    const docsPend = todos.filter(m => m.docsStatus === 'pendente').length
+    const totalGanhos = todos.reduce((s,m) => s + (m.ganhoTotal||0), 0)
+    document.getElementById('statsRow').innerHTML = \`
+      <div class="stat-card"><div class="stat-val">\${sd.motoristas||0}</div><div class="stat-label"><i class="fas fa-car"></i> Motoristas</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:#00C851">\${comAsaas}</div><div class="stat-label"><i class="fas fa-bolt"></i> Com Asaas</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:#ffc107">\${docsPend}</div><div class="stat-label"><i class="fas fa-clock"></i> Docs Pendentes</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:#ffc107">\${sd.corridas||0}</div><div class="stat-label"><i class="fas fa-route"></i> Corridas</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:#00C851;font-size:22px">R$\${(totalGanhos/100).toFixed(2)}</div><div class="stat-label"><i class="fas fa-hand-holding-usd"></i> Total Motoristas</div></div>
+    \`
+    renderTabela()
+  } catch(e) { mostrarLoginErro('Erro: ' + e.message) }
+}
+
+function mostrarLoginErro(msg) {
+  const el = document.getElementById('errLogin')
+  el.textContent = msg; el.style.display = 'block'
+}
+
+function filtrar(f, btn) {
+  filtroAtual = f
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('on'))
+  btn.classList.add('on')
+  renderTabela()
+}
+
+function renderTabela() {
+  const busca = document.getElementById('busca').value.toLowerCase()
+  let lista = todos.filter(m => {
+    if (filtroAtual === 'ativo' && m.status !== 'ativo') return false
+    if (filtroAtual === 'bloqueado' && m.status !== 'bloqueado') return false
+    if (filtroAtual === 'docs_pend' && m.docsStatus !== 'pendente') return false
+    if (filtroAtual === 'sem_asaas' && m.asaasStatus !== 'sem_cnpj') return false
+    if (busca && !m.nome?.toLowerCase().includes(busca) && !m.email?.toLowerCase().includes(busca) && !m.placa?.toLowerCase().includes(busca)) return false
+    return true
+  })
+  const tbody = document.getElementById('tbody')
+  const empty = document.getElementById('empty')
+  if (!lista.length) { tbody.innerHTML=''; empty.style.display='block'; return }
+  empty.style.display='none'
+  tbody.innerHTML = lista.map(m => {
+    const docsIcons = [
+      m.temSelfie ? \`<button class="btn-sm btn-ver" title="Selfie" onclick="verFoto('\${m.id}','selfie','\${m.nome}')"><i class="fas fa-camera"></i></button>\` : '',
+      m.temCnh ? \`<button class="btn-sm btn-ver" title="CNH" onclick="verFoto('\${m.id}','cnh','\${m.nome}')"><i class="fas fa-id-card"></i></button>\` : '',
+      m.temDocVeiculo ? \`<button class="btn-sm btn-ver" title="Doc Veículo" onclick="verFoto('\${m.id}','docveiculo','\${m.nome}')"><i class="fas fa-car"></i></button>\` : '',
+    ].filter(Boolean).join('')
+    const nenhum = !m.temSelfie && !m.temCnh && !m.temDocVeiculo
+    return \`
+    <tr>
+      <td>
+        <div class="user-cell">
+          <div class="avatar" id="av_\${m.id}" onclick="verFoto('\${m.id}','selfie','\${m.nome}')">
+            \${m.temSelfie ? '' : '<i class="fas fa-user" style="color:rgba(255,255,255,.3)"></i>'}
+          </div>
+          <div>
+            <div style="font-weight:600;font-size:13px">\${m.nome}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.3)">\${m.id}</div>
+          </div>
+        </div>
+      </td>
+      <td><div style="font-weight:600">\${m.veiculo||'-'}</div><div style="font-size:11px;color:rgba(255,255,255,.4)">\${m.placa||'-'}</div></td>
+      <td><div>\${m.email}</div><div style="font-size:11px;color:rgba(255,255,255,.4)">\${m.telefone||'-'}</div></td>
+      <td><span class="badge badge-\${m.status||'inativo'}">\${m.status||'inativo'}</span></td>
+      <td>
+        \${nenhum
+          ? '<span class="badge badge-nodocs">Sem docs</span>'
+          : \`<div style="margin-bottom:4px"><span class="badge badge-\${m.docsStatus||'pendente'}">\${m.docsStatus||'pendente'}</span></div><div class="docs-icons">\${docsIcons}</div>\`
+        }
+      </td>
+      <td>
+        <span class="badge badge-\${m.asaasStatus||'sem_cnpj'}">\${m.asaasStatus||'sem_cnpj'}</span>
+        \${m.asaasWalletId ? '<div class="asaas-ok" title="'+m.asaasWalletId+'"><i class="fas fa-bolt"></i> Split ativo</div>' : '<div class="asaas-no">Sem split</div>'}
+      </td>
+      <td style="text-align:center">\${m.corridasTotal||0}</td>
+      <td style="color:#00C851;font-weight:600">R$\${((m.ganhoTotal||0)/100).toFixed(2)}</td>
+      <td>
+        \${m.geoLat
+          ? \`<a class="geo-link" href="https://maps.google.com/?q=\${m.geoLat},\${m.geoLng}" target="_blank"><i class="fas fa-map-marker-alt"></i> Ver mapa</a><br><span style="font-size:10px;color:rgba(255,255,255,.25)">\${m.geoEndereco||''}</span>\`
+          : '<span style="color:rgba(255,255,255,.2);font-size:11px">—</span>'}
+      </td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          \${m.status==='ativo'
+            ? \`<button class="btn-sm btn-bloquear" onclick="mudarStatus('\${m.id}','bloqueado')"><i class="fas fa-ban"></i> Bloquear</button>\`
+            : \`<button class="btn-sm btn-aprovar" onclick="mudarStatus('\${m.id}','ativo')"><i class="fas fa-check"></i> Ativar</button>\`}
+          \${m.docsStatus==='pendente'
+            ? \`<button class="btn-sm btn-aprovar" onclick="aprovarDocs('\${m.id}','aprovado')"><i class="fas fa-file-check"></i> Aprovar</button>
+               <button class="btn-sm btn-bloquear" onclick="aprovarDocs('\${m.id}','rejeitado')"><i class="fas fa-times"></i> Rejeitar</button>\`
+            : ''}
+        </div>
+      </td>
+    </tr>\`
+  }).join('')
+  lista.filter(m => m.temSelfie).forEach(m => carregarThumb(m.id, 'selfie', 'av_' + m.id, 'motorista'))
+}
+
+async function carregarThumb(id, tipo, elId, entidade) {
+  try {
+    const r = await fetch(\`/api/rotasegura/admin/\${entidade}/\${id}/foto/\${tipo}\`, { headers: {'X-Admin-Key':AKEY} })
+    if (!r.ok) return
+    const blob = await r.blob()
+    const url = URL.createObjectURL(blob)
+    const el = document.getElementById(elId)
+    if (el) el.innerHTML = \`<img src="\${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>\`
+  } catch{}
+}
+
+async function verFoto(id, tipo, nome) {
+  modalId = id
+  const tipoLabel = {selfie:'Selfie',cnh:'CNH',docveiculo:'Doc Veículo',cnhverso:'CNH (verso)'}
+  document.getElementById('modalTitulo').textContent = \`\${tipoLabel[tipo]||tipo} — \${nome}\`
+  document.getElementById('modalInfo').textContent = 'Carregando...'
+  const img = document.getElementById('modalImg')
+  img.src = ''; img.style.display = 'none'
+  document.getElementById('modalAcoes').innerHTML = ''
+  // Tabs para alternar entre fotos
+  const m = todos.find(x => x.id === id)
+  const tipos = [
+    m?.temSelfie && {k:'selfie',l:'Selfie'},
+    m?.temCnh && {k:'cnh',l:'CNH'},
+    m?.temDocVeiculo && {k:'docveiculo',l:'Doc Veículo'},
+  ].filter(Boolean)
+  document.getElementById('modalTabs').innerHTML = tipos.map(t =>
+    \`<button class="modal-tab \${t.k===tipo?'on':''}" onclick="verFoto('\${id}','\${t.k}','\${nome}')">\${t.l}</button>\`
+  ).join('')
+  document.getElementById('modal').classList.add('open')
+  try {
+    const r = await fetch(\`/api/rotasegura/admin/motorista/\${id}/foto/\${tipo}\`, { headers: {'X-Admin-Key':AKEY} })
+    if (!r.ok) { document.getElementById('modalInfo').textContent = 'Foto não encontrada'; return }
+    const blob = await r.blob()
+    img.src = URL.createObjectURL(blob)
+    img.style.display = 'block'
+    document.getElementById('modalInfo').textContent = id
+    const docsAprov = m?.docsStatus === 'aprovado'
+    document.getElementById('modalAcoes').innerHTML = \`
+      \${!docsAprov ? \`<button class="btn-sm btn-aprovar" onclick="aprovarDocs('\${id}','aprovado');fecharModal()"><i class="fas fa-check"></i> Aprovar docs</button>\` : ''}
+      <button class="btn-sm btn-bloquear" onclick="aprovarDocs('\${id}','rejeitado');fecharModal()"><i class="fas fa-times"></i> Rejeitar</button>
+      \${m?.status==='ativo'
+        ? \`<button class="btn-sm btn-bloquear" onclick="mudarStatus('\${id}','bloqueado');fecharModal()"><i class="fas fa-ban"></i> Bloquear motorista</button>\`
+        : \`<button class="btn-sm btn-aprovar" onclick="mudarStatus('\${id}','ativo');fecharModal()"><i class="fas fa-check"></i> Ativar motorista</button>\`}
+    \`
+  } catch(e) { document.getElementById('modalInfo').textContent = 'Erro: ' + e.message }
+}
+
+function fecharModal() { document.getElementById('modal').classList.remove('open') }
+
+async function mudarStatus(id, status) {
+  await fetch(\`/api/rotasegura/admin/motorista/\${id}/status\`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-Admin-Key':AKEY},
+    body: JSON.stringify({ status })
+  })
+  const m = todos.find(x => x.id === id)
+  if (m) m.status = status
+  renderTabela()
+}
+
+async function aprovarDocs(id, docsStatus) {
+  await fetch(\`/api/rotasegura/admin/motorista/\${id}/status\`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-Admin-Key':AKEY},
+    body: JSON.stringify({ docsStatus })
+  })
+  const m = todos.find(x => x.id === id)
+  if (m) m.docsStatus = docsStatus
+  renderTabela()
+}
+
+const savedKey = localStorage.getItem(ADMIN_KEY_STORE)
+if (savedKey) { AKEY = savedKey; carregarDados() }
+</script>
+</body>
+</html>`
+  return c.html(html)
+})
+
 // ── LOGIN PASSAGEIRO: /rotasegura/login ───────────────────────────────────────
 app.get('/rotasegura/login', (c) => {
   const html = `<!DOCTYPE html>
@@ -21942,6 +22859,31 @@ app.get('/rotasegura/login', (c) => {
       <label class="form-label">Senha</label>
       <input id="cadSenha" class="form-input" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"/>
     </div>
+
+    <!-- Selfie -->
+    <div class="form-group" style="margin-top:4px">
+      <label class="form-label"><i class="fas fa-camera" style="color:#00C851;margin-right:4px"></i>Selfie <span style="color:rgba(255,255,255,.3);font-size:10px;font-weight:400">(opcional, mas recomendado)</span></label>
+      <div id="selfieBox" class="foto-box" onclick="abrirFoto('selfie')">
+        <div id="selfiePreview" class="foto-preview"></div>
+        <div class="foto-label" id="selfieLabel"><i class="fas fa-camera"></i><span>Tirar foto ou anexar</span></div>
+      </div>
+      <input id="selfieInput" type="file" accept="image/*" capture="user" style="display:none" onchange="lerFoto(this,'selfie')"/>
+      <div id="selfieOpts" class="foto-opts" style="display:none">
+        <button class="foto-opt-btn" onclick="document.getElementById('selfieInput').setAttribute('capture','user');document.getElementById('selfieInput').click()"><i class="fas fa-camera"></i> Câmera frontal</button>
+        <button class="foto-opt-btn" onclick="document.getElementById('selfieInput').removeAttribute('capture');document.getElementById('selfieInput').click()"><i class="fas fa-image"></i> Galeria</button>
+        <button class="foto-opt-btn" style="color:#ff4458" onclick="removerFoto('selfie')"><i class="fas fa-trash"></i> Remover</button>
+      </div>
+    </div>
+
+    <!-- Localização -->
+    <div class="form-group">
+      <label class="form-label"><i class="fas fa-map-marker-alt" style="color:#00C851;margin-right:4px"></i>Localização</label>
+      <button type="button" class="btn-geo" id="btnGeo" onclick="capturarGeo()">
+        <i class="fas fa-crosshairs"></i> Capturar minha localização
+      </button>
+      <div id="geoStatus" class="geo-status" style="display:none"></div>
+    </div>
+
     <button class="btn-main" id="btnCadastro" onclick="fazerCadastro()">
       <i class="fas fa-user-plus"></i> Criar conta
     </button>
@@ -21949,7 +22891,27 @@ app.get('/rotasegura/login', (c) => {
 
 </div>
 
+<style>
+  .foto-box{border:1.5px dashed rgba(0,200,81,.3);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(0,200,81,.03);min-height:70px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;position:relative}
+  .foto-box:hover{border-color:rgba(0,200,81,.6);background:rgba(0,200,81,.07)}
+  .foto-label{display:flex;flex-direction:column;align-items:center;gap:6px;color:rgba(255,255,255,.4);font-size:12px}
+  .foto-label i{font-size:22px;color:#00C851}
+  .foto-preview{display:none;width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,200,81,.4);overflow:hidden;margin:0 auto}
+  .foto-preview img{width:100%;height:100%;object-fit:cover}
+  .foto-preview.show{display:block}
+  .foto-opts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .foto-opt-btn{flex:1;padding:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:rgba(255,255,255,.65);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;min-width:90px;font-family:inherit}
+  .foto-opt-btn:hover{background:rgba(255,255,255,.1)}
+  .btn-geo{width:100%;padding:11px 14px;background:rgba(0,200,81,.08);border:1px solid rgba(0,200,81,.25);border-radius:11px;color:#00C851;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;transition:all .2s}
+  .btn-geo:hover{background:rgba(0,200,81,.15)}
+  .btn-geo.captured{color:#00C851;border-color:#00C851;background:rgba(0,200,81,.1)}
+  .geo-status{font-size:11px;margin-top:6px;padding:6px 10px;border-radius:8px;background:rgba(0,200,81,.08);border:1px solid rgba(0,200,81,.2);color:#00C851}
+</style>
+
 <script>
+let _selfieB64 = null
+let _geoLat = null, _geoLng = null, _geoEnd = ''
+
 function mudarAba(aba) {
   document.getElementById('secaoLogin').classList.toggle('ativo', aba==='login')
   document.getElementById('secaoCadastro').classList.toggle('ativo', aba==='cadastro')
@@ -21963,6 +22925,78 @@ function mostrarErro(msg) {
   el.style.display = 'block'
 }
 
+// ── Foto ──────────────────────────────────────────────────────────────────────
+function abrirFoto(tipo) {
+  const opts = document.getElementById(tipo + 'Opts')
+  opts.style.display = opts.style.display === 'none' ? 'flex' : 'none'
+}
+
+function lerFoto(input, tipo) {
+  const file = input.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = e => {
+    const b64 = e.target.result
+    // Comprimir se necessário (canvas resize)
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const MAX = 800
+      let w = img.width, h = img.height
+      if (w > MAX || h > MAX) { if(w>h){h=Math.round(h*MAX/w);w=MAX}else{w=Math.round(w*MAX/h);h=MAX} }
+      canvas.width = w; canvas.height = h
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+      const comprimida = canvas.toDataURL('image/jpeg', 0.75)
+      if (tipo === 'selfie') _selfieB64 = comprimida
+      // Preview
+      const prev = document.getElementById(tipo + 'Preview')
+      prev.innerHTML = '<img src="' + comprimida + '"/>'
+      prev.classList.add('show')
+      document.getElementById(tipo + 'Label').style.display = 'none'
+      document.getElementById(tipo + 'Opts').style.display = 'flex'
+    }
+    img.src = b64
+  }
+  reader.readAsDataURL(file)
+}
+
+function removerFoto(tipo) {
+  if (tipo === 'selfie') _selfieB64 = null
+  document.getElementById(tipo + 'Preview').classList.remove('show')
+  document.getElementById(tipo + 'Preview').innerHTML = ''
+  document.getElementById(tipo + 'Label').style.display = 'flex'
+  document.getElementById(tipo + 'Opts').style.display = 'none'
+}
+
+// ── Geolocalização ────────────────────────────────────────────────────────────
+async function capturarGeo() {
+  const btn = document.getElementById('btnGeo')
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Capturando...'
+  btn.disabled = true
+  try {
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout:10000}))
+    _geoLat = pos.coords.latitude
+    _geoLng = pos.coords.longitude
+    // Reverse geocoding via Nominatim
+    try {
+      const r = await fetch(\`https://nominatim.openstreetmap.org/reverse?lat=\${_geoLat}&lon=\${_geoLng}&format=json\`)
+      const d = await r.json()
+      _geoEnd = d.display_name || ''
+    } catch { _geoEnd = \`\${_geoLat.toFixed(5)}, \${_geoLng.toFixed(5)}\` }
+    btn.innerHTML = '<i class="fas fa-check-circle"></i> Localização capturada'
+    btn.classList.add('captured')
+    const st = document.getElementById('geoStatus')
+    st.textContent = '📍 ' + (_geoEnd.split(',').slice(0,3).join(',') || 'Localização obtida')
+    st.style.display = 'block'
+  } catch(e) {
+    btn.innerHTML = '<i class="fas fa-crosshairs"></i> Capturar localização'
+    btn.disabled = false
+    document.getElementById('geoStatus').style.display = 'none'
+    mostrarErro('Não foi possível obter localização. Verifique as permissões.')
+  }
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
 async function fazerLogin() {
   const email = document.getElementById('loginEmail').value.trim()
   const senha = document.getElementById('loginSenha').value
@@ -21995,12 +23029,13 @@ async function fazerLogin() {
   }
 }
 
+// ── Cadastro ──────────────────────────────────────────────────────────────────
 async function fazerCadastro() {
-  const nome = document.getElementById('cadNome').value.trim()
-  const email = document.getElementById('cadEmail').value.trim()
+  const nome     = document.getElementById('cadNome').value.trim()
+  const email    = document.getElementById('cadEmail').value.trim()
   const telefone = document.getElementById('cadTelefone').value.trim()
-  const cpf = document.getElementById('cadCpf').value.trim()
-  const senha = document.getElementById('cadSenha').value
+  const cpf      = document.getElementById('cadCpf').value.trim()
+  const senha    = document.getElementById('cadSenha').value
 
   if (!nome || !email || !senha || !telefone) { mostrarErro('Preencha todos os campos obrigatórios'); return }
   if (senha.length < 6) { mostrarErro('Senha deve ter pelo menos 6 caracteres'); return }
@@ -22019,23 +23054,31 @@ async function fazerCadastro() {
     if (d.ok && d.token) {
       localStorage.setItem('rs_token_passageiro', d.token)
       localStorage.setItem('rs_passageiro', JSON.stringify(d.passageiro))
+      // Enviar docs + geo em background
+      if (_selfieB64 || _geoLat) {
+        fetch('/api/rotasegura/passageiro/docs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + d.token },
+          body: JSON.stringify({
+            ...(_selfieB64 && { fotoSelfie: _selfieB64 }),
+            ...(_geoLat && { geoLat: _geoLat, geoLng: _geoLng, geoEndereco: _geoEnd })
+          })
+        }).catch(() => {})
+      }
       window.location.href = '/rotasegura'
     } else {
       mostrarErro(d.erro || 'Erro ao criar conta')
       btn.disabled = false
-      btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar conta grátis'
+      btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar conta'
     }
   } catch {
     mostrarErro('Erro de conexão')
     btn.disabled = false
-    btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar conta grátis'
+    btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar conta'
   }
 }
 
-// Enter nas inputs
 document.addEventListener('keydown', e => { if (e.key === 'Enter') { const s = document.getElementById('secaoLogin'); if(s.classList.contains('ativo')) fazerLogin(); else fazerCadastro() } })
-
-// Verificar se já está logado
 if (localStorage.getItem('rs_token_passageiro')) window.location.href = '/rotasegura'
 </script>
 </body>
@@ -22212,16 +23255,89 @@ app.get('/rotasegura/motorista/login', (c) => {
       <label class="form-label">Senha</label>
       <input id="cadSenha" class="form-input" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"/>
     </div>
+
+    <!-- Fotos de documentos -->
+    <div class="section-divider"><span><i class="fas fa-camera"></i> Documentos e Selfie</span></div>
+
+    <!-- Selfie -->
+    <div class="form-group">
+      <label class="form-label">Selfie <span class="label-hint">(segure o documento ao lado do rosto)</span></label>
+      <div class="foto-box" onclick="abrirOpts('m_selfie')">
+        <div id="prev_m_selfie" class="foto-prev-wrap" style="display:none"><img id="img_m_selfie" class="foto-prev-img" src=""/></div>
+        <div id="lbl_m_selfie" class="foto-lbl"><i class="fas fa-camera" style="font-size:20px;color:#4d8bff"></i><span>Selfie com documento</span></div>
+      </div>
+      <input id="inp_m_selfie" type="file" accept="image/*" capture="user" style="display:none" onchange="lerFotoM(this,'m_selfie')"/>
+      <div id="opts_m_selfie" class="foto-opts" style="display:none">
+        <button class="foto-opt-btn" onclick="tirarFoto('m_selfie','user')"><i class="fas fa-camera"></i> Câmera frontal</button>
+        <button class="foto-opt-btn" onclick="anexarFoto('m_selfie')"><i class="fas fa-image"></i> Galeria</button>
+        <button class="foto-opt-btn" style="color:#ff4458" onclick="removerFotoM('m_selfie')"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>
+
+    <!-- CNH -->
+    <div class="form-group">
+      <label class="form-label">Foto da CNH <span class="label-hint">(frente)</span></label>
+      <div class="foto-box" onclick="abrirOpts('m_cnh')">
+        <div id="prev_m_cnh" class="foto-prev-wrap" style="display:none"><img id="img_m_cnh" class="foto-prev-img" src=""/></div>
+        <div id="lbl_m_cnh" class="foto-lbl"><i class="fas fa-id-card" style="font-size:20px;color:#4d8bff"></i><span>Frente da CNH</span></div>
+      </div>
+      <input id="inp_m_cnh" type="file" accept="image/*" capture="environment" style="display:none" onchange="lerFotoM(this,'m_cnh')"/>
+      <div id="opts_m_cnh" class="foto-opts" style="display:none">
+        <button class="foto-opt-btn" onclick="tirarFoto('m_cnh','environment')"><i class="fas fa-camera"></i> Câmera</button>
+        <button class="foto-opt-btn" onclick="anexarFoto('m_cnh')"><i class="fas fa-image"></i> Galeria</button>
+        <button class="foto-opt-btn" style="color:#ff4458" onclick="removerFotoM('m_cnh')"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>
+
+    <!-- Doc Veículo -->
+    <div class="form-group">
+      <label class="form-label">Documento do veículo <span class="label-hint">(CRLV)</span></label>
+      <div class="foto-box" onclick="abrirOpts('m_docveiculo')">
+        <div id="prev_m_docveiculo" class="foto-prev-wrap" style="display:none"><img id="img_m_docveiculo" class="foto-prev-img" src=""/></div>
+        <div id="lbl_m_docveiculo" class="foto-lbl"><i class="fas fa-file-alt" style="font-size:20px;color:#4d8bff"></i><span>CRLV do veículo</span></div>
+      </div>
+      <input id="inp_m_docveiculo" type="file" accept="image/*" capture="environment" style="display:none" onchange="lerFotoM(this,'m_docveiculo')"/>
+      <div id="opts_m_docveiculo" class="foto-opts" style="display:none">
+        <button class="foto-opt-btn" onclick="tirarFoto('m_docveiculo','environment')"><i class="fas fa-camera"></i> Câmera</button>
+        <button class="foto-opt-btn" onclick="anexarFoto('m_docveiculo')"><i class="fas fa-image"></i> Galeria</button>
+        <button class="foto-opt-btn" style="color:#ff4458" onclick="removerFotoM('m_docveiculo')"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>
+
+    <!-- Localização -->
+    <div class="form-group">
+      <label class="form-label"><i class="fas fa-map-marker-alt" style="color:#4d8bff;margin-right:4px"></i>Localização atual</label>
+      <button type="button" class="btn-geo-m" id="btnGeoM" onclick="capturarGeoM()">
+        <i class="fas fa-crosshairs"></i> Capturar minha localização
+      </button>
+      <div id="geoStatusM" class="cep-status" style="display:none"></div>
+    </div>
+
     <button class="btn-main" id="btnCadastro" onclick="fazerCadastro()">
       <i class="fas fa-user-check"></i> Cadastrar e começar a dirigir
     </button>
     <p class="sem-cnpj-hint">Sem CNPJ? Cadastre-se assim mesmo — você pode adicionar depois.</p>
   </div>
 
-
 </div>
 
+<style>
+  .foto-box{border:1.5px dashed rgba(26,106,255,.3);border-radius:11px;padding:12px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(26,106,255,.03);min-height:64px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px}
+  .foto-box:hover{border-color:rgba(26,106,255,.6);background:rgba(26,106,255,.07)}
+  .foto-lbl{display:flex;flex-direction:column;align-items:center;gap:5px;color:rgba(255,255,255,.4);font-size:12px}
+  .foto-prev-wrap{width:80px;height:60px;border-radius:8px;overflow:hidden;margin:0 auto}
+  .foto-prev-img{width:100%;height:100%;object-fit:cover}
+  .foto-opts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .foto-opt-btn{flex:1;padding:7px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;min-width:80px;font-family:inherit}
+  .foto-opt-btn:hover{background:rgba(255,255,255,.1)}
+  .btn-geo-m{width:100%;padding:11px 14px;background:rgba(26,106,255,.08);border:1px solid rgba(26,106,255,.25);border-radius:11px;color:#4d8bff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;transition:all .2s}
+  .btn-geo-m:hover,.btn-geo-m.captured{background:rgba(26,106,255,.15);border-color:#4d8bff}
+</style>
+
 <script>
+let _mFotos = { m_selfie: null, m_cnh: null, m_docveiculo: null }
+let _mGeoLat = null, _mGeoLng = null, _mGeoEnd = ''
+
 function mudarAba(aba) {
   document.getElementById('secaoLogin').classList.toggle('ativo', aba==='login')
   document.getElementById('secaoCadastro').classList.toggle('ativo', aba==='cadastro')
@@ -22235,6 +23351,81 @@ function mostrarErro(msg) {
   el.style.display = 'block'
 }
 
+// ── Fotos motorista ────────────────────────────────────────────────────────────
+function abrirOpts(id) {
+  const el = document.getElementById('opts_' + id)
+  el.style.display = el.style.display === 'none' ? 'flex' : 'none'
+}
+function tirarFoto(id, facing) {
+  const inp = document.getElementById('inp_' + id)
+  inp.setAttribute('capture', facing)
+  inp.click()
+}
+function anexarFoto(id) {
+  const inp = document.getElementById('inp_' + id)
+  inp.removeAttribute('capture')
+  inp.click()
+}
+function lerFotoM(input, id) {
+  const file = input.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = e => {
+    const img2 = new Image()
+    img2.onload = () => {
+      const canvas = document.createElement('canvas')
+      const MAX = 900
+      let w = img2.width, h = img2.height
+      if (w > MAX || h > MAX) { if(w>h){h=Math.round(h*MAX/w);w=MAX}else{w=Math.round(w*MAX/h);h=MAX} }
+      canvas.width = w; canvas.height = h
+      canvas.getContext('2d').drawImage(img2, 0, 0, w, h)
+      const b64 = canvas.toDataURL('image/jpeg', 0.78)
+      _mFotos[id] = b64
+      document.getElementById('img_' + id).src = b64
+      document.getElementById('prev_' + id).style.display = 'block'
+      document.getElementById('lbl_' + id).style.display = 'none'
+      document.getElementById('opts_' + id).style.display = 'flex'
+    }
+    img2.src = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+function removerFotoM(id) {
+  _mFotos[id] = null
+  document.getElementById('img_' + id).src = ''
+  document.getElementById('prev_' + id).style.display = 'none'
+  document.getElementById('lbl_' + id).style.display = 'flex'
+  document.getElementById('opts_' + id).style.display = 'none'
+}
+
+// ── Geo motorista ─────────────────────────────────────────────────────────────
+async function capturarGeoM() {
+  const btn = document.getElementById('btnGeoM')
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Capturando...'
+  btn.disabled = true
+  try {
+    const pos = await new Promise((res,rej) => navigator.geolocation.getCurrentPosition(res,rej,{timeout:10000}))
+    _mGeoLat = pos.coords.latitude
+    _mGeoLng = pos.coords.longitude
+    try {
+      const r = await fetch(\`https://nominatim.openstreetmap.org/reverse?lat=\${_mGeoLat}&lon=\${_mGeoLng}&format=json\`)
+      const d = await r.json()
+      _mGeoEnd = d.display_name || ''
+    } catch { _mGeoEnd = \`\${_mGeoLat.toFixed(5)}, \${_mGeoLng.toFixed(5)}\` }
+    btn.innerHTML = '<i class="fas fa-check-circle"></i> Localização capturada'
+    btn.classList.add('captured')
+    const st = document.getElementById('geoStatusM')
+    st.textContent = '📍 ' + (_mGeoEnd.split(',').slice(0,3).join(',') || 'Localização obtida')
+    st.className = 'cep-status ok'
+    st.style.display = 'block'
+  } catch {
+    btn.innerHTML = '<i class="fas fa-crosshairs"></i> Capturar localização'
+    btn.disabled = false
+    mostrarErro('Não foi possível obter localização.')
+  }
+}
+
+// ── Login ──────────────────────────────────────────────────────────────────────
 async function fazerLogin() {
   const email = document.getElementById('loginEmail').value.trim()
   const senha = document.getElementById('loginSenha').value
@@ -22264,7 +23455,7 @@ async function fazerLogin() {
   }
 }
 
-// ── Formatar CNPJ enquanto digita ──────────────────────────────────────────────
+// ── Formatar CNPJ ─────────────────────────────────────────────────────────────
 function formatarCnpj(input) {
   let v = input.value.replace(/\D/g, '').substring(0, 14)
   if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
@@ -22274,11 +23465,10 @@ function formatarCnpj(input) {
   input.value = v
 }
 
-// ── Buscar CEP via ViaCEP ───────────────────────────────────────────────────────
+// ── Buscar CEP via ViaCEP ─────────────────────────────────────────────────────
 let cepTimer = null
 async function buscarCep(input) {
   let v = input.value.replace(/\D/g, '').substring(0, 8)
-  // Formatar exibição: XXXXX-XXX
   if (v.length > 5) input.value = v.substring(0,5) + '-' + v.substring(5)
   else input.value = v
   clearTimeout(cepTimer)
@@ -22291,24 +23481,19 @@ async function buscarCep(input) {
     try {
       const r = await fetch(\`https://viacep.com.br/ws/\${v}/json/\`)
       const d = await r.json()
-      if (d.erro) {
-        st.textContent = '❌ CEP não encontrado. Preencha o endereço manualmente.'
-        st.className = 'cep-status err'
-      } else {
+      if (d.erro) { st.textContent = '❌ CEP não encontrado'; st.className = 'cep-status err' }
+      else {
         document.getElementById('cadLogradouro').value = d.logradouro || ''
         document.getElementById('cadBairro').value = d.bairro || ''
         st.textContent = \`✅ \${d.localidade} — \${d.uf}\`
         st.className = 'cep-status ok'
         document.getElementById('cadNumero').focus()
       }
-    } catch {
-      st.textContent = '⚠️ Erro ao buscar CEP. Preencha manualmente.'
-      st.className = 'cep-status err'
-    }
+    } catch { st.textContent = '⚠️ Erro ao buscar CEP'; st.className = 'cep-status err' }
   }, 600)
 }
 
-// ── Cadastro motorista ──────────────────────────────────────────────────────────
+// ── Cadastro motorista ─────────────────────────────────────────────────────────
 async function fazerCadastro() {
   const nome       = document.getElementById('cadNome').value.trim()
   const email      = document.getElementById('cadEmail').value.trim()
@@ -22318,7 +23503,6 @@ async function fazerCadastro() {
   const veiculo    = document.getElementById('cadVeiculo').value.trim()
   const placa      = document.getElementById('cadPlaca').value.trim()
   const senha      = document.getElementById('cadSenha').value
-  // Campos MEI/Asaas (opcionais, mas recomendados)
   const cnpj       = document.getElementById('cadCnpj').value.replace(/\D/g,'').trim()
   const rendaStr   = document.getElementById('cadRenda').value.trim()
   const cep        = document.getElementById('cadCep').value.replace(/\D/g,'').trim()
@@ -22326,42 +23510,47 @@ async function fazerCadastro() {
   const numero     = document.getElementById('cadNumero').value.trim()
   const bairro     = document.getElementById('cadBairro').value.trim()
 
-  // Validação obrigatória
   if (!nome||!email||!telefone||!cpf||!cnh||!veiculo||!placa||!senha) {
-    mostrarErro('Preencha todos os campos obrigatórios (nome, e-mail, telefone, CPF, CNH, veículo, placa e senha)')
-    return
+    mostrarErro('Preencha todos os campos obrigatórios'); return
   }
   if (senha.length < 6) { mostrarErro('Senha deve ter pelo menos 6 caracteres'); return }
-  // Validar CNPJ se informado
   if (cnpj && cnpj.length !== 14) { mostrarErro('CNPJ inválido — deve ter 14 dígitos'); return }
 
   const btn = document.getElementById('btnCadastro')
   btn.disabled = true
-  const temCnpj = cnpj.length === 14
-  btn.innerHTML = temCnpj
+  btn.innerHTML = cnpj.length === 14
     ? '<i class="fas fa-circle-notch fa-spin"></i> Criando conta + subconta Asaas...'
     : '<i class="fas fa-circle-notch fa-spin"></i> Criando conta...'
 
   const payload = {
     nome, email, senha, telefone, cpf, cnh, veiculo, placa,
-    ...(cnpj       && { cnpj }),
-    ...(rendaStr   && { rendaMensal: Number(rendaStr) }),
-    ...(cep        && { cep }),
-    ...(logradouro && { logradouro }),
-    ...(numero     && { numero }),
-    ...(bairro     && { bairro })
+    ...(cnpj && {cnpj}),
+    ...(rendaStr && {rendaMensal: Number(rendaStr)}),
+    ...(cep && {cep}), ...(logradouro && {logradouro}),
+    ...(numero && {numero}), ...(bairro && {bairro})
   }
 
   try {
     const r = await fetch('/api/rotasegura/motorista/cadastro', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
     })
     const d = await r.json()
     if (d.ok && d.token) {
       localStorage.setItem('rs_token_motorista', d.token)
       localStorage.setItem('rs_motorista', JSON.stringify(d.motorista))
+      // Enviar docs + geo em background
+      const temDocs = Object.values(_mFotos).some(Boolean) || _mGeoLat
+      if (temDocs) {
+        const docsPayload = {}
+        if (_mFotos.m_selfie) docsPayload.fotoSelfie = _mFotos.m_selfie
+        if (_mFotos.m_cnh) docsPayload.fotoCnh = _mFotos.m_cnh
+        if (_mFotos.m_docveiculo) docsPayload.fotoDocVeiculo = _mFotos.m_docveiculo
+        if (_mGeoLat) { docsPayload.geoLat = _mGeoLat; docsPayload.geoLng = _mGeoLng; docsPayload.geoEndereco = _mGeoEnd }
+        fetch('/api/rotasegura/motorista/docs', {
+          method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+d.token},
+          body: JSON.stringify(docsPayload)
+        }).catch(() => {})
+      }
       window.location.href = '/rotasegura/motorista'
     } else {
       mostrarErro(d.erro || 'Erro ao criar conta')
@@ -22376,8 +23565,6 @@ async function fazerCadastro() {
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Enter') { const s = document.getElementById('secaoLogin'); if(s.classList.contains('ativo')) fazerLogin(); else fazerCadastro() } })
-
-// Verificar se já está logado
 if (localStorage.getItem('rs_token_motorista')) window.location.href = '/rotasegura/motorista'
 </script>
 </body>

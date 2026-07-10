@@ -53,6 +53,17 @@ export interface MotoristaRS {
   asaasSubcontaId?: string   // ID da subconta Asaas
   asaasStatus?: 'pendente' | 'aprovado' | 'sem_cnpj' | 'erro'
   asaasErro?: string
+  // Documentos (base64 ou URL)
+  fotoSelfie?: string      // selfie do motorista
+  fotoCnh?: string         // foto da CNH
+  fotoDocVeiculo?: string  // foto do documento do veículo
+  fotoCnhVerso?: string    // verso da CNH (opcional)
+  docsStatus?: 'pendente' | 'aprovado' | 'rejeitado'
+  docsObs?: string         // observação do admin
+  // Geolocalização no cadastro
+  geoLat?: number
+  geoLng?: number
+  geoEndereco?: string
   // Métricas
   avaliacao: number
   corridasTotal: number
@@ -69,7 +80,13 @@ export interface PassageiroRS {
   email: string
   cpf?: string
   telefone: string
-  fotoUrl?: string
+  fotoSelfie?: string      // selfie do passageiro
+  fotoDoc?: string         // doc de identidade (opcional)
+  docsStatus?: 'pendente' | 'aprovado' | 'rejeitado'
+  // Geolocalização no cadastro
+  geoLat?: number
+  geoLng?: number
+  geoEndereco?: string
   avaliacao: number
   asaasCustomerId?: string
   senhaHash: string
