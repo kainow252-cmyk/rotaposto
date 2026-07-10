@@ -10936,6 +10936,7 @@ function normalizarParceiro(data: Record<string,unknown>, id: string, uploaded: 
     totalImpressoes:  data.totalImpressoes  || 0,
     // Foto de bandeira (só retorna se realmente salva — nunca gera URL automática)
     fotoBandeira:     data.fotoBandeira     || null,
+    fotoTs:           data.fotoTs           || null,   // timestamp do último upload (cache-bust)
     endereco:         data.endereco         || {},
     lat:              data.lat              || null,
     lng:              data.lng              || null,
@@ -13645,7 +13646,9 @@ function renderParceiros(lista) {
     const dataExib = u.atualizadoEm && u.atualizadoEm !== '—' ? u.atualizadoEm : u.criadoEm;
     // Logo: prioridade → fotoBandeira → SVG da bandeira → inicial
     const logoSvg = _adminBandeiraLogoUrl(u.bandeira || u.nomePosto);
-    const logoFoto = u.fotoBandeira && (u.fotoBandeira.startsWith('http') || u.fotoBandeira.startsWith('/api')) ? u.fotoBandeira : null;
+    // Adiciona ?v=fotoTs para cache-bust sempre que há timestamp de upload
+    const logoFotoBase = u.fotoBandeira && (u.fotoBandeira.startsWith('http') || u.fotoBandeira.startsWith('/api')) ? u.fotoBandeira : null;
+    const logoFoto = logoFotoBase ? (u.fotoTs ? logoFotoBase.split('?')[0] + '?v=' + u.fotoTs : logoFotoBase) : null;
     const logoSrc = logoFoto || logoSvg;
     const logoHtml = \`<img src="\${logoSrc}" width="34" height="34"
       style="border-radius:8px;object-fit:contain;background:#fff;padding:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.1);"
