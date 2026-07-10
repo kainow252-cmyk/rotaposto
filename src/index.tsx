@@ -13318,20 +13318,17 @@ app.get('/admin', (c) => {
 
     <!-- Unified card — igual ao padrão Dados & Contatos -->
     <div class="section-card">
-      <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <h3 style="margin:0;font-size:15px;font-weight:800;color:#fff"><i class="fas fa-layer-group" style="color:#FF6D00;margin-right:8px"></i>Selecione um plano para editar</h3>
-        <button onclick="abrirModalNovoPlanoApp()" style="background:rgba(255,109,0,0.15);color:#FF6D00;border:1.5px solid rgba(255,109,0,0.35);border-radius:10px;padding:8px 18px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px"><i class="fas fa-plus"></i> Novo Plano</button>
+      <div class="section-header">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.7)">Selecione um plano para editar</h3>
       </div>
       <div class="section-body">
-        <!-- Cards de seleção de plano (scroll horizontal em mobile) -->
-        <div style="overflow-x:auto;padding-bottom:4px;margin-bottom:4px;-webkit-overflow-scrolling:touch">
-          <div id="planos-app-tabs" style="display:flex;gap:14px;min-width:max-content;padding:4px 2px 12px"></div>
-        </div>
+        <!-- Seletores de plano em linha -->
+        <div id="planos-app-tabs" style="display:flex;flex-wrap:wrap;gap:8px;padding-bottom:4px"></div>
 
         <!-- Painel de edição do plano selecionado — aparece abaixo na mesma card -->
         <div id="planos-app-panel">
-          <div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,0.25);font-size:13px">
-            <i class="fas fa-hand-pointer" style="font-size:28px;margin-bottom:16px;display:block;opacity:0.4"></i>
+          <div style="text-align:center;padding:48px 20px;color:rgba(255,255,255,0.2);font-size:13px">
+            <i class="fas fa-hand-pointer" style="font-size:22px;margin-bottom:12px;display:block;opacity:0.3"></i>
             Selecione um plano acima para editar
           </div>
         </div>
@@ -13410,20 +13407,17 @@ app.get('/admin', (c) => {
 
     <!-- Unified card — igual ao padrão Dados & Contatos -->
     <div class="section-card">
-      <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <h3 style="margin:0;font-size:15px;font-weight:800;color:#fff"><i class="fas fa-gas-pump" style="color:#FF6D00;margin-right:8px"></i>Selecione um plano para editar</h3>
-        <button onclick="abrirModalNovoPlano()" style="background:rgba(255,109,0,0.15);color:#FF6D00;border:1.5px solid rgba(255,109,0,0.35);border-radius:10px;padding:8px 18px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px"><i class="fas fa-plus"></i> Novo Plano</button>
+      <div class="section-header">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.7)">Selecione um plano para editar</h3>
       </div>
       <div class="section-body">
-        <!-- Cards de seleção de plano (scroll horizontal em mobile) -->
-        <div style="overflow-x:auto;padding-bottom:4px;margin-bottom:4px;-webkit-overflow-scrolling:touch">
-          <div id="planos-tabs" style="display:flex;gap:14px;min-width:max-content;padding:4px 2px 12px"></div>
-        </div>
+        <!-- Seletores de plano em linha -->
+        <div id="planos-tabs" style="display:flex;flex-wrap:wrap;gap:8px;padding-bottom:4px"></div>
 
         <!-- Painel de edição do plano selecionado — aparece abaixo na mesma card -->
         <div id="planos-grid">
-          <div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,0.25);font-size:13px">
-            <i class="fas fa-hand-pointer" style="font-size:28px;margin-bottom:16px;display:block;opacity:0.4"></i>
+          <div style="text-align:center;padding:48px 20px;color:rgba(255,255,255,0.2);font-size:13px">
+            <i class="fas fa-hand-pointer" style="font-size:22px;margin-bottom:12px;display:block;opacity:0.3"></i>
             Selecione um plano acima para editar
           </div>
         </div>
@@ -16101,35 +16095,34 @@ function renderizarAbasPlanosApp() {
     var preco = p.valor ? 'R$ ' + (p.valor/100).toFixed(2).replace('.',',') : 'Grátis';
     var cicloLabel = { forever:'', monthly:'/mês', yearly:'/ano', weekly:'/sem' }[p.ciclo] || '';
     return '<div onclick="selecionarPlanoAppTab(' + i + ')" style="'
-      + 'cursor:pointer;border-radius:12px;padding:0;text-align:center;width:130px;flex-shrink:0;'
-      + 'border:1.5px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.08)') + ';'
-      + 'background:' + (isAtivo ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)') + ';'
-      + 'transition:all 0.18s ease;position:relative;overflow:hidden;'
+      + 'cursor:pointer;border-radius:8px;padding:10px 16px;flex-shrink:0;'
+      + 'border:1px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.08)') + ';'
+      + 'background:' + (isAtivo ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.02)') + ';'
+      + 'transition:all 0.15s ease;position:relative;'
+      + 'display:flex;align-items:center;gap:10px;min-width:140px;'
       + '">'
-      // Barra cor topo — só no selecionado
-      + (isAtivo ? '<div style="height:3px;background:' + cor + '"></div>' : '<div style="height:3px;background:rgba(255,255,255,0.05)"></div>')
-      // Conteúdo
-      + '<div style="padding:16px 12px 14px">'
-      // Badge DESTAQUE
-      + (p.destaque ? '<div style="position:absolute;top:10px;right:8px;background:rgba(255,214,0,0.15);color:#FFD600;font-size:8px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:0.3px">TOP</div>' : '')
-      // Emoji
-      + '<div style="font-size:28px;margin-bottom:8px;line-height:1;opacity:' + (isAtivo ? '1' : '0.5') + '">' + (p.emoji || '📦') + '</div>'
-      // Nome
-      + '<div style="font-size:11px;font-weight:700;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.45)') + ';margin-bottom:5px;text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.nome + '</div>'
-      // Preço
-      + '<div style="font-size:12px;font-weight:700;color:' + (isAtivo ? cor : 'rgba(255,255,255,0.2)') + '">' + preco + '<span style="font-size:10px;font-weight:500">' + cicloLabel + '</span></div>'
+      // Indicador lateral colorido quando selecionado
+      + (isAtivo ? '<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:' + cor + ';border-radius:8px 0 0 8px"></div>' : '')
+      // Emoji pequeno
+      + '<div style="font-size:20px;line-height:1;flex-shrink:0;padding-left:' + (isAtivo ? '6px' : '0') + ';opacity:' + (isAtivo ? '1' : '0.5') + '">' + (p.emoji || '📦') + '</div>'
+      // Info
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:12px;font-weight:700;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.5)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.nome + '</div>'
+      +   '<div style="font-size:11px;color:' + (isAtivo ? cor : 'rgba(255,255,255,0.2)') + ';margin-top:1px">' + preco + '<span style="opacity:0.7">' + cicloLabel + '</span></div>'
       + '</div>'
+      // Badge TOP
+      + (p.destaque ? '<div style="font-size:9px;font-weight:800;color:#FFD600;background:rgba(255,214,0,0.12);padding:2px 6px;border-radius:4px;flex-shrink:0">TOP</div>' : '')
       + '</div>';
   }).join('');
 
-  // Card "+ Novo Plano"
+  // Botão Novo Plano — estilo link discreto
   cards += '<div onclick="abrirModalNovoPlanoApp()" style="'
-    + 'cursor:pointer;border-radius:12px;padding:0;text-align:center;flex-shrink:0;width:110px;'
-    + 'border:1.5px dashed rgba(255,255,255,0.1);background:rgba(255,255,255,0.015);'
-    + 'transition:all 0.18s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px'
+    + 'cursor:pointer;border-radius:8px;padding:10px 16px;flex-shrink:0;'
+    + 'border:1px dashed rgba(255,255,255,0.1);background:transparent;'
+    + 'transition:all 0.15s;display:flex;align-items:center;gap:8px'
     + '" class="plano-novo-card">'
-    + '<i class="fas fa-plus" style="font-size:18px;color:rgba(255,255,255,0.2)"></i>'
-    + '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.2)">Novo Plano</div>'
+    + '<i class="fas fa-plus" style="font-size:12px;color:rgba(255,255,255,0.25)"></i>'
+    + '<span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.25)">Novo Plano</span>'
     + '</div>';
 
   tabs.innerHTML = cards;
@@ -16423,7 +16416,7 @@ async function carregarEstatisticasPlanos() {
     _planosData.forEach(function(p, i) {
       var n = parceiros.filter(function(parc) { return (parc.plano || 'posto_gratis') === p.id; }).length;
       var el = document.getElementById('plano-tab-count-' + i);
-      if (el) el.textContent = n;
+      if (el) el.textContent = n + ' posto' + (n !== 1 ? 's' : '');
     });
   } catch(e) { /* sem contadores é ok */ }
 }
@@ -16451,36 +16444,34 @@ function renderizarAbasPlanos() {
     var cor = p.cor || '#FF6D00';
     var isAtivo = i === _planoTabIdx;
     return '<div onclick="selecionarPlanoTab(' + i + ')" style="'
-      + 'cursor:pointer;border-radius:12px;padding:0;text-align:center;width:130px;flex-shrink:0;'
-      + 'border:1.5px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.08)') + ';'
-      + 'background:' + (isAtivo ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)') + ';'
-      + 'transition:all 0.18s ease;position:relative;overflow:hidden;'
+      + 'cursor:pointer;border-radius:8px;padding:10px 16px;flex-shrink:0;'
+      + 'border:1px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.08)') + ';'
+      + 'background:' + (isAtivo ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.02)') + ';'
+      + 'transition:all 0.15s ease;position:relative;'
+      + 'display:flex;align-items:center;gap:10px;min-width:140px;'
       + '">'
-      // Barra cor topo
-      + (isAtivo ? '<div style="height:3px;background:' + cor + '"></div>' : '<div style="height:3px;background:rgba(255,255,255,0.05)"></div>')
-      // Conteúdo
-      + '<div style="padding:14px 12px 12px">'
-      // Badge destaque
-      + (p.destaque ? '<div style="position:absolute;top:10px;right:8px;background:rgba(255,214,0,0.15);color:#FFD600;font-size:8px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:0.3px">TOP</div>' : '')
-      // Emoji
-      + '<div style="font-size:26px;margin-bottom:6px;line-height:1;opacity:' + (isAtivo ? '1' : '0.45') + '">' + (p.emoji || '📦') + '</div>'
-      // Nome
-      + '<div style="font-size:10px;font-weight:700;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.4)') + ';margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.nome + '</div>'
-      // Contador postos
-      + '<div style="font-size:24px;font-weight:800;color:' + (isAtivo ? cor : 'rgba(255,255,255,0.2)') + ';line-height:1" id="plano-tab-count-' + i + '">–</div>'
-      + '<div style="font-size:9px;color:rgba(255,255,255,0.25);margin-top:2px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase">postos</div>'
+      // Indicador lateral colorido quando selecionado
+      + (isAtivo ? '<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:' + cor + ';border-radius:8px 0 0 8px"></div>' : '')
+      // Emoji pequeno
+      + '<div style="font-size:20px;line-height:1;flex-shrink:0;padding-left:' + (isAtivo ? '6px' : '0') + ';opacity:' + (isAtivo ? '1' : '0.5') + '">' + (p.emoji || '📦') + '</div>'
+      // Info
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:12px;font-weight:700;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.5)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.nome + '</div>'
+      +   '<div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:1px" id="plano-tab-count-' + i + '">– postos</div>'
       + '</div>'
+      // Badge TOP
+      + (p.destaque ? '<div style="font-size:9px;font-weight:800;color:#FFD600;background:rgba(255,214,0,0.12);padding:2px 6px;border-radius:4px;flex-shrink:0">TOP</div>' : '')
       + '</div>';
   }).join('');
 
-  // Card "+ Novo Plano"
+  // Botão Novo Plano — estilo link discreto
   cards += '<div id="btn-novo-plano-tab" onclick="abrirModalNovoPLano()" style="'
-    + 'cursor:pointer;border-radius:12px;padding:0;text-align:center;flex-shrink:0;width:110px;'
-    + 'border:1.5px dashed rgba(255,255,255,0.1);background:rgba(255,255,255,0.015);'
-    + 'transition:all 0.18s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:118px'
+    + 'cursor:pointer;border-radius:8px;padding:10px 16px;flex-shrink:0;'
+    + 'border:1px dashed rgba(255,255,255,0.1);background:transparent;'
+    + 'transition:all 0.15s;display:flex;align-items:center;gap:8px'
     + '" class="plano-novo-card">'
-    + '<i class="fas fa-plus" style="font-size:18px;color:rgba(255,255,255,0.2)"></i>'
-    + '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.2)">Novo Plano</div>'
+    + '<i class="fas fa-plus" style="font-size:12px;color:rgba(255,255,255,0.25)"></i>'
+    + '<span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.25)">Novo Plano</span>'
     + '</div>';
 
   tabs.innerHTML = cards;
