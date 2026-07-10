@@ -69,6 +69,7 @@ import {
   criarCustomerPassageiro,
   gerarPixSplitCorrida,
   verificarPagamentoCorrida,
+  diagnosticarSubcontaAsaas,
   kvGetMotorista,
   kvSaveMotorista,
   kvGetMotoristaPorEmail,
@@ -21205,14 +21206,22 @@ app.get('/api/rotasegura/passageiro/perfil', async (c) => {
 })
 
 // ──────────────────────────────────────────────────────────────────────────────
-// MOTORISTA: Cadastro (cria subconta Asaas automaticamente)
+// MOTORISTA: Cadastro (cria subconta Asaas com CNPJ obrigatório)
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/rotasegura/motorista/cadastro', async (c) => {
   const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
-    const { nome, email, senha, telefone, cpf, cnh, veiculo, placa } = await c.req.json()
+    const {
+      nome, email, senha, telefone, cpf, cnpj,
+      cnh, veiculo, placa,
+      // Endereço para subconta Asaas
+      cep, logradouro, numero, bairro,
+      dataNascimento,
+      rendaMensal  // faturamento mensal em R$
+    } = await c.req.json()
+
     if (!nome || !email || !senha || !telefone || !cpf || !cnh || !veiculo || !placa) {
       return c.json({ erro: 'Campos obrigatórios: nome, email, senha, telefone, cpf, cnh, veiculo, placa' }, 400)
     }
@@ -21220,53 +21229,162 @@ app.post('/api/rotasegura/motorista/cadastro', async (c) => {
     const existente = await kvGetMotoristaPorEmail(kv, email)
     if (existente) return c.json({ erro: 'E-mail já cadastrado' }, 409)
 
-    const id = `rsm_${Date.now()}_${Math.random().toString(36).slice(2,8)}`
+    const id = `rsm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const senhaHash = await sha256(senha + id)
-    const cpfLimpo = cpf.replace(/\D/g,'')
+    const cpfLimpo = cpf.replace(/\D/g, '')
+    const cnpjLimpo = (cnpj || '').replace(/\D/g, '')
 
     const motorista: MotoristaRS = {
       id, nome, email: email.toLowerCase().trim(),
-      cpf: cpfLimpo, telefone: telefone.replace(/\D/g,''),
-      cnh, veiculo, placa: placa.toUpperCase(),
+      cpf: cpfLimpo,
+      cnpj: cnpjLimpo || undefined,
+      telefone: telefone.replace(/\D/g, ''),
+      cnh, veiculo, placa: placa.toUpperCase().trim(),
+      cep: (cep || '').replace(/\D/g, ''),
+      logradouro: logradouro || '',
+      numero: numero || 'S/N',
+      bairro: bairro || '',
+      dataNascimento: dataNascimento || '',
+      rendaMensal: Number(rendaMensal) || 3000,
       avaliacao: 5.0, corridasTotal: 0, ganhoTotal: 0,
-      asaasStatus: 'pendente',
+      asaasStatus: cnpjLimpo.length === 14 ? 'pendente' : 'sem_cnpj',
       senhaHash, status: 'ativo', criadoEm: Date.now()
     }
 
     await kvSaveMotorista(kv, motorista)
 
-    // Criar subconta Asaas em background
-    const env = c.env as any
-    criarSubcontaAsaas(env, { nome, email: motorista.email, cpf: cpfLimpo, telefone: motorista.telefone })
-      .then(async ({ walletId, accountKey, error }) => {
+    // Criar subconta Asaas em background SE tem CNPJ + CEP
+    if (cnpjLimpo.length === 14 && cep) {
+      const env = c.env as any
+      criarSubcontaAsaas(env, {
+        nome,
+        email: motorista.email,
+        cpf: cpfLimpo,
+        cnpj: cnpjLimpo,
+        telefone: motorista.telefone,
+        cep: motorista.cep || '',
+        logradouro: motorista.logradouro || 'Rua não informada',
+        numero: motorista.numero || 'S/N',
+        bairro: motorista.bairro || 'Centro',
+        rendaMensal: motorista.rendaMensal || 3000,
+        dataNascimento: motorista.dataNascimento || undefined
+      }).then(async ({ walletId, accountKey, subcontaId, error }) => {
         if (walletId) {
           motorista.asaasWalletId = walletId
           motorista.asaasAccountKey = accountKey || undefined
+          motorista.asaasSubcontaId = subcontaId || undefined
           motorista.asaasStatus = 'aprovado'
-          console.log(`[RotaSegura] Subconta Asaas criada para motorista ${id}: walletId=${walletId}`)
+          motorista.asaasErro = undefined
+          console.log(`[RotaSegura] ✅ Subconta Asaas criada: motorista=${id} walletId=${walletId}`)
         } else {
-          motorista.asaasStatus = 'pendente'
-          console.warn(`[RotaSegura] Erro subconta Asaas para ${id}:`, error)
+          motorista.asaasStatus = 'erro'
+          motorista.asaasErro = error || 'Erro desconhecido'
+          console.warn(`[RotaSegura] ⚠️ Erro subconta Asaas motorista=${id}:`, error)
         }
         await kvSaveMotorista(kv, motorista)
-      })
-      .catch(e => console.error('[RotaSegura] criarSubcontaAsaas falhou:', e))
+      }).catch(e => console.error('[RotaSegura] criarSubcontaAsaas falhou:', e))
+    }
 
     const token = gerarToken({ sub: id, tipo: 'motorista', nome }, RS_JWT_SECRET)
     await kvSaveToken(kv, token, 'motorista', id)
 
+    const temCnpj = cnpjLimpo.length === 14
     return c.json({
       ok: true, token,
       motorista: {
         id, nome, email: motorista.email, telefone: motorista.telefone,
         veiculo, placa: motorista.placa, avaliacao: 5.0,
-        asaasStatus: 'pendente',
-        mensagem: '✅ Cadastro realizado! Sua subconta Asaas está sendo configurada.'
+        asaasStatus: motorista.asaasStatus,
+        mensagem: temCnpj
+          ? '✅ Cadastro realizado! Subconta Asaas sendo configurada para recebimento automático.'
+          : '✅ Cadastro realizado! Para receber via split PIX, adicione seu CNPJ/MEI no perfil.'
       }
     })
   } catch (e) {
     return c.json({ erro: 'Erro ao cadastrar motorista', detalhe: String(e) }, 500)
   }
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MOTORISTA: Adicionar/atualizar CNPJ e criar subconta Asaas
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/rotasegura/motorista/subconta', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
+  if (!auth || auth.tipo !== 'motorista') return c.json({ erro: 'Não autenticado' }, 401)
+
+  try {
+    const { cnpj, cep, logradouro, numero, bairro, rendaMensal, dataNascimento } = await c.req.json()
+    const cnpjLimpo = (cnpj || '').replace(/\D/g, '')
+    if (cnpjLimpo.length !== 14) return c.json({ erro: 'CNPJ inválido (14 dígitos sem pontuação)' }, 400)
+    if (!cep) return c.json({ erro: 'CEP obrigatório para criar subconta' }, 400)
+
+    const motorista = await kvGetMotorista(kv!, auth.userId)
+    if (!motorista) return c.json({ erro: 'Motorista não encontrado' }, 404)
+
+    // Já tem subconta aprovada?
+    if (motorista.asaasStatus === 'aprovado' && motorista.asaasWalletId) {
+      return c.json({ ok: true, mensagem: 'Subconta já configurada', walletId: '✅ Ativo' })
+    }
+
+    // Atualizar dados
+    motorista.cnpj = cnpjLimpo
+    motorista.cep = cep.replace(/\D/g, '')
+    motorista.logradouro = logradouro || motorista.logradouro
+    motorista.numero = numero || motorista.numero
+    motorista.bairro = bairro || motorista.bairro
+    motorista.rendaMensal = Number(rendaMensal) || motorista.rendaMensal || 3000
+    if (dataNascimento) motorista.dataNascimento = dataNascimento
+    motorista.asaasStatus = 'pendente'
+    await kvSaveMotorista(kv!, motorista)
+
+    // Criar subconta
+    const resultado = await criarSubcontaAsaas(c.env as any, {
+      nome: motorista.nome,
+      email: motorista.email,
+      cpf: motorista.cpf,
+      cnpj: cnpjLimpo,
+      telefone: motorista.telefone,
+      cep: motorista.cep,
+      logradouro: motorista.logradouro || 'Rua não informada',
+      numero: motorista.numero || 'S/N',
+      bairro: motorista.bairro || 'Centro',
+      rendaMensal: motorista.rendaMensal,
+      dataNascimento: motorista.dataNascimento || undefined
+    })
+
+    if (resultado.walletId) {
+      motorista.asaasWalletId = resultado.walletId
+      motorista.asaasAccountKey = resultado.accountKey || undefined
+      motorista.asaasSubcontaId = resultado.subcontaId || undefined
+      motorista.asaasStatus = 'aprovado'
+      motorista.asaasErro = undefined
+      await kvSaveMotorista(kv!, motorista)
+      return c.json({
+        ok: true,
+        mensagem: '🎉 Subconta Asaas criada com sucesso! Você receberá 80% de cada corrida automaticamente.',
+        walletId: '✅ Configurado',
+        split: 'Motorista 80% / Plataforma 20%'
+      })
+    } else {
+      motorista.asaasStatus = 'erro'
+      motorista.asaasErro = resultado.error
+      await kvSaveMotorista(kv!, motorista)
+      return c.json({ erro: resultado.error || 'Erro ao criar subconta Asaas' }, 502)
+    }
+  } catch (e) {
+    return c.json({ erro: 'Erro ao criar subconta', detalhe: String(e) }, 500)
+  }
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// DIAGNÓSTICO: Testar se conta Asaas permite subcontas
+// ──────────────────────────────────────────────────────────────────────────────
+app.get('/api/rotasegura/diagnostico/asaas', async (c) => {
+  const apiKey = (c.env as any)?.ASAAS_API_KEY as string || ''
+  if (!apiKey) return c.json({ erro: 'ASAAS_API_KEY não configurada' }, 503)
+  const resultado = await diagnosticarSubcontaAsaas(apiKey)
+  return c.json(resultado)
 })
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -21966,6 +22084,15 @@ app.get('/rotasegura/motorista/login', (c) => {
     .form-section.ativo{display:block}
     .asaas-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,200,81,.1);border:1px solid rgba(0,200,81,.2);border-radius:20px;padding:4px 12px;font-size:11px;color:#00C851;margin:0 auto 20px;font-weight:600}
     .asaas-wrap{text-align:center}
+    .section-divider{display:flex;align-items:center;gap:10px;margin:18px 0 14px;color:rgba(255,255,255,.35);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+    .section-divider::before,.section-divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
+    .section-divider i{color:#4d8bff;margin-right:2px}
+    .label-hint{font-size:9px;color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;margin-left:2px}
+    .cep-status{font-size:11px;padding:6px 10px;border-radius:8px;margin-top:-8px;margin-bottom:10px}
+    .cep-status.ok{background:rgba(0,200,81,.1);color:#00C851;border:1px solid rgba(0,200,81,.2)}
+    .cep-status.err{background:rgba(255,68,88,.1);color:#ff8a95;border:1px solid rgba(255,68,88,.2)}
+    .cep-status.loading{background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)}
+    .sem-cnpj-hint{text-align:center;font-size:11px;color:rgba(255,255,255,.25);margin-top:10px}
   </style>
 </head>
 <body>
@@ -22005,16 +22132,18 @@ app.get('/rotasegura/motorista/login', (c) => {
   <div id="secaoCadastro" class="form-section">
     <div class="info-box">
       <i class="fas fa-info-circle"></i>
-      Ao se cadastrar, criamos automaticamente sua <strong>subconta Asaas</strong> para receber 80% de cada corrida via PIX.
+      Ao se cadastrar, criamos automaticamente sua <strong>subconta Asaas</strong> para receber <strong>80%</strong> de cada corrida via PIX. Informe o CNPJ (MEI) para ativar os pagamentos.
     </div>
+
+    <!-- Dados pessoais -->
     <div class="form-group">
       <label class="form-label">Nome completo</label>
-      <input id="cadNome" class="form-input" type="text" placeholder="Seu nome"/>
+      <input id="cadNome" class="form-input" type="text" placeholder="Seu nome completo" autocomplete="name"/>
     </div>
     <div class="input-row">
       <div class="form-group">
         <label class="form-label">E-mail</label>
-        <input id="cadEmail" class="form-input" type="email" placeholder="seu@email.com"/>
+        <input id="cadEmail" class="form-input" type="email" placeholder="seu@email.com" autocomplete="email"/>
       </div>
       <div class="form-group">
         <label class="form-label">Telefone</label>
@@ -22041,13 +22170,53 @@ app.get('/rotasegura/motorista/login', (c) => {
         <input id="cadPlaca" class="form-input" type="text" placeholder="BRA-2E19" style="text-transform:uppercase"/>
       </div>
     </div>
+
+    <!-- Dados MEI / Asaas (para split PIX) -->
+    <div class="section-divider">
+      <span><i class="fas fa-building"></i> Dados MEI — para receber via PIX</span>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">CNPJ <span class="label-hint">(MEI — 14 dígitos)</span></label>
+        <input id="cadCnpj" class="form-input" type="tel" placeholder="00.000.000/0001-00" oninput="formatarCnpj(this)"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Renda Mensal <span class="label-hint">(R$)</span></label>
+        <input id="cadRenda" class="form-input" type="number" placeholder="3000" min="0" step="100"/>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">CEP <span class="label-hint">(auto-preenche)</span></label>
+        <input id="cadCep" class="form-input" type="tel" placeholder="00000-000" maxlength="9" oninput="buscarCep(this)"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Número</label>
+        <input id="cadNumero" class="form-input" type="text" placeholder="123"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Logradouro</label>
+      <input id="cadLogradouro" class="form-input" type="text" placeholder="Preenchido pelo CEP"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Bairro</label>
+      <input id="cadBairro" class="form-input" type="text" placeholder="Preenchido pelo CEP"/>
+    </div>
+    <div id="cepStatus" class="cep-status" style="display:none"></div>
+
+    <!-- Senha -->
+    <div class="section-divider">
+      <span><i class="fas fa-lock"></i> Acesso</span>
+    </div>
     <div class="form-group">
       <label class="form-label">Senha</label>
-      <input id="cadSenha" class="form-input" type="password" placeholder="Mínimo 6 caracteres"/>
+      <input id="cadSenha" class="form-input" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"/>
     </div>
     <button class="btn-main" id="btnCadastro" onclick="fazerCadastro()">
       <i class="fas fa-user-check"></i> Cadastrar e começar a dirigir
     </button>
+    <p class="sem-cnpj-hint">Sem CNPJ? Cadastre-se assim mesmo — você pode adicionar depois.</p>
   </div>
 
   <div class="passageiro-link">
@@ -22098,24 +22267,99 @@ async function fazerLogin() {
   }
 }
 
+// ── Formatar CNPJ enquanto digita ──────────────────────────────────────────────
+function formatarCnpj(input) {
+  let v = input.value.replace(/\D/g, '').substring(0, 14)
+  if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+  else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})/, '$1.$2.$3/$4')
+  else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{3})/, '$1.$2.$3')
+  else if (v.length > 2) v = v.replace(/^(\d{2})(\d{3})/, '$1.$2')
+  input.value = v
+}
+
+// ── Buscar CEP via ViaCEP ───────────────────────────────────────────────────────
+let cepTimer = null
+async function buscarCep(input) {
+  let v = input.value.replace(/\D/g, '').substring(0, 8)
+  // Formatar exibição: XXXXX-XXX
+  if (v.length > 5) input.value = v.substring(0,5) + '-' + v.substring(5)
+  else input.value = v
+  clearTimeout(cepTimer)
+  if (v.length < 8) return
+  const st = document.getElementById('cepStatus')
+  st.textContent = '⏳ Buscando endereço...'
+  st.className = 'cep-status loading'
+  st.style.display = 'block'
+  cepTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(\`https://viacep.com.br/ws/\${v}/json/\`)
+      const d = await r.json()
+      if (d.erro) {
+        st.textContent = '❌ CEP não encontrado. Preencha o endereço manualmente.'
+        st.className = 'cep-status err'
+      } else {
+        document.getElementById('cadLogradouro').value = d.logradouro || ''
+        document.getElementById('cadBairro').value = d.bairro || ''
+        st.textContent = \`✅ \${d.localidade} — \${d.uf}\`
+        st.className = 'cep-status ok'
+        document.getElementById('cadNumero').focus()
+      }
+    } catch {
+      st.textContent = '⚠️ Erro ao buscar CEP. Preencha manualmente.'
+      st.className = 'cep-status err'
+    }
+  }, 600)
+}
+
+// ── Cadastro motorista ──────────────────────────────────────────────────────────
 async function fazerCadastro() {
-  const nome = document.getElementById('cadNome').value.trim()
-  const email = document.getElementById('cadEmail').value.trim()
-  const telefone = document.getElementById('cadTelefone').value.trim()
-  const cpf = document.getElementById('cadCpf').value.trim()
-  const cnh = document.getElementById('cadCnh').value.trim()
-  const veiculo = document.getElementById('cadVeiculo').value.trim()
-  const placa = document.getElementById('cadPlaca').value.trim()
-  const senha = document.getElementById('cadSenha').value
-  if (!nome||!email||!telefone||!cpf||!cnh||!veiculo||!placa||!senha) { mostrarErro('Preencha todos os campos'); return }
+  const nome       = document.getElementById('cadNome').value.trim()
+  const email      = document.getElementById('cadEmail').value.trim()
+  const telefone   = document.getElementById('cadTelefone').value.trim()
+  const cpf        = document.getElementById('cadCpf').value.trim()
+  const cnh        = document.getElementById('cadCnh').value.trim()
+  const veiculo    = document.getElementById('cadVeiculo').value.trim()
+  const placa      = document.getElementById('cadPlaca').value.trim()
+  const senha      = document.getElementById('cadSenha').value
+  // Campos MEI/Asaas (opcionais, mas recomendados)
+  const cnpj       = document.getElementById('cadCnpj').value.replace(/\D/g,'').trim()
+  const rendaStr   = document.getElementById('cadRenda').value.trim()
+  const cep        = document.getElementById('cadCep').value.replace(/\D/g,'').trim()
+  const logradouro = document.getElementById('cadLogradouro').value.trim()
+  const numero     = document.getElementById('cadNumero').value.trim()
+  const bairro     = document.getElementById('cadBairro').value.trim()
+
+  // Validação obrigatória
+  if (!nome||!email||!telefone||!cpf||!cnh||!veiculo||!placa||!senha) {
+    mostrarErro('Preencha todos os campos obrigatórios (nome, e-mail, telefone, CPF, CNH, veículo, placa e senha)')
+    return
+  }
   if (senha.length < 6) { mostrarErro('Senha deve ter pelo menos 6 caracteres'); return }
+  // Validar CNPJ se informado
+  if (cnpj && cnpj.length !== 14) { mostrarErro('CNPJ inválido — deve ter 14 dígitos'); return }
+
   const btn = document.getElementById('btnCadastro')
   btn.disabled = true
-  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Criando conta + subconta Asaas...'
+  const temCnpj = cnpj.length === 14
+  btn.innerHTML = temCnpj
+    ? '<i class="fas fa-circle-notch fa-spin"></i> Criando conta + subconta Asaas...'
+    : '<i class="fas fa-circle-notch fa-spin"></i> Criando conta...'
+
+  const payload = {
+    nome, email, senha, telefone, cpf, cnh, veiculo, placa,
+    ...(cnpj       && { cnpj }),
+    ...(rendaStr   && { rendaMensal: Number(rendaStr) }),
+    ...(cep        && { cep }),
+    ...(logradouro && { logradouro }),
+    ...(numero     && { numero }),
+    ...(bairro     && { bairro })
+  }
+
   try {
     const r = await fetch('/api/rotasegura/motorista/cadastro', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ nome, email, senha, telefone, cpf, cnh, veiculo, placa })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     })
     const d = await r.json()
     if (d.ok && d.token) {
@@ -22128,7 +22372,7 @@ async function fazerCadastro() {
       btn.innerHTML = '<i class="fas fa-user-check"></i> Cadastrar e começar a dirigir'
     }
   } catch {
-    mostrarErro('Erro de conexão')
+    mostrarErro('Erro de conexão. Tente novamente.')
     btn.disabled = false
     btn.innerHTML = '<i class="fas fa-user-check"></i> Cadastrar e começar a dirigir'
   }
