@@ -21881,8 +21881,7 @@ app.get('/rotasegura/login', (c) => {
     .divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:rgba(255,255,255,.2);font-size:12px}
     .divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
     .err{background:rgba(255,68,88,.12);border:1px solid rgba(255,68,88,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#ff8a95;margin-bottom:14px;display:none}
-    .motorista-link{text-align:center;margin-top:20px;font-size:13px;color:rgba(255,255,255,.4)}
-    .motorista-link a{color:#00C851;text-decoration:none;font-weight:600}
+
     .input-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .form-section{display:none}
     .form-section.ativo{display:block}
@@ -21947,9 +21946,7 @@ app.get('/rotasegura/login', (c) => {
     </button>
   </div>
 
-  <div class="motorista-link">
-    É motorista? <a href="/rotasegura/motorista/login">Acesse aqui →</a>
-  </div>
+
 </div>
 
 <script>
@@ -22078,8 +22075,7 @@ app.get('/rotasegura/motorista/login', (c) => {
     .err{background:rgba(255,68,88,.12);border:1px solid rgba(255,68,88,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#ff8a95;margin-bottom:14px;display:none}
     .info-box{background:rgba(26,106,255,.08);border:1px solid rgba(26,106,255,.2);border-radius:10px;padding:12px 14px;font-size:12px;color:rgba(255,255,255,.6);margin-bottom:16px;line-height:1.6}
     .info-box i{color:#4d8bff;margin-right:6px}
-    .passageiro-link{text-align:center;margin-top:18px;font-size:13px;color:rgba(255,255,255,.4)}
-    .passageiro-link a{color:#4d8bff;text-decoration:none;font-weight:600}
+
     .form-section{display:none}
     .form-section.ativo{display:block}
     .asaas-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,200,81,.1);border:1px solid rgba(0,200,81,.2);border-radius:20px;padding:4px 12px;font-size:11px;color:#00C851;margin:0 auto 20px;font-weight:600}
@@ -22219,9 +22215,7 @@ app.get('/rotasegura/motorista/login', (c) => {
     <p class="sem-cnpj-hint">Sem CNPJ? Cadastre-se assim mesmo — você pode adicionar depois.</p>
   </div>
 
-  <div class="passageiro-link">
-    Quer uma corrida? <a href="/rotasegura/login">Sou passageiro →</a>
-  </div>
+
 </div>
 
 <script>
