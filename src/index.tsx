@@ -44,6 +44,16 @@ import {
   MP_PLANOS
 } from './mercadopago'
 import {
+  gerarPixPagBank,
+  criarSubscriptionPagBank,
+  criarOuBuscarPlanPagBank,
+  verificarOrderPagBank,
+  verificarSubscriptionPagBank,
+  cancelarSubscriptionPagBank,
+  parsearWebhookPagBank,
+  testarConexaoPagBank
+} from './pagbank'
+import {
   buscarTodosPostosANP,
   getMapaBrasilHTML,
   getEstatisticasNacionaisANP,
@@ -1598,15 +1608,25 @@ interface AssinaturaUsuario {
   email: string
   cpf?: string
   plano: string
-  status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED'
-  subscriptionId?: string
+  status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED'
+  gateway?: 'woovi' | 'mercadopago' | 'pagbank' // gateway que gerou esta assinatura
+  subscriptionId?: string   // ID no gateway (Woovi sub, MP preapproval, PagBank subscription)
+  orderId?: string          // ID da order de pagamento PIX (PagBank)
+  planId?: string           // ID do plano no gateway (PagBank billing/plans)
   qrCode?: string
   brcode?: string
+  qrExpiraEm?: number       // timestamp de expiração do QR Code
   ativadaEm?: number
   expiraEm?: number
   criadaEm: number
-  pagamentos?: number   // contador de pagamentos recebidos
-  proximoPagamento?: number  // timestamp do próximo pagamento
+  pagamentos?: number       // contador de pagamentos recebidos
+  proximoPagamento?: number // timestamp do próximo pagamento esperado
+  // Controle de inadimplência e suspensão
+  avisoInadimplencia?: boolean
+  inadimplenciaEm?: number  // quando ficou inadimplente
+  lembreteEnviadoEm?: number // quando enviamos o lembrete
+  suspensaoEm?: number      // quando foi suspenso automaticamente
+  tentativasSuspensao?: number // contador de dias sem pagamento
 }
 
 // Helper: ler assinatura do KV
@@ -1761,19 +1781,35 @@ app.get('/api/assinatura/status/:userId', async (c) => {
     return c.json({ status: 'FREE', plano: null, ativa: false })
   }
 
-  // Se pendente: verificar se foi pago via Woovi
-  if (assinatura.status === 'PENDING' && assinatura.subscriptionId) {
-    const { ativa } = await verificarAssinatura(c.env as any, assinatura.subscriptionId)
-    if (ativa) {
-      assinatura.status = 'ACTIVE'
-      assinatura.ativadaEm = Date.now()
-      assinatura.expiraEm = assinatura.plano === 'anual'
-        ? Date.now() + 365 * 24 * 3600 * 1000
-        : Date.now() + 30 * 24 * 3600 * 1000
-      assinatura.pagamentos = (assinatura.pagamentos || 0) + 1
-      assinatura.qrCode = undefined
-      assinatura.brcode = undefined
-      await kvSetAssinatura(kv, assinatura)
+  // Se pendente: verificar se foi pago via gateway
+  if (assinatura.status === 'PENDING') {
+    if (assinatura.gateway === 'pagbank' && assinatura.orderId) {
+      // Verificar pagamento via PagBank Order
+      const { pago } = await verificarOrderPagBank(c.env as any, assinatura.orderId)
+      if (pago) {
+        assinatura.status = 'ACTIVE'
+        assinatura.ativadaEm = Date.now()
+        assinatura.expiraEm = Date.now() + 30 * 24 * 3600 * 1000
+        assinatura.pagamentos = (assinatura.pagamentos || 0) + 1
+        assinatura.proximoPagamento = Date.now() + 30 * 24 * 3600 * 1000
+        assinatura.qrCode = undefined
+        assinatura.brcode = undefined
+        await kvSetAssinatura(kv, assinatura)
+      }
+    } else if (assinatura.subscriptionId && assinatura.gateway !== 'pagbank') {
+      // Verificar via Woovi (gateway padrão)
+      const { ativa } = await verificarAssinatura(c.env as any, assinatura.subscriptionId)
+      if (ativa) {
+        assinatura.status = 'ACTIVE'
+        assinatura.ativadaEm = Date.now()
+        assinatura.expiraEm = assinatura.plano === 'anual'
+          ? Date.now() + 365 * 24 * 3600 * 1000
+          : Date.now() + 30 * 24 * 3600 * 1000
+        assinatura.pagamentos = (assinatura.pagamentos || 0) + 1
+        assinatura.qrCode = undefined
+        assinatura.brcode = undefined
+        await kvSetAssinatura(kv, assinatura)
+      }
     }
   }
 
@@ -1788,19 +1824,29 @@ app.get('/api/assinatura/status/:userId', async (c) => {
     }
   }
 
+  const precisaRenovar = ['PENDING', 'SUSPENDED', 'EXPIRED'].includes(assinatura.status)
+  const qrExpired = assinatura.qrExpiraEm ? Date.now() > assinatura.qrExpiraEm : false
+
   return c.json({
     status: assinatura.status,
     plano: assinatura.plano,
+    gateway: assinatura.gateway || 'woovi',
     ativa: assinatura.status === 'ACTIVE',
     expiraEm: assinatura.expiraEm,
     ativadaEm: assinatura.ativadaEm,
     pagamentos: assinatura.pagamentos || 0,
     proximoPagamento: assinatura.proximoPagamento,
+    // Inadimplência / suspensão
     avisoInadimplencia: assinatura.avisoInadimplencia || false,
     inadimplenciaEm: assinatura.inadimplenciaEm || null,
-    // QR Code: retornar se PENDING ou se inadimplente (para renovação)
-    qrCode: (assinatura.status === 'PENDING' || assinatura.avisoInadimplencia) ? assinatura.qrCode : null,
-    brcode: (assinatura.status === 'PENDING' || assinatura.avisoInadimplencia) ? assinatura.brcode : null,
+    lembreteEnviadoEm: assinatura.lembreteEnviadoEm || null,
+    suspensaoEm: assinatura.suspensaoEm || null,
+    // QR Code: retornar se PENDING/SUSPENDED/EXPIRED ou inadimplente (para renovação)
+    qrCode: (precisaRenovar || assinatura.avisoInadimplencia) ? assinatura.qrCode : null,
+    brcode: (precisaRenovar || assinatura.avisoInadimplencia) ? assinatura.brcode : null,
+    qrExpiraEm: (precisaRenovar || assinatura.avisoInadimplencia) ? assinatura.qrExpiraEm : null,
+    qrExpired,
+    orderId: precisaRenovar ? assinatura.orderId : null,
     subscriptionId: assinatura.status === 'PENDING' ? assinatura.subscriptionId : null
   })
 })
@@ -2478,6 +2524,300 @@ app.get('/api/pagamento/status/:subscriptionId', async (c) => {
     return c.json({ sucesso: true, ...resultado })
   } catch {
     return c.json({ sucesso: false, mensagem: 'Erro ao consultar status' }, 500)
+  }
+})
+
+// ════════════════════════════════════════════════════════════════════════════
+// ─── PagBank — PIX recorrente ────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+
+const DIAS_GRACA = 3  // dias após vencimento antes da suspensão automática
+
+// Helper: índice reverso orderId → userId
+async function kvSetOrderIndex(kv: KVNamespace, orderId: string, userId: string) {
+  await kv.put(`order:pb:${orderId}`, userId, { expirationTtl: 60 * 60 * 24 * 400 })
+}
+async function kvGetOrderIndex(kv: KVNamespace, orderId: string): Promise<string | null> {
+  return kv.get(`order:pb:${orderId}`)
+}
+
+// POST /api/pagbank/assinar — gera PIX QR Code + cria subscription no PagBank
+app.post('/api/pagbank/assinar', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const { userId, nome, email, cpf, plano: planoId } = body
+    if (!userId || !nome || !email || !cpf || !planoId) {
+      return c.json({ sucesso: false, mensagem: 'Dados incompletos: userId, nome, email, cpf e plano são obrigatórios.' }, 400)
+    }
+
+    const kv = getKV(c.env as any)
+    if (!kv) return c.json({ sucesso: false, mensagem: 'KV não disponível' }, 500)
+
+    // Buscar plano no catálogo
+    const planosRaw = await kv.get('admin:planos_config')
+    const planos = planosRaw ? JSON.parse(planosRaw) : []
+    const plano = planos.find((p: any) => p.id === planoId)
+    if (!plano) return c.json({ sucesso: false, mensagem: `Plano "${planoId}" não encontrado.` }, 404)
+
+    // Garantir planId no gateway (cria se não existir)
+    const { planId, error: errPlan } = await criarOuBuscarPlanPagBank(c.env as any, plano)
+    if (errPlan) return c.json({ sucesso: false, mensagem: `Erro ao criar plano no PagBank: ${errPlan}` }, 500)
+
+    // Gerar QR Code PIX para 1ª cobrança
+    const pb = await gerarPixPagBank(c.env as any, {
+      userId,
+      nome,
+      email,
+      cpf,
+      valor: plano.preco || plano.valor || 0,
+      descricao: `Assinatura RotaPosto — ${plano.nome || planoId}`,
+      planId
+    })
+    if (!pb.sucesso) return c.json({ sucesso: false, mensagem: pb.mensagem || 'Erro ao gerar PIX' }, 500)
+
+    // Criar subscription no PagBank (background — 1ª cobrança será via PIX manual)
+    let subscriptionId: string | undefined
+    try {
+      const subRes = await criarSubscriptionPagBank(c.env as any, {
+        userId, nome, email, cpf, planId,
+        referenceId: `rp-sub-${userId}`
+      })
+      if (!subRes.error) subscriptionId = subRes.subscriptionId
+    } catch {}
+
+    // Salvar assinatura no KV (status PENDING até PIX ser pago)
+    const agora = Date.now()
+    const assin: AssinaturaUsuario = {
+      userId,
+      nome,
+      email,
+      cpf,
+      plano: planoId,
+      status: 'PENDING',
+      gateway: 'pagbank',
+      planId,
+      orderId: pb.orderId,
+      subscriptionId,
+      qrCode: pb.qrCode,
+      brcode: pb.brcode,
+      qrExpiraEm: pb.expiraEm,
+      criadaEm: agora
+    }
+    await kvSetAssinatura(kv, assin)
+
+    // Índice reverso orderId → userId (para webhook)
+    if (pb.orderId) await kvSetOrderIndex(kv, pb.orderId, userId)
+
+    return c.json({
+      sucesso: true,
+      orderId: pb.orderId,
+      qrCode: pb.qrCode,
+      brcode: pb.brcode,
+      expiraEm: pb.expiraEm,
+      mensagem: 'PIX gerado! Aguardando pagamento.'
+    })
+  } catch (e) {
+    return c.json({ sucesso: false, mensagem: 'Erro interno: ' + String(e) }, 500)
+  }
+})
+
+// GET /api/pagbank/verificar/:orderId — verifica se PIX foi pago
+app.get('/api/pagbank/verificar/:orderId', async (c) => {
+  try {
+    const orderId = c.req.param('orderId')
+    if (!orderId) return c.json({ pago: false, mensagem: 'orderId ausente' }, 400)
+
+    const { pago, status } = await verificarOrderPagBank(c.env as any, orderId)
+
+    if (pago) {
+      // Sincronizar status no KV (pode ter chegado webhook; mas polling é backup)
+      const kv = getKV(c.env as any)
+      if (kv) {
+        const userId = await kvGetOrderIndex(kv, orderId)
+        if (userId) {
+          const assin = await kvGetAssinatura(kv, userId)
+          if (assin && assin.status === 'PENDING') {
+            assin.status = 'ACTIVE'
+            assin.ativadaEm = Date.now()
+            assin.expiraEm = Date.now() + 30 * 24 * 3600 * 1000
+            assin.pagamentos = (assin.pagamentos || 0) + 1
+            assin.proximoPagamento = Date.now() + 30 * 24 * 3600 * 1000
+            await kvSetAssinatura(kv, assin)
+          }
+        }
+      }
+    }
+
+    return c.json({ pago, status })
+  } catch (e) {
+    return c.json({ pago: false, status: 'erro', mensagem: String(e) }, 500)
+  }
+})
+
+// POST /api/pagbank/renovar — gera novo PIX para usuário PENDING ou SUSPENDED
+app.post('/api/pagbank/renovar', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const { userId } = body
+    if (!userId) return c.json({ sucesso: false, mensagem: 'userId obrigatório' }, 400)
+
+    const kv = getKV(c.env as any)
+    if (!kv) return c.json({ sucesso: false, mensagem: 'KV não disponível' }, 500)
+
+    const assin = await kvGetAssinatura(kv, userId)
+    if (!assin) return c.json({ sucesso: false, mensagem: 'Assinatura não encontrada.' }, 404)
+    if (!['PENDING', 'SUSPENDED', 'EXPIRED'].includes(assin.status)) {
+      return c.json({ sucesso: false, mensagem: `Assinatura com status "${assin.status}" não pode ser renovada via PIX manual.` }, 400)
+    }
+
+    // Buscar plano
+    const planosRaw = await kv.get('admin:planos_config')
+    const planos = planosRaw ? JSON.parse(planosRaw) : []
+    const plano = planos.find((p: any) => p.id === assin.plano)
+    if (!plano) return c.json({ sucesso: false, mensagem: 'Plano não encontrado.' }, 404)
+
+    // Gerar novo PIX
+    const pb = await gerarPixPagBank(c.env as any, {
+      userId,
+      nome: assin.nome,
+      email: assin.email,
+      cpf: assin.cpf || '',
+      valor: plano.preco || plano.valor || 0,
+      descricao: `Renovação RotaPosto — ${plano.nome || assin.plano}`,
+      planId: assin.planId
+    })
+    if (!pb.sucesso) return c.json({ sucesso: false, mensagem: pb.mensagem || 'Erro ao gerar PIX' }, 500)
+
+    // Atualizar KV com novo QR (mantém status PENDING/SUSPENDED até webhook confirmar)
+    assin.orderId = pb.orderId
+    assin.qrCode = pb.qrCode
+    assin.brcode = pb.brcode
+    assin.qrExpiraEm = pb.expiraEm
+    await kvSetAssinatura(kv, assin)
+
+    // Índice reverso para webhook reconhecer este orderId
+    if (pb.orderId) await kvSetOrderIndex(kv, pb.orderId, userId)
+
+    return c.json({
+      sucesso: true,
+      orderId: pb.orderId,
+      qrCode: pb.qrCode,
+      brcode: pb.brcode,
+      expiraEm: pb.expiraEm,
+      mensagem: 'Novo PIX gerado! Pague para reativar sua assinatura.'
+    })
+  } catch (e) {
+    return c.json({ sucesso: false, mensagem: 'Erro interno: ' + String(e) }, 500)
+  }
+})
+
+// POST /api/pagbank/webhook — recebe eventos do PagBank
+app.post('/api/pagbank/webhook', async (c) => {
+  try {
+    const body = await c.req.json() as any
+    const parsed = parsearWebhookPagBank(body)
+
+    const kv = getKV(c.env as any)
+    if (!kv) return c.json({ ok: false }, 500)
+
+    const agora = Date.now()
+
+    // ── PAGO (1ª cobrança via Order PIX ou recarga manual) ──────────────────
+    if (parsed.tipo === 'PAGO' && parsed.referenceId) {
+      // Tentar resolver userId via orderId
+      let userId: string | null = null
+
+      // Caso 1: referenceId é rp-order-{userId}-{ts}
+      const matchOrder = parsed.referenceId.match(/^rp-order-(.+)-\d+$/)
+      if (matchOrder) userId = matchOrder[1]
+
+      // Caso 2: orderId indexado
+      if (!userId && parsed.orderId) userId = await kvGetOrderIndex(kv, parsed.orderId)
+
+      // Caso 3: subscriptionId → buscar assinatura
+      if (!userId && parsed.subscriptionId) {
+        const list = await kv.list({ prefix: 'assin:' })
+        for (const k of list.keys) {
+          if (k.name.startsWith('assin:posto:')) continue
+          try {
+            const raw = await kv.get(k.name)
+            if (!raw) continue
+            const a = JSON.parse(raw) as AssinaturaUsuario
+            if (a.subscriptionId === parsed.subscriptionId || a.orderId === parsed.orderId) {
+              userId = a.userId
+              break
+            }
+          } catch {}
+        }
+      }
+
+      if (userId) {
+        const assin = await kvGetAssinatura(kv, userId)
+        if (assin && assin.gateway === 'pagbank') {
+          const eraInativo = ['PENDING', 'SUSPENDED', 'EXPIRED'].includes(assin.status)
+          assin.status = 'ACTIVE'
+          assin.ativadaEm = assin.ativadaEm || agora
+          assin.expiraEm = agora + 30 * 24 * 3600 * 1000
+          assin.pagamentos = (assin.pagamentos || 0) + 1
+          assin.proximoPagamento = agora + 30 * 24 * 3600 * 1000
+          // Limpar flags de inadimplência
+          assin.avisoInadimplencia = false
+          assin.inadimplenciaEm = undefined
+          assin.lembreteEnviadoEm = undefined
+          assin.suspensaoEm = undefined
+          assin.tentativasSuspensao = undefined
+          await kvSetAssinatura(kv, assin)
+          console.log(`[PagBank webhook] PAGO: userId=${userId}, reativado=${eraInativo}`)
+        }
+      }
+    }
+
+    // ── INADIMPLENTE (cobrança recorrente não paga no vencimento) ────────────
+    if (parsed.tipo === 'INADIMPLENTE' && parsed.subscriptionId) {
+      // Localizar assinatura pelo subscriptionId
+      const list = await kv.list({ prefix: 'assin:' })
+      for (const k of list.keys) {
+        if (k.name.startsWith('assin:posto:')) continue
+        try {
+          const raw = await kv.get(k.name)
+          if (!raw) continue
+          const assin = JSON.parse(raw) as AssinaturaUsuario
+          if (assin.subscriptionId !== parsed.subscriptionId) continue
+
+          // Marcar inadimplência (D+0) — lembrete enviado
+          assin.avisoInadimplencia = true
+          assin.inadimplenciaEm = assin.inadimplenciaEm || agora
+          assin.lembreteEnviadoEm = agora
+          // Não suspende ainda — cron faz isso no D+3
+          await kvSetAssinatura(kv, assin)
+          console.log(`[PagBank webhook] INADIMPLENTE: userId=${assin.userId}, inadimplenciaEm=${assin.inadimplenciaEm}`)
+          break
+        } catch {}
+      }
+    }
+
+    // ── CANCELADO ────────────────────────────────────────────────────────────
+    if (parsed.tipo === 'CANCELADO' && parsed.subscriptionId) {
+      const list = await kv.list({ prefix: 'assin:' })
+      for (const k of list.keys) {
+        if (k.name.startsWith('assin:posto:')) continue
+        try {
+          const raw = await kv.get(k.name)
+          if (!raw) continue
+          const assin = JSON.parse(raw) as AssinaturaUsuario
+          if (assin.subscriptionId !== parsed.subscriptionId) continue
+          assin.status = 'CANCELLED'
+          await kvSetAssinatura(kv, assin)
+          console.log(`[PagBank webhook] CANCELADO: userId=${assin.userId}`)
+          break
+        } catch {}
+      }
+    }
+
+    return c.json({ ok: true })
+  } catch (e) {
+    console.error('[PagBank webhook] Erro:', e)
+    return c.json({ ok: false, error: String(e) }, 500)
   }
 })
 
@@ -10880,15 +11220,16 @@ app.delete('/api/admin/planos-posto/:id', async (c) => {
 const PAGAMENTO_CONFIG_KEY = 'admin:config_pagamento'
 
 interface ConfigPagamento {
-  gateway: 'woovi' | 'mercadopago'  // gateway ativo
+  gateway: 'woovi' | 'mercadopago' | 'pagbank'  // gateway ativo
   pixAtivo: boolean
   cartaoAtivo: boolean
   // Credenciais salvas pelo admin (opcionais — fallback para env secrets)
   wooviAppId?: string
   mpPublicKey?: string
   // Status: definido ao testar conexão
-  statusWoovi?: 'ok' | 'erro' | 'nao_configurado'
-  statusMP?:    'ok' | 'erro' | 'nao_configurado'
+  statusWoovi?:   'ok' | 'erro' | 'nao_configurado'
+  statusMP?:      'ok' | 'erro' | 'nao_configurado'
+  statusPagBank?: 'ok' | 'erro' | 'nao_configurado'
   atualizadoEm?: number
 }
 
@@ -10909,9 +11250,10 @@ app.get('/api/admin/config/pagamento', async (c) => {
   if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
   const config = await getConfigPagamento(kv)
   // Verificar credenciais nos env secrets
-  const temWooviEnv = Boolean((c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY)
-  const temMPEnv    = Boolean((c.env as any)?.MP_ACCESS_TOKEN)
-  return c.json({ config, temWooviEnv, temMPEnv })
+  const temWooviEnv   = Boolean((c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY)
+  const temMPEnv      = Boolean((c.env as any)?.MP_ACCESS_TOKEN)
+  const temPagBankEnv = Boolean((c.env as any)?.PAGBANK_TOKEN)
+  return c.json({ config, temWooviEnv, temMPEnv, temPagBankEnv })
 })
 
 // POST /api/admin/config/pagamento
@@ -10978,6 +11320,23 @@ app.post('/api/admin/config/pagamento/testar', async (c) => {
       return c.json({ ok: r.ok, status: statusMP, mensagem: r.ok ? '✅ Mercado Pago conectado!' : `Erro HTTP ${r.status}` })
     } catch (e) {
       await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusMP: 'erro', atualizadoEm: Date.now() }))
+      return c.json({ ok: false, status: 'erro', mensagem: 'Falha de rede: ' + String(e) })
+    }
+  }
+
+  if (gateway === 'pagbank') {
+    const pbToken = (c.env as any)?.PAGBANK_TOKEN || ''
+    if (!pbToken) {
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusPagBank: 'nao_configurado', atualizadoEm: Date.now() }))
+      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'Token PagBank não configurado (secret PAGBANK_TOKEN).' })
+    }
+    try {
+      const r = await testarConexaoPagBank(pbToken)
+      const statusPagBank = r.ok ? 'ok' : 'erro'
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusPagBank, atualizadoEm: Date.now() }))
+      return c.json({ ok: r.ok, status: statusPagBank, mensagem: r.mensagem })
+    } catch (e) {
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusPagBank: 'erro', atualizadoEm: Date.now() }))
       return c.json({ ok: false, status: 'erro', mensagem: 'Falha de rede: ' + String(e) })
     }
   }
@@ -16920,17 +17279,19 @@ async function alterarPermissao(uid, acao) {
 // ════════════════════════════════════════════════════════════
 
 // ─── PAGAMENTOS — config gateway + métodos ───────────────────────────────────
-var _pgConfig = { gateway: 'woovi', pixAtivo: true, cartaoAtivo: true, statusWoovi: null, statusMP: null };
+var _pgConfig = { gateway: 'woovi', pixAtivo: true, cartaoAtivo: true, statusWoovi: null, statusMP: null, statusPagBank: null };
 var _pgTemWooviEnv = false;
 var _pgTemMPEnv = false;
+var _pgTemPagBankEnv = false;
 
 async function carregarConfigPagamento() {
   try {
     const res = await fetch('/api/admin/config/pagamento?key=' + encodeURIComponent(ADMIN_KEY));
     const data = await res.json();
     _pgConfig = data.config || _pgConfig;
-    _pgTemWooviEnv = data.temWooviEnv || false;
-    _pgTemMPEnv    = data.temMPEnv    || false;
+    _pgTemWooviEnv   = data.temWooviEnv   || false;
+    _pgTemMPEnv      = data.temMPEnv      || false;
+    _pgTemPagBankEnv = data.temPagBankEnv || false;
   } catch(e) { console.warn('carregarConfigPagamento:', e); }
   renderGatewayCards();
   renderMetodoToggles();
@@ -16960,6 +17321,16 @@ function renderGatewayCards() {
       desc: 'Suporta cartão de crédito recorrente e PIX. Ideal para usuários que preferem cartão.',
       temEnv: _pgTemMPEnv,
       status: _pgConfig.statusMP
+    },
+    {
+      id: 'pagbank',
+      nome: 'PagBank',
+      sub: 'PIX recorrente + suspensão automática',
+      icon: '🏦',
+      cor: '#FFB300',
+      desc: 'PIX recorrente com cobrança automática. Lembrete de inadimplência + suspensão D+3 + reativação via PIX.',
+      temEnv: _pgTemPagBankEnv,
+      status: _pgConfig.statusPagBank
     }
   ];
   el.innerHTML = gateways.map(function(g) {
@@ -16969,7 +17340,7 @@ function renderGatewayCards() {
     var statusColor = g.status === 'ok' ? '#00C853' : g.status === 'erro' ? '#FF5252' : 'rgba(255,255,255,0.25)';
     return '<div onclick="selecionarGateway(&apos;' + g.id + '&apos;)" style="'
       + 'cursor:pointer;border-radius:16px;padding:20px;flex:1;min-width:240px;max-width:320px;'
-      + 'background:' + (ativo ? 'rgba(' + (g.id==='woovi'?'0,200,83':'66,165,245') + ',0.08)' : 'rgba(255,255,255,0.03)') + ';'
+      + 'background:' + (ativo ? 'rgba(' + (g.id==='woovi'?'0,200,83':g.id==='pagbank'?'255,179,0':'66,165,245') + ',0.08)' : 'rgba(255,255,255,0.03)') + ';'
       + 'border:2px solid ' + (ativo ? g.cor : 'rgba(255,255,255,0.08)') + ';'
       + 'transition:all 0.2s;position:relative'
       + '">'
@@ -17019,14 +17390,22 @@ function renderIntegracaoStatus() {
   if (!el) return;
   var items = [
     {
+      id: 'woovi',
       nome: 'Woovi / OpenPix', icon: '📱', cor: '#00C853',
       temEnv: _pgTemWooviEnv, status: _pgConfig.statusWoovi,
       varEnv: 'WOOVI_APP_ID ou OPENPIX_KEY'
     },
     {
+      id: 'mercadopago',
       nome: 'Mercado Pago', icon: '💳', cor: '#42A5F5',
       temEnv: _pgTemMPEnv, status: _pgConfig.statusMP,
       varEnv: 'MP_ACCESS_TOKEN'
+    },
+    {
+      id: 'pagbank',
+      nome: 'PagBank', icon: '🏦', cor: '#FFB300',
+      temEnv: _pgTemPagBankEnv, status: _pgConfig.statusPagBank,
+      varEnv: 'PAGBANK_TOKEN'
     }
   ];
   el.innerHTML = items.map(function(it) {
@@ -17047,7 +17426,7 @@ function renderIntegracaoStatus() {
       + '</div>'
       + '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;word-break:break-all">' + it.varEnv + '</div>'
       + '<div style="margin-top:10px">'
-      +   '<button onclick="testarGatewayEspecifico(&apos;' + (it.nome.includes('Woovi') ? 'woovi' : 'mercadopago') + '&apos;)" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.1);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-bolt" style="margin-right:5px"></i>Testar</button>'
+      +   '<button onclick="testarGatewayEspecifico(&apos;' + it.id + '&apos;)" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.1);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-bolt" style="margin-right:5px"></i>Testar</button>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -20038,6 +20417,49 @@ export default {
   async scheduled(event: { cron: string; scheduledTime: number }, env: Record<string, unknown>, ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<void> {
     const kv = (env?.ROTAPOSTO_KV as KVNamespace | undefined)
     const r2 = (env?.ROTAPOSTO_R2 as R2Bucket | undefined)
+
+    // Sincronização ANP
     ctx.waitUntil(syncAnpScheduled(kv))
+
+    // ── PagBank: suspensão automática D+3 ───────────────────────────────────
+    ctx.waitUntil((async () => {
+      if (!kv) return
+      const agora = Date.now()
+      const TRES_DIAS = DIAS_GRACA * 24 * 3600 * 1000
+
+      try {
+        const list = await kv.list({ prefix: 'assin:' })
+        for (const k of list.keys) {
+          if (k.name.startsWith('assin:posto:')) continue
+          try {
+            const raw = await kv.get(k.name)
+            if (!raw) continue
+            const assin = JSON.parse(raw) as AssinaturaUsuario
+
+            // Somente assinaturas PagBank com inadimplência marcada e ainda ACTIVE
+            if (
+              assin.gateway !== 'pagbank' ||
+              !assin.avisoInadimplencia ||
+              !assin.inadimplenciaEm ||
+              assin.status === 'SUSPENDED' ||
+              assin.status === 'CANCELLED'
+            ) continue
+
+            // Verificar se passaram 3 dias desde inadimplência
+            if (agora - assin.inadimplenciaEm >= TRES_DIAS) {
+              assin.status = 'SUSPENDED'
+              assin.suspensaoEm = agora
+              assin.tentativasSuspensao = (assin.tentativasSuspensao || 0) + 1
+              await kv.put(k.name, JSON.stringify(assin), { expirationTtl: 60 * 60 * 24 * 400 })
+              console.log(`[cron] PagBank suspensão automática: userId=${assin.userId}, inadimplenciaEm=${assin.inadimplenciaEm}`)
+            }
+          } catch (e) {
+            console.error('[cron] Erro ao processar inadimplência PagBank:', e)
+          }
+        }
+      } catch (e) {
+        console.error('[cron] Erro ao listar assinaturas:', e)
+      }
+    })())
   }
 }
