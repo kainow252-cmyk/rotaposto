@@ -3074,20 +3074,29 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       return s;
     }
 
-    // Mostrar foto do posto no card, com fallback para ícone de bomba
+    // Mostrar logo no card: prioridade → fotoUrl parceiro → SVG bandeira → bomba SVG
+    var _cardLogoSvg = getBandeiraLogoUrl(p.bandeira || p.nome);
+    var _cardLogoFoto = p.fotoUrl && (p.fotoUrl.startsWith('http') || p.fotoUrl.startsWith('/api')) ? p.fotoUrl : null;
+    var _cardLogoSrc = _cardLogoFoto || _cardLogoSvg;
     logoEl.innerHTML = '';
-    if (p.fotoUrl) {
-      var _imgFoto = document.createElement('img');
-      _imgFoto.src = p.fotoUrl;
-      _imgFoto.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:10px;';
-      _imgFoto.alt = '';
-      _imgFoto.onerror = function() {
-        logoEl.innerHTML = '';
-        logoEl.appendChild(_makePumpSvg(bandInfo.corTxt));
-        logoEl.style.background = bandInfo.bg;
+    if (_cardLogoSrc) {
+      var _imgLogo = document.createElement('img');
+      _imgLogo.src = _cardLogoSrc;
+      _imgLogo.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:10px;padding:4px;';
+      _imgLogo.alt = '';
+      _imgLogo.onerror = function() {
+        // Se fotoUrl falhou, tenta SVG; se SVG também falhou, bomba
+        if (_cardLogoFoto && _cardLogoSvg && _imgLogo.src !== location.origin + _cardLogoSvg) {
+          _imgLogo.src = _cardLogoSvg;
+          _imgLogo.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:10px;padding:4px;';
+        } else {
+          logoEl.innerHTML = '';
+          logoEl.appendChild(_makePumpSvg(bandInfo.corTxt));
+          logoEl.style.background = bandInfo.bg;
+        }
       };
-      logoEl.appendChild(_imgFoto);
-      logoEl.style.background = 'transparent';
+      logoEl.appendChild(_imgLogo);
+      logoEl.style.background = '#fff';
     } else {
       logoEl.appendChild(_makePumpSvg(bandInfo.corTxt));
       logoEl.style.background = bandInfo.bg;
@@ -3166,14 +3175,23 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (dest) {
       const preco = dest.preco || dest.precos?.[selectedFuel] || 0;
       var planLogoEl = document.getElementById('plan-logo');
-      var planLogoUrl = getBandeiraLogoUrl(dest.bandeira || dest.nome);
+      var planLogoSvg = getBandeiraLogoUrl(dest.bandeira || dest.nome);
+      var planLogoFoto = dest.fotoUrl && (dest.fotoUrl.startsWith('http') || dest.fotoUrl.startsWith('/api')) ? dest.fotoUrl : null;
+      var planLogoUrl = planLogoFoto || planLogoSvg;
       var _planEmoji = getEmoji(dest.bandeira || dest.nome);
       if (planLogoUrl) {
         var _imgPlan = document.createElement('img');
         _imgPlan.src = planLogoUrl;
-        _imgPlan.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:6px;';
+        _imgPlan.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:6px;padding:2px;';
         _imgPlan.alt = '';
-        _imgPlan.onerror = function() { planLogoEl.textContent = _planEmoji; };
+        _imgPlan.onerror = function() {
+          if (planLogoFoto && planLogoSvg && _imgPlan.src !== location.origin + planLogoSvg) {
+            _imgPlan.src = planLogoSvg;
+          } else {
+            planLogoEl.textContent = _planEmoji;
+            planLogoEl.style.background = '';
+          }
+        };
         planLogoEl.innerHTML = '';
         planLogoEl.appendChild(_imgPlan);
         planLogoEl.style.background = '#fff';
@@ -3906,10 +3924,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       // Endereço em caixa alta estilo CompletaÍ
       const endStr = (p.endereco ? p.endereco.toUpperCase() : '') + (p.bairro ? ' - ' + p.bairro.toUpperCase() : '');
 
-      // Logo da bandeira: SVG inline com cores oficiais
+      // Logo da bandeira: prioridade → fotoUrl parceiro → SVG da bandeira → inicial
       const logoSvg = getBandeiraLogoUrl(p.bandeira || p.nome);
-      const logoHtml = logoSvg
-        ? '<img src="'+logoSvg+'" style="width:44px;height:44px;border-radius:10px;object-fit:contain;" alt="'+bandInfo.bandNome+'">'
+      const logoFoto = p.fotoUrl && (p.fotoUrl.startsWith('http') || p.fotoUrl.startsWith('/api'))
+        ? p.fotoUrl : null;
+      const logoSrc  = logoFoto || logoSvg;
+      const logoHtml = logoSrc
+        ? '<img src="'+logoSrc+'" style="width:44px;height:44px;border-radius:10px;object-fit:contain;" alt="'+bandInfo.bandNome+'"'
+          + ' onerror="this.src=&apos;'+logoSvg+'&apos;">'
         : '<div class="posto-brand-logo-txt" style="color:'+bandInfo.corTxt+'">'+bandInfo.sigla+'</div>';
 
       // Distância com ícone de pin (estilo 99Abastece)
@@ -3931,7 +3953,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
       return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
         // Logo da bandeira
-        + '<div class="posto-brand-logo" style="background:'+(logoSvg ? '#fff' : bandInfo.cor)+';border:1px solid #eee;">' + logoHtml + '</div>'
+        + '<div class="posto-brand-logo" style="background:'+(logoSrc ? '#fff' : bandInfo.cor)+';border:1px solid #eee;">' + logoHtml + '</div>'
         // Info central
         + '<div class="posto-item-info">'
         +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px;">'

@@ -13465,7 +13465,26 @@ async function cancelarAssinatura(uid) {
 }
 
 // ── POSTOS PARCEIROS ─────────────────────────────────────────────────────────
-// ── POSTOS PARCEIROS ─────────────────────────────────────────────────────────
+// ── Retorna URL do logo SVG da bandeira (mesmo mapeamento do app.ts) ──────────
+function _adminBandeiraLogoUrl(nome) {
+  if (!nome) return '/static/logos/independente.svg';
+  const n = nome.toUpperCase();
+  if (n.includes('SHELL'))                                          return '/static/logos/shell.svg';
+  if (n.includes('PETROBRAS') || /\\bBR\\b/.test(n) || n.includes('PETRO BR')) return '/static/logos/br.svg';
+  if (n.includes('IPIRANGA'))                                       return '/static/logos/ipiranga.svg';
+  if (n.includes('RAIZEN') || n.includes('RAÍZEN') || n.includes('RAIZ')) return '/static/logos/raizen.svg';
+  if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes('ALEPOSTO') || /\\bALE\\b/.test(n)) return '/static/logos/ale.svg';
+  if (n.includes('TEXACO'))                                         return '/static/logos/texaco.svg';
+  if (n.includes('VIBRA'))                                          return '/static/logos/vibra.svg';
+  if (n.includes('ESSO'))                                           return '/static/logos/esso.svg';
+  if (n.includes('PITSTOP') || n.includes('PIT STOP') || n.includes('PIT-STOP')) return '/static/logos/pitstop.svg';
+  if (n.includes('BANDEIRANTE'))                                    return '/static/logos/bandeirante.svg';
+  if (n.includes('COPAGAZ'))                                        return '/static/logos/copagaz.svg';
+  if (n.includes('ULTRAGAZ') || n.includes('ULTRA GAZ'))           return '/static/logos/ultragaz.svg';
+  if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS'))       return '/static/logos/supergasbras.svg';
+  return '/static/logos/independente.svg';
+}
+
 async function carregarParceirosCadastrados() {
   const tbody = document.getElementById('parceiros-tbody');
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando parceiros...</td></tr>';
@@ -13516,11 +13535,23 @@ function renderParceiros(lista) {
       ? \`<div style="font-size:9px;color:rgba(255,165,0,0.8);margin-top:2px">⛽ G:\${fmtPreco(pr.gasolina)} E:\${fmtPreco(pr.etanol)}</div>\`
       : '';
     const dataExib = u.atualizadoEm && u.atualizadoEm !== '—' ? u.atualizadoEm : u.criadoEm;
+    // Logo: prioridade → fotoBandeira → SVG da bandeira → inicial
+    const logoSvg = _adminBandeiraLogoUrl(u.bandeira || u.nomePosto);
+    const logoFoto = u.fotoBandeira && (u.fotoBandeira.startsWith('http') || u.fotoBandeira.startsWith('/api')) ? u.fotoBandeira : null;
+    const logoSrc = logoFoto || logoSvg;
+    const logoHtml = \`<img src="\${logoSrc}" width="34" height="34"
+      style="border-radius:8px;object-fit:contain;background:#fff;padding:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.1);"
+      onerror="this.src='\${logoSvg}'" alt="">\`;
     return \`<tr class="tr-hover">
       <td style="overflow:hidden">
-        <div style="font-weight:800;color:#fff;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.nomePosto||'—'}</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:1px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ID: \${u.id}</div>
-        \${precosTag}
+        <div style="display:flex;align-items:center;gap:8px;">
+          \${logoHtml}
+          <div style="min-width:0;">
+            <div style="font-weight:800;color:#fff;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.nomePosto||'—'}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:1px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ID: \${u.id}</div>
+            \${precosTag}
+          </div>
+        </div>
       </td>
       <td style="overflow:hidden">
         <div style="font-size:11px;color:rgba(255,255,255,0.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\${u.email||'—'}</div>
@@ -13792,15 +13823,24 @@ function abrirModalEditarParceiro(id) {
   const epFotoImg = document.getElementById('ep-foto-preview-img');
   const epFotoWrap = document.getElementById('ep-foto-preview-wrap');
   if (epFotoImg && epFotoWrap) {
-    // Exibir se fotoBandeira for URL real (http, /api/parceiros ou /api/posto)
+    // Prioridade: fotoBandeira real → SVG da bandeira cadastrada
     var fotoReal = p.fotoBandeira && (
       p.fotoBandeira.startsWith('http') ||
       p.fotoBandeira.startsWith('/api/parceiros') ||
       p.fotoBandeira.startsWith('/api/posto')
     );
+    var svgFallback = _adminBandeiraLogoUrl(p.bandeira || p.nomePosto);
     if (fotoReal) {
       epFotoImg.src = p.fotoBandeira + '?t=' + Date.now();
       epFotoImg.style.display = 'block';
+      epFotoImg.style.padding = '0';
+      epFotoImg.style.objectFit = 'cover';
+      epFotoWrap.style.fontSize = '0';
+    } else if (svgFallback) {
+      epFotoImg.src = svgFallback;
+      epFotoImg.style.display = 'block';
+      epFotoImg.style.padding = '10px';
+      epFotoImg.style.objectFit = 'contain';
       epFotoWrap.style.fontSize = '0';
     } else {
       epFotoImg.src = '';
