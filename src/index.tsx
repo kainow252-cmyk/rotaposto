@@ -351,7 +351,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v17', build: '20260710a' })
+  return c.json({ version: 'v17', build: '20260710b' })
 })
 
 app.get('/api/debug/env', async (c) => {
@@ -11322,7 +11322,10 @@ interface ConfigPagamento {
   cartaoAtivo: boolean
   // Credenciais salvas pelo admin (fallback para env secrets)
   wooviAppId?: string      // App ID / API Key da Woovi/OpenPix
-  mpAccessToken?: string   // Access Token do Mercado Pago
+  mpAccessToken?: string   // Access Token do Mercado Pago (APP_USR-...)
+  mpPublicKey?: string     // Public Key do Mercado Pago (APP_USR-...)
+  mpClientId?: string      // Client ID do Mercado Pago (numérico)
+  mpClientSecret?: string  // Client Secret do Mercado Pago
   pagbankToken?: string    // Bearer Token do PagBank
   // Status: definido ao testar conexão
   statusWoovi?:   'ok' | 'erro' | 'nao_configurado'
@@ -14496,96 +14499,218 @@ app.get('/admin', (c) => {
     <div class="section-card" id="card-credenciais" style="margin-bottom:16px;border:1.5px solid rgba(255,179,0,0.25);box-shadow:0 0 0 3px rgba(255,179,0,0.05)">
       <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,179,0,0.06)">
         <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.9)"><i class="fas fa-key" style="margin-right:8px;color:#FFB300"></i>Chaves de API — Credenciais</h3>
-        <span style="font-size:11px;color:rgba(255,179,0,0.7);font-weight:700;background:rgba(255,179,0,0.1);padding:4px 10px;border-radius:8px;border:1px solid rgba(255,179,0,0.2)">🔐 Salvas com segurança</span>
+        <span id="badge-cred-resumo" style="font-size:11px;color:rgba(255,179,0,0.7);font-weight:700;background:rgba(255,179,0,0.1);padding:4px 10px;border-radius:8px;border:1px solid rgba(255,179,0,0.2)">🔐 Salvas com segurança</span>
       </div>
       <div class="section-body">
-        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:18px">Insira as chaves de cada gateway. As chaves ficam salvas e são usadas automaticamente. Você pode alterar a qualquer momento.</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:18px">Insira as chaves de cada gateway. As chaves ficam salvas no KV e são usadas automaticamente. Você pode alterar a qualquer momento.</div>
 
-        <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:20px">
 
-          <!-- Woovi -->
-          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(0,200,83,0.15)">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <!-- ═══ Woovi / OpenPix ═══ -->
+          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(0,200,83,0.15)" id="card-cred-woovi">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
               <div style="width:34px;height:34px;border-radius:10px;background:rgba(0,200,83,0.15);display:flex;align-items:center;justify-content:center;font-size:18px">📱</div>
               <div>
                 <div style="font-size:13px;font-weight:700;color:#fff">Woovi / OpenPix</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.3)">App ID ou API Key</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3)">1 chave necessária</div>
               </div>
-              <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-                <span id="cred-status-woovi" style="font-size:11px;font-weight:700"></span>
-              </div>
+              <span id="cred-status-woovi" style="margin-left:auto;font-size:11px;font-weight:700"></span>
             </div>
-            <div style="display:flex;gap:8px">
-              <div style="flex:1;position:relative">
-                <input id="cred-input-woovi" type="password" placeholder="App ID Woovi (ex: Q2xpZW50X0lk...)" autocomplete="off"
-                  style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 42px 11px 14px;color:#fff;font-size:12px;font-family:monospace;outline:none;transition:border 0.2s"
-                  onfocus="this.style.borderColor='rgba(0,200,83,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
-                  oninput="marcarCredAlterada('woovi')" />
-                <span onclick="toggleVerChave('woovi')" id="eye-woovi" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:14px">👁</span>
+            <!-- API Key -->
+            <div style="margin-bottom:10px">
+              <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:5px;font-weight:600;letter-spacing:0.5px">API KEY / APP ID</div>
+              <div style="display:flex;gap:8px">
+                <div style="flex:1;position:relative">
+                  <input id="cred-input-woovi" type="password" placeholder="Q2xpZW50X0lk... (App ID ou API Key)" autocomplete="off"
+                    style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 42px 10px 12px;color:#fff;font-size:11px;font-family:monospace;outline:none;transition:border 0.2s"
+                    onfocus="this.style.borderColor='rgba(0,200,83,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                    oninput="marcarCredAlterada('woovi')" />
+                  <span onclick="toggleVerChave('woovi')" id="eye-woovi" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:13px">👁</span>
+                </div>
+                <button onclick="salvarCredencial('woovi')" id="btn-cred-woovi"
+                  style="background:#00C853;color:#fff;border:none;padding:0 16px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.4;pointer-events:none;transition:all 0.2s"
+                  disabled>Salvar</button>
               </div>
-              <button onclick="salvarCredencial('woovi')" id="btn-cred-woovi"
-                style="background:#00C853;color:#fff;border:none;padding:0 18px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.5;pointer-events:none;transition:all 0.2s"
-                disabled>Salvar</button>
+              <div style="margin-top:5px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: painel.woovi.com → Configurações → App ID</div>
             </div>
-            <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: painel.woovi.com → Configurações → App ID</div>
           </div>
 
-          <!-- Mercado Pago -->
-          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(66,165,245,0.15)">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <!-- ═══ Mercado Pago ═══ -->
+          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(66,165,245,0.15)" id="card-cred-mp">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
               <div style="width:34px;height:34px;border-radius:10px;background:rgba(66,165,245,0.15);display:flex;align-items:center;justify-content:center;font-size:18px">💳</div>
               <div>
                 <div style="font-size:13px;font-weight:700;color:#fff">Mercado Pago</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.3)">Access Token de Produção</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3)">4 chaves de integração</div>
               </div>
-              <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-                <span id="cred-status-mp" style="font-size:11px;font-weight:700"></span>
+              <span id="cred-status-mp" style="margin-left:auto;font-size:11px;font-weight:700"></span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <!-- Public Key -->
+              <div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:5px;font-weight:600;letter-spacing:0.5px">PUBLIC KEY</div>
+                <div style="display:flex;gap:8px">
+                  <div style="flex:1;position:relative">
+                    <input id="cred-input-mp-pk" type="password" placeholder="APP_USR-e47e909d-... (Public Key)" autocomplete="off"
+                      style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 42px 10px 12px;color:#fff;font-size:11px;font-family:monospace;outline:none;transition:border 0.2s"
+                      onfocus="this.style.borderColor='rgba(66,165,245,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                      oninput="marcarCredAlterada('mp-pk')" />
+                    <span onclick="toggleVerChave('mp-pk')" id="eye-mp-pk" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:13px">👁</span>
+                  </div>
+                  <button onclick="salvarCredencial('mp-pk')" id="btn-cred-mp-pk"
+                    style="background:#42A5F5;color:#fff;border:none;padding:0 14px;border-radius:10px;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.4;pointer-events:none;transition:all 0.2s"
+                    disabled>Salvar</button>
+                </div>
+              </div>
+              <!-- Access Token -->
+              <div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:5px;font-weight:600;letter-spacing:0.5px">ACCESS TOKEN <span style="color:#42A5F5">★ Principal</span></div>
+                <div style="display:flex;gap:8px">
+                  <div style="flex:1;position:relative">
+                    <input id="cred-input-mp" type="password" placeholder="APP_USR-4402192447620414-... (Access Token)" autocomplete="off"
+                      style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(66,165,245,0.2);border-radius:10px;padding:10px 42px 10px 12px;color:#fff;font-size:11px;font-family:monospace;outline:none;transition:border 0.2s"
+                      onfocus="this.style.borderColor='rgba(66,165,245,0.6)'" onblur="this.style.borderColor='rgba(66,165,245,0.2)'"
+                      oninput="marcarCredAlterada('mp')" />
+                    <span onclick="toggleVerChave('mp')" id="eye-mp" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:13px">👁</span>
+                  </div>
+                  <button onclick="salvarCredencial('mp')" id="btn-cred-mp"
+                    style="background:#42A5F5;color:#fff;border:none;padding:0 14px;border-radius:10px;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.4;pointer-events:none;transition:all 0.2s"
+                    disabled>Salvar</button>
+                </div>
+              </div>
+              <!-- Client ID -->
+              <div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:5px;font-weight:600;letter-spacing:0.5px">CLIENT ID</div>
+                <div style="display:flex;gap:8px">
+                  <div style="flex:1;position:relative">
+                    <input id="cred-input-mp-cid" type="password" placeholder="4402192447620414 (Client ID numérico)" autocomplete="off"
+                      style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 42px 10px 12px;color:#fff;font-size:11px;font-family:monospace;outline:none;transition:border 0.2s"
+                      onfocus="this.style.borderColor='rgba(66,165,245,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                      oninput="marcarCredAlterada('mp-cid')" />
+                    <span onclick="toggleVerChave('mp-cid')" id="eye-mp-cid" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:13px">👁</span>
+                  </div>
+                  <button onclick="salvarCredencial('mp-cid')" id="btn-cred-mp-cid"
+                    style="background:#42A5F5;color:#fff;border:none;padding:0 14px;border-radius:10px;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.4;pointer-events:none;transition:all 0.2s"
+                    disabled>Salvar</button>
+                </div>
+              </div>
+              <!-- Client Secret -->
+              <div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:5px;font-weight:600;letter-spacing:0.5px">CLIENT SECRET</div>
+                <div style="display:flex;gap:8px">
+                  <div style="flex:1;position:relative">
+                    <input id="cred-input-mp-cs" type="password" placeholder="bI197rI9wNPwn... (Client Secret)" autocomplete="off"
+                      style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 42px 10px 12px;color:#fff;font-size:11px;font-family:monospace;outline:none;transition:border 0.2s"
+                      onfocus="this.style.borderColor='rgba(66,165,245,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                      oninput="marcarCredAlterada('mp-cs')" />
+                    <span onclick="toggleVerChave('mp-cs')" id="eye-mp-cs" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:13px">👁</span>
+                  </div>
+                  <button onclick="salvarCredencial('mp-cs')" id="btn-cred-mp-cs"
+                    style="background:#42A5F5;color:#fff;border:none;padding:0 14px;border-radius:10px;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.4;pointer-events:none;transition:all 0.2s"
+                    disabled>Salvar</button>
+                </div>
               </div>
             </div>
-            <div style="display:flex;gap:8px">
-              <div style="flex:1;position:relative">
-                <input id="cred-input-mp" type="password" placeholder="APP_USR-xxxx... (Access Token de produção)" autocomplete="off"
-                  style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 42px 11px 14px;color:#fff;font-size:12px;font-family:monospace;outline:none;transition:border 0.2s"
-                  onfocus="this.style.borderColor='rgba(66,165,245,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
-                  oninput="marcarCredAlterada('mp')" />
-                <span onclick="toggleVerChave('mp')" id="eye-mp" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:14px">👁</span>
-              </div>
-              <button onclick="salvarCredencial('mp')" id="btn-cred-mp"
-                style="background:#42A5F5;color:#fff;border:none;padding:0 18px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.5;pointer-events:none;transition:all 0.2s"
-                disabled>Salvar</button>
-            </div>
-            <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: mercadopago.com.br → Suas integrações → Credenciais → Access Token</div>
+            <div style="margin-top:10px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: mercadopago.com.br → Suas integrações → Credenciais de produção</div>
           </div>
 
-          <!-- PagBank -->
-          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(255,179,0,0.15)">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <!-- ═══ PagBank ═══ -->
+          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(255,179,0,0.15)" id="card-cred-pb">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
               <div style="width:34px;height:34px;border-radius:10px;background:rgba(255,179,0,0.15);display:flex;align-items:center;justify-content:center;font-size:18px">🏦</div>
               <div>
                 <div style="font-size:13px;font-weight:700;color:#fff">PagBank</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.3)">Bearer Token de Produção</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3)">1 chave necessária</div>
               </div>
-              <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-                <span id="cred-status-pb" style="font-size:11px;font-weight:700"></span>
-              </div>
+              <span id="cred-status-pb" style="margin-left:auto;font-size:11px;font-weight:700"></span>
             </div>
-            <div style="display:flex;gap:8px">
-              <div style="flex:1;position:relative">
-                <input id="cred-input-pb" type="password" placeholder="650cf0fa-xxxx-xxxx-xxxx-xxxxxxxxxxxx..." autocomplete="off"
-                  style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 42px 11px 14px;color:#fff;font-size:12px;font-family:monospace;outline:none;transition:border 0.2s"
-                  onfocus="this.style.borderColor='rgba(255,179,0,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
-                  oninput="marcarCredAlterada('pb')" />
-                <span onclick="toggleVerChave('pb')" id="eye-pb" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:14px">👁</span>
+            <!-- Bearer Token -->
+            <div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:5px;font-weight:600;letter-spacing:0.5px">BEARER TOKEN</div>
+              <div style="display:flex;gap:8px">
+                <div style="flex:1;position:relative">
+                  <input id="cred-input-pb" type="password" placeholder="650cf0fa-xxxx-xxxx-xxxx-xxxx..." autocomplete="off"
+                    style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 42px 10px 12px;color:#fff;font-size:11px;font-family:monospace;outline:none;transition:border 0.2s"
+                    onfocus="this.style.borderColor='rgba(255,179,0,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                    oninput="marcarCredAlterada('pb')" />
+                  <span onclick="toggleVerChave('pb')" id="eye-pb" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:13px">👁</span>
+                </div>
+                <button onclick="salvarCredencial('pb')" id="btn-cred-pb"
+                  style="background:#FFB300;color:#000;border:none;padding:0 16px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.4;pointer-events:none;transition:all 0.2s"
+                  disabled>Salvar</button>
               </div>
-              <button onclick="salvarCredencial('pb')" id="btn-cred-pb"
-                style="background:#FFB300;color:#000;border:none;padding:0 18px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.5;pointer-events:none;transition:all 0.2s"
-                disabled>Salvar</button>
+              <div style="margin-top:5px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: minhaconta.pagbank.com → APIs & Integrações → Token de Segurança</div>
             </div>
-            <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: minhaconta.pagbank.com → Extrato e Negócios → APIs & Integrações → Token</div>
           </div>
 
         </div>
-        <div id="cred-msg-global" style="margin-top:12px;font-size:12px;font-weight:700"></div>
+        <div id="cred-msg-global" style="margin-top:14px;font-size:12px;font-weight:700;min-height:20px"></div>
+      </div>
+    </div>
+
+    <!-- ── URLs de Webhook ── -->
+    <div class="section-card" id="card-webhooks" style="margin-bottom:16px;border:1px solid rgba(138,43,226,0.2)">
+      <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;background:rgba(138,43,226,0.05)">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.9)"><i class="fas fa-plug" style="margin-right:8px;color:#9C27B0"></i>URLs de Webhook — Configure em cada gateway</h3>
+        <span style="font-size:11px;color:rgba(138,43,226,0.8);font-weight:700;background:rgba(138,43,226,0.1);padding:4px 10px;border-radius:8px;border:1px solid rgba(138,43,226,0.2)">🔔 Notificações</span>
+      </div>
+      <div class="section-body">
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:18px">Cole cada URL no painel do gateway correspondente para receber notificações de pagamento em tempo real.</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+
+          <!-- Woovi Webhook -->
+          <div style="background:#0A1520;border-radius:12px;padding:16px;border:1px solid rgba(0,200,83,0.12)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:18px">📱</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#fff">Woovi / OpenPix</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3)">Painel Woovi → Configurações → Webhook</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div style="flex:1;background:rgba(0,200,83,0.06);border:1px solid rgba(0,200,83,0.15);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:11px;color:#00C853;word-break:break-all" id="wh-url-woovi">https://rotaposto.com.br/api/pix/webhook</div>
+              <button onclick="copiarWebhook('woovi')" style="background:rgba(0,200,83,0.15);color:#00C853;border:1px solid rgba(0,200,83,0.3);padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all 0.2s" id="btn-copy-woovi"><i class="fas fa-copy" style="margin-right:5px"></i>Copiar</button>
+            </div>
+          </div>
+
+          <!-- Mercado Pago Webhook -->
+          <div style="background:#0A1520;border-radius:12px;padding:16px;border:1px solid rgba(66,165,245,0.12)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:18px">💳</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#fff">Mercado Pago</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3)">Developers → Suas integrações → Webhooks → Adicionar</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+              <div style="flex:1;background:rgba(66,165,245,0.06);border:1px solid rgba(66,165,245,0.15);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:11px;color:#42A5F5;word-break:break-all" id="wh-url-mp">https://rotaposto.com.br/api/pagamento/webhook</div>
+              <button onclick="copiarWebhook('mp')" style="background:rgba(66,165,245,0.15);color:#42A5F5;border:1px solid rgba(66,165,245,0.3);padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all 0.2s" id="btn-copy-mp"><i class="fas fa-copy" style="margin-right:5px"></i>Copiar</button>
+            </div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.25);line-height:1.5">
+              Eventos a marcar: <code style="color:#42A5F5">payment</code> e <code style="color:#42A5F5">subscription_preapproval</code><br>
+              Link direto: <a href="https://www.mercadopago.com.br/developers/panel/app/4402192447620414/webhooks" target="_blank" style="color:#42A5F5">mercadopago.com.br → App 4402192447620414 → Webhooks</a>
+            </div>
+          </div>
+
+          <!-- PagBank Webhook -->
+          <div style="background:#0A1520;border-radius:12px;padding:16px;border:1px solid rgba(255,179,0,0.12)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:18px">🏦</span>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#fff">PagBank</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3)">Minha Conta → APIs & Integrações → Notificações</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+              <div style="flex:1;background:rgba(255,179,0,0.06);border:1px solid rgba(255,179,0,0.15);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:11px;color:#FFB300;word-break:break-all" id="wh-url-pb">https://rotaposto.com.br/api/pagbank/webhook</div>
+              <button onclick="copiarWebhook('pb')" style="background:rgba(255,179,0,0.15);color:#FFB300;border:1px solid rgba(255,179,0,0.3);padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all 0.2s" id="btn-copy-pb"><i class="fas fa-copy" style="margin-right:5px"></i>Copiar</button>
+            </div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.25);line-height:1.5">
+              Eventos a marcar: <code style="color:#FFB300">TRANSACTION_PAID</code>, <code style="color:#FFB300">SUBSCRIPTION_CHARGE_PAID</code>, <code style="color:#FFB300">SUBSCRIPTION_CHARGE_OVERDUE</code>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
 
@@ -17732,56 +17857,121 @@ function mostrarToastPagamentos(msg, cor) {
 
 // ─── CREDENCIAIS dos Gateways ────────────────────────────────────────────────
 // Mapa de chave → campo KV
-var _credMap = { woovi: 'wooviAppId', mp: 'mpAccessToken', pb: 'pagbankToken' };
-var _credCors = { woovi: '#00C853', mp: '#42A5F5', pb: '#FFB300' };
+// Mapa: id do input → campo no KV (ConfigPagamento)
+var _credMap = {
+  'woovi':   'wooviAppId',
+  'mp':      'mpAccessToken',
+  'mp-pk':   'mpPublicKey',
+  'mp-cid':  'mpClientId',
+  'mp-cs':   'mpClientSecret',
+  'pb':      'pagbankToken'
+};
+// Cor de destaque por gateway
+var _credCors = { woovi: '#00C853', 'mp': '#42A5F5', 'mp-pk': '#42A5F5', 'mp-cid': '#42A5F5', 'mp-cs': '#42A5F5', pb: '#FFB300' };
+// Gateway pai de cada campo (para atualizar status do card-pai)
+var _credGateway = { 'woovi': 'woovi', 'mp': 'mp', 'mp-pk': 'mp', 'mp-cid': 'mp', 'mp-cs': 'mp', 'pb': 'pb' };
 
 // Chamada após carregar config — preenche os inputs com valor mascarado
 function _popularInputsCredenciais(config) {
-  var totalConfiguradas = 0;
-  ['woovi', 'mp', 'pb'].forEach(function(id) {
+  var contadores = { woovi: 0, mp: 0, pb: 0 };
+  var totais     = { woovi: 1, mp: 4, pb: 1 };
+
+  Object.keys(_credMap).forEach(function(id) {
     var kvField = _credMap[id];
     var val = config[kvField] || '';
     var el = document.getElementById('cred-input-' + id);
-    var statusEl = document.getElementById('cred-status-' + id);
     var btn = document.getElementById('btn-cred-' + id);
-    var card = el ? el.closest('div[style*="background:#0A1520"]') : null;
     if (!el) return;
     if (val) {
-      totalConfiguradas++;
-      // Mostrar valor mascarado (últimos 6 chars visíveis)
+      contadores[_credGateway[id]]++;
       var masked = val.length > 10 ? '••••••••••••' + val.slice(-6) : val;
       el.value = masked;
       el.placeholder = masked;
       el.dataset.original = val;
       el.dataset.preenchido = '1';
-      if (statusEl) { statusEl.textContent = '✅ Configurada'; statusEl.style.color = '#00C853'; }
-      // Borda verde no card
-      if (card) card.style.borderColor = 'rgba(0,200,83,0.35)';
     } else {
       el.value = '';
       el.dataset.original = '';
       el.dataset.preenchido = '';
-      if (statusEl) { statusEl.textContent = '⚠ Insira a chave'; statusEl.style.color = '#FFB300'; }
-      // Borda laranja no card quando sem chave
-      if (card) card.style.borderColor = 'rgba(255,179,0,0.25)';
     }
-    // Botão começa desabilitado (habilita só ao digitar)
     if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
   });
-  // Atualizar header do card com resumo
-  var headerBadge = document.querySelector('#card-credenciais .section-header span');
-  if (headerBadge) {
-    if (totalConfiguradas === 3) {
-      headerBadge.textContent = '✅ Todas configuradas';
-      headerBadge.style.color = '#00C853';
-    } else if (totalConfiguradas > 0) {
-      headerBadge.textContent = totalConfiguradas + '/3 configuradas';
-      headerBadge.style.color = '#FFB300';
+
+  // Atualizar status + borda de cada card-gateway
+  var gatewayInfo = {
+    woovi: { cor: '#00C853', borderOk: 'rgba(0,200,83,0.35)', borderWarn: 'rgba(255,179,0,0.25)' },
+    mp:    { cor: '#42A5F5', borderOk: 'rgba(66,165,245,0.35)', borderWarn: 'rgba(255,179,0,0.25)' },
+    pb:    { cor: '#FFB300', borderOk: 'rgba(255,179,0,0.45)', borderWarn: 'rgba(255,179,0,0.25)' }
+  };
+  ['woovi', 'mp', 'pb'].forEach(function(gw) {
+    var cnt = contadores[gw];
+    var tot = totais[gw];
+    var info = gatewayInfo[gw];
+    var statusEl = document.getElementById('cred-status-' + gw);
+    var cardEl   = document.getElementById('card-cred-' + gw);
+    if (statusEl) {
+      if (cnt === tot) {
+        statusEl.textContent = cnt === 1 ? '✅ Configurada' : '✅ Todas (' + cnt + '/' + tot + ')';
+        statusEl.style.color = '#00C853';
+      } else if (cnt > 0) {
+        statusEl.textContent = cnt + '/' + tot + ' configuradas';
+        statusEl.style.color = '#FFB300';
+      } else {
+        statusEl.textContent = '⚠ Insira as chaves';
+        statusEl.style.color = '#FF5252';
+      }
+    }
+    if (cardEl) {
+      cardEl.style.borderColor = cnt === tot ? info.borderOk : info.borderWarn;
+    }
+  });
+
+  // Badge do header geral
+  var totalGeral = contadores.woovi + contadores.mp + contadores.pb;
+  var maxGeral   = totais.woovi + totais.mp + totais.pb; // 1+4+1 = 6
+  var badge = document.getElementById('badge-cred-resumo');
+  if (badge) {
+    if (totalGeral === maxGeral) {
+      badge.textContent = '✅ Todas (' + maxGeral + '/' + maxGeral + ') configuradas';
+      badge.style.color = '#00C853';
+    } else if (totalGeral > 0) {
+      badge.textContent = totalGeral + '/' + maxGeral + ' chaves configuradas';
+      badge.style.color = '#FFB300';
     } else {
-      headerBadge.textContent = '⚠ Nenhuma chave inserida';
-      headerBadge.style.color = '#FF5252';
+      badge.textContent = '⚠ Nenhuma chave inserida';
+      badge.style.color = '#FF5252';
     }
   }
+}
+
+// Copia URL de webhook para o clipboard
+function copiarWebhook(gw) {
+  var el = document.getElementById('wh-url-' + gw);
+  var btn = document.getElementById('btn-copy-' + gw);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent.trim()).then(function() {
+    if (btn) {
+      var orig = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check" style="margin-right:5px"></i>Copiado!';
+      btn.style.background = 'rgba(0,200,83,0.2)';
+      btn.style.color = '#00C853';
+      btn.style.borderColor = 'rgba(0,200,83,0.4)';
+      setTimeout(function() {
+        btn.innerHTML = orig;
+        var cores = { woovi: { bg:'rgba(0,200,83,0.15)', c:'#00C853', b:'rgba(0,200,83,0.3)' }, mp: { bg:'rgba(66,165,245,0.15)', c:'#42A5F5', b:'rgba(66,165,245,0.3)' }, pb: { bg:'rgba(255,179,0,0.15)', c:'#FFB300', b:'rgba(255,179,0,0.3)' } };
+        if (cores[gw]) { btn.style.background = cores[gw].bg; btn.style.color = cores[gw].c; btn.style.borderColor = cores[gw].b; }
+      }, 2500);
+    }
+  }).catch(function() {
+    // fallback sem clipboard API
+    var ta = document.createElement('textarea');
+    ta.value = el.textContent.trim();
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (btn) { btn.innerHTML = '<i class="fas fa-check" style="margin-right:5px"></i>Copiado!'; setTimeout(function(){ btn.innerHTML = '<i class="fas fa-copy" style="margin-right:5px"></i>Copiar'; }, 2000); }
+  });
 }
 
 function marcarCredAlterada(id) {
@@ -17817,7 +18007,9 @@ function toggleVerChave(id) {
 async function salvarCredencial(id) {
   var el = document.getElementById('cred-input-' + id);
   var btn = document.getElementById('btn-cred-' + id);
-  var statusEl = document.getElementById('cred-status-' + id);
+  // statusEl aponta para o status do gateway-pai (woovi/mp/pb)
+  var gwPai = _credGateway[id] || id;
+  var statusEl = document.getElementById('cred-status-' + gwPai);
   var msg = document.getElementById('cred-msg-global');
   if (!el) return;
   var val = el.value.trim();
@@ -17827,7 +18019,7 @@ async function salvarCredencial(id) {
     if (msg) { msg.textContent = '❌ Chave não pode ser vazia.'; msg.style.color = '#FF5252'; }
     return;
   }
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; btn.textContent = '...'; }
   var kvField = _credMap[id];
   var payload = {};
   payload[kvField] = val;
@@ -17847,16 +18039,14 @@ async function salvarCredencial(id) {
       el.type = 'password';
       var eyeEl = document.getElementById('eye-' + id);
       if (eyeEl) eyeEl.textContent = '👁';
-      if (statusEl) { statusEl.textContent = '✅ Configurada'; statusEl.style.color = '#00C853'; }
-      // Atualizar borda do card pai
-      var card = el.closest('div[style*="background:#0A1520"]');
-      if (card) card.style.borderColor = 'rgba(0,200,83,0.35)';
       if (msg) { msg.textContent = '✅ Chave salva com sucesso!'; msg.style.color = '#00C853'; }
-      mostrarToastPagamentos('✅ Credencial salva!', _credCors[id]);
-      // Atualizar flag temEnv local
-      if (id === 'woovi') _pgTemWooviEnv = true;
-      if (id === 'mp')    _pgTemMPEnv    = true;
-      if (id === 'pb')    _pgTemPagBankEnv = true;
+      mostrarToastPagamentos('✅ Credencial salva!', _credCors[id] || '#00C853');
+      // Atualizar flags temEnv locais
+      if (gwPai === 'woovi') _pgTemWooviEnv = true;
+      if (gwPai === 'mp')    _pgTemMPEnv    = true;
+      if (gwPai === 'pb')    _pgTemPagBankEnv = true;
+      // Re-popular todos os inputs para atualizar contadores e bordas
+      if (data.config) _popularInputsCredenciais(data.config);
       renderIntegracaoStatus();
       renderGatewayCards();
     } else {
