@@ -3711,6 +3711,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         + '</div>';
     }
 
+    // Expor fecharPainelFiltros globalmente para os onclicks do HTML dinâmico
+    window['fecharPainelFiltros'] = fecharPainelFiltros;
+
     // Estado temporário para edição sem aplicar
     window['_tmpFiltros'] = Object.assign({}, filtros, {
       _render: renderModalContent,
