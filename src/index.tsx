@@ -516,25 +516,30 @@ app.get('/api/postos', async (c) => {
     // 5b. Mesclar dados do KV parceiro (bandeira/foto salvas pelo admin)
     const kvMerge = getKV(c.env) || undefined
     const r2Merge = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    // Busca parceiro no KV por CNPJ, tentando todas as chaves possíveis:
+    // 1) "posto_{cnpj}" — padrão admin via ANP / preenchimento manual
+    // 2) "cnpj_{cnpj}" → índice com id real → busca parceiro pelo id real
+    const buscarParceiroPorCNPJ = async (cnpjSoNum: string): Promise<Record<string,unknown> | null> => {
+      if (!cnpjSoNum) return null
+      // Tentativa 1: posto_{cnpj} — postos criados pelo admin a partir da ANP
+      const id1 = 'posto_' + cnpjSoNum
+      let p = await kvGetParceiro(kvMerge, id1, r2Merge) as Record<string,unknown> | null
+      if (p) return p
+      // Tentativa 2: índice cnpj_{cnpj} → id real (postos cadastrados via formulário)
+      const idx = await kvGetParceiro(kvMerge, 'cnpj_' + cnpjSoNum, r2Merge) as Record<string,unknown> | null
+      if (idx?.id) {
+        p = await kvGetParceiro(kvMerge, String(idx.id), r2Merge) as Record<string,unknown> | null
+        if (p) return p
+      }
+      return null
+    }
     const mesclarComParceiro = async (lista: PostoReal[]): Promise<PostoReal[]> => {
       if (!kvMerge && !r2Merge) return lista
       const resultados = await Promise.all(lista.map(async (p) => {
-        // ID do parceiro = posto_ + CNPJ (mesmo padrão do admin)
-        // Testa dois formatos: só números e com formatação XX.XXX.XXX/XXXX-XX
         const cnpjSoNum = (p.cnpj || '').replace(/[^0-9]/g, '')
         if (!cnpjSoNum) return p
-        // Formato com pontuação: XX.XXX.XXX/XXXX-XX
-        const cnpjFmt = cnpjSoNum.replace(
-          /^([0-9]{2})([0-9]{3})([0-9]{3})([0-9]{4})([0-9]{2})$/,
-          '$1.$2.$3/$4-$5'
-        )
         try {
-          // Tenta primeiro com CNPJ só números (padrão do admin via ANP)
-          let parceiro = await kvGetParceiro(kvMerge, 'posto_' + cnpjSoNum, r2Merge) as Record<string, unknown> | null
-          // Fallback: tenta com CNPJ formatado (caso admin tenha digitado manualmente)
-          if (!parceiro && cnpjFmt !== cnpjSoNum) {
-            parceiro = await kvGetParceiro(kvMerge, 'posto_' + cnpjFmt, r2Merge) as Record<string, unknown> | null
-          }
+          const parceiro = await buscarParceiroPorCNPJ(cnpjSoNum)
           if (!parceiro) return p
           // Sobrescrever bandeira e fotoUrl com dados do admin (se presentes)
           const merged = { ...p } as any
@@ -10900,6 +10905,15 @@ app.put('/api/admin/parceiros/:id', async (c) => {
   atualizado.atualizadoEm = new Date().toISOString()
 
   await kvSetParceiro(kv, id, atualizado, undefined, r2)
+
+  // Manter índice CNPJ → id atualizado (permite lookup por CNPJ no /api/postos)
+  const cnpjAtualizado = String(atualizado.cnpj || '').replace(/[^0-9]/g, '')
+  if (cnpjAtualizado && kv) {
+    try {
+      await kvSetParceiro(kv, 'cnpj_' + cnpjAtualizado, { id, cnpj: cnpjAtualizado })
+    } catch {}
+  }
+
   return c.json({ ok: true, parceiro: normalizarParceiro(atualizado, id, null) })
 })
 
