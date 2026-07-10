@@ -4056,7 +4056,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     // ── Hero banner: foto do Google Maps (se disponível) ou logo da bandeira ──
     var detHeader = document.getElementById('det-header');
-    var detHeroImg = document.getElementById('det-hero-img') as HTMLImageElement;
+    var detHeroImg = document.getElementById('det-hero-img');
     var detBandInfo = getBandeiraCor(p.bandeira || p.nome);
     var detLogoSvg = getBandeiraLogoUrl(p.bandeira || p.nome);
     var detFotoGoogle = p.fotoUrl && (p.fotoUrl.startsWith('http') || p.fotoUrl.startsWith('/api'))
@@ -4082,7 +4082,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     // Logo da bandeira centralizado no hero (quando sem foto)
-    var heroBandImg = document.getElementById('det-bandeira-hero-img') as HTMLImageElement;
+    var heroBandImg = document.getElementById('det-bandeira-hero-img');
     var heroBandNome = document.getElementById('det-bandeira-hero-nome');
     if (heroBandImg) { heroBandImg.src = detLogoSvg; }
     if (heroBandNome) { heroBandNome.textContent = detBandInfo.bandNome; }
