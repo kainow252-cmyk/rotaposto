@@ -351,7 +351,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v17', build: '20260710b' })
+  return c.json({ version: 'v17', build: '20260710c' })
 })
 
 app.get('/api/debug/env', async (c) => {
