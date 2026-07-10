@@ -1916,7 +1916,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
             <button class="det-btn-icon" onclick="shareStation()">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             </button>
-            <button class="det-btn-icon" onclick="toggleFavorite()">
+            <button class="det-btn-icon" id="btn-fav-posto" onclick="toggleFavorite()" title="Salvar posto" style="transition:background 0.2s">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
             </button>
           </div>
@@ -2435,6 +2435,15 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   <div id="perfil-menu-list">
     <div id="menu-item-minhaconta">${buildMenuItem('person', 'Minha conta', "abrirMinhaConta()")}</div>
     <div id="menu-item-veiculos">${buildMenuItem('car', 'Meus veículos', "abrirMeusVeiculos()")}</div>
+    <div id="menu-item-salvos">
+      <div class="menu-item" onclick="abrirPostosSalvos()">
+        <div class="menu-item-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        </div>
+        <div style="flex:1"><span class="menu-item-label">Postos Salvos</span><div id="fav-count-preview" style="font-size:11px;color:#FF3B5B;margin-top:1px;"></div></div>
+        <div class="menu-item-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+    </div>
     <div id="menu-item-assinatura">${buildMenuItem('card', 'Assinatura', "goToAssinatura()")}</div>
     <div id="menu-item-pagamento">${buildMenuItem('creditcard', 'Formas de pagamento', "abrirFormasPagamento()")}</div>
     <div id="menu-item-notificacoes">${buildMenuItem('bell', 'Notificações', "abrirNotificacoes()")}</div>
@@ -4209,6 +4218,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (mapPlan) { mapPlan.remove(); mapPlan = null; }
     planVeiculoId = null;
 
+    // Sincronizar estado do botão de favorito para este posto
+    _sincronizarBotaoFav();
+
     goToView('detalhes');
   }
 
@@ -4502,7 +4514,170 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
   }
 
-  function toggleFavorite() { showToast('Adicionado aos favoritos ❤️'); }
+  // ── FAVORITOS ────────────────────────────────────────────────────────────
+  var _favoritosCache = []; // cache local dos postos favoritados
+
+  function _getFavBtn() { return document.getElementById('btn-fav-posto'); }
+
+  // Atualiza visual do botão de favoritar (coração cheio/vazio)
+  function _atualizarBotaoFav(isFav) {
+    var btn = _getFavBtn();
+    if (!btn) return;
+    if (isFav) {
+      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="#FF3B5B" stroke="#FF3B5B" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>';
+      btn.title = 'Remover dos favoritos';
+      btn.style.background = 'rgba(255,59,91,0.15)';
+    } else {
+      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>';
+      btn.title = 'Salvar posto';
+      btn.style.background = '';
+    }
+  }
+
+  // Verificar se posto atual é favorito e atualizar botão
+  function _sincronizarBotaoFav() {
+    if (!selectedPosto) return;
+    var isFav = _favoritosCache.some(function(f) { return f.id === selectedPosto.id; });
+    _atualizarBotaoFav(isFav);
+  }
+
+  // Carregar favoritos do servidor (chamado no init e após login)
+  async function carregarFavoritos() {
+    if (!currentUser || !currentUser.uid) { _favoritosCache = []; return; }
+    try {
+      var res = await fetch('/api/user/favoritos/' + encodeURIComponent(currentUser.uid));
+      var data = await res.json();
+      _favoritosCache = Array.isArray(data.postos) ? data.postos : [];
+    } catch(e) { _favoritosCache = []; }
+  }
+
+  // Adicionar/remover favorito
+  async function toggleFavorite() {
+    if (!currentUser || !currentUser.uid) {
+      showToast('Entre na sua conta para salvar postos ❤️');
+      setTimeout(function() { abrirPerfil(); }, 800);
+      return;
+    }
+    if (!selectedPosto) { showToast('Selecione um posto primeiro'); return; }
+
+    var postoId = selectedPosto.id || selectedPosto.nome;
+    var jaFav = _favoritosCache.some(function(f) { return f.id === postoId; });
+    var uid = currentUser.uid;
+
+    // Feedback visual imediato (otimista)
+    _atualizarBotaoFav(!jaFav);
+
+    try {
+      if (jaFav) {
+        // Remover
+        var r = await fetch('/api/user/favoritos/' + encodeURIComponent(uid) + '/' + encodeURIComponent(postoId), { method: 'DELETE' });
+        var d = await r.json();
+        if (d.ok) {
+          _favoritosCache = _favoritosCache.filter(function(f) { return f.id !== postoId; });
+          showToast('Posto removido dos salvos');
+        } else { throw new Error('Erro ao remover'); }
+      } else {
+        // Adicionar
+        var preco = selectedPosto.preco || (selectedPosto.precos && selectedPosto.precos[selectedFuel]) || 0;
+        var payload = {
+          id: postoId,
+          nome: selectedPosto.nome || '',
+          endereco: selectedPosto.endereco || '',
+          lat: selectedPosto.lat || null,
+          lng: selectedPosto.lng || null,
+          bandeira: selectedPosto.bandeira || '',
+          combustivel: selectedFuel || 'gasolina',
+          preco: preco,
+          fotoUrl: selectedPosto.fotoUrl || null
+        };
+        var r2 = await fetch('/api/user/favoritos/' + encodeURIComponent(uid), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var d2 = await r2.json();
+        if (d2.ok) {
+          _favoritosCache.unshift(d2.posto || payload);
+          showToast('✅ Posto salvo! Acesse em Perfil → Postos Salvos');
+        } else { throw new Error('Erro ao salvar'); }
+      }
+    } catch(e) {
+      // Reverter visual em caso de erro
+      _atualizarBotaoFav(jaFav);
+      showToast('Erro ao ' + (jaFav ? 'remover' : 'salvar') + ' o posto. Tente novamente.');
+    }
+  }
+
+  // Abre tela de postos salvos (subtela no perfil)
+  async function abrirPostosSalvos() {
+    fecharPerfil();
+    var body = document.getElementById('rp-subtela-body');
+    var titulo = document.getElementById('rp-subtela-titulo');
+    var sub = document.getElementById('rp-subtela');
+    if (!body || !sub) return;
+    if (titulo) titulo.textContent = 'Postos Salvos';
+    body.innerHTML = '<div style="padding:32px;text-align:center;color:#999"><div style="font-size:32px;margin-bottom:8px">⏳</div>Carregando...</div>';
+    sub.classList.add('aberta');
+
+    if (!currentUser || !currentUser.uid) {
+      body.innerHTML = '<div style="padding:40px 24px;text-align:center;color:#555"><div style="font-size:48px;margin-bottom:12px">🔒</div><div style="font-size:16px;font-weight:700;margin-bottom:8px;">Entre na conta</div><div style="font-size:14px;color:#888;margin-bottom:20px;">Para ver seus postos salvos, faça login primeiro.</div></div>';
+      return;
+    }
+
+    await carregarFavoritos();
+    var postos = _favoritosCache;
+
+    if (!postos || postos.length === 0) {
+      body.innerHTML = '<div style="padding:40px 24px;text-align:center;color:#555"><div style="font-size:48px;margin-bottom:12px">🔖</div><div style="font-size:16px;font-weight:700;margin-bottom:8px;">Nenhum posto salvo</div><div style="font-size:14px;color:#888;line-height:1.5;">Toque no ❤️ na tela do posto para salvar seus favoritos aqui.</div></div>';
+      return;
+    }
+
+    var html = '<div style="padding:16px;display:flex;flex-direction:column;gap:10px;">';
+    postos.forEach(function(p) {
+      var precoTxt = p.preco ? 'R$ ' + p.preco.toFixed(2).replace('.', ',') + ' /L' : '';
+      var dataTxt = p.salvoEm ? new Date(p.salvoEm).toLocaleDateString('pt-BR') : '';
+      html += '<div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);display:flex;align-items:center;gap:12px;cursor:pointer;active:opacity:0.8"'
+        + ' onclick="_abrirFavoritoNaMapa(\'' + String(p.id).replace(/'/g,"&#39;") + '\')">'
+        + '<div style="width:44px;height:44px;border-radius:12px;background:#F5F5F5;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">'
+        + (p.fotoUrl ? '<img src="' + p.fotoUrl + '" style="width:100%;height:100%;object-fit:contain;padding:4px" onerror="this.style.display=\'none\'">' : '<span style="font-size:22px">⛽</span>')
+        + '</div>'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:14px;font-weight:700;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (p.nome || '') + '</div>'
+        + (p.endereco ? '<div style="font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.endereco + '</div>' : '')
+        + '<div style="display:flex;align-items:center;gap:8px;margin-top:4px">'
+        + (precoTxt ? '<span style="font-size:12px;font-weight:700;color:#FF6D00">' + precoTxt + '</span>' : '')
+        + (dataTxt ? '<span style="font-size:10px;color:#bbb">· Salvo em ' + dataTxt + '</span>' : '')
+        + '</div></div>'
+        + '<div style="flex-shrink:0;color:#FF3B5B;font-size:16px">❤️</div>'
+        + '</div>';
+    });
+    html += '</div>';
+    body.innerHTML = html;
+  }
+
+  // Abre o posto favorito no mapa/detalhes
+  function _abrirFavoritoNaMapa(postoId) {
+    // Fechar subtela
+    var sub = document.getElementById('rp-subtela');
+    if (sub) sub.classList.remove('aberta');
+    // Buscar posto nos dados atuais
+    var p = postosData.find(function(x) { return (x.id || x.nome) === postoId; });
+    if (p) {
+      var idx = postosListaAtual.indexOf(p);
+      if (idx >= 0) { openDetalhes(idx); }
+      else { selectedPosto = p; goToView('detalhes'); }
+    } else {
+      // Posto não está carregado — ir para o mapa e tentar centralizar
+      goToView('mapa');
+      var fav = _favoritosCache.find(function(f) { return f.id === postoId; });
+      if (fav && fav.lat && fav.lng && mapMain) {
+        mapMain.setView([fav.lat, fav.lng], 15);
+        showToast('Buscando ' + (fav.nome || 'posto') + ' no mapa...');
+      } else {
+        showToast('Posto não encontrado na busca atual. Atualize sua localização.');
+      }
+    }
+  }
 
   function iniciarNavegacao() {
     var lat, lng, nome;
@@ -4647,6 +4822,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       if (badge) badge.style.display = currentUser.premium ? 'block' : 'none';
       var plano = document.getElementById('perfil-plano-status');
       if (plano) plano.textContent = currentUser.premium ? '👑 Assinante Premium' : 'Conta gratuita';
+      // Badge de postos salvos
+      var prev = document.getElementById('fav-count-preview');
+      if (prev) {
+        prev.textContent = _favoritosCache.length > 0
+          ? _favoritosCache.length + ' posto' + (_favoritosCache.length > 1 ? 's' : '') + ' salvos'
+          : '';
+      }
     }
     el.classList.add('aberto');
   }
@@ -4836,6 +5018,15 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       fecharPerfil();
       setTimeout(abrirPerfil, 100);
     }
+    // Carregar favoritos ao logar e atualizar badge
+    carregarFavoritos().then(function() {
+      var prev = document.getElementById('fav-count-preview');
+      if (prev) {
+        prev.textContent = _favoritosCache.length > 0
+          ? _favoritosCache.length + ' posto' + (_favoritosCache.length > 1 ? 's' : '') + ' salvos'
+          : '';
+      }
+    });
   }
 
   function goToVehicle() { abrirMeusVeiculos(); }
@@ -4844,6 +5035,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function fecharTela() {
     var el = document.getElementById('rp-subtela');
     if (!el) return;
+    el.classList.remove('aberto');
     el.classList.remove('aberta');
   }
 

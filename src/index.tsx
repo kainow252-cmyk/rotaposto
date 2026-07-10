@@ -1766,6 +1766,103 @@ app.post('/api/pix/assinar', async (c) => {
   }
 })
 
+// ════════════════════════════════════════════════════════════════════════════
+// ─── Favoritos de Postos — KV key: fav:{userId} ──────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+// Estrutura: { postos: PostoFavorito[] }
+// PostoFavorito: { id, nome, endereco, lat, lng, bandeira, preco, salvoEm }
+
+interface PostoFavorito {
+  id: string
+  nome: string
+  endereco?: string
+  lat?: number
+  lng?: number
+  bandeira?: string
+  combustivel?: string
+  preco?: number
+  fotoUrl?: string
+  salvoEm: number
+}
+
+async function kvGetFavoritos(kv: KVNamespace, userId: string): Promise<PostoFavorito[]> {
+  try {
+    const raw = await kv.get(`fav:${userId}`)
+    if (!raw) return []
+    const data = JSON.parse(raw)
+    return Array.isArray(data.postos) ? data.postos : []
+  } catch { return [] }
+}
+
+async function kvSetFavoritos(kv: KVNamespace, userId: string, postos: PostoFavorito[]): Promise<void> {
+  await kv.put(`fav:${userId}`, JSON.stringify({ postos }), { expirationTtl: 60 * 60 * 24 * 365 * 3 })
+}
+
+// GET /api/user/favoritos/:userId — lista favoritos
+app.get('/api/user/favoritos/:userId', async (c) => {
+  const userId = c.req.param('userId')
+  if (!userId) return c.json({ erro: 'userId obrigatório' }, 400)
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ postos: [] })
+  const postos = await kvGetFavoritos(kv, userId)
+  return c.json({ postos })
+})
+
+// POST /api/user/favoritos/:userId — adiciona ou atualiza um favorito
+app.post('/api/user/favoritos/:userId', async (c) => {
+  const userId = c.req.param('userId')
+  if (!userId) return c.json({ erro: 'userId obrigatório' }, 400)
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const body = await c.req.json() as Partial<PostoFavorito>
+  if (!body.id) return c.json({ erro: 'id do posto obrigatório' }, 400)
+
+  const postos = await kvGetFavoritos(kv, userId)
+  // Remover se já existe (vai substituir)
+  const filtered = postos.filter(p => p.id !== body.id)
+  const novo: PostoFavorito = {
+    id: body.id,
+    nome: body.nome || '',
+    endereco: body.endereco,
+    lat: body.lat,
+    lng: body.lng,
+    bandeira: body.bandeira,
+    combustivel: body.combustivel,
+    preco: body.preco,
+    fotoUrl: body.fotoUrl,
+    salvoEm: Date.now()
+  }
+  filtered.unshift(novo) // mais recente no topo
+  // Limite de 50 favoritos
+  const final = filtered.slice(0, 50)
+  await kvSetFavoritos(kv, userId, final)
+  return c.json({ ok: true, total: final.length, posto: novo })
+})
+
+// DELETE /api/user/favoritos/:userId/:postoId — remove um favorito
+app.delete('/api/user/favoritos/:userId/:postoId', async (c) => {
+  const userId = c.req.param('userId')
+  const postoId = c.req.param('postoId')
+  if (!userId || !postoId) return c.json({ erro: 'userId e postoId obrigatórios' }, 400)
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+
+  const postos = await kvGetFavoritos(kv, userId)
+  const filtered = postos.filter(p => p.id !== postoId)
+  await kvSetFavoritos(kv, userId, filtered)
+  return c.json({ ok: true, total: filtered.length })
+})
+
+// GET /api/user/favoritos/:userId/check/:postoId — verifica se um posto é favorito
+app.get('/api/user/favoritos/:userId/check/:postoId', async (c) => {
+  const userId = c.req.param('userId')
+  const postoId = c.req.param('postoId')
+  const kv = getKV(c.env)
+  if (!kv) return c.json({ favorito: false })
+  const postos = await kvGetFavoritos(kv, userId)
+  return c.json({ favorito: postos.some(p => p.id === postoId) })
+})
+
 // ─── API: Verificar status de assinatura do usuário ─────────────────────────
 app.get('/api/assinatura/status/:userId', async (c) => {
   const userId = c.req.param('userId')
