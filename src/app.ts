@@ -3027,8 +3027,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
       // Balloon: logo da bandeira (SVG ou foto) + preço
       const bandInfo2 = getBandeiraCor(p.bandeira || p.nome);
-      // Logo: prioridade → fotoUrl do parceiro → SVG da bandeira → fallback cor
-      const logoUrlBalloon = (p.fotoUrl && (p.fotoUrl.startsWith('http') || p.fotoUrl.startsWith('/api')))
+      // Logo balloon: APENAS logo parceiro (/api) ou SVG — NUNCA foto Google (http)
+      const logoUrlBalloon = (p.fotoUrl && p.fotoUrl.startsWith('/api'))
         ? p.fotoUrl
         : getBandeiraLogoUrl(p.bandeira || p.nome);
       // stripContent: imagem com onerror simples (sem injeção de SVG) ou letra inicial
@@ -3105,7 +3105,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
     // Mostrar logo no card: prioridade → fotoUrl parceiro → SVG bandeira → bomba SVG
     var _cardLogoSvg = getBandeiraLogoUrl(p.bandeira || p.nome);
-    var _cardLogoFoto = p.fotoUrl && (p.fotoUrl.startsWith('http') || p.fotoUrl.startsWith('/api')) ? p.fotoUrl : null;
+    // Map-card usa apenas logo parceiro (/api) ou SVG — NUNCA foto Google (http)
+    var _cardLogoFoto = p.fotoUrl && p.fotoUrl.startsWith('/api') ? p.fotoUrl : null;
     var _cardLogoSrc = _cardLogoFoto || _cardLogoSvg;
     logoEl.innerHTML = '';
     if (_cardLogoSrc) {
@@ -3205,7 +3206,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       const preco = dest.preco || dest.precos?.[selectedFuel] || 0;
       var planLogoEl = document.getElementById('plan-logo');
       var planLogoSvg = getBandeiraLogoUrl(dest.bandeira || dest.nome);
-      var planLogoFoto = dest.fotoUrl && (dest.fotoUrl.startsWith('http') || dest.fotoUrl.startsWith('/api')) ? dest.fotoUrl : null;
+      // Plan-logo usa apenas logo parceiro (/api) ou SVG — NUNCA foto Google (http)
+      var planLogoFoto = dest.fotoUrl && dest.fotoUrl.startsWith('/api') ? dest.fotoUrl : null;
       var planLogoUrl = planLogoFoto || planLogoSvg;
       var _planEmoji = getEmoji(dest.bandeira || dest.nome);
       if (planLogoUrl) {
@@ -3953,10 +3955,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       // Endereço em caixa alta estilo CompletaÍ
       const endStr = (p.endereco ? p.endereco.toUpperCase() : '') + (p.bairro ? ' - ' + p.bairro.toUpperCase() : '');
 
-      // Logo da bandeira: prioridade → fotoUrl parceiro → SVG da bandeira → inicial
+      // Logo da bandeira: prioridade → fotoUrl parceiro (/api) → SVG da bandeira → inicial
+      // NUNCA usar fotoGoogle (foto do Google Maps) como logo — é foto do lugar, não logo
       const logoSvg = getBandeiraLogoUrl(p.bandeira || p.nome);
-      const logoFoto = p.fotoUrl && (p.fotoUrl.startsWith('http') || p.fotoUrl.startsWith('/api'))
-        ? p.fotoUrl : null;
+      const logoFoto = p.fotoUrl && p.fotoUrl.startsWith('/api') ? p.fotoUrl : null;
       const logoSrc  = logoFoto || logoSvg;
       const logoHtml = logoSrc
         ? '<img src="'+logoSrc+'" style="width:44px;height:44px;border-radius:10px;object-fit:contain;" alt="'+bandInfo.bandNome+'"'
@@ -4054,13 +4056,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var isColab = p.fontePreco === 'colaborativo';
     var isEstimado = !isReal && !isColab;
 
-    // ── Hero banner: foto do Google Maps (se disponível) ou logo da bandeira ──
+    // ── Hero banner: foto REAL do posto (Google Maps) ou fundo da cor da bandeira ──
     var detHeader = document.getElementById('det-header');
     var detHeroImg = document.getElementById('det-hero-img');
     var detBandInfo = getBandeiraCor(p.bandeira || p.nome);
     var detLogoSvg = getBandeiraLogoUrl(p.bandeira || p.nome);
-    var detFotoGoogle = p.fotoUrl && (p.fotoUrl.startsWith('http') || p.fotoUrl.startsWith('/api'))
-      ? p.fotoUrl : null;
+    // fotoGoogle = foto real do posto vinda do Google Maps (hero/banner)
+    var detFotoGoogle = p.fotoGoogle && p.fotoGoogle.startsWith('http') ? p.fotoGoogle : null;
+    // fallback: fotoUrl que seja http (postos sem parceiro com foto Google em fotoUrl)
+    if (!detFotoGoogle && p.fotoUrl && p.fotoUrl.startsWith('http')) {
+      detFotoGoogle = p.fotoUrl;
+    }
 
     if (detFotoGoogle) {
       // Tem foto do Google Maps → mostrar no hero
@@ -4069,15 +4075,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       detHeroImg.style.display = 'block';
       detHeroImg.src = detFotoGoogle;
       detHeroImg.onerror = function() {
-        // Se foto falhar → cair no modo sem-foto
         detHeader.classList.add('sem-foto');
-        detHeader.style.background = detBandInfo.cor;
+        detHeader.style.background = 'linear-gradient(135deg, ' + detBandInfo.cor + ' 0%, ' + (detBandInfo.border || detBandInfo.cor) + ' 100%)';
         detHeroImg.style.display = 'none';
       };
     } else {
       // Sem foto → fundo com cor da bandeira + logo centralizado
       detHeader.classList.add('sem-foto');
-      detHeader.style.background = 'linear-gradient(135deg, ' + detBandInfo.cor + ' 0%, ' + detBandInfo.border + ' 100%)';
+      detHeader.style.background = 'linear-gradient(135deg, ' + detBandInfo.cor + ' 0%, ' + (detBandInfo.border || detBandInfo.cor) + ' 100%)';
       detHeroImg.style.display = 'none';
     }
 
@@ -4088,9 +4093,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (heroBandNome) { heroBandNome.textContent = detBandInfo.bandNome; }
 
     // ── Badge do logo (canto inferior esquerdo do header) ──
+    // Usa APENAS logo do parceiro (/api) ou SVG da bandeira — NUNCA foto Google
     var detLogoEl = document.getElementById('det-logo-badge');
     var _detEmoji = getEmoji(p.bandeira || p.nome);
-    // Badge: fotoUrl parceiro → SVG da bandeira com fundo da cor oficial
     var detLogoFoto = p.fotoUrl && p.fotoUrl.startsWith('/api') ? p.fotoUrl : null;
     var detBadgeSrc = detLogoFoto || detLogoSvg;
     if (detBadgeSrc) {

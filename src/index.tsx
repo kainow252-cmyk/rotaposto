@@ -541,13 +541,17 @@ app.get('/api/postos', async (c) => {
         try {
           const parceiro = await buscarParceiroPorCNPJ(cnpjSoNum)
           if (!parceiro) return p
-          // Sobrescrever bandeira e fotoUrl com dados do admin (se presentes)
           const merged = { ...p } as any
           if (parceiro.bandeira && String(parceiro.bandeira) !== '—') {
             merged.bandeira = String(parceiro.bandeira)
           }
+          // fotoGoogle = foto real do posto (Google Maps) — usada no hero/banner
+          // fotoUrl    = logo da bandeira/parceiro  — usada em badges, lista, mapa
+          if (p.fotoUrl && !merged.fotoGoogle) {
+            merged.fotoGoogle = p.fotoUrl   // preservar foto Google original
+          }
           if (parceiro.fotoBandeira) {
-            merged.fotoUrl = String(parceiro.fotoBandeira)
+            merged.fotoUrl = String(parceiro.fotoBandeira)  // logo do parceiro → badges
           }
           // Marcar como parceiro para o app
           const pId = parceiro.id ? String(parceiro.id) : ('posto_' + cnpjSoNum)
@@ -614,7 +618,26 @@ app.get('/api/postos', async (c) => {
           totalAvaliacoes: p.totalAvaliacoes,
           telefone: p.telefone,
           aberto: p.aberto,
-          fotoUrl: p.fotoUrl,
+          // fotoUrl    = logo parceiro/admin (badges, lista, mapa)
+          // fotoGoogle = foto real do posto Google Maps (hero/banner)
+          // Para postos sem parceiro: fotoUrl do Google vai para fotoGoogle, fotoUrl fica null
+          fotoUrl: (() => {
+            const fu = p.fotoUrl
+            if (!fu) return null
+            // Se é foto do Google (http, não /api) e não foi sobrescrita pelo parceiro → não é logo
+            if (fu.startsWith('http') && !(p as any).parceiroId) return null
+            return fu
+          })(),
+          fotoGoogle: (() => {
+            const fg = (p as any).fotoGoogle   // já separado por mesclarComParceiro
+            if (fg) return fg
+            // Postos sem parceiro: fotoUrl original do Google
+            const fu = p.fotoUrl
+            if (fu && fu.startsWith('http')) return fu
+            return null
+          })(),
+          cnpj: p.cnpj,
+          cnpj: p.cnpj,
           googlePlaceId: p.googlePlaceId,
           // Dados do parceiro (admin KV)
           parceiroId: (p as any).parceiroId || null,
