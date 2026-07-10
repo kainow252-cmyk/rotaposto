@@ -10791,15 +10791,28 @@ app.get('/api/pix/posto/status/:postoId', async (c) => {
 // O webhook do Woovi usa /api/pix/webhook — expandir lá o bloco PAGO para verificar postos
 // via sub:posto:{id} index
 
-// ─── DELETE /api/admin/postos/:id — remover posto parceiro do R2 ──────────────
+// ─── DELETE /api/admin/postos/:id — remover posto parceiro do R2 + KV ──────────
 app.delete('/api/admin/postos/:id', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
   if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
   const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
-  if (!r2) return c.json({ erro: 'R2 não disponível' }, 500)
+  const kv = getKV(c.env as any)
   const id = c.req.param('id')
-  await r2.delete(`parceiro--${id}`)
+  if (id === 'p_teste') return c.json({ erro: 'Posto de teste não pode ser removido' }, 400)
+  // Apagar do R2
+  try { if (r2) await r2.delete(`parceiro--${id}`) } catch {}
+  // Apagar do KV (legado)
+  try { if (kv) await kv.delete(`parceiro:${id}`) } catch {}
+  // Apagar foto-bandeira do R2 (todas extensões)
+  if (r2) {
+    for (const ext of ['jpg', 'png', 'webp']) {
+      try { await r2.delete(`posto-bandeira/${id}.${ext}`) } catch {}
+    }
+  }
+  // Apagar preços e promos do KV
+  try { if (kv) await kv.delete(`precos:${id}`) } catch {}
+  try { if (r2) await r2.delete(`precos--${id}`) } catch {}
   return c.json({ ok: true, id })
 })
 
@@ -10993,6 +11006,12 @@ app.put('/api/admin/parceiros/:id', async (c) => {
     try {
       await kvSetParceiro(kv, 'cnpj_' + cnpjAtualizado, { id, cnpj: cnpjAtualizado })
     } catch {}
+  }
+
+  // Atualizar senha do parceiro se fornecida pelo admin
+  if (body.novaSenha && typeof body.novaSenha === 'string' && (body.novaSenha as string).length >= 6) {
+    atualizado.senhaHash = hashSimples(body.novaSenha as string)
+    await kvSetParceiro(kv, id, atualizado, undefined, r2)
   }
 
   return c.json({ ok: true, parceiro: normalizarParceiro(atualizado, id, null) })
@@ -12103,6 +12122,10 @@ app.get('/admin', (c) => {
           <div class="form-group">
             <label>E-mail</label>
             <input id="ep-email" type="email" placeholder="contato@posto.com.br"/>
+          </div>
+          <div class="form-group">
+            <label style="color:#FFB300"><i class="fas fa-key" style="margin-right:5px"></i>Nova Senha de Acesso <span style="color:rgba(255,255,255,0.3);font-weight:400">(deixe vazio para manter a atual)</span></label>
+            <input id="ep-nova-senha" type="password" placeholder="Nova senha do parceiro (min. 6 chars)" autocomplete="new-password" style="background:#0A1520;border:1.5px solid rgba(255,183,0,0.3);border-radius:10px;padding:11px 14px;color:#FFB300;font-size:13px;outline:none;width:100%"/>
           </div>
           <div class="form-group">
             <label>WhatsApp / Tel Principal</label>
@@ -13574,7 +13597,12 @@ async function carregarParceirosCadastrados() {
     const data = await res.json();
     _parceiros = data.parceiros || [];
     document.getElementById('parceiros-count').textContent = _parceiros.length + ' parceiro(s)';
-    filtrarParceiros();
+    // Renderiza TODOS por padrão — filtrarParceiros só limita se houver filtro ativo
+    renderParceiros(_parceiros);
+    // Aplica filtros ativos (se o usuário já tinha digitado algo)
+    const temFiltroAtivo = ['pc-search','pc-filtro-estado','pc-filtro-cidade','pc-filtro-bairro','pc-filtro-plano','pc-filtro-status']
+      .some(id => { const el = document.getElementById(id); return el && el.value && el.value.trim() !== ''; });
+    if (temFiltroAtivo) filtrarParceiros();
   } catch(e) {
     tbody.innerHTML = \`<tr><td colspan="7" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro: \${e.message}</td></tr>\`;
   }
@@ -13642,7 +13670,11 @@ function renderParceiros(lista) {
         <div style="font-size:11px;color:rgba(255,255,255,0.55);white-space:nowrap">\${u.cidade||'—'}</div>
         <div style="font-size:10px;color:rgba(255,255,255,0.3)">\${u.estado !== '—' ? u.estado : ''}\${u.bairro !== '—' ? ' · ' + u.bairro : ''}</div>
       </td>
-      <td style="text-align:center">\${statusBadge(u.status)}</td>
+      <td style="text-align:center">
+        <span data-pid="\${u.id}" data-status="\${u.status||'ativo'}" onclick="toggleStatusParceiro(this)" title="Clique para ativar/desativar" style="cursor:pointer;display:inline-block;padding:4px 10px;border-radius:100px;font-size:10px;font-weight:800;\${(u.status==='ativo'||!u.status)?'background:rgba(105,240,174,0.15);color:#69F0AE;border:1px solid rgba(105,240,174,0.3)':'background:rgba(255,82,82,0.12);color:#FF5252;border:1px solid rgba(255,82,82,0.25)'}">
+          <i class="fas \${(u.status==='ativo'||!u.status)?'fa-toggle-on':'fa-toggle-off'}" style="margin-right:4px"></i>\${(u.status==='ativo'||!u.status)?'Ativo':'Inativo'}
+        </span>
+      </td>
       <td style="text-align:center;font-size:11px;color:rgba(255,255,255,0.4)">\${fmtDate(dataExib)}</td>
       <td style="text-align:center">
         <div style="display:inline-flex;gap:5px;justify-content:center">
@@ -13698,6 +13730,43 @@ function limparFiltrosParceiros() {
   document.getElementById('pc-filtro-status').value = '';
   document.getElementById('pc-filtro-resultado').style.display = 'none';
   renderParceiros(_parceiros);
+}
+
+// ─── Toggle ativar/desativar posto direto na tabela ───────────────────────────
+async function toggleStatusParceiro(el) {
+  const id = el.dataset.pid;
+  const statusAtual = el.dataset.status || 'ativo';
+  const novoStatus = statusAtual === 'ativo' ? 'inativo' : 'ativo';
+  const isAtivo = novoStatus === 'ativo';
+  // Feedback visual imediato (spinner enquanto salva)
+  const htmlOriginal = el.innerHTML;
+  el.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:4px"></i>...';
+  el.style.pointerEvents = 'none';
+  try {
+    const res = await fetch('/api/admin/parceiros/' + encodeURIComponent(id) + '?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: novoStatus })
+    });
+    const d = await res.json();
+    if (!res.ok || d.erro) throw new Error(d.erro || 'Erro ao salvar');
+    // Atualiza visual inline
+    el.dataset.status = novoStatus;
+    el.style.background = isAtivo ? 'rgba(105,240,174,0.15)' : 'rgba(255,82,82,0.12)';
+    el.style.color = isAtivo ? '#69F0AE' : '#FF5252';
+    el.style.border = isAtivo ? '1px solid rgba(105,240,174,0.3)' : '1px solid rgba(255,82,82,0.25)';
+    el.innerHTML = '<i class="fas ' + (isAtivo ? 'fa-toggle-on' : 'fa-toggle-off') + '" style="margin-right:4px"></i>' + (isAtivo ? 'Ativo' : 'Inativo');
+    // Atualiza _parceiros em memória
+    const p = _parceiros.find(x => x.id === id);
+    if (p) p.status = novoStatus;
+    showToast(isAtivo ? '✅ Posto ativado!' : '⚠️ Posto desativado!', isAtivo ? 'ok' : '');
+  } catch(e) {
+    // Restaura visual original em caso de erro
+    el.innerHTML = htmlOriginal;
+    showToast('❌ Erro: ' + e.message, 'err');
+  } finally {
+    el.style.pointerEvents = '';
+  }
 }
 
 // ─── Modal Editar Parceiro ────────────────────────────────────────────────────
@@ -13896,6 +13965,9 @@ function abrirModalEditarParceiro(id) {
 
   // Foto de bandeira — resetar e carregar se existir
   _epFotoFile = null;
+  // Limpar campo de nova senha sempre que o modal abre
+  const epNovaSenha = document.getElementById('ep-nova-senha');
+  if (epNovaSenha) epNovaSenha.value = '';
   const epFotoInput = document.getElementById('ep-foto-input');
   if (epFotoInput) epFotoInput.value = '';
   const epFotoStatus = document.getElementById('ep-foto-status');
@@ -14109,9 +14181,11 @@ async function salvarParceiroModal() {
 
   const latVal = fv('ep-lat');
   const lngVal = fv('ep-lng');
+  const novaSenhaVal = (document.getElementById('ep-nova-senha') ? document.getElementById('ep-nova-senha').value.trim() : '');
   const body = {
     nomePosto:        fv('ep-nomePosto'),
     email:            fv('ep-email'),
+    ...(novaSenhaVal.length >= 6 ? { novaSenha: novaSenhaVal } : {}),
     tel:              fv('ep-tel'),
     telTelemarketing: fv('ep-telTelemarketing'),
     bandeira:         document.getElementById('ep-bandeira').value,
