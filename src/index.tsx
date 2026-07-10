@@ -64,6 +64,27 @@ import {
   ANP_SEMANA,
 } from './brasil'
 import { getParceriasLandingHTML, getPainelEmpresaHTML, getPainelLoginHTML, getValidadorHTML } from './parcerias'
+import {
+  criarSubcontaAsaas,
+  criarCustomerPassageiro,
+  gerarPixSplitCorrida,
+  verificarPagamentoCorrida,
+  kvGetMotorista,
+  kvSaveMotorista,
+  kvGetMotoristaPorEmail,
+  kvGetPassageiro,
+  kvSavePassageiro,
+  kvGetPassageiroPorEmail,
+  kvSaveToken,
+  kvVerificarToken,
+  kvRevogarToken,
+  extrairToken,
+  sha256,
+  gerarToken,
+  decodificarToken,
+  type MotoristaRS,
+  type PassageiroRS
+} from './rotasegura-asaas'
 
 // Alias de compatibilidade — mantido para endpoints legados
 const getEstatisticasNacionais = getEstatisticasNacionaisANP
@@ -21060,6 +21081,422 @@ app.get('/download/apk', async (c) => {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// ─── ROTASEGURA — AUTH + ASAAS SPLIT ──────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const RS_JWT_SECRET = 'rotasegura-secret-2026'  // idealmente via env var
+
+// ── Middleware: autenticar requisição RotaSegura ────────────────────────────────
+async function rsAutenticar(
+  kv: KVNamespace | undefined,
+  authHeader: string | null
+): Promise<{ tipo: 'motorista'|'passageiro'; userId: string } | null> {
+  if (!kv) return null
+  const token = extrairToken(authHeader)
+  if (!token) return null
+  return kvVerificarToken(kv, token)
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PASSAGEIRO: Cadastro
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/rotasegura/passageiro/cadastro', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const { nome, email, senha, telefone, cpf } = await c.req.json()
+    if (!nome || !email || !senha || !telefone) {
+      return c.json({ erro: 'Campos obrigatórios: nome, email, senha, telefone' }, 400)
+    }
+
+    // Verificar se email já existe
+    const existente = await kvGetPassageiroPorEmail(kv, email)
+    if (existente) return c.json({ erro: 'E-mail já cadastrado' }, 409)
+
+    const id = `rsp_${Date.now()}_${Math.random().toString(36).slice(2,8)}`
+    const senhaHash = await sha256(senha + id)
+
+    const passageiro: PassageiroRS = {
+      id, nome, email: email.toLowerCase().trim(),
+      cpf: cpf?.replace(/\D/g,'') || '',
+      telefone: telefone.replace(/\D/g,''),
+      avaliacao: 5.0, senhaHash, status: 'ativo',
+      criadoEm: Date.now()
+    }
+
+    // Criar customer no Asaas em background (não bloqueia cadastro)
+    const env = c.env as any
+    criarCustomerPassageiro(env, passageiro).then(customerId => {
+      if (customerId) {
+        passageiro.asaasCustomerId = customerId
+        kvSavePassageiro(kv, passageiro)
+      }
+    }).catch(() => {})
+
+    await kvSavePassageiro(kv, passageiro)
+
+    const token = gerarToken({ sub: id, tipo: 'passageiro', nome }, RS_JWT_SECRET)
+    await kvSaveToken(kv, token, 'passageiro', id)
+
+    return c.json({
+      ok: true,
+      token,
+      passageiro: { id, nome, email: passageiro.email, telefone, avaliacao: 5.0 }
+    })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao cadastrar', detalhe: String(e) }, 500)
+  }
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PASSAGEIRO: Login
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/rotasegura/passageiro/login', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const { email, senha } = await c.req.json()
+    if (!email || !senha) return c.json({ erro: 'Email e senha obrigatórios' }, 400)
+
+    const passageiro = await kvGetPassageiroPorEmail(kv, email)
+    if (!passageiro) return c.json({ erro: 'Usuário não encontrado' }, 404)
+
+    const senhaHash = await sha256(senha + passageiro.id)
+    if (senhaHash !== passageiro.senhaHash) return c.json({ erro: 'Senha incorreta' }, 401)
+    if (passageiro.status !== 'ativo') return c.json({ erro: 'Conta inativa' }, 403)
+
+    const token = gerarToken({ sub: passageiro.id, tipo: 'passageiro', nome: passageiro.nome }, RS_JWT_SECRET)
+    await kvSaveToken(kv, token, 'passageiro', passageiro.id)
+
+    return c.json({
+      ok: true, token,
+      passageiro: {
+        id: passageiro.id, nome: passageiro.nome,
+        email: passageiro.email, telefone: passageiro.telefone,
+        avaliacao: passageiro.avaliacao
+      }
+    })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao fazer login', detalhe: String(e) }, 500)
+  }
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PASSAGEIRO: Perfil (rota autenticada)
+// ──────────────────────────────────────────────────────────────────────────────
+app.get('/api/rotasegura/passageiro/perfil', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
+  if (!auth || auth.tipo !== 'passageiro') return c.json({ erro: 'Não autenticado' }, 401)
+
+  const passageiro = await kvGetPassageiro(kv!, auth.userId)
+  if (!passageiro) return c.json({ erro: 'Usuário não encontrado' }, 404)
+
+  return c.json({
+    ok: true,
+    passageiro: {
+      id: passageiro.id, nome: passageiro.nome,
+      email: passageiro.email, telefone: passageiro.telefone,
+      avaliacao: passageiro.avaliacao, criadoEm: passageiro.criadoEm
+    }
+  })
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MOTORISTA: Cadastro (cria subconta Asaas automaticamente)
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/rotasegura/motorista/cadastro', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const { nome, email, senha, telefone, cpf, cnh, veiculo, placa } = await c.req.json()
+    if (!nome || !email || !senha || !telefone || !cpf || !cnh || !veiculo || !placa) {
+      return c.json({ erro: 'Campos obrigatórios: nome, email, senha, telefone, cpf, cnh, veiculo, placa' }, 400)
+    }
+
+    const existente = await kvGetMotoristaPorEmail(kv, email)
+    if (existente) return c.json({ erro: 'E-mail já cadastrado' }, 409)
+
+    const id = `rsm_${Date.now()}_${Math.random().toString(36).slice(2,8)}`
+    const senhaHash = await sha256(senha + id)
+    const cpfLimpo = cpf.replace(/\D/g,'')
+
+    const motorista: MotoristaRS = {
+      id, nome, email: email.toLowerCase().trim(),
+      cpf: cpfLimpo, telefone: telefone.replace(/\D/g,''),
+      cnh, veiculo, placa: placa.toUpperCase(),
+      avaliacao: 5.0, corridasTotal: 0, ganhoTotal: 0,
+      asaasStatus: 'pendente',
+      senhaHash, status: 'ativo', criadoEm: Date.now()
+    }
+
+    await kvSaveMotorista(kv, motorista)
+
+    // Criar subconta Asaas em background
+    const env = c.env as any
+    criarSubcontaAsaas(env, { nome, email: motorista.email, cpf: cpfLimpo, telefone: motorista.telefone })
+      .then(async ({ walletId, accountKey, error }) => {
+        if (walletId) {
+          motorista.asaasWalletId = walletId
+          motorista.asaasAccountKey = accountKey || undefined
+          motorista.asaasStatus = 'aprovado'
+          console.log(`[RotaSegura] Subconta Asaas criada para motorista ${id}: walletId=${walletId}`)
+        } else {
+          motorista.asaasStatus = 'pendente'
+          console.warn(`[RotaSegura] Erro subconta Asaas para ${id}:`, error)
+        }
+        await kvSaveMotorista(kv, motorista)
+      })
+      .catch(e => console.error('[RotaSegura] criarSubcontaAsaas falhou:', e))
+
+    const token = gerarToken({ sub: id, tipo: 'motorista', nome }, RS_JWT_SECRET)
+    await kvSaveToken(kv, token, 'motorista', id)
+
+    return c.json({
+      ok: true, token,
+      motorista: {
+        id, nome, email: motorista.email, telefone: motorista.telefone,
+        veiculo, placa: motorista.placa, avaliacao: 5.0,
+        asaasStatus: 'pendente',
+        mensagem: '✅ Cadastro realizado! Sua subconta Asaas está sendo configurada.'
+      }
+    })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao cadastrar motorista', detalhe: String(e) }, 500)
+  }
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MOTORISTA: Login
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/rotasegura/motorista/login', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  try {
+    const { email, senha } = await c.req.json()
+    if (!email || !senha) return c.json({ erro: 'Email e senha obrigatórios' }, 400)
+
+    const motorista = await kvGetMotoristaPorEmail(kv, email)
+    if (!motorista) return c.json({ erro: 'Motorista não encontrado' }, 404)
+
+    const senhaHash = await sha256(senha + motorista.id)
+    if (senhaHash !== motorista.senhaHash) return c.json({ erro: 'Senha incorreta' }, 401)
+    if (motorista.status === 'bloqueado') return c.json({ erro: 'Conta bloqueada. Entre em contato com o suporte.' }, 403)
+
+    const token = gerarToken({ sub: motorista.id, tipo: 'motorista', nome: motorista.nome }, RS_JWT_SECRET)
+    await kvSaveToken(kv, token, 'motorista', motorista.id)
+
+    return c.json({
+      ok: true, token,
+      motorista: {
+        id: motorista.id, nome: motorista.nome, email: motorista.email,
+        telefone: motorista.telefone, veiculo: motorista.veiculo,
+        placa: motorista.placa, avaliacao: motorista.avaliacao,
+        corridasTotal: motorista.corridasTotal,
+        asaasStatus: motorista.asaasStatus,
+        asaasWalletId: motorista.asaasWalletId
+      }
+    })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao fazer login', detalhe: String(e) }, 500)
+  }
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MOTORISTA: Perfil (rota autenticada)
+// ──────────────────────────────────────────────────────────────────────────────
+app.get('/api/rotasegura/motorista/perfil', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
+  if (!auth || auth.tipo !== 'motorista') return c.json({ erro: 'Não autenticado' }, 401)
+
+  const motorista = await kvGetMotorista(kv!, auth.userId)
+  if (!motorista) return c.json({ erro: 'Motorista não encontrado' }, 404)
+
+  return c.json({
+    ok: true,
+    motorista: {
+      id: motorista.id, nome: motorista.nome, email: motorista.email,
+      telefone: motorista.telefone, veiculo: motorista.veiculo, placa: motorista.placa,
+      cnh: motorista.cnh, avaliacao: motorista.avaliacao,
+      corridasTotal: motorista.corridasTotal, ganhoTotal: motorista.ganhoTotal / 100,
+      asaasStatus: motorista.asaasStatus,
+      asaasWalletId: motorista.asaasWalletId ? '✅ Configurado' : '⏳ Pendente',
+      criadoEm: motorista.criadoEm
+    }
+  })
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ASAAS: Gerar PIX split para corrida (chamado ao finalizar corrida)
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/rotasegura/pagamento/gerar-pix', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
+
+  // Auth: passageiro ou sistema interno
+  const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
+  if (!auth) return c.json({ erro: 'Não autenticado' }, 401)
+
+  try {
+    const { corridaId } = await c.req.json()
+    const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
+    if (!raw) return c.json({ erro: 'Corrida não encontrada' }, 404)
+
+    const corrida = JSON.parse(raw) as any
+    if (corrida.status !== 'concluida') return c.json({ erro: 'Corrida ainda não finalizada' }, 400)
+    if (corrida.pagamentoId) return c.json({ erro: 'Pagamento já gerado', paymentId: corrida.pagamentoId })
+
+    // Buscar dados do motorista
+    const motoristaId = corrida.motorista?.id || ''
+    let motoristaWalletId = 'demo-wallet'
+    if (motoristaId) {
+      const mot = await kvGetMotorista(kv, motoristaId)
+      if (mot?.asaasWalletId) motoristaWalletId = mot.asaasWalletId
+    }
+
+    // Buscar customerId do passageiro
+    let passageiroCustomerId = 'demo-customer'
+    const passageiroId = corrida.passageiroId || auth.userId
+    if (passageiroId) {
+      const pass = await kvGetPassageiro(kv, passageiroId)
+      if (pass?.asaasCustomerId) {
+        passageiroCustomerId = pass.asaasCustomerId
+      } else {
+        // Criar customer on-the-fly
+        const passObj = pass || { id: passageiroId, nome: corrida.passageiro?.nome || 'Passageiro', email: `rs-${passageiroId}@rotaposto.com.br`, telefone: '', cpf: '' } as any
+        const customerId = await criarCustomerPassageiro(c.env as any, passObj)
+        if (customerId) passageiroCustomerId = customerId
+      }
+    }
+
+    const valorCentavos = Math.round(corrida.preco * 100)
+    const resultado = await gerarPixSplitCorrida(c.env as any, {
+      corridaId,
+      valorCentavos,
+      passageiroCustomerId,
+      motoristaWalletId,
+      motoristaId,
+      descricao: `RotaSegura: ${corrida.origem.endereco} → ${corrida.destino.endereco}`
+    })
+
+    if (!resultado.sucesso) return c.json({ erro: resultado.error }, 502)
+
+    // Salvar paymentId na corrida
+    corrida.pagamentoId = resultado.paymentId
+    corrida.pagamentoStatus = 'aguardando'
+    await kv.put(`rotasegura:corrida:${corridaId}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 24 * 7 })
+
+    return c.json({
+      ok: true,
+      paymentId: resultado.paymentId,
+      brcode: resultado.brcode,
+      qrCode: resultado.qrCode,
+      expiraEm: resultado.expiraEm,
+      valor: corrida.preco,
+      split: {
+        motorista: `R$ ${(resultado.valorMotorista! / 100).toFixed(2)} (80%)`,
+        plataforma: `R$ ${(resultado.valorPlataforma! / 100).toFixed(2)} (20%)`
+      }
+    })
+  } catch (e) {
+    return c.json({ erro: 'Erro ao gerar PIX', detalhe: String(e) }, 500)
+  }
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ASAAS: Verificar pagamento da corrida
+// ──────────────────────────────────────────────────────────────────────────────
+app.get('/api/rotasegura/pagamento/status/:paymentId', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
+  if (!auth) return c.json({ erro: 'Não autenticado' }, 401)
+
+  const paymentId = c.req.param('paymentId')
+  const { pago, status } = await verificarPagamentoCorrida(c.env as any, paymentId)
+
+  if (pago) {
+    // Marcar corrida como paga no KV (buscar por paymentId)
+    const corridaIdRaw = await kv?.get(`rs:pay:${paymentId}`)
+    if (corridaIdRaw) {
+      const raw = await kv?.get(`rotasegura:corrida:${corridaIdRaw}`)
+      if (raw) {
+        const corrida = JSON.parse(raw)
+        if (corrida.pagamentoStatus !== 'pago') {
+          corrida.pagamentoStatus = 'pago'
+          await kv?.put(`rotasegura:corrida:${corridaIdRaw}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 24 * 7 })
+        }
+      }
+    }
+  }
+
+  return c.json({ ok: true, pago, status })
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ASAAS: Webhook pagamento corrida
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/rotasegura/pagamento/webhook', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  try {
+    const body = await c.req.json()
+    const evento = body?.event || ''
+    const payment = body?.payment || {}
+    const externalRef = payment?.externalReference || ''
+
+    if ((evento === 'PAYMENT_RECEIVED' || evento === 'PAYMENT_CONFIRMED') && externalRef.startsWith('rs-corrida-')) {
+      const corridaId = externalRef.replace('rs-corrida-', '')
+      if (kv) {
+        const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
+        if (raw) {
+          const corrida = JSON.parse(raw)
+          corrida.pagamentoStatus = 'pago'
+          corrida.pagoPorWebhook = true
+          await kv.put(`rotasegura:corrida:${corridaId}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 24 * 30 })
+          console.log(`[RotaSegura] Corrida ${corridaId} paga via webhook Asaas`)
+
+          // Atualizar ganhos do motorista
+          const motoristaId = corrida.motorista?.id
+          if (motoristaId) {
+            const mot = await kvGetMotorista(kv, motoristaId)
+            if (mot) {
+              const valorMotorista = Math.round(corrida.preco * 100 * 0.80)
+              mot.ganhoTotal = (mot.ganhoTotal || 0) + valorMotorista
+              mot.corridasTotal = (mot.corridasTotal || 0) + 1
+              await kvSaveMotorista(kv, mot)
+            }
+          }
+        }
+      }
+    }
+    return c.json({ ok: true })
+  } catch (e) {
+    return c.json({ ok: false, erro: String(e) }, 400)
+  }
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MOTORISTA: Logout
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/rotasegura/motorista/logout', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const token = extrairToken(c.req.header('Authorization') || null)
+  if (kv && token) await kvRevogarToken(kv, token)
+  return c.json({ ok: true })
+})
+
+app.post('/api/rotasegura/passageiro/logout', async (c) => {
+  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const token = extrairToken(c.req.header('Authorization') || null)
+  if (kv && token) await kvRevogarToken(kv, token)
+  return c.json({ ok: true })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // ─── ROTASEGURA — App de corridas (inspirado no Uber) ─────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -21092,6 +21529,10 @@ app.post('/api/rotasegura/solicitar', async (c) => {
       return c.json({ erro: 'Origem e destino são obrigatórios' }, 400)
     }
 
+    // Identificar passageiro autenticado
+    const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
+    const passageiroId = auth?.userId || null
+
     // Calcular distância aproximada (Haversine)
     const R = 6371
     const dLat = (destinoLat - origemLat) * Math.PI / 180
@@ -21101,9 +21542,10 @@ app.post('/api/rotasegura/solicitar', async (c) => {
     const preco = Math.round((5.5 + distanciaKm * 2.2) * 100) / 100
 
     const corridaId = `rs_${Date.now()}_${Math.random().toString(36).slice(2,8)}`
-    const corrida: CorridaRS = {
+    const corrida: any = {
       id: corridaId,
       status: 'aguardando',
+      passageiroId,  // ID do passageiro autenticado
       passageiro: { nome: nomePassageiro || 'Passageiro', telefone: telefonePassageiro || '' },
       origem: { lat: origemLat, lng: origemLng, endereco: origemEndereco || 'Origem' },
       destino: { lat: destinoLat, lng: destinoLng, endereco: destinoEndereco || 'Destino' },
@@ -21193,7 +21635,7 @@ app.post('/api/rotasegura/motorista/aceitar', async (c) => {
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
-    const { corridaId, nomeMotorista, telefoneMotorista, placa, veiculo, motoristaNome, motoristaLat, motoristaLng } = await c.req.json()
+    const { corridaId, nomeMotorista, telefoneMotorista, placa, veiculo, motoristaNome, motoristaLat, motoristaLng, motoristaId } = await c.req.json()
     const raw = await kv.get(`rotasegura:corrida:${corridaId}`)
     if (!raw) return c.json({ erro: 'Corrida não encontrada' }, 404)
 
@@ -21209,8 +21651,9 @@ app.post('/api/rotasegura/motorista/aceitar', async (c) => {
       veiculo: veiculo || 'Carro',
       avaliacao: 4.8,
       lat: motoristaLat,
-      lng: motoristaLng
-    }
+      lng: motoristaLng,
+      id: motoristaId  // Salvar ID do motorista para split
+    } as any
 
     await kv.put(`rotasegura:corrida:${corridaId}`, JSON.stringify(corrida), { expirationTtl: 60 * 60 * 4 })
 
@@ -21287,6 +21730,418 @@ app.post('/api/rotasegura/motorista/finalizar', async (c) => {
   } catch (e) {
     return c.json({ erro: 'Erro ao finalizar corrida', detalhe: String(e) }, 500)
   }
+})
+
+// ── LOGIN PASSAGEIRO: /rotasegura/login ───────────────────────────────────────
+app.get('/rotasegura/login', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>RotaSegura — Entrar</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(160deg,#0a0a1a 0%,#0d1a0d 100%);color:#fff;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px}
+    .card{width:100%;max-width:400px;background:rgba(255,255,255,.04);backdrop-filter:blur(20px);border-radius:24px;padding:36px 28px;border:1px solid rgba(255,255,255,.08);box-shadow:0 24px 64px rgba(0,0,0,.5)}
+    .logo{text-align:center;margin-bottom:32px}
+    .logo-icon{width:72px;height:72px;background:linear-gradient(135deg,#00C851,#007E33);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 14px;box-shadow:0 8px 24px rgba(0,200,81,.35)}
+    .logo-title{font-size:24px;font-weight:800;letter-spacing:-.5px}
+    .logo-sub{font-size:13px;color:rgba(255,255,255,.4);margin-top:4px}
+    .tabs{display:flex;background:rgba(255,255,255,.05);border-radius:12px;padding:4px;margin-bottom:28px;gap:4px}
+    .tab{flex:1;padding:10px;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;background:transparent;color:rgba(255,255,255,.5)}
+    .tab.ativo{background:rgba(0,200,81,.15);color:#00C851;border:1px solid rgba(0,200,81,.3)}
+    .form-group{margin-bottom:16px}
+    .form-label{font-size:12px;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block}
+    .form-input{width:100%;padding:13px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;color:#fff;font-size:15px;outline:none;transition:border .2s;-webkit-appearance:none}
+    .form-input:focus{border-color:#00C851;background:rgba(0,200,81,.06)}
+    .form-input::placeholder{color:rgba(255,255,255,.25)}
+    .btn-main{width:100%;padding:15px;background:linear-gradient(135deg,#00C851,#00963d);border:none;border-radius:13px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;transition:all .2s;box-shadow:0 6px 20px rgba(0,200,81,.3);display:flex;align-items:center;justify-content:center;gap:10px}
+    .btn-main:active{transform:scale(.97)}
+    .btn-main:disabled{opacity:.6;cursor:default;transform:none}
+    .divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:rgba(255,255,255,.2);font-size:12px}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
+    .err{background:rgba(255,68,88,.12);border:1px solid rgba(255,68,88,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#ff8a95;margin-bottom:14px;display:none}
+    .motorista-link{text-align:center;margin-top:20px;font-size:13px;color:rgba(255,255,255,.4)}
+    .motorista-link a{color:#00C851;text-decoration:none;font-weight:600}
+    .input-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .form-section{display:none}
+    .form-section.ativo{display:block}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">🛡️</div>
+    <div class="logo-title">RotaSegura</div>
+    <div class="logo-sub">Corridas com segurança</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab ativo" onclick="mudarAba('login')">Entrar</button>
+    <button class="tab" onclick="mudarAba('cadastro')">Criar conta</button>
+  </div>
+
+  <div id="msgErro" class="err"></div>
+
+  <!-- Login -->
+  <div id="secaoLogin" class="form-section ativo">
+    <div class="form-group">
+      <label class="form-label">E-mail</label>
+      <input id="loginEmail" class="form-input" type="email" placeholder="seu@email.com" autocomplete="email"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Senha</label>
+      <input id="loginSenha" class="form-input" type="password" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="btn-main" id="btnLogin" onclick="fazerLogin()">
+      <i class="fas fa-arrow-right-to-bracket"></i> Entrar
+    </button>
+  </div>
+
+  <!-- Cadastro -->
+  <div id="secaoCadastro" class="form-section">
+    <div class="form-group">
+      <label class="form-label">Nome completo</label>
+      <input id="cadNome" class="form-input" type="text" placeholder="Seu nome" autocomplete="name"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">E-mail</label>
+      <input id="cadEmail" class="form-input" type="email" placeholder="seu@email.com" autocomplete="email"/>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">Telefone</label>
+        <input id="cadTelefone" class="form-input" type="tel" placeholder="(11) 9 0000-0000"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CPF</label>
+        <input id="cadCpf" class="form-input" type="tel" placeholder="000.000.000-00"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Senha</label>
+      <input id="cadSenha" class="form-input" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"/>
+    </div>
+    <button class="btn-main" id="btnCadastro" onclick="fazerCadastro()">
+      <i class="fas fa-user-plus"></i> Criar conta grátis
+    </button>
+  </div>
+
+  <div class="motorista-link">
+    É motorista? <a href="/rotasegura/motorista/login">Acesse aqui →</a>
+  </div>
+</div>
+
+<script>
+function mudarAba(aba) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('ativo', (aba==='login'&&i===0)||(aba==='cadastro'&&i===1)))
+  document.getElementById('secaoLogin').classList.toggle('ativo', aba==='login')
+  document.getElementById('secaoCadastro').classList.toggle('ativo', aba==='cadastro')
+  document.getElementById('msgErro').style.display = 'none'
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById('msgErro')
+  el.textContent = msg
+  el.style.display = 'block'
+}
+
+async function fazerLogin() {
+  const email = document.getElementById('loginEmail').value.trim()
+  const senha = document.getElementById('loginSenha').value
+  if (!email || !senha) { mostrarErro('Preencha e-mail e senha'); return }
+
+  const btn = document.getElementById('btnLogin')
+  btn.disabled = true
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Entrando...'
+
+  try {
+    const r = await fetch('/api/rotasegura/passageiro/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, senha })
+    })
+    const d = await r.json()
+    if (d.ok && d.token) {
+      localStorage.setItem('rs_token_passageiro', d.token)
+      localStorage.setItem('rs_passageiro', JSON.stringify(d.passageiro))
+      window.location.href = '/rotasegura'
+    } else {
+      mostrarErro(d.erro || 'Erro ao entrar')
+      btn.disabled = false
+      btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar'
+    }
+  } catch {
+    mostrarErro('Erro de conexão. Tente novamente.')
+    btn.disabled = false
+    btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar'
+  }
+}
+
+async function fazerCadastro() {
+  const nome = document.getElementById('cadNome').value.trim()
+  const email = document.getElementById('cadEmail').value.trim()
+  const telefone = document.getElementById('cadTelefone').value.trim()
+  const cpf = document.getElementById('cadCpf').value.trim()
+  const senha = document.getElementById('cadSenha').value
+
+  if (!nome || !email || !senha || !telefone) { mostrarErro('Preencha todos os campos obrigatórios'); return }
+  if (senha.length < 6) { mostrarErro('Senha deve ter pelo menos 6 caracteres'); return }
+
+  const btn = document.getElementById('btnCadastro')
+  btn.disabled = true
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Criando conta...'
+
+  try {
+    const r = await fetch('/api/rotasegura/passageiro/cadastro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, email, senha, telefone, cpf })
+    })
+    const d = await r.json()
+    if (d.ok && d.token) {
+      localStorage.setItem('rs_token_passageiro', d.token)
+      localStorage.setItem('rs_passageiro', JSON.stringify(d.passageiro))
+      window.location.href = '/rotasegura'
+    } else {
+      mostrarErro(d.erro || 'Erro ao criar conta')
+      btn.disabled = false
+      btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar conta grátis'
+    }
+  } catch {
+    mostrarErro('Erro de conexão')
+    btn.disabled = false
+    btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar conta grátis'
+  }
+}
+
+// Enter nas inputs
+document.addEventListener('keydown', e => { if (e.key === 'Enter') { const s = document.getElementById('secaoLogin'); if(s.classList.contains('ativo')) fazerLogin(); else fazerCadastro() } })
+
+// Verificar se já está logado
+if (localStorage.getItem('rs_token_passageiro')) window.location.href = '/rotasegura'
+</script>
+</body>
+</html>`
+  return c.html(html)
+})
+
+// ── LOGIN MOTORISTA: /rotasegura/motorista/login ───────────────────────────────
+app.get('/rotasegura/motorista/login', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>RotaSegura — Motorista</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(160deg,#0a0a1a 0%,#0a1020 100%);color:#fff;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px}
+    .card{width:100%;max-width:420px;background:rgba(255,255,255,.04);backdrop-filter:blur(20px);border-radius:24px;padding:36px 28px;border:1px solid rgba(255,255,255,.08);box-shadow:0 24px 64px rgba(0,0,0,.5)}
+    .logo{text-align:center;margin-bottom:28px}
+    .logo-icon{width:72px;height:72px;background:linear-gradient(135deg,#1a6aff,#0044cc);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 14px;box-shadow:0 8px 24px rgba(26,106,255,.35)}
+    .logo-title{font-size:22px;font-weight:800}
+    .logo-sub{font-size:12px;color:rgba(255,255,255,.4);margin-top:4px}
+    .tabs{display:flex;background:rgba(255,255,255,.05);border-radius:12px;padding:4px;margin-bottom:24px;gap:4px}
+    .tab{flex:1;padding:10px;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;background:transparent;color:rgba(255,255,255,.5)}
+    .tab.ativo{background:rgba(26,106,255,.15);color:#4d8bff;border:1px solid rgba(26,106,255,.3)}
+    .form-group{margin-bottom:14px}
+    .form-label{font-size:11px;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block}
+    .form-input{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:11px;color:#fff;font-size:14px;outline:none;transition:border .2s;-webkit-appearance:none}
+    .form-input:focus{border-color:#1a6aff;background:rgba(26,106,255,.06)}
+    .form-input::placeholder{color:rgba(255,255,255,.25)}
+    .input-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .btn-main{width:100%;padding:15px;background:linear-gradient(135deg,#1a6aff,#0044cc);border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;transition:all .2s;box-shadow:0 6px 20px rgba(26,106,255,.3);display:flex;align-items:center;justify-content:center;gap:10px}
+    .btn-main:active{transform:scale(.97)}
+    .btn-main:disabled{opacity:.6;cursor:default;transform:none}
+    .err{background:rgba(255,68,88,.12);border:1px solid rgba(255,68,88,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#ff8a95;margin-bottom:14px;display:none}
+    .info-box{background:rgba(26,106,255,.08);border:1px solid rgba(26,106,255,.2);border-radius:10px;padding:12px 14px;font-size:12px;color:rgba(255,255,255,.6);margin-bottom:16px;line-height:1.6}
+    .info-box i{color:#4d8bff;margin-right:6px}
+    .passageiro-link{text-align:center;margin-top:18px;font-size:13px;color:rgba(255,255,255,.4)}
+    .passageiro-link a{color:#4d8bff;text-decoration:none;font-weight:600}
+    .form-section{display:none}
+    .form-section.ativo{display:block}
+    .asaas-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,200,81,.1);border:1px solid rgba(0,200,81,.2);border-radius:20px;padding:4px 12px;font-size:11px;color:#00C851;margin:0 auto 20px;font-weight:600}
+    .asaas-wrap{text-align:center}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">🚗</div>
+    <div class="logo-title">RotaSegura Motorista</div>
+    <div class="logo-sub">Dirija, ganhe, cresça</div>
+  </div>
+  <div class="asaas-wrap">
+    <div class="asaas-badge"><i class="fas fa-bolt"></i> Pagamentos via Asaas · Split automático 80/20</div>
+  </div>
+
+  <div class="tabs" style="margin-top:16px">
+    <button class="tab ativo" onclick="mudarAba('login')">Entrar</button>
+    <button class="tab" onclick="mudarAba('cadastro')">Quero dirigir</button>
+  </div>
+
+  <div id="msgErro" class="err"></div>
+
+  <!-- Login -->
+  <div id="secaoLogin" class="form-section ativo">
+    <div class="form-group">
+      <label class="form-label">E-mail</label>
+      <input id="loginEmail" class="form-input" type="email" placeholder="seu@email.com"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Senha</label>
+      <input id="loginSenha" class="form-input" type="password" placeholder="••••••••"/>
+    </div>
+    <button class="btn-main" id="btnLogin" onclick="fazerLogin()">
+      <i class="fas fa-steering-wheel"></i> Entrar e dirigir
+    </button>
+  </div>
+
+  <!-- Cadastro Motorista -->
+  <div id="secaoCadastro" class="form-section">
+    <div class="info-box">
+      <i class="fas fa-info-circle"></i>
+      Ao se cadastrar, criamos automaticamente sua <strong>subconta Asaas</strong> para receber 80% de cada corrida via PIX.
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nome completo</label>
+      <input id="cadNome" class="form-input" type="text" placeholder="Seu nome"/>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input id="cadEmail" class="form-input" type="email" placeholder="seu@email.com"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Telefone</label>
+        <input id="cadTelefone" class="form-input" type="tel" placeholder="(11) 9 0000-0000"/>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">CPF</label>
+        <input id="cadCpf" class="form-input" type="tel" placeholder="000.000.000-00"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CNH</label>
+        <input id="cadCnh" class="form-input" type="text" placeholder="Nº da CNH"/>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">Veículo</label>
+        <input id="cadVeiculo" class="form-input" type="text" placeholder="Ex: Civic 2022"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Placa</label>
+        <input id="cadPlaca" class="form-input" type="text" placeholder="BRA-2E19" style="text-transform:uppercase"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Senha</label>
+      <input id="cadSenha" class="form-input" type="password" placeholder="Mínimo 6 caracteres"/>
+    </div>
+    <button class="btn-main" id="btnCadastro" onclick="fazerCadastro()">
+      <i class="fas fa-user-check"></i> Cadastrar e começar a dirigir
+    </button>
+  </div>
+
+  <div class="passageiro-link">
+    Quer uma corrida? <a href="/rotasegura/login">Sou passageiro →</a>
+  </div>
+</div>
+
+<script>
+function mudarAba(aba) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('ativo', (aba==='login'&&i===0)||(aba==='cadastro'&&i===1)))
+  document.getElementById('secaoLogin').classList.toggle('ativo', aba==='login')
+  document.getElementById('secaoCadastro').classList.toggle('ativo', aba==='cadastro')
+  document.getElementById('msgErro').style.display = 'none'
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById('msgErro')
+  el.textContent = msg
+  el.style.display = 'block'
+}
+
+async function fazerLogin() {
+  const email = document.getElementById('loginEmail').value.trim()
+  const senha = document.getElementById('loginSenha').value
+  if (!email || !senha) { mostrarErro('Preencha e-mail e senha'); return }
+  const btn = document.getElementById('btnLogin')
+  btn.disabled = true
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Entrando...'
+  try {
+    const r = await fetch('/api/rotasegura/motorista/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email, senha })
+    })
+    const d = await r.json()
+    if (d.ok && d.token) {
+      localStorage.setItem('rs_token_motorista', d.token)
+      localStorage.setItem('rs_motorista', JSON.stringify(d.motorista))
+      window.location.href = '/rotasegura/motorista'
+    } else {
+      mostrarErro(d.erro || 'Erro ao entrar')
+      btn.disabled = false
+      btn.innerHTML = '<i class="fas fa-steering-wheel"></i> Entrar e dirigir'
+    }
+  } catch {
+    mostrarErro('Erro de conexão')
+    btn.disabled = false
+    btn.innerHTML = '<i class="fas fa-steering-wheel"></i> Entrar e dirigir'
+  }
+}
+
+async function fazerCadastro() {
+  const nome = document.getElementById('cadNome').value.trim()
+  const email = document.getElementById('cadEmail').value.trim()
+  const telefone = document.getElementById('cadTelefone').value.trim()
+  const cpf = document.getElementById('cadCpf').value.trim()
+  const cnh = document.getElementById('cadCnh').value.trim()
+  const veiculo = document.getElementById('cadVeiculo').value.trim()
+  const placa = document.getElementById('cadPlaca').value.trim()
+  const senha = document.getElementById('cadSenha').value
+  if (!nome||!email||!telefone||!cpf||!cnh||!veiculo||!placa||!senha) { mostrarErro('Preencha todos os campos'); return }
+  if (senha.length < 6) { mostrarErro('Senha deve ter pelo menos 6 caracteres'); return }
+  const btn = document.getElementById('btnCadastro')
+  btn.disabled = true
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Criando conta + subconta Asaas...'
+  try {
+    const r = await fetch('/api/rotasegura/motorista/cadastro', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ nome, email, senha, telefone, cpf, cnh, veiculo, placa })
+    })
+    const d = await r.json()
+    if (d.ok && d.token) {
+      localStorage.setItem('rs_token_motorista', d.token)
+      localStorage.setItem('rs_motorista', JSON.stringify(d.motorista))
+      window.location.href = '/rotasegura/motorista'
+    } else {
+      mostrarErro(d.erro || 'Erro ao criar conta')
+      btn.disabled = false
+      btn.innerHTML = '<i class="fas fa-user-check"></i> Cadastrar e começar a dirigir'
+    }
+  } catch {
+    mostrarErro('Erro de conexão')
+    btn.disabled = false
+    btn.innerHTML = '<i class="fas fa-user-check"></i> Cadastrar e começar a dirigir'
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') { const s = document.getElementById('secaoLogin'); if(s.classList.contains('ativo')) fazerLogin(); else fazerCadastro() } })
+
+// Verificar se já está logado
+if (localStorage.getItem('rs_token_motorista')) window.location.href = '/rotasegura/motorista'
+</script>
+</body>
+</html>`
+  return c.html(html)
 })
 
 // ── APP PASSAGEIRO: /rotasegura ────────────────────────────────────────────────
@@ -21520,16 +22375,27 @@ app.get('/rotasegura', (c) => {
       </div>
     </div>
 
-    <!-- Estado: concluída -->
+    <!-- Estado: concluída + PIX -->
     <div class="state-concluida" id="stateConcluida">
       <div class="concluida-wrap">
-        <div class="concluida-icon">✅</div>
+        <div class="concluida-icon">🏁</div>
         <div class="concluida-txt">Corrida finalizada!</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.4)">Obrigado por usar o RotaSegura</div>
         <div class="concluida-preco" id="concluidaPreco">R$ --</div>
-        <div class="concluida-sub">Valor total da corrida</div>
+        <div class="concluida-sub">Pague com PIX para liberar o motorista</div>
       </div>
-      <button class="btn-nova" onclick="voltarInicio()">
+      <!-- QR Code PIX -->
+      <div id="pixWrap" style="display:none;text-align:center;margin-bottom:14px">
+        <div style="font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Escaneie o QR Code</div>
+        <img id="pixQr" style="width:180px;height:180px;border-radius:12px;background:#fff;padding:8px" src=""/>
+        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:8px;padding:0 10px" id="pixBrcode" onclick="copiarPix()" title="Clique para copiar"></div>
+        <button onclick="copiarPix()" style="margin-top:8px;background:rgba(0,200,81,.15);border:1px solid rgba(0,200,81,.3);border-radius:8px;color:#00C851;padding:6px 16px;font-size:12px;cursor:pointer;font-weight:600">
+          <i class="fas fa-copy"></i> Copiar código PIX
+        </button>
+      </div>
+      <div id="pixLoading" style="text-align:center;padding:10px 0">
+        <div style="font-size:13px;color:rgba(255,255,255,.5)">⏳ Gerando PIX...</div>
+      </div>
+      <button class="btn-nova" onclick="voltarInicio()" style="margin-top:10px">
         <i class="fas fa-plus"></i> Nova corrida
       </button>
     </div>
@@ -21824,9 +22690,39 @@ function mostrarEmCorrida(corrida) {
   snack('🚗 Você está a bordo!')
 }
 
-function mostrarConcluida(corrida) {
+async function mostrarConcluida(corrida) {
   document.getElementById('concluidaPreco').textContent = 'R$ ' + corrida.preco.toFixed(2)
   mostrarEstado('concluida')
+
+  // Gerar PIX para pagar a corrida
+  document.getElementById('pixLoading').style.display = 'block'
+  document.getElementById('pixWrap').style.display = 'none'
+  try {
+    const r = await fetch('/api/rotasegura/pagamento/gerar-pix', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ corridaId: corrida.id })
+    })
+    const d = await r.json()
+    if (d.ok && d.qrCode) {
+      document.getElementById('pixQr').src = d.qrCode
+      const bc = d.brcode || ''
+      document.getElementById('pixBrcode').textContent = bc.slice(0,40) + '...'
+      document.getElementById('pixBrcode').setAttribute('data-brcode', bc)
+      document.getElementById('pixWrap').style.display = 'block'
+      document.getElementById('pixLoading').style.display = 'none'
+      snack('💳 PIX gerado! Escaneie para pagar')
+    } else {
+      document.getElementById('pixLoading').innerHTML = '<span style="color:rgba(255,100,100,.7);font-size:12px">Erro ao gerar PIX: ' + (d.erro||'tente novamente') + '</span>'
+    }
+  } catch {
+    document.getElementById('pixLoading').innerHTML = '<span style="color:rgba(255,100,100,.7);font-size:12px">Falha ao gerar PIX</span>'
+  }
+}
+
+function copiarPix() {
+  const bc = document.getElementById('pixBrcode').getAttribute('data-brcode')
+  if (!bc) return
+  navigator.clipboard?.writeText(bc).then(() => snack('✅ Código PIX copiado!')).catch(() => snack(bc))
 }
 
 async function cancelarCorrida() {
@@ -21877,7 +22773,37 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#searchCard')) fecharAutocomplete()
 })
 
-// ── Init ─────────────────────────────────────────────────────────
+// ── Auth + Init ──────────────────────────────────────────────────
+const RS_TOKEN = localStorage.getItem('rs_token_passageiro')
+const RS_USER  = JSON.parse(localStorage.getItem('rs_passageiro') || 'null')
+if (!RS_TOKEN) { window.location.href = '/rotasegura/login'; }
+
+// Mostrar nome do usuário no header
+if (RS_USER) {
+  document.querySelector('.logo-sub').textContent = 'Olá, ' + RS_USER.nome.split(' ')[0] + '!'
+}
+
+// Botão logout
+const logoutBtn = document.createElement('button')
+logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i>'
+logoutBtn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:200;background:rgba(15,15,15,.9);border:none;border-radius:50%;width:36px;height:36px;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center'
+logoutBtn.onclick = async () => {
+  await fetch('/api/rotasegura/passageiro/logout', { method:'POST', headers:{'Authorization':'Bearer '+RS_TOKEN} }).catch(()=>{})
+  localStorage.removeItem('rs_token_passageiro')
+  localStorage.removeItem('rs_passageiro')
+  window.location.href = '/rotasegura/login'
+}
+document.body.appendChild(logoutBtn)
+
+// Injetar token nas requisições
+const _fetch = window.fetch
+window.fetch = function(url, opts = {}) {
+  if (typeof url === 'string' && url.startsWith('/api/rotasegura/')) {
+    opts.headers = { ...(opts.headers||{}), 'Authorization': 'Bearer ' + RS_TOKEN }
+  }
+  return _fetch(url, opts)
+}
+
 window.addEventListener('load', initMap)
 </script>
 </body>
@@ -22367,6 +23293,106 @@ function snack(msg) {
 
 document.getElementById('btnLocM').onclick = () => {
   if (MT.loc) MT.map.setView([MT.loc.lat, MT.loc.lng], 16)
+}
+
+// ── Auth motorista ───────────────────────────────────────────────
+const RS_M_TOKEN = localStorage.getItem('rs_token_motorista')
+const RS_M_USER  = JSON.parse(localStorage.getItem('rs_motorista') || 'null')
+if (!RS_M_TOKEN) { window.location.href = '/rotasegura/motorista/login'; }
+
+if (RS_M_USER) {
+  document.querySelector('.moto-logo-sub').textContent = RS_M_USER.nome.split(' ')[0] || 'Motorista'
+  // Mostrar status subconta Asaas
+  if (RS_M_USER.asaasStatus !== 'aprovado') {
+    snack('⏳ Subconta Asaas em configuração...')
+  }
+}
+
+// Botão logout
+const logoutBtnM = document.createElement('button')
+logoutBtnM.innerHTML = '<i class="fas fa-sign-out-alt"></i>'
+logoutBtnM.style.cssText = 'position:fixed;top:16px;left:16px;z-index:200;background:rgba(15,15,15,.9);border:none;border-radius:50%;width:36px;height:36px;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center'
+logoutBtnM.onclick = async () => {
+  await fetch('/api/rotasegura/motorista/logout', { method:'POST', headers:{'Authorization':'Bearer '+RS_M_TOKEN} }).catch(()=>{})
+  localStorage.removeItem('rs_token_motorista')
+  localStorage.removeItem('rs_motorista')
+  window.location.href = '/rotasegura/motorista/login'
+}
+document.body.appendChild(logoutBtnM)
+
+// Injetar token nas requisições
+const _fetchM = window.fetch
+window.fetch = function(url, opts = {}) {
+  if (typeof url === 'string' && url.startsWith('/api/rotasegura/')) {
+    opts.headers = { ...(opts.headers||{}), 'Authorization': 'Bearer ' + RS_M_TOKEN }
+  }
+  return _fetchM(url, opts)
+}
+
+// Sobrescrever aceitarCorrida para salvar id do motorista
+const _aceitarOriginal = aceitarCorrida
+aceitarCorrida = async function() {
+  if (!MT.corridaAtual) return
+  try {
+    const r = await fetch('/api/rotasegura/motorista/aceitar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        corridaId: MT.corridaAtual.id,
+        nomeMotorista: RS_M_USER?.nome || 'Motorista',
+        placa: RS_M_USER?.placa || 'RSG-0001',
+        veiculo: RS_M_USER?.veiculo || 'Sedan',
+        motoristaId: RS_M_USER?.id,
+        motoristaLat: MT.loc?.lat,
+        motoristaLng: MT.loc?.lng
+      })
+    })
+    const d = await r.json()
+    if (d.ok) {
+      document.getElementById('passNome').textContent = MT.corridaAtual.passageiro.nome
+      document.getElementById('passEnd').textContent = MT.corridaAtual.origem.endereco
+      document.getElementById('aDestino').textContent = MT.corridaAtual.destino.endereco
+      mostrarEstadoM('a-caminho')
+      snack('✅ Corrida aceita! A caminho do passageiro')
+      iniciarEnvioLocalizacao()
+    }
+  } catch(e) { snack('Erro ao aceitar corrida') }
+}
+
+// Ao finalizar, gerar PIX automático
+const _finalizarOriginal = finalizarCorrida
+finalizarCorrida = async function() {
+  if (!MT.corridaAtual) return
+  try {
+    const r = await fetch('/api/rotasegura/motorista/finalizar', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ corridaId: MT.corridaAtual.id })
+    })
+    const d = await r.json()
+    if (d.ok) {
+      const preco = MT.corridaAtual.preco
+      MT.ganhoTotal += preco
+      MT.corridasTotal++
+      document.getElementById('ganhoHoje').textContent = 'R$ ' + MT.ganhoTotal.toFixed(2).replace('.',',')
+      document.getElementById('corridasHoje').textContent = MT.corridasTotal
+      document.getElementById('concluidaGanho').textContent = 'R$ ' + (preco * 0.80).toFixed(2)
+      mostrarEstadoM('concluida')
+      snack('✅ Corrida finalizada! Passageiro receberá PIX para pagar.')
+
+      // Gerar PIX split automaticamente
+      try {
+        const pixR = await fetch('/api/rotasegura/pagamento/gerar-pix', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ corridaId: MT.corridaAtual.id })
+        })
+        const pixD = await pixR.json()
+        if (pixD.ok) {
+          snack('💳 PIX gerado para o passageiro! Aguardando pagamento...')
+        }
+      } catch {}
+      MT.corridaAtual = null
+    }
+  } catch(e) { snack('Erro ao finalizar corrida') }
 }
 
 window.addEventListener('load', initMap)
