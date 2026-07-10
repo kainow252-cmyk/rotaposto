@@ -16200,7 +16200,7 @@ function renderizarPlanoAppSelecionado() {
   +   '</div>'
   +   '<div>'
   +     '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px">Ciclo de Cobrança</label>'
-  +     '<select id="pa-ciclo-' + i + '" ' + (isGratis ? 'disabled' : '') + ' style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-weight:600;padding:10px 12px;font-family:inherit;outline:none;cursor:pointer;' + (isGratis ? 'opacity:0.3;cursor:not-allowed' : '') + '">' + cicloOpts + '</select>'
+  +     '<select id="pa-ciclo-' + i + '" ' + (isGratis ? 'disabled' : '') + ' style="width:100%;background:#0d1f33;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-weight:600;padding:10px 12px;font-family:inherit;outline:none;cursor:pointer;' + (isGratis ? 'opacity:0.3;cursor:not-allowed' : '') + '">' + cicloOpts + '</select>'
   +   '</div>'
   + '</div>'
 
@@ -16560,7 +16560,7 @@ function renderizarPlanoSelecionado() {
   +   '</div>'
   +   '<div>'
   +     '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px">Ciclo de Cobrança</label>'
-  +     '<select id="pp-ciclo-' + i + '" onchange="ppToggleTrialBox(' + i + ')" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-weight:600;padding:10px 12px;font-family:inherit;outline:none;cursor:pointer">' + cicloOpts + '</select>'
+  +     '<select id="pp-ciclo-' + i + '" onchange="ppToggleTrialBox(' + i + ')" style="width:100%;background:#0d1f33;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-weight:600;padding:10px 12px;font-family:inherit;outline:none;cursor:pointer">' + cicloOpts + '</select>'
   +   '</div>'
   + '</div>'
 
