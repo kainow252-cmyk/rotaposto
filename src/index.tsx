@@ -11461,15 +11461,19 @@ app.post('/api/admin/script/auto-fotos-postos-band', async (c) => {
     } catch { return null }
   }
 
+  // Cursor de entrada para paginação — cliente passa o cursor retornado pela chamada anterior
+  const cursorIn = c.req.query('cursor') || undefined
+
   // Listar posto:band:* do KV (todos os postos do mapa)
   const resultados: Array<Record<string, unknown>> = []
   let logosSalvos = 0, fotosSalvas = 0, jaOkCount = 0, erros = 0, processados = 0
-  let cursor: string | undefined = undefined
+  let cursor: string | undefined = cursorIn
+  let listComplete = false
 
   while (processados < limite) {
     const batch = Math.min(20, limite - processados)
     const list = await kv.list({ prefix: 'posto:band:', limit: batch, cursor })
-    if (!list.keys.length) break
+    if (!list.keys.length) { listComplete = true; break }
 
     for (const kkey of list.keys) {
       if (processados >= limite) break
@@ -11545,8 +11549,9 @@ app.post('/api/admin/script/auto-fotos-postos-band', async (c) => {
       }
     }
 
-    if (list.list_complete) break
+    if (list.list_complete) { listComplete = true; break }
     cursor = (list as any).cursor
+    if (!cursor) { listComplete = true; break }
   }
 
   return c.json({
@@ -11557,7 +11562,94 @@ app.post('/api/admin/script/auto-fotos-postos-band', async (c) => {
     jaOkCount,
     erros,
     googleKeyDisponivel: !!googleKey,
+    listComplete,
+    // cursor null = acabou tudo; string = tem mais para processar
+    cursor: listComplete ? null : cursor,
     resultados
+  })
+})
+
+// ─── POST /api/admin/script/aplicar-logos-bandeira — aplica logo SVG em massa nos posto:band:* sem logo ──
+// Varre TODOS os posto:band:* que não têm logoUrl e aplica o SVG pela bandeira (sem tocar quem já tem)
+app.post('/api/admin/script/aplicar-logos-bandeira', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+
+  // Limite por chamada para não estourar CPU (30s Workers limit)
+  const limite = parseInt(c.req.query('limite') || '500')
+  // Cursor para paginação — cliente envia o cursor da resposta anterior
+  const cursorIn = c.req.query('cursor') || undefined
+
+  const logoSvgPorBandeira = (bandeira: string, nome: string): string | null => {
+    const n = (bandeira + ' ' + nome).toUpperCase()
+    if (n.includes('SHELL'))                                              return 'https://rotaposto.com.br/static/logos/shell.svg'
+    if (n.includes('PETROBRAS') || /\bBR\b/.test(n) || n.includes('BR DISTRIBUIDORA')) return 'https://rotaposto.com.br/static/logos/br.svg'
+    if (n.includes('IPIRANGA'))                                           return 'https://rotaposto.com.br/static/logos/ipiranga.svg'
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN'))                    return 'https://rotaposto.com.br/static/logos/raizen.svg'
+    if (/\bALE\b/.test(n) || n.includes('ALEPOSTO'))                     return 'https://rotaposto.com.br/static/logos/ale.svg'
+    if (n.includes('TEXACO'))                                             return 'https://rotaposto.com.br/static/logos/texaco.svg'
+    if (n.includes('VIBRA'))                                              return 'https://rotaposto.com.br/static/logos/vibra.svg'
+    if (n.includes('ESSO'))                                               return 'https://rotaposto.com.br/static/logos/esso.svg'
+    if (n.includes('PITSTOP') || n.includes('PIT STOP'))                 return 'https://rotaposto.com.br/static/logos/pitstop.svg'
+    if (n.includes('BANDEIRANTE'))                                        return 'https://rotaposto.com.br/static/logos/bandeirante.svg'
+    if (n.includes('COPAGAZ'))                                            return 'https://rotaposto.com.br/static/logos/copagaz.svg'
+    if (n.includes('ULTRAGAZ') || n.includes('ULTRA GAZ'))               return 'https://rotaposto.com.br/static/logos/ultragaz.svg'
+    if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS'))           return 'https://rotaposto.com.br/static/logos/supergasbras.svg'
+    return null
+  }
+
+  let logosSalvos = 0, jaOkCount = 0, semLogo = 0, erros = 0, processados = 0
+  let cursorOut: string | undefined = undefined
+  let listComplete = false
+
+  // Uma única passagem paginada — limite postos por chamada
+  while (processados < limite) {
+    const batch = Math.min(50, limite - processados)
+    const list = await kv.list({ prefix: 'posto:band:', limit: batch, cursor: cursorOut || cursorIn })
+
+    for (const kkey of list.keys) {
+      if (processados >= limite) break
+      processados++
+
+      try {
+        const raw = await kv.get(kkey.name)
+        if (!raw) continue
+        const dado: Record<string, unknown> = JSON.parse(raw)
+
+        // ── Nunca tocar quem já tem logoUrl ──
+        if (dado.logoUrl) { jaOkCount++; continue }
+
+        const bandeira = String(dado.bandeiraNome || dado.bandeira || '')
+        const nome     = String(dado.postoNome    || dado.nome    || '')
+        const logoUrl  = logoSvgPorBandeira(bandeira, nome)
+
+        if (!logoUrl) { semLogo++; continue }
+
+        dado.logoUrl = logoUrl
+        await kv.put(kkey.name, JSON.stringify(dado), { expirationTtl: 365 * 24 * 3600 })
+        logosSalvos++
+      } catch { erros++ }
+    }
+
+    if (list.list_complete) { listComplete = true; break }
+    cursorOut = (list as any).cursor
+    if (!cursorOut) { listComplete = true; break }
+  }
+
+  return c.json({
+    ok: true,
+    total: processados,
+    logosSalvos,
+    jaOkCount,
+    semLogo,
+    erros,
+    listComplete,
+    // cursor para próxima chamada (null se acabou)
+    cursor: listComplete ? null : cursorOut
   })
 })
 
@@ -13228,12 +13320,80 @@ app.get('/admin', (c) => {
         <h3><i class="fas fa-database" style="color:#42A5F5;margin-right:8px"></i>Buscar Posto na Base ANP</h3>
         <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap">
           <span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600">46.000+ postos cadastrados pela ANP — preenche dados automaticamente</span>
-          <button id="btn-auto-fotos-anp" onclick="rodarAutoFotosANP()" style="background:linear-gradient(135deg,#00695C,#004D40);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Raleway',sans-serif;white-space:nowrap" title="Busca foto real do Google Maps e logo da bandeira automaticamente para todos os postos sem foto">
-            <i class="fas fa-magic"></i> Buscar fotos Google auto
+          <button onclick="abrirPainelEnriquecimento()" style="background:linear-gradient(135deg,#6A1B9A,#4A148C);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Raleway',sans-serif;white-space:nowrap" title="Enriquecer postos com logos e fotos em massa">
+            <i class="fas fa-wand-magic-sparkles"></i> Enriquecer postos em massa
           </button>
         </div>
       </div>
       <div id="auto-fotos-anp-resultado" style="display:none;background:rgba(0,105,92,0.12);border:1px solid rgba(0,150,136,0.25);border-radius:10px;padding:12px 16px;font-size:12px;color:rgba(255,255,255,0.8);line-height:1.7;margin:0 0 10px 0"></div>
+
+      <!-- ══ PAINEL ENRIQUECIMENTO EM MASSA ══ -->
+      <div id="painel-enriquecimento" style="display:none;background:rgba(106,27,154,0.10);border:1px solid rgba(149,117,205,0.25);border-radius:14px;padding:18px 20px;margin:0 0 14px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <h4 style="margin:0;font-size:13px;font-weight:900;color:#CE93D8;display:flex;align-items:center;gap:8px">
+            <i class="fas fa-wand-magic-sparkles"></i> Enriquecimento em Massa de Postos
+          </h4>
+          <button onclick="fecharPainelEnriquecimento()" style="background:transparent;border:none;color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;padding:2px 6px">✕</button>
+        </div>
+
+        <!-- Etapa 1: Logos por Bandeira -->
+        <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="font-size:12px;font-weight:800;color:#FFD600;margin-bottom:2px">
+                <i class="fas fa-tag"></i> Etapa 1 — Logos por Bandeira
+              </div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.4)">Aplica logo SVG nos postos sem logo (Shell, BR, Ipiranga, ALE…). Rápido e gratuito.</div>
+            </div>
+            <button id="btn-logos-bandeira" onclick="rodarLogosEmMassa()" style="background:linear-gradient(135deg,#F57F17,#E65100);color:#fff;border:none;padding:8px 18px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">
+              <i class="fas fa-play"></i> Aplicar logos agora
+            </button>
+          </div>
+          <!-- Barra de progresso logos -->
+          <div id="logos-prog-wrap" style="display:none">
+            <div style="background:rgba(255,255,255,0.08);border-radius:100px;height:8px;overflow:hidden;margin-bottom:6px">
+              <div id="logos-prog-bar" style="height:100%;background:linear-gradient(90deg,#FFD600,#FF6D00);border-radius:100px;width:0%;transition:width 0.4s ease"></div>
+            </div>
+            <div id="logos-prog-txt" style="font-size:11px;color:rgba(255,255,255,0.5);display:flex;justify-content:space-between">
+              <span id="logos-prog-status">Iniciando…</span>
+              <span id="logos-prog-count">0 logos salvos</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Etapa 2: Fotos Google Places -->
+        <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:14px 16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="font-size:12px;font-weight:800;color:#69F0AE;margin-bottom:2px">
+                <i class="fas fa-camera"></i> Etapa 2 — Fotos reais do Google Maps
+              </div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.4)">Busca foto panorâmica de cada posto sem foto via Google Places API. Processa em lotes automáticos.</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button id="btn-fotos-google" onclick="rodarFotosGoogleEmMassa()" style="background:linear-gradient(135deg,#00695C,#004D40);color:#fff;border:none;padding:8px 18px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">
+                <i class="fas fa-play"></i> Buscar fotos
+              </button>
+              <button id="btn-fotos-google-pause" onclick="pausarFotosGoogle()" style="display:none;background:rgba(255,152,0,0.2);color:#FFA726;border:1px solid rgba(255,152,0,0.4);padding:8px 14px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer">
+                <i class="fas fa-pause"></i> Pausar
+              </button>
+            </div>
+          </div>
+          <!-- Barra de progresso fotos -->
+          <div id="fotos-prog-wrap" style="display:none">
+            <div style="background:rgba(255,255,255,0.08);border-radius:100px;height:8px;overflow:hidden;margin-bottom:6px">
+              <div id="fotos-prog-bar" style="height:100%;background:linear-gradient(90deg,#00BCD4,#69F0AE);border-radius:100px;width:0%;transition:width 0.4s ease"></div>
+            </div>
+            <div id="fotos-prog-txt" style="font-size:11px;color:rgba(255,255,255,0.5);display:flex;justify-content:space-between;margin-bottom:4px">
+              <span id="fotos-prog-status">Iniciando…</span>
+              <span id="fotos-prog-count">0 fotos salvas</span>
+            </div>
+            <div id="fotos-prog-lote" style="font-size:10px;color:rgba(255,255,255,0.3);text-align:right">Lote 0</div>
+          </div>
+          <!-- Log últimas ações -->
+          <div id="fotos-log" style="display:none;margin-top:10px;max-height:140px;overflow-y:auto;font-size:10px;line-height:1.9;color:rgba(255,255,255,0.5)"></div>
+        </div>
+      </div>
       <div style="padding:16px 0 8px">
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px">
           <div style="flex:1;min-width:130px">
@@ -14891,48 +15051,191 @@ async function rodarAutoFotos() {
   }
 }
 
-// ─── Auto-fotos para seção ANP — processa posto:band:* (todos os postos do mapa) ─────────────
-async function rodarAutoFotosANP() {
-  const btn = document.getElementById('btn-auto-fotos-anp');
-  const resultado = document.getElementById('auto-fotos-anp-resultado');
-  if (!btn || !resultado) return;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos...';
-  btn.style.pointerEvents = 'none';
-  resultado.style.display = 'block';
-  resultado.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando logos e fotos do Google Maps para os postos do mapa (ANP/OSM/Google) — pode levar alguns segundos...';
+// ─── Painel de Enriquecimento em Massa ────────────────────────────────────────────────────────
+
+function abrirPainelEnriquecimento() {
+  var p = document.getElementById('painel-enriquecimento');
+  if (p) p.style.display = 'block';
+}
+function fecharPainelEnriquecimento() {
+  var p = document.getElementById('painel-enriquecimento');
+  if (p) p.style.display = 'none';
+}
+
+// ── Etapa 1: Logos por Bandeira em Massa (auto-paginado, só sem logo) ──────────────────────
+async function rodarLogosEmMassa() {
+  var btn = document.getElementById('btn-logos-bandeira') as HTMLButtonElement | null;
+  var wrap = document.getElementById('logos-prog-wrap');
+  var bar  = document.getElementById('logos-prog-bar');
+  var stat = document.getElementById('logos-prog-status');
+  var cnt  = document.getElementById('logos-prog-count');
+  if (!btn || !wrap) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rodando…';
+  wrap.style.display = 'block';
+  if (bar)  bar.style.width = '5%';
+  if (stat) stat.textContent = 'Iniciando…';
+  if (cnt)  cnt.textContent  = '0 logos salvos';
+
+  var totalLogos = 0, totalProcessados = 0, lote = 0;
+  var cursor: string | null = null;
+
   try {
-    // Chama o endpoint específico para posto:band:* — processa postos do mapa, não apenas parceiros
-    const r = await fetch('/api/admin/script/auto-fotos-postos-band?key=' + encodeURIComponent(ADMIN_KEY) + '&limite=60&forcar=true', { method: 'POST' });
-    const d = await r.json();
-    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao buscar fotos');
-    const linhas = (d.resultados || []).filter(function(x) { return x.status === 'atualizado'; }).map(function(x) {
-      const acoes = (x.acoes || []).map(function(a) {
-        if (a.startsWith('logo_svg:'))              return '<span style="color:#FFD600">🏷️ ' + a.replace('logo_svg:','') + '</span>';
-        if (a === 'foto_google:ok')                 return '<span style="color:#69F0AE">📸 foto Google ✓</span>';
-        if (a === 'foto_google:nao_encontrada')     return '<span style="color:#888">📸 sem foto</span>';
-        return a;
-      }).join(' ');
-      return '✅ <b>' + (x.nome || x.postoId) + '</b> ' + acoes;
-    }).join('<br>');
-    const googleOk = d.googleKeyDisponivel
-      ? '<span style="color:#69F0AE">✓ Google API disponível</span>'
-      : '<span style="color:#FF8A65">⚠️ Google API KEY ausente — só logos SVG salvos</span>';
-    resultado.innerHTML =
-      '<b style="color:#fff">✅ Fotos postos ANP/OSM concluído!</b> ' + googleOk + '<br>' +
-      '<span style="color:#80CBC4">🏷️ Logos salvos: <b>' + d.logosSalvos + '</b></span> &nbsp;|&nbsp; ' +
-      '<span style="color:#A5D6A7">📸 Fotos Google: <b>' + d.fotosSalvas + '</b></span> &nbsp;|&nbsp; ' +
-      '<span style="color:#888">Já ok: <b>' + d.jaOkCount + '</b></span> &nbsp;|&nbsp; ' +
-      '<span style="color:#EF9A9A">Erros: <b>' + d.erros + '</b></span> &nbsp;|&nbsp; ' +
-      'Total processados: <b>' + d.total + '</b>' +
-      (linhas ? '<div style="margin-top:10px;max-height:220px;overflow-y:auto;font-size:11px;line-height:2">' + linhas + '</div>' : '');
-    showToast('✅ Postos ANP: ' + d.fotosSalvas + ' fotos Google | ' + d.logosSalvos + ' logos salvos!', 'ok');
-  } catch(e) {
-    resultado.innerHTML = '❌ Erro: ' + e.message;
-    showToast('❌ Erro ao buscar fotos: ' + e.message, 'err');
+    while (true) {
+      lote++;
+      var url = '/api/admin/script/aplicar-logos-bandeira?key=' + encodeURIComponent(ADMIN_KEY) + '&limite=500';
+      if (cursor) url += '&cursor=' + encodeURIComponent(cursor);
+      var r = await fetch(url, { method: 'POST' });
+      var d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro no servidor');
+
+      totalLogos      += d.logosSalvos || 0;
+      totalProcessados += d.total      || 0;
+
+      if (cnt)  cnt.textContent  = totalLogos + ' logos salvos';
+      if (stat) stat.textContent = 'Lote ' + lote + ' — ' + totalProcessados + ' postos varridos';
+
+      // Progresso animado: avança enquanto não sabe o total
+      if (bar) {
+        var pct = d.listComplete ? 100 : Math.min(95, 5 + lote * 8);
+        bar.style.width = pct + '%';
+      }
+
+      cursor = d.cursor || null;
+      if (d.listComplete || !cursor) break;
+
+      // Pausa leve entre lotes para não travar
+      await new Promise(function(res) { setTimeout(res, 200); });
+    }
+
+    if (bar)  bar.style.width = '100%';
+    if (stat) stat.innerHTML  = '<span style="color:#FFD600">✅ Concluído!</span> ' + totalProcessados + ' postos varridos';
+    if (cnt)  cnt.innerHTML   = '<b style="color:#FFD600">' + totalLogos + '</b> logos salvos';
+    showToast('🏷️ ' + totalLogos + ' logos aplicados em ' + totalProcessados + ' postos!', 'ok');
+  } catch(e: any) {
+    if (stat) stat.innerHTML = '<span style="color:#FF5252">❌ Erro: ' + e.message + '</span>';
+    showToast('❌ Erro logos: ' + e.message, 'err');
   } finally {
-    btn.innerHTML = '<i class="fas fa-magic"></i> Buscar fotos Google auto';
-    btn.style.pointerEvents = '';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-play"></i> Aplicar logos agora';
   }
+}
+
+// ── Etapa 2: Fotos Google em Massa (auto-paginado, só sem foto) ────────────────────────────
+var _fotosGoogleRodando = false;
+var _fotosGooglePausar  = false;
+
+function pausarFotosGoogle() {
+  _fotosGooglePausar = true;
+  var btn = document.getElementById('btn-fotos-google-pause');
+  if (btn) btn.innerHTML = '<i class="fas fa-hourglass-half"></i> Pausando…';
+}
+
+async function rodarFotosGoogleEmMassa() {
+  if (_fotosGoogleRodando) return;
+  _fotosGoogleRodando = true;
+  _fotosGooglePausar  = false;
+
+  var btnPlay  = document.getElementById('btn-fotos-google') as HTMLButtonElement | null;
+  var btnPause = document.getElementById('btn-fotos-google-pause') as HTMLButtonElement | null;
+  var wrap     = document.getElementById('fotos-prog-wrap');
+  var bar      = document.getElementById('fotos-prog-bar');
+  var stat     = document.getElementById('fotos-prog-status');
+  var cnt      = document.getElementById('fotos-prog-count');
+  var loteEl   = document.getElementById('fotos-prog-lote');
+  var logEl    = document.getElementById('fotos-log');
+
+  if (!btnPlay || !wrap) { _fotosGoogleRodando = false; return; }
+
+  btnPlay.disabled = true;
+  btnPlay.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rodando…';
+  if (btnPause) { btnPause.style.display = 'flex'; btnPause.innerHTML = '<i class="fas fa-pause"></i> Pausar'; }
+  wrap.style.display = 'block';
+  if (logEl) logEl.style.display = 'block';
+  if (bar)   bar.style.width = '2%';
+  if (stat)  stat.textContent = 'Iniciando…';
+  if (cnt)   cnt.textContent  = '0 fotos salvas';
+
+  var totalFotos = 0, totalLotes = 0, totalProcessados = 0;
+  var cursor: string | null = null;
+
+  function addLog(txt: string) {
+    if (!logEl) return;
+    logEl.innerHTML = txt + '<br>' + logEl.innerHTML;
+  }
+
+  try {
+    while (true) {
+      if (_fotosGooglePausar) {
+        if (stat) stat.innerHTML = '<span style="color:#FFA726">⏸ Pausado — clique em Buscar fotos para continuar</span>';
+        if (btnPause) btnPause.style.display = 'none';
+        break;
+      }
+
+      totalLotes++;
+      var url = '/api/admin/script/auto-fotos-postos-band?key=' + encodeURIComponent(ADMIN_KEY) + '&limite=30';
+      if (cursor) url += '&cursor=' + encodeURIComponent(cursor);
+      // Não passa forcar=true — só processa quem não tem foto
+      var r = await fetch(url, { method: 'POST' });
+      var d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro no servidor');
+
+      totalFotos       += d.fotosSalvas || 0;
+      totalProcessados += d.total       || 0;
+
+      if (cnt)    cnt.textContent    = totalFotos + ' fotos salvas';
+      if (loteEl) loteEl.textContent = 'Lote ' + totalLotes + ' | ' + totalProcessados + ' postos processados | Já ok: ' + (d.jaOkCount || 0);
+      if (stat)   stat.textContent   = 'Buscando… lote ' + totalLotes;
+
+      // Log das últimas ações do lote
+      var novos = (d.resultados || []).filter(function(x: any) { return x.status === 'atualizado'; });
+      if (novos.length) {
+        var linha = novos.map(function(x: any) {
+          var ac = (x.acoes || []).map(function(a: string) {
+            if (a === 'foto_google:ok')             return '📸✓';
+            if (a === 'foto_google:nao_encontrada') return '📸✗';
+            if (a.startsWith('logo_svg:'))          return '🏷️';
+            return a;
+          }).join(' ');
+          return '<span style="color:rgba(255,255,255,0.7)">' + (x.nome || x.postoId).substring(0,28) + '</span> ' + ac;
+        }).join(' &nbsp;·&nbsp; ');
+        addLog(linha);
+      }
+
+      // Progresso animado
+      if (bar) {
+        var pct = d.listComplete ? 100 : Math.min(95, 2 + totalLotes * 3);
+        bar.style.width = pct + '%';
+      }
+
+      cursor = d.cursor || null;
+      if (d.listComplete || !cursor) {
+        if (bar)  bar.style.width = '100%';
+        if (stat) stat.innerHTML  = '<span style="color:#69F0AE">✅ Todos os postos processados!</span>';
+        if (loteEl) loteEl.textContent = totalProcessados + ' postos | ' + totalFotos + ' fotos salvas | ' + totalLotes + ' lotes';
+        showToast('📸 ' + totalFotos + ' fotos Google salvas em ' + totalProcessados + ' postos!', 'ok');
+        break;
+      }
+
+      // Pausa entre lotes (Google Places rate limit)
+      await new Promise(function(res) { setTimeout(res, 400); });
+    }
+  } catch(e: any) {
+    if (stat) stat.innerHTML = '<span style="color:#FF5252">❌ Erro: ' + e.message + '</span>';
+    showToast('❌ Erro fotos Google: ' + e.message, 'err');
+  } finally {
+    _fotosGoogleRodando = false;
+    _fotosGooglePausar  = false;
+    if (btnPlay)  { btnPlay.disabled = false; btnPlay.innerHTML = '<i class="fas fa-play"></i> Buscar fotos'; }
+    if (btnPause) btnPause.style.display = 'none';
+  }
+}
+
+// ─── Auto-fotos para seção ANP — mantido para compatibilidade (chamado após salvar posto ANP) ─
+async function rodarAutoFotosANP() {
+  // Redireciona para o painel de enriquecimento
+  abrirPainelEnriquecimento();
 }
 
 // ─── Toggle ativar/desativar posto direto na tabela ───────────────────────────
