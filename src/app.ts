@@ -4300,6 +4300,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       // Sem coordenadas: redirect server-side para busca por nome
       irUrl = '/ir?nome=' + encodeURIComponent(nome || '');
     }
+    // Passar bandeira e fotoUrl para exibir logo na tela de rota
+    var _posto = selectedPosto || null;
+    if (_posto) {
+      if (_posto.bandeira) irUrl += '&bandeira=' + encodeURIComponent(_posto.bandeira);
+      if (_posto.fotoUrl && (_posto.fotoUrl.startsWith('http') || _posto.fotoUrl.startsWith('/api'))) {
+        irUrl += '&foto=' + encodeURIComponent(_posto.fotoUrl);
+      }
+    }
 
     // Navega para /ir (domínio próprio) → servidor faz 302 para maps.google.com
     // O TWA permite navegação dentro de rotaposto.com.br (scope "/")
@@ -4422,15 +4430,32 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   function iniciarNavegacao() {
     var lat, lng, nome;
+    var _navPosto = null;
     if (planDestLat && planDestLng) {
       lat = planDestLat; lng = planDestLng; nome = planDestNome || '';
+      _navPosto = selectedPosto || null;
     } else if (selectedPosto) {
       lat = selectedPosto.lat; lng = selectedPosto.lng; nome = selectedPosto.nome;
+      _navPosto = selectedPosto;
     } else {
       showToast('Selecione um destino primeiro');
       return;
     }
-    _abrirNavegacaoExterna(lat, lng, nome);
+    var irUrl;
+    var temCoords = lat && lng && lat !== 0 && lng !== 0;
+    if (temCoords) {
+      irUrl = '/ir?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng);
+      if (nome) irUrl += '&nome=' + encodeURIComponent(nome);
+    } else {
+      irUrl = '/ir?nome=' + encodeURIComponent(nome || '');
+    }
+    if (_navPosto) {
+      if (_navPosto.bandeira) irUrl += '&bandeira=' + encodeURIComponent(_navPosto.bandeira);
+      if (_navPosto.fotoUrl && (_navPosto.fotoUrl.startsWith('http') || _navPosto.fotoUrl.startsWith('/api'))) {
+        irUrl += '&foto=' + encodeURIComponent(_navPosto.fotoUrl);
+      }
+    }
+    window.location.href = irUrl;
   }
 
   let _searchTimer = null;

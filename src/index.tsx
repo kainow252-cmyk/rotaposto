@@ -4030,14 +4030,40 @@ app.get('/manifest.json', (c) => {
 //  /ir — Google Maps JavaScript API com DirectionsService embutido
 // ══════════════════════════════════════════════════════════════════════════════
 app.get('/ir', async (c) => {
-  const lat  = c.req.query('lat')  || ''
-  const lng  = c.req.query('lng')  || ''
-  const nome = c.req.query('nome') || ''
+  const lat      = c.req.query('lat')      || ''
+  const lng      = c.req.query('lng')      || ''
+  const nome     = c.req.query('nome')     || ''
+  const bandeira = c.req.query('bandeira') || ''
+  const fotoParam = c.req.query('foto')   || ''
 
   const temCoords  = lat && lng && lat !== '0' && lng !== '0'
   const tituloSafe = nome
     ? nome.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
     : 'Posto'
+
+  // Resolve URL do logo para exibir na tela de rota
+  function _irLogoUrl(band: string): string {
+    if (!band) return '/static/logos/independente.svg'
+    const n = band.toUpperCase()
+    if (n.includes('SHELL'))                                          return '/static/logos/shell.svg'
+    if (n.includes('PETROBRAS') || /\bBR\b/.test(n) || n.includes('PETRO BR')) return '/static/logos/br.svg'
+    if (n.includes('IPIRANGA'))                                       return '/static/logos/ipiranga.svg'
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN') || n.includes('RAIZ')) return '/static/logos/raizen.svg'
+    if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes('ALEPOSTO') || /\bALE\b/.test(n)) return '/static/logos/ale.svg'
+    if (n.includes('TEXACO'))   return '/static/logos/texaco.svg'
+    if (n.includes('VIBRA'))    return '/static/logos/vibra.svg'
+    if (n.includes('ESSO'))     return '/static/logos/esso.svg'
+    if (n.includes('PITSTOP') || n.includes('PIT STOP') || n.includes('PIT-STOP')) return '/static/logos/pitstop.svg'
+    if (n.includes('BANDEIRANTE')) return '/static/logos/bandeirante.svg'
+    if (n.includes('COPAGAZ'))  return '/static/logos/copagaz.svg'
+    if (n.includes('ULTRAGAZ') || n.includes('ULTRA GAZ')) return '/static/logos/ultragaz.svg'
+    if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS')) return '/static/logos/supergasbras.svg'
+    return '/static/logos/independente.svg'
+  }
+  const logoSvgUrl  = _irLogoUrl(bandeira || nome)
+  // Prioridade: fotoUrl do parceiro → SVG da bandeira
+  const logoFinalUrl = (fotoParam && (fotoParam.startsWith('http') || fotoParam.startsWith('/api')))
+    ? fotoParam : logoSvgUrl
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -4083,6 +4109,11 @@ app.get('/ir', async (c) => {
     margin-top:1px}
   #btn-back:active{transform:scale(.9);background:#f1f5f9}
   #top-bar-info{flex:1;min-width:0}
+  #top-bar-logo{width:34px;height:34px;border-radius:8px;background:#fff;
+    border:1px solid rgba(0,0,0,.10);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.10)}
+  #top-bar-logo img{width:100%;height:100%;object-fit:contain;padding:3px}
   #top-bar h1{color:#0B1426;font-size:15px;font-weight:700;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     text-shadow:none}
@@ -4111,6 +4142,10 @@ app.get('/ir', async (c) => {
     display:none;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);
     border-radius:14px;padding:10px 14px;margin-bottom:10px;
     display:flex;align-items:center;gap:10px}
+  #rota-card-logo{width:36px;height:36px;border-radius:8px;background:#fff;
+    border:1px solid rgba(0,0,0,.08);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;overflow:hidden}
+  #rota-card-logo img{width:100%;height:100%;object-fit:contain;padding:3px}
   #rota-card .rc-icon{font-size:22px}
   #rota-card .rc-dist{color:#0B1426;font-size:16px;font-weight:800}
   #rota-card .rc-dur{color:#64748b;font-size:13px;margin-top:1px}
@@ -4271,8 +4306,11 @@ app.get('/ir', async (c) => {
 
 <div id="top-bar">
   <button id="btn-back" onclick="history.back()" title="Voltar">&#8592;</button>
+  <div id="top-bar-logo">
+    <img src="${logoFinalUrl}" alt="" onerror="this.src='${logoSvgUrl}'">
+  </div>
   <div id="top-bar-info">
-    <h1>⛽ ${tituloSafe}</h1>
+    <h1>${tituloSafe}</h1>
     <div id="rota-info">
       <span id="info-dist">Calculando…</span>
       <span id="info-dur" class="badge" style="display:none"></span>
@@ -4284,7 +4322,9 @@ app.get('/ir', async (c) => {
 
 <div id="bottom-bar">
   <div id="rota-card" style="display:none">
-    <span class="rc-icon">🛣️</span>
+    <div id="rota-card-logo">
+      <img src="${logoFinalUrl}" alt="" onerror="this.src='${logoSvgUrl}'">
+    </div>
     <div>
       <div class="rc-dist" id="card-dist">—</div>
       <div class="rc-dur" id="card-dur">—</div>
@@ -4302,7 +4342,9 @@ app.get('/ir', async (c) => {
 
 <!-- Overlay chegou ao destino -->
 <div id="chegou-banner">
-  <div id="chegou-icon">⛽</div>
+  <div id="chegou-icon" style="font-size:0;width:56px;height:56px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;box-shadow:0 2px 8px rgba(0,0,0,.15);">
+    <img src="${logoFinalUrl}" alt="⛽" style="width:48px;height:48px;object-fit:contain;padding:4px;" onerror="this.outerHTML='<span style=\'font-size:32px\'>⛽</span>'">
+  </div>
   <div id="chegou-titulo">Você chegou!</div>
   <div id="chegou-sub">${tituloSafe}</div>
   <button id="btn-fechar-chegou" onclick="document.getElementById('chegou-banner').classList.remove('visible')">Fechar</button>
