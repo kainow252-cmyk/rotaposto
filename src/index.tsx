@@ -12031,7 +12031,7 @@ app.get('/admin', (c) => {
       <h2>⭐ Postos Parceiros</h2>
       <div style="display:flex;align-items:center;gap:10px">
         <span id="parceiros-count" style="background:rgba(255,214,0,0.12);color:#FFD600;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800">–</span>
-        <button class="btn-refresh" onclick="carregarParceirosCadastrados()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+        <button class="btn-refresh" onclick="toggleParceirosTabela(true);carregarParceirosCadastrados()"><i class="fas fa-sync-alt"></i> Atualizar</button>
       </div>
     </div>
 
@@ -12075,11 +12075,21 @@ app.get('/admin', (c) => {
       <div id="pc-filtro-resultado" style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:8px;display:none"></div>
     </div>
 
-    <div class="section-card">
-      <div class="section-header">
-        <h3><i class="fas fa-star" style="color:#FFD600;margin-right:8px"></i>Postos cadastrados no app</h3>
+    <div class="section-card" style="padding:0;overflow:hidden">
+      <!-- Header clicavel do accordion -->
+      <div id="pc-accordion-header" onclick="toggleParceirosTabela()" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none" title="Clique para expandir/recolher">
+        <div style="display:flex;align-items:center;gap:10px">
+          <i class="fas fa-star" style="color:#FFD600;font-size:13px"></i>
+          <span style="font-size:13px;font-weight:800;color:#fff">Postos cadastrados no app</span>
+          <span id="pc-accordion-count" style="font-size:11px;color:rgba(255,255,255,0.35);font-weight:600"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="pc-accordion-hint" style="font-size:10px;color:rgba(255,255,255,0.25);font-weight:600">clique para ver</span>
+          <i id="pc-accordion-icon" class="fas fa-chevron-down" style="color:rgba(255,255,255,0.3);font-size:12px;transition:transform 0.25s"></i>
+        </div>
       </div>
-      <div style="overflow-x:auto">
+      <!-- Conteudo colapsavel -->
+      <div id="pc-accordion-body" style="display:none;overflow-x:auto;border-top:1px solid rgba(255,255,255,0.07)">
         <table style="min-width:800px;table-layout:fixed;width:100%">
           <colgroup>
             <col style="width:22%"/>
@@ -12103,7 +12113,7 @@ app.get('/admin', (c) => {
             <tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
           </tbody>
         </table>
-      </div>
+      </div><!-- /pc-accordion-body -->
     </div>
 
     <!-- Modal Editar Parceiro -->
@@ -13591,21 +13601,37 @@ function _adminBandeiraLogoUrl(nome) {
 
 async function carregarParceirosCadastrados() {
   const tbody = document.getElementById('parceiros-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando parceiros...</td></tr>';
+  const tabelaAberta = document.getElementById('pc-accordion-body')?.style.display !== 'none';
+  if (tabelaAberta) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><i class="fas fa-spinner fa-spin"></i> Buscando parceiros...</td></tr>';
+  }
   try {
     const res = await fetch('/api/admin/parceiros?key=' + encodeURIComponent(ADMIN_KEY));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     _parceiros = data.parceiros || [];
-    document.getElementById('parceiros-count').textContent = _parceiros.length + ' parceiro(s)';
-    // Renderiza TODOS por padrão — filtrarParceiros só limita se houver filtro ativo
-    renderParceiros(_parceiros);
-    // Aplica filtros ativos (se o usuário já tinha digitado algo)
+    // Atualiza contador no badge do header E no accordion
+    const total = _parceiros.length;
+    const countEl = document.getElementById('parceiros-count');
+    if (countEl) countEl.textContent = total + ' parceiro(s)';
+    const accCount = document.getElementById('pc-accordion-count');
+    if (accCount) accCount.textContent = '(' + total + ')';
+    // Verifica se há filtro ativo
     const temFiltroAtivo = ['pc-search','pc-filtro-estado','pc-filtro-cidade','pc-filtro-bairro','pc-filtro-plano','pc-filtro-status']
       .some(id => { const el = document.getElementById(id); return el && el.value && el.value.trim() !== ''; });
-    if (temFiltroAtivo) filtrarParceiros();
+    if (temFiltroAtivo) {
+      // Abre accordion e aplica filtro
+      toggleParceirosTabela(true);
+      filtrarParceiros();
+    } else if (tabelaAberta) {
+      // Já estava aberta: atualiza sem fechar
+      renderParceiros(_parceiros);
+    }
+    // Se fechada e sem filtro: não abre automaticamente
   } catch(e) {
-    tbody.innerHTML = \`<tr><td colspan="7" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro: \${e.message}</td></tr>\`;
+    if (tabelaAberta) {
+      tbody.innerHTML = \`<tr><td colspan="7" style="text-align:center;padding:40px;color:#FF5252"><i class="fas fa-exclamation-circle"></i> Erro: \${e.message}</td></tr>\`;
+    }
   }
 }
 
@@ -13696,6 +13722,11 @@ function filtrarParceiros() {
   const bairro  = (document.getElementById('pc-filtro-bairro').value || '').toLowerCase();
   const plano   = (document.getElementById('pc-filtro-plano').value || '').toLowerCase();
   const status  = (document.getElementById('pc-filtro-status').value || '').toLowerCase();
+  const temFiltro = !!(q || estado || cidade || bairro || plano || status);
+  // Abre accordion automaticamente quando começa a filtrar; fecha quando limpa tudo
+  if (temFiltro) toggleParceirosTabela(true);
+  // Se !temFiltro mas a tabela está aberta, mantém aberta (não fecha)
+  // (fechar manual é via clique no header)
 
   const filtrado = _parceiros.filter(p => {
     if (q && !(
@@ -13732,7 +13763,26 @@ function limparFiltrosParceiros() {
   document.getElementById('pc-filtro-plano').value = '';
   document.getElementById('pc-filtro-status').value = '';
   document.getElementById('pc-filtro-resultado').style.display = 'none';
-  renderParceiros(_parceiros);
+  // Fecha o accordion ao limpar filtros
+  toggleParceirosTabela(false);
+}
+
+// ─── Accordion da tabela de parceiros ────────────────────────────────────────
+function toggleParceirosTabela(forcarAbrir) {
+  const body = document.getElementById('pc-accordion-body');
+  const icon = document.getElementById('pc-accordion-icon');
+  const hint = document.getElementById('pc-accordion-hint');
+  if (!body) return;
+  const abrir = forcarAbrir !== undefined ? forcarAbrir : body.style.display === 'none';
+  if (abrir) {
+    body.style.display = 'block';
+    if (icon) { icon.style.transform = 'rotate(180deg)'; icon.style.color = '#FFD600'; }
+    if (hint) hint.style.display = 'none';
+  } else {
+    body.style.display = 'none';
+    if (icon) { icon.style.transform = 'rotate(0deg)'; icon.style.color = 'rgba(255,255,255,0.3)'; }
+    if (hint) { hint.style.display = ''; hint.textContent = 'clique para ver'; }
+  }
 }
 
 // ─── Toggle ativar/desativar posto direto na tabela ───────────────────────────
