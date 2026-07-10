@@ -11154,6 +11154,9 @@ app.post('/api/admin/script/auto-fotos', async (c) => {
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
   if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
 
+  // ?forcar=true → re-busca mesmo se já tem foto/logo (útil para atualizar)
+  const forcar = c.req.query('forcar') === 'true'
+
   const kv = getKV(c.env as any)
   const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
   const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
@@ -11286,8 +11289,11 @@ app.post('/api/admin/script/auto-fotos', async (c) => {
     const res: Record<string,unknown> = { id, nomePosto, bandeira, acoes: [] as string[] }
 
     try {
-      // ── A) Logo da bandeira automático (se não tem fotoBandeira) ──
-      if (!data.fotoBandeira) {
+      // ── A) Logo da bandeira automático ──
+      // forcar=true: só re-busca logo se a atual é SVG (não é upload manual do admin)
+      const logoAtualEhSvg = data.fotoBandeira && String(data.fotoBandeira).includes('/static/logos/')
+      const logoAtualEhUpload = data.fotoBandeira && String(data.fotoBandeira).startsWith('/api/posto/foto-bandeira/')
+      if (!data.fotoBandeira || (forcar && logoAtualEhSvg && !logoAtualEhUpload)) {
         const logoUrl = logoSvgPorBandeira(bandeira || nomePosto)
         if (logoUrl) {
           data.fotoBandeira = logoUrl
@@ -11297,8 +11303,9 @@ app.post('/api/admin/script/auto-fotos', async (c) => {
         }
       }
 
-      // ── B) Foto panorâmica do Google (se não tem fotoExterna) ──
-      if (!data.fotoExterna) {
+      // ── B) Foto panorâmica do Google ──
+      // forcar=true: re-busca sempre (atualiza foto do Google mesmo se já tem)
+      if (!data.fotoExterna || forcar) {
         const { fotoUrl, rating, placeId } = await buscarFotoGoogle(nomePosto, cidade, lat, lng)
         if (fotoUrl) {
           data.fotoExterna = fotoUrl
@@ -11308,8 +11315,8 @@ app.post('/api/admin/script/auto-fotos', async (c) => {
         } else {
           ;(res.acoes as string[]).push('foto_google:nao_encontrada')
         }
-        if (rating && !data.rating) { data.rating = rating; modificado = true }
-        if (placeId && !data.googlePlaceId) { data.googlePlaceId = placeId; modificado = true }
+        if (rating) { data.rating = rating; if (!modificado) modificado = true }
+        if (placeId) { data.googlePlaceId = placeId; if (!modificado) modificado = true }
         res.rating = rating
         res.placeId = placeId
       }
@@ -11373,6 +11380,9 @@ app.post('/api/admin/script/auto-fotos-postos-band', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
   if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+
+  // ?forcar=true → re-busca foto Google mesmo se já tem fotoUrl
+  const forcar = c.req.query('forcar') === 'true'
 
   const kv = getKV(c.env as any)
   const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
@@ -11481,7 +11491,8 @@ app.post('/api/admin/script/auto-fotos-postos-band', async (c) => {
       const temLogo = !!(dado.logoUrl || dado.fotoUrl)
       const temFoto = !!(dado.fotoUrl)
 
-      if (temLogo && temFoto) {
+      // Pular só se tem tudo e não está forçando re-busca
+      if (temLogo && temFoto && !forcar) {
         jaOkCount++
         resultados.push({ postoId, nome, status: 'ja_ok' })
         continue
@@ -11491,7 +11502,7 @@ app.post('/api/admin/script/auto-fotos-postos-band', async (c) => {
       const acoes: string[] = []
 
       try {
-        // A) Logo SVG pela bandeira
+        // A) Logo SVG pela bandeira (só se não tem logoUrl — logo SVG não é re-buscado no forcar)
         if (!dado.logoUrl) {
           const logoUrl = logoSvgPorBandeira(bandeira, nome)
           if (logoUrl) {
@@ -11502,8 +11513,10 @@ app.post('/api/admin/script/auto-fotos-postos-band', async (c) => {
           }
         }
 
-        // B) Foto do Google Maps (só se não tem fotoUrl)
-        if (!dado.fotoUrl) {
+        // B) Foto do Google Maps — busca se não tem fotoUrl OU se forcar=true
+        // Preservar fotoUrl que vem de upload admin (/api/posto/foto-bandeira/)
+        const fotoUrlAtualEhAdmin = dado.fotoUrl && String(dado.fotoUrl).startsWith('/api/posto/foto-bandeira/')
+        if (!dado.fotoUrl || (forcar && !fotoUrlAtualEhAdmin)) {
           const fotoUrl = await buscarFotoGoogle(nome, cidade, lat, lng)
           if (fotoUrl) {
             dado.fotoUrl = fotoUrl
@@ -14841,7 +14854,7 @@ async function rodarAutoFotos() {
   resultado.style.display = 'block';
   resultado.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos reais do Google Maps e logos das bandeiras — aguarde...';
   try {
-    const r = await fetch('/api/admin/script/auto-fotos?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
+    const r = await fetch('/api/admin/script/auto-fotos?key=' + encodeURIComponent(ADMIN_KEY) + '&forcar=true', { method: 'POST' });
     const d = await r.json();
     if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao buscar fotos');
     const linhas = (d.resultados || []).map(function(x) {
@@ -14889,7 +14902,7 @@ async function rodarAutoFotosANP() {
   resultado.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando logos e fotos do Google Maps para os postos do mapa (ANP/OSM/Google) — pode levar alguns segundos...';
   try {
     // Chama o endpoint específico para posto:band:* — processa postos do mapa, não apenas parceiros
-    const r = await fetch('/api/admin/script/auto-fotos-postos-band?key=' + encodeURIComponent(ADMIN_KEY) + '&limite=60', { method: 'POST' });
+    const r = await fetch('/api/admin/script/auto-fotos-postos-band?key=' + encodeURIComponent(ADMIN_KEY) + '&limite=60&forcar=true', { method: 'POST' });
     const d = await r.json();
     if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao buscar fotos');
     const linhas = (d.resultados || []).filter(function(x) { return x.status === 'atualizado'; }).map(function(x) {
