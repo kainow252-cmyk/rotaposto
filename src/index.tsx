@@ -12961,10 +12961,16 @@ app.get('/admin', (c) => {
 
     <!-- ═══ Buscar Posto na ANP ═══ -->
     <div class="section-card" style="margin-top:18px">
-      <div class="section-header">
+      <div class="section-header" style="flex-wrap:wrap;gap:8px">
         <h3><i class="fas fa-database" style="color:#42A5F5;margin-right:8px"></i>Buscar Posto na Base ANP</h3>
-        <span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600">46.000+ postos cadastrados pela ANP — preenche dados automaticamente</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap">
+          <span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600">46.000+ postos cadastrados pela ANP — preenche dados automaticamente</span>
+          <button id="btn-auto-fotos-anp" onclick="rodarAutoFotosANP()" style="background:linear-gradient(135deg,#00695C,#004D40);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Raleway',sans-serif;white-space:nowrap" title="Busca foto real do Google Maps e logo da bandeira automaticamente para todos os postos sem foto">
+            <i class="fas fa-magic"></i> Buscar fotos Google auto
+          </button>
+        </div>
       </div>
+      <div id="auto-fotos-anp-resultado" style="display:none;background:rgba(0,105,92,0.12);border:1px solid rgba(0,150,136,0.25);border-radius:10px;padding:12px 16px;font-size:12px;color:rgba(255,255,255,0.8);line-height:1.7;margin:0 0 10px 0"></div>
       <div style="padding:16px 0 8px">
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px">
           <div style="flex:1;min-width:130px">
@@ -14554,6 +14560,53 @@ async function rodarAutoFotos() {
   }
 }
 
+// ─── Auto-fotos específica para seção ANP ─────────────────────────────────────
+async function rodarAutoFotosANP() {
+  const btn = document.getElementById('btn-auto-fotos-anp');
+  const resultado = document.getElementById('auto-fotos-anp-resultado');
+  if (!btn || !resultado) return;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos...';
+  btn.style.pointerEvents = 'none';
+  resultado.style.display = 'block';
+  resultado.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos reais do Google Maps e logos das bandeiras para todos os postos parceiros — aguarde...';
+  try {
+    const r = await fetch('/api/admin/script/auto-fotos?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao buscar fotos');
+    const linhas = (d.resultados || []).map(function(x) {
+      const icone = x.status === 'atualizado' ? '✅' : x.status === 'ja_tem_foto' ? '⚪' : '❌';
+      const acoes = (x.acoes || []).map(function(a) {
+        if (a.startsWith('logo_svg:'))   return '<span style="color:#FFD600">🏷️ logo: ' + a.replace('logo_svg:','') + '</span>';
+        if (a === 'foto_google:ok')       return '<span style="color:#69F0AE">📸 foto Google ✓</span>';
+        if (a === 'foto_google:nao_encontrada') return '<span style="color:#888">📸 Google: não encontrada</span>';
+        return a;
+      }).join(' | ');
+      const rating = x.rating ? ' ★' + x.rating : '';
+      return icone + ' <b>' + (x.nomePosto || x.id) + '</b> ' + (acoes || '') + rating;
+    }).join('<br>');
+    const googleOk = d.googleKeyDisponivel
+      ? '<span style="color:#69F0AE">✓ Google API disponível</span>'
+      : '<span style="color:#FF8A65">⚠️ Google API KEY ausente — só logos salvos</span>';
+    resultado.innerHTML =
+      '<b style="color:#fff">✅ Auto-fotos concluído!</b> ' + googleOk + '<br>' +
+      '<span style="color:#80CBC4">Logos salvos: <b>' + d.logosSalvos + '</b></span> &nbsp;|&nbsp; ' +
+      '<span style="color:#A5D6A7">Fotos Google: <b>' + d.fotosSalvas + '</b></span> &nbsp;|&nbsp; ' +
+      '<span style="color:#888">Já ok: <b>' + d.jaOkCount + '</b></span> &nbsp;|&nbsp; ' +
+      '<span style="color:#EF9A9A">Erros: <b>' + d.erros + '</b></span> &nbsp;|&nbsp; ' +
+      'Total: <b>' + d.total + '</b>' +
+      (linhas ? '<div style="margin-top:10px;max-height:220px;overflow-y:auto;font-size:11px;line-height:2">' + linhas + '</div>' : '');
+    showToast('✅ Fotos ANP: ' + d.fotosSalvas + ' Google | ' + d.logosSalvos + ' logos salvos!', 'ok');
+    // Auto-propagar para refletir as novas fotos no mapa/lista do usuário
+    setTimeout(rodarPropagacaoLogos, 800);
+  } catch(e) {
+    resultado.innerHTML = '❌ Erro: ' + e.message;
+    showToast('❌ Erro ao buscar fotos: ' + e.message, 'err');
+  } finally {
+    btn.innerHTML = '<i class="fas fa-magic"></i> Buscar fotos Google auto';
+    btn.style.pointerEvents = '';
+  }
+}
+
 // ─── Toggle ativar/desativar posto direto na tabela ───────────────────────────
 async function toggleStatusParceiro(el) {
   const id = el.dataset.pid;
@@ -14593,6 +14646,7 @@ async function toggleStatusParceiro(el) {
 
 // ─── Modal Editar Parceiro ────────────────────────────────────────────────────
 let _parceiroEditandoId = null;
+let _postoVeioDaANP = false; // flag: posto foi selecionado via "Usar dados" na seção ANP
 
 // Popula o select de planos do modal de posto com os planos B2B de postos
 async function popularSelectPlanosModal(planoAtual) {
@@ -14734,6 +14788,7 @@ function abrirModalEditarParceiro(id) {
   const p = _parceiros.find(x => x.id === id);
   if (!p) return;
   _parceiroEditandoId = id;
+  _postoVeioDaANP = false; // edição normal, não veio da ANP
   const pr = p.precos || {};
   const end = p.endereco || {};
 
@@ -15120,6 +15175,50 @@ async function salvarParceiroModal() {
     showToast('Posto atualizado!' + coordMsg, 'ok');
     fecharModalParceiro();
     await carregarParceirosCadastrados();
+    // Se o posto veio da seleção ANP → rodar auto-fotos automaticamente
+    if (_postoVeioDaANP) {
+      _postoVeioDaANP = false;
+      showToast('🪄 Buscando logo e foto Google Maps automaticamente...', 'ok');
+      // Pequeno delay para garantir que o parceiro foi salvo no KV
+      setTimeout(async () => {
+        // Mostrar resultado na seção ANP
+        const anpResultDiv = document.getElementById('auto-fotos-anp-resultado');
+        if (anpResultDiv) {
+          anpResultDiv.style.display = 'block';
+          anpResultDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos e logo automaticamente para o posto recém-adicionado...';
+        }
+        try {
+          const fr = await fetch('/api/admin/script/auto-fotos?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
+          const fd = await fr.json();
+          if (!fr.ok || !fd.ok) throw new Error(fd.erro || 'Erro');
+          const googleOk = fd.googleKeyDisponivel
+            ? '<span style="color:#69F0AE">✓ Google API</span>'
+            : '<span style="color:#FF8A65">⚠️ sem Google API KEY</span>';
+          if (anpResultDiv) {
+            const linhas = (fd.resultados || []).map(function(x) {
+              const icone = x.status === 'atualizado' ? '✅' : x.status === 'ja_tem_foto' ? '⚪' : '❌';
+              const acoes = (x.acoes || []).map(function(a) {
+                if (a.startsWith('logo_svg:'))   return '🏷️ logo: ' + a.replace('logo_svg:','');
+                if (a === 'foto_google:ok')       return '📸 foto Google ✓';
+                if (a === 'foto_google:nao_encontrada') return '📸 Google: não encontrada';
+                return a;
+              }).join(' | ');
+              return icone + ' <b>' + (x.nomePosto || x.id) + '</b> ' + acoes;
+            }).join('<br>');
+            anpResultDiv.innerHTML =
+              '<b style="color:#fff">✅ Fotos buscadas automaticamente!</b> ' + googleOk + '<br>' +
+              'Logos: <b>' + fd.logosSalvos + '</b> &nbsp;|&nbsp; Fotos Google: <b>' + fd.fotosSalvas + '</b> &nbsp;|&nbsp; Total: <b>' + fd.total + '</b>' +
+              (linhas ? '<div style="margin-top:8px;font-size:11px;line-height:2">' + linhas + '</div>' : '');
+          }
+          showToast('✅ Logo e foto Google buscados: ' + fd.fotosSalvas + ' fotos | ' + fd.logosSalvos + ' logos!', 'ok');
+          // Propagar para mapa/lista do usuário
+          setTimeout(rodarPropagacaoLogos, 600);
+        } catch(fe) {
+          if (anpResultDiv) anpResultDiv.innerHTML = '❌ Erro ao buscar fotos: ' + fe.message;
+          showToast('❌ Erro ao buscar fotos automáticas: ' + fe.message, 'err');
+        }
+      }, 1200);
+    }
   } catch(e) {
     showToast('❌ Erro: ' + e.message, 'err');
   } finally {
@@ -15379,6 +15478,7 @@ function preencherModalComANP(idxStr) {
 
   // Gerar ID único baseado no CNPJ
   _parceiroEditandoId = 'posto_' + p.cnpj;
+  _postoVeioDaANP = true; // marcar que veio da seleção ANP → auto-fotos após salvar
   document.getElementById('ep-id-display').textContent = 'ID: ' + _parceiroEditandoId + '  (novo — dados da ANP)';
   document.getElementById('ep-email').value = '';
   document.getElementById('ep-tel').value   = '';
