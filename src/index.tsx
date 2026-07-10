@@ -513,6 +513,51 @@ app.get('/api/postos', async (c) => {
       return dist <= raio && p.precos[combustivel]
     })
 
+    // 5b. Mesclar dados do KV parceiro (bandeira/foto salvas pelo admin)
+    const kvMerge = getKV(c.env) || undefined
+    const r2Merge = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const mesclarComParceiro = async (lista: PostoReal[]): Promise<PostoReal[]> => {
+      if (!kvMerge && !r2Merge) return lista
+      const resultados = await Promise.all(lista.map(async (p) => {
+        // ID do parceiro = posto_ + CNPJ (mesmo padrão do admin)
+        // Testa dois formatos: só números e com formatação XX.XXX.XXX/XXXX-XX
+        const cnpjSoNum = (p.cnpj || '').replace(/[^0-9]/g, '')
+        if (!cnpjSoNum) return p
+        // Formato com pontuação: XX.XXX.XXX/XXXX-XX
+        const cnpjFmt = cnpjSoNum.replace(
+          /^([0-9]{2})([0-9]{3})([0-9]{3})([0-9]{4})([0-9]{2})$/,
+          '$1.$2.$3/$4-$5'
+        )
+        try {
+          // Tenta primeiro com CNPJ só números (padrão do admin via ANP)
+          let parceiro = await kvGetParceiro(kvMerge, 'posto_' + cnpjSoNum, r2Merge) as Record<string, unknown> | null
+          // Fallback: tenta com CNPJ formatado (caso admin tenha digitado manualmente)
+          if (!parceiro && cnpjFmt !== cnpjSoNum) {
+            parceiro = await kvGetParceiro(kvMerge, 'posto_' + cnpjFmt, r2Merge) as Record<string, unknown> | null
+          }
+          if (!parceiro) return p
+          // Sobrescrever bandeira e fotoUrl com dados do admin (se presentes)
+          const merged = { ...p } as any
+          if (parceiro.bandeira && String(parceiro.bandeira) !== '—') {
+            merged.bandeira = String(parceiro.bandeira)
+          }
+          if (parceiro.fotoBandeira) {
+            merged.fotoUrl = String(parceiro.fotoBandeira)
+          }
+          // Marcar como parceiro para o app
+          const pId = parceiro.id ? String(parceiro.id) : ('posto_' + cnpjSoNum)
+          merged.parceiroId = pId
+          merged.seloVerificado = Boolean(parceiro.seloVerificado)
+          merged.pinDourado = Boolean(parceiro.pinDourado)
+          merged.topoLista = Boolean(parceiro.topoLista)
+          return merged as PostoReal
+        } catch {
+          return p
+        }
+      }))
+      return resultados
+    }
+
     if (noRaio.length === 0) {
       // Fallback: OSM sem filtro de cidade (busca por coordenadas)
       const osmFallback = await buscarPostosOSM(lat, lng, Math.min(raio * 1000, 50000))
@@ -522,16 +567,17 @@ app.get('/api/postos', async (c) => {
         return c.json({ error: 'Nenhum posto encontrado neste raio', postos: [], fonte: 'vazio' })
       }
 
-      const rankeados = rankearPostosPorIA(fallbackComCombustivel, lat, lng, combustivel, litros, consumo)
+      const fallbackMesclado = await mesclarComParceiro(fallbackComCombustivel)
+      const rankeados = rankearPostosPorIA(fallbackMesclado, lat, lng, combustivel, litros, consumo)
       return buildResponse(rankeados, combustivel, 'osm_fallback')
     }
 
-    // 6. Ranking com IA de Economia
-    const fontes = [...new Set(postosBase.map(p => p.fonte))].join('+')
+    // 6. Mesclar parceiros + Ranking com IA de Economia
+    const noRaioMesclado = await mesclarComParceiro(noRaio)
     const temAnp = postosBase.some(p => p.fonte === 'anp')
     const temGoogle = postosBase.some(p => p.googlePlaceId)
     const fonteLabel = temAnp ? (temGoogle ? 'anp+google+osm' : 'anp+osm') : (temGoogle ? 'google+osm' : 'osm')
-    const rankeados = rankearPostosPorIA(noRaio, lat, lng, combustivel, litros, consumo)
+    const rankeados = rankearPostosPorIA(noRaioMesclado, lat, lng, combustivel, litros, consumo)
     return buildResponse(rankeados, combustivel, fonteLabel)
 
     function buildResponse(rankeados: EconomiaPosto[], combustivel: keyof PostoReal['precos'], fonte: string) {
@@ -565,6 +611,11 @@ app.get('/api/postos', async (c) => {
           aberto: p.aberto,
           fotoUrl: p.fotoUrl,
           googlePlaceId: p.googlePlaceId,
+          // Dados do parceiro (admin KV)
+          parceiroId: (p as any).parceiroId || null,
+          seloVerificado: (p as any).seloVerificado || false,
+          pinDourado: (p as any).pinDourado || false,
+          topoLista: (p as any).topoLista || false,
           // Campos calculados
           distancia: Math.round(p.distancia * 100) / 100,
           preco: p.precos[combustivel],
