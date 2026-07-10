@@ -469,12 +469,41 @@ export async function testarConexaoPagBank(
 ): Promise<{ ok: boolean; mensagem: string }> {
   if (!token) return { ok: false, mensagem: 'Token não configurado.' }
   try {
-    const r = await fetch(`${PB_BASE}/billing/plans?limit=1`, {
+    // Testa criando uma order mínima (POST /orders) — endpoint principal do nosso fluxo
+    // e que retorna erros JSON claros, diferente de /billing/plans que pode dar 403 CF
+    const r = await fetch(`${PB_BASE}/orders`, {
+      method: 'POST',
       headers: pbHeaders(token),
+      body: JSON.stringify({
+        reference_id: 'test-ping-001',
+        customer: { name: 'Teste', email: 'ping@rotaposto.com.br', tax_id: '12345678909' },
+        items: [{ name: 'Ping', quantity: 1, unit_amount: 100 }],
+        qr_codes: [{ amount: { value: 100 }, expiration_date: '2026-12-31T23:59:59-03:00' }]
+      }),
       signal: AbortSignal.timeout(8000)
     })
+    // HTTP 200/201 = sucesso real
     if (r.ok) return { ok: true, mensagem: '✅ PagBank conectado!' }
-    return { ok: false, mensagem: `Erro HTTP ${r.status} — verifique o token.` }
+    // Tentar ler JSON da resposta para diagnóstico preciso
+    let body: any = {}
+    try { body = await r.json() } catch {}
+    const erros: any[] = body?.error_messages || []
+    const primeiro = erros[0] || {}
+    // Erro de whitelist = token válido mas conta precisa de habilitação pelo suporte PagBank
+    if (primeiro.code === 'ACCESS_DENIED' && String(primeiro.description).includes('whitelist')) {
+      return {
+        ok: false,
+        mensagem: '⚠️ Token válido! Conta precisa de habilitação API pelo suporte PagBank. ' +
+                  'Acesse: pagseguro.uol.com.br/suporte → solicite "Habilitação API de Pagamentos".'
+      }
+    }
+    // Token inválido / expirado
+    if (r.status === 401) {
+      return { ok: false, mensagem: '❌ Token inválido ou expirado. Gere um novo token no painel PagBank.' }
+    }
+    // Outros erros com mensagem da API
+    const desc = primeiro.description || primeiro.message || `Erro HTTP ${r.status}`
+    return { ok: false, mensagem: `Erro ${r.status}: ${desc}` }
   } catch (e: any) {
     return { ok: false, mensagem: 'Falha de rede: ' + e.message }
   }
