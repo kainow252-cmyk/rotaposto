@@ -44,15 +44,14 @@ import {
   MP_PLANOS
 } from './mercadopago'
 import {
-  gerarPixPagBank,
-  criarSubscriptionPagBank,
-  criarOuBuscarPlanPagBank,
-  verificarOrderPagBank,
-  verificarSubscriptionPagBank,
-  cancelarSubscriptionPagBank,
-  parsearWebhookPagBank,
-  testarConexaoPagBank
-} from './pagbank'
+  gerarPixAsaas,
+  assinarComAsaas,
+  verificarPaymentAsaas,
+  verificarAssinaturaAsaas,
+  cancelarAssinaturaAsaas,
+  parsearWebhookAsaas,
+  testarConexaoAsaas
+} from './asaas'
 import {
   buscarTodosPostosANP,
   getMapaBrasilHTML,
@@ -351,7 +350,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v17', build: '20260710c' })
+  return c.json({ version: 'v17', build: '20260710d' })
 })
 
 app.get('/api/debug/env', async (c) => {
@@ -1609,10 +1608,10 @@ interface AssinaturaUsuario {
   cpf?: string
   plano: string
   status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED'
-  gateway?: 'woovi' | 'mercadopago' | 'pagbank' // gateway que gerou esta assinatura
-  subscriptionId?: string   // ID no gateway (Woovi sub, MP preapproval, PagBank subscription)
-  orderId?: string          // ID da order de pagamento PIX (PagBank)
-  planId?: string           // ID do plano no gateway (PagBank billing/plans)
+  gateway?: 'woovi' | 'mercadopago' | 'asaas' // gateway que gerou esta assinatura
+  subscriptionId?: string   // ID no gateway (Woovi sub, MP preapproval, Asaas subscription)
+  orderId?: string          // ID do payment de pagamento PIX (Asaas paymentId)
+  planId?: string           // ID do plano no gateway (legado)
   qrCode?: string
   brcode?: string
   qrExpiraEm?: number       // timestamp de expiração do QR Code
@@ -1880,9 +1879,9 @@ app.get('/api/assinatura/status/:userId', async (c) => {
 
   // Se pendente: verificar se foi pago via gateway
   if (assinatura.status === 'PENDING') {
-    if (assinatura.gateway === 'pagbank' && assinatura.orderId) {
-      // Verificar pagamento via PagBank Order
-      const { pago } = await verificarOrderPagBank(c.env as any, assinatura.orderId)
+    if (assinatura.gateway === 'asaas' && assinatura.orderId) {
+      // Verificar pagamento via Asaas Payment
+      const { pago } = await verificarPaymentAsaas(c.env as any, assinatura.orderId)
       if (pago) {
         assinatura.status = 'ACTIVE'
         assinatura.ativadaEm = Date.now()
@@ -1893,7 +1892,7 @@ app.get('/api/assinatura/status/:userId', async (c) => {
         assinatura.brcode = undefined
         await kvSetAssinatura(kv, assinatura)
       }
-    } else if (assinatura.subscriptionId && assinatura.gateway !== 'pagbank') {
+    } else if (assinatura.subscriptionId && assinatura.gateway !== 'asaas') {
       // Verificar via Woovi (gateway padrão)
       const { ativa } = await verificarAssinatura(c.env as any, assinatura.subscriptionId)
       if (ativa) {
@@ -2625,21 +2624,21 @@ app.get('/api/pagamento/status/:subscriptionId', async (c) => {
 })
 
 // ════════════════════════════════════════════════════════════════════════════
-// ─── PagBank — PIX recorrente ────────────────────────────────────────────────
+// ─── Asaas — PIX recorrente ──────────────────────────────────────────────────
 // ════════════════════════════════════════════════════════════════════════════
 
 const DIAS_GRACA = 3  // dias após vencimento antes da suspensão automática
 
-// Helper: índice reverso orderId → userId
-async function kvSetOrderIndex(kv: KVNamespace, orderId: string, userId: string) {
-  await kv.put(`order:pb:${orderId}`, userId, { expirationTtl: 60 * 60 * 24 * 400 })
+// Helper: índice reverso paymentId → userId
+async function kvSetPaymentIndex(kv: KVNamespace, paymentId: string, userId: string) {
+  await kv.put(`order:asaas:${paymentId}`, userId, { expirationTtl: 60 * 60 * 24 * 400 })
 }
-async function kvGetOrderIndex(kv: KVNamespace, orderId: string): Promise<string | null> {
-  return kv.get(`order:pb:${orderId}`)
+async function kvGetPaymentIndex(kv: KVNamespace, paymentId: string): Promise<string | null> {
+  return kv.get(`order:asaas:${paymentId}`)
 }
 
-// POST /api/pagbank/assinar — gera PIX QR Code + cria subscription no PagBank
-app.post('/api/pagbank/assinar', async (c) => {
+// POST /api/asaas/assinar — gera PIX QR Code + cria assinatura recorrente no Asaas
+app.post('/api/asaas/assinar', async (c) => {
   try {
     const body = await c.req.json() as any
     const { userId, nome, email, cpf, plano: planoId } = body
@@ -2656,31 +2655,19 @@ app.post('/api/pagbank/assinar', async (c) => {
     const plano = planos.find((p: any) => p.id === planoId)
     if (!plano) return c.json({ sucesso: false, mensagem: `Plano "${planoId}" não encontrado.` }, 404)
 
-    // Garantir planId no gateway (cria se não existir)
-    const { planId, error: errPlan } = await criarOuBuscarPlanPagBank(c.env as any, plano)
-    if (errPlan) return c.json({ sucesso: false, mensagem: `Erro ao criar plano no PagBank: ${errPlan}` }, 500)
+    const valorCentavos = Math.round((plano.preco || plano.valor || 0) * 100)
+    const ciclo: 'monthly' | 'yearly' = plano.ciclo === 'yearly' ? 'yearly' : 'monthly'
 
-    // Gerar QR Code PIX para 1ª cobrança
-    const pb = await gerarPixPagBank(c.env as any, {
-      userId,
-      nome,
-      email,
-      cpf,
-      valor: plano.preco || plano.valor || 0,
-      descricao: `Assinatura RotaPosto — ${plano.nome || planoId}`,
-      planId
+    // Asaas: cria customer + assinatura recorrente + retorna QR do 1º pagamento
+    const asaas = await assinarComAsaas(c.env as any, {
+      userId, nome, email, cpf,
+      valorCentavos,
+      planoNome: plano.nome || planoId,
+      planoId,
+      ciclo,
+      referencia: `rp-asaas-${userId}-${Date.now()}`
     })
-    if (!pb.sucesso) return c.json({ sucesso: false, mensagem: pb.mensagem || 'Erro ao gerar PIX' }, 500)
-
-    // Criar subscription no PagBank (background — 1ª cobrança será via PIX manual)
-    let subscriptionId: string | undefined
-    try {
-      const subRes = await criarSubscriptionPagBank(c.env as any, {
-        userId, nome, email, cpf, planId,
-        referenceId: `rp-sub-${userId}`
-      })
-      if (!subRes.error) subscriptionId = subRes.subscriptionId
-    } catch {}
+    if (!asaas.sucesso) return c.json({ sucesso: false, mensagem: asaas.error || 'Erro ao gerar PIX' }, 500)
 
     // Salvar assinatura no KV (status PENDING até PIX ser pago)
     const agora = Date.now()
@@ -2691,26 +2678,26 @@ app.post('/api/pagbank/assinar', async (c) => {
       cpf,
       plano: planoId,
       status: 'PENDING',
-      gateway: 'pagbank',
-      planId,
-      orderId: pb.orderId,
-      subscriptionId,
-      qrCode: pb.qrCode,
-      brcode: pb.brcode,
-      qrExpiraEm: pb.expiraEm,
+      gateway: 'asaas',
+      orderId: asaas.paymentId,
+      subscriptionId: asaas.subscriptionId,
+      qrCode: asaas.qrCode,
+      brcode: asaas.brcode,
+      qrExpiraEm: asaas.expiraEm,
       criadaEm: agora
     }
     await kvSetAssinatura(kv, assin)
 
-    // Índice reverso orderId → userId (para webhook)
-    if (pb.orderId) await kvSetOrderIndex(kv, pb.orderId, userId)
+    // Índice reverso paymentId → userId (para webhook)
+    if (asaas.paymentId) await kvSetPaymentIndex(kv, asaas.paymentId, userId)
 
     return c.json({
       sucesso: true,
-      orderId: pb.orderId,
-      qrCode: pb.qrCode,
-      brcode: pb.brcode,
-      expiraEm: pb.expiraEm,
+      paymentId: asaas.paymentId,
+      orderId: asaas.paymentId,
+      qrCode: asaas.qrCode,
+      brcode: asaas.brcode,
+      expiraEm: asaas.expiraEm,
       mensagem: 'PIX gerado! Aguardando pagamento.'
     })
   } catch (e) {
@@ -2718,19 +2705,19 @@ app.post('/api/pagbank/assinar', async (c) => {
   }
 })
 
-// GET /api/pagbank/verificar/:orderId — verifica se PIX foi pago
-app.get('/api/pagbank/verificar/:orderId', async (c) => {
+// GET /api/asaas/verificar/:paymentId — verifica se PIX foi pago
+app.get('/api/asaas/verificar/:paymentId', async (c) => {
   try {
-    const orderId = c.req.param('orderId')
-    if (!orderId) return c.json({ pago: false, mensagem: 'orderId ausente' }, 400)
+    const paymentId = c.req.param('paymentId')
+    if (!paymentId) return c.json({ pago: false, mensagem: 'paymentId ausente' }, 400)
 
-    const { pago, status } = await verificarOrderPagBank(c.env as any, orderId)
+    const { pago, status } = await verificarPaymentAsaas(c.env as any, paymentId)
 
     if (pago) {
-      // Sincronizar status no KV (pode ter chegado webhook; mas polling é backup)
+      // Sincronizar status no KV (polling como backup do webhook)
       const kv = getKV(c.env as any)
       if (kv) {
-        const userId = await kvGetOrderIndex(kv, orderId)
+        const userId = await kvGetPaymentIndex(kv, paymentId)
         if (userId) {
           const assin = await kvGetAssinatura(kv, userId)
           if (assin && assin.status === 'PENDING') {
@@ -2751,8 +2738,8 @@ app.get('/api/pagbank/verificar/:orderId', async (c) => {
   }
 })
 
-// POST /api/pagbank/renovar — gera novo PIX para usuário PENDING ou SUSPENDED
-app.post('/api/pagbank/renovar', async (c) => {
+// POST /api/asaas/renovar — gera novo PIX para usuário PENDING ou SUSPENDED
+app.post('/api/asaas/renovar', async (c) => {
   try {
     const body = await c.req.json() as any
     const { userId } = body
@@ -2773,34 +2760,37 @@ app.post('/api/pagbank/renovar', async (c) => {
     const plano = planos.find((p: any) => p.id === assin.plano)
     if (!plano) return c.json({ sucesso: false, mensagem: 'Plano não encontrado.' }, 404)
 
-    // Gerar novo PIX
-    const pb = await gerarPixPagBank(c.env as any, {
+    // Gerar novo PIX avulso via Asaas
+    const valorCentavos = Math.round((plano.preco || plano.valor || 0) * 100)
+    const pix = await gerarPixAsaas(c.env as any, {
       userId,
       nome: assin.nome,
       email: assin.email,
       cpf: assin.cpf || '',
-      valor: plano.preco || plano.valor || 0,
-      descricao: `Renovação RotaPosto — ${plano.nome || assin.plano}`,
-      planId: assin.planId
+      valorCentavos,
+      planoNome: `Renovação RotaPosto — ${plano.nome || assin.plano}`,
+      planoId: assin.plano,
+      referencia: `rp-renov-${userId}-${Date.now()}`
     })
-    if (!pb.sucesso) return c.json({ sucesso: false, mensagem: pb.mensagem || 'Erro ao gerar PIX' }, 500)
+    if (!pix.sucesso) return c.json({ sucesso: false, mensagem: pix.error || 'Erro ao gerar PIX' }, 500)
 
-    // Atualizar KV com novo QR (mantém status PENDING/SUSPENDED até webhook confirmar)
-    assin.orderId = pb.orderId
-    assin.qrCode = pb.qrCode
-    assin.brcode = pb.brcode
-    assin.qrExpiraEm = pb.expiraEm
+    // Atualizar KV com novo QR (status permanece PENDING/SUSPENDED até webhook confirmar)
+    assin.orderId = pix.paymentId
+    assin.qrCode = pix.qrCode
+    assin.brcode = pix.brcode
+    assin.qrExpiraEm = pix.expiraEm
     await kvSetAssinatura(kv, assin)
 
-    // Índice reverso para webhook reconhecer este orderId
-    if (pb.orderId) await kvSetOrderIndex(kv, pb.orderId, userId)
+    // Índice reverso para webhook reconhecer este paymentId
+    if (pix.paymentId) await kvSetPaymentIndex(kv, pix.paymentId, userId)
 
     return c.json({
       sucesso: true,
-      orderId: pb.orderId,
-      qrCode: pb.qrCode,
-      brcode: pb.brcode,
-      expiraEm: pb.expiraEm,
+      paymentId: pix.paymentId,
+      orderId: pix.paymentId,
+      qrCode: pix.qrCode,
+      brcode: pix.brcode,
+      expiraEm: pix.expiraEm,
       mensagem: 'Novo PIX gerado! Pague para reativar sua assinatura.'
     })
   } catch (e) {
@@ -2808,30 +2798,31 @@ app.post('/api/pagbank/renovar', async (c) => {
   }
 })
 
-// POST /api/pagbank/webhook — recebe eventos do PagBank
-app.post('/api/pagbank/webhook', async (c) => {
+// POST /api/asaas/webhook — recebe eventos do Asaas
+app.post('/api/asaas/webhook', async (c) => {
   try {
     const body = await c.req.json() as any
-    const parsed = parsearWebhookPagBank(body)
+    const parsed = parsearWebhookAsaas(body)
 
     const kv = getKV(c.env as any)
     if (!kv) return c.json({ ok: false }, 500)
 
     const agora = Date.now()
 
-    // ── PAGO (1ª cobrança via Order PIX ou recarga manual) ──────────────────
-    if (parsed.tipo === 'PAGO' && parsed.referenceId) {
-      // Tentar resolver userId via orderId
+    // ── PAGO ────────────────────────────────────────────────────────────────
+    if (parsed.tipo === 'PAGO') {
       let userId: string | null = null
 
-      // Caso 1: referenceId é rp-order-{userId}-{ts}
-      const matchOrder = parsed.referenceId.match(/^rp-order-(.+)-\d+$/)
-      if (matchOrder) userId = matchOrder[1]
+      // Caso 1: paymentId indexado
+      if (parsed.paymentId) userId = await kvGetPaymentIndex(kv, parsed.paymentId)
 
-      // Caso 2: orderId indexado
-      if (!userId && parsed.orderId) userId = await kvGetOrderIndex(kv, parsed.orderId)
+      // Caso 2: externalReference é rp-asaas-{userId}-{ts}
+      if (!userId && parsed.referenceId) {
+        const m = parsed.referenceId.match(/^rp-(?:asaas|pix|renov)-(.+)-\d+$/)
+        if (m) userId = m[1]
+      }
 
-      // Caso 3: subscriptionId → buscar assinatura
+      // Caso 3: busca por subscriptionId
       if (!userId && parsed.subscriptionId) {
         const list = await kv.list({ prefix: 'assin:' })
         for (const k of list.keys) {
@@ -2840,9 +2831,8 @@ app.post('/api/pagbank/webhook', async (c) => {
             const raw = await kv.get(k.name)
             if (!raw) continue
             const a = JSON.parse(raw) as AssinaturaUsuario
-            if (a.subscriptionId === parsed.subscriptionId || a.orderId === parsed.orderId) {
-              userId = a.userId
-              break
+            if (a.subscriptionId === parsed.subscriptionId || a.orderId === parsed.paymentId) {
+              userId = a.userId; break
             }
           } catch {}
         }
@@ -2850,28 +2840,26 @@ app.post('/api/pagbank/webhook', async (c) => {
 
       if (userId) {
         const assin = await kvGetAssinatura(kv, userId)
-        if (assin && assin.gateway === 'pagbank') {
+        if (assin && assin.gateway === 'asaas') {
           const eraInativo = ['PENDING', 'SUSPENDED', 'EXPIRED'].includes(assin.status)
           assin.status = 'ACTIVE'
           assin.ativadaEm = assin.ativadaEm || agora
           assin.expiraEm = agora + 30 * 24 * 3600 * 1000
           assin.pagamentos = (assin.pagamentos || 0) + 1
           assin.proximoPagamento = agora + 30 * 24 * 3600 * 1000
-          // Limpar flags de inadimplência
           assin.avisoInadimplencia = false
           assin.inadimplenciaEm = undefined
           assin.lembreteEnviadoEm = undefined
           assin.suspensaoEm = undefined
           assin.tentativasSuspensao = undefined
           await kvSetAssinatura(kv, assin)
-          console.log(`[PagBank webhook] PAGO: userId=${userId}, reativado=${eraInativo}`)
+          console.log(`[Asaas webhook] PAGO: userId=${userId}, reativado=${eraInativo}`)
         }
       }
     }
 
-    // ── INADIMPLENTE (cobrança recorrente não paga no vencimento) ────────────
+    // ── INADIMPLENTE ─────────────────────────────────────────────────────────
     if (parsed.tipo === 'INADIMPLENTE' && parsed.subscriptionId) {
-      // Localizar assinatura pelo subscriptionId
       const list = await kv.list({ prefix: 'assin:' })
       for (const k of list.keys) {
         if (k.name.startsWith('assin:posto:')) continue
@@ -2880,14 +2868,11 @@ app.post('/api/pagbank/webhook', async (c) => {
           if (!raw) continue
           const assin = JSON.parse(raw) as AssinaturaUsuario
           if (assin.subscriptionId !== parsed.subscriptionId) continue
-
-          // Marcar inadimplência (D+0) — lembrete enviado
           assin.avisoInadimplencia = true
           assin.inadimplenciaEm = assin.inadimplenciaEm || agora
           assin.lembreteEnviadoEm = agora
-          // Não suspende ainda — cron faz isso no D+3
           await kvSetAssinatura(kv, assin)
-          console.log(`[PagBank webhook] INADIMPLENTE: userId=${assin.userId}, inadimplenciaEm=${assin.inadimplenciaEm}`)
+          console.log(`[Asaas webhook] INADIMPLENTE: userId=${assin.userId}`)
           break
         } catch {}
       }
@@ -2905,7 +2890,7 @@ app.post('/api/pagbank/webhook', async (c) => {
           if (assin.subscriptionId !== parsed.subscriptionId) continue
           assin.status = 'CANCELLED'
           await kvSetAssinatura(kv, assin)
-          console.log(`[PagBank webhook] CANCELADO: userId=${assin.userId}`)
+          console.log(`[Asaas webhook] CANCELADO: userId=${assin.userId}`)
           break
         } catch {}
       }
@@ -2913,7 +2898,7 @@ app.post('/api/pagbank/webhook', async (c) => {
 
     return c.json({ ok: true })
   } catch (e) {
-    console.error('[PagBank webhook] Erro:', e)
+    console.error('[Asaas webhook] Erro:', e)
     return c.json({ ok: false, error: String(e) }, 500)
   }
 })
@@ -11317,7 +11302,7 @@ app.delete('/api/admin/planos-posto/:id', async (c) => {
 const PAGAMENTO_CONFIG_KEY = 'admin:config_pagamento'
 
 interface ConfigPagamento {
-  gateway: 'woovi' | 'mercadopago' | 'pagbank'  // gateway ativo
+  gateway: 'woovi' | 'mercadopago' | 'asaas'  // gateway ativo
   pixAtivo: boolean
   cartaoAtivo: boolean
   // Credenciais salvas pelo admin (fallback para env secrets)
@@ -11326,11 +11311,11 @@ interface ConfigPagamento {
   mpPublicKey?: string     // Public Key do Mercado Pago (APP_USR-...)
   mpClientId?: string      // Client ID do Mercado Pago (numérico)
   mpClientSecret?: string  // Client Secret do Mercado Pago
-  pagbankToken?: string    // Bearer Token do PagBank
+  asaasApiKey?: string     // API Key do Asaas ($aact_prod_...)
   // Status: definido ao testar conexão
   statusWoovi?:   'ok' | 'erro' | 'nao_configurado'
   statusMP?:      'ok' | 'erro' | 'nao_configurado'
-  statusPagBank?: 'ok' | 'erro' | 'nao_configurado'
+  statusAsaas?:   'ok' | 'erro' | 'nao_configurado'
   atualizadoEm?: number
 }
 
@@ -11351,10 +11336,10 @@ app.get('/api/admin/config/pagamento', async (c) => {
   if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
   const config = await getConfigPagamento(kv)
   // Verificar credenciais nos env secrets
-  const temWooviEnv   = Boolean((c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || (c.env as any)?.WOOVI_API_KEY)
-  const temMPEnv      = Boolean((c.env as any)?.MP_ACCESS_TOKEN)
-  const temPagBankEnv = Boolean((c.env as any)?.PAGBANK_TOKEN)
-  return c.json({ config, temWooviEnv, temMPEnv, temPagBankEnv })
+  const temWooviEnv  = Boolean((c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || (c.env as any)?.WOOVI_API_KEY)
+  const temMPEnv     = Boolean((c.env as any)?.MP_ACCESS_TOKEN)
+  const temAsaasEnv  = Boolean((c.env as any)?.ASAAS_API_KEY)
+  return c.json({ config, temWooviEnv, temMPEnv, temAsaasEnv })
 })
 
 // POST /api/admin/config/pagamento
@@ -11425,19 +11410,19 @@ app.post('/api/admin/config/pagamento/testar', async (c) => {
     }
   }
 
-  if (gateway === 'pagbank') {
-    const pbToken = (c.env as any)?.PAGBANK_TOKEN || config.pagbankToken || ''
-    if (!pbToken) {
-      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusPagBank: 'nao_configurado', atualizadoEm: Date.now() }))
-      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'Token PagBank não configurado. Insira a chave no campo Credenciais.' })
+  if (gateway === 'asaas') {
+    const asaasKey = (c.env as any)?.ASAAS_API_KEY || config.asaasApiKey || ''
+    if (!asaasKey) {
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusAsaas: 'nao_configurado', atualizadoEm: Date.now() }))
+      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'API Key Asaas não configurada. Insira a chave no campo Credenciais.' })
     }
     try {
-      const r = await testarConexaoPagBank(pbToken)
-      const statusPagBank = r.ok ? 'ok' : 'erro'
-      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusPagBank, atualizadoEm: Date.now() }))
-      return c.json({ ok: r.ok, status: statusPagBank, mensagem: r.mensagem })
+      const r = await testarConexaoAsaas(asaasKey)
+      const statusAsaas = r.ok ? 'ok' : 'erro'
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusAsaas, atualizadoEm: Date.now() }))
+      return c.json({ ok: r.ok, status: statusAsaas, mensagem: r.mensagem })
     } catch (e) {
-      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusPagBank: 'erro', atualizadoEm: Date.now() }))
+      await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusAsaas: 'erro', atualizadoEm: Date.now() }))
       return c.json({ ok: false, status: 'erro', mensagem: 'Falha de rede: ' + String(e) })
     }
   }
@@ -14614,32 +14599,32 @@ app.get('/admin', (c) => {
             <div style="margin-top:10px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: mercadopago.com.br → Suas integrações → Credenciais de produção</div>
           </div>
 
-          <!-- ═══ PagBank ═══ -->
-          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(255,179,0,0.15)" id="card-cred-pb">
+          <!-- ═══ Asaas ═══ -->
+          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(0,189,126,0.2)" id="card-cred-pb">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-              <div style="width:34px;height:34px;border-radius:10px;background:rgba(255,179,0,0.15);display:flex;align-items:center;justify-content:center;font-size:18px">🏦</div>
+              <div style="width:34px;height:34px;border-radius:10px;background:rgba(0,189,126,0.15);display:flex;align-items:center;justify-content:center;font-size:18px">💚</div>
               <div>
-                <div style="font-size:13px;font-weight:700;color:#fff">PagBank</div>
+                <div style="font-size:13px;font-weight:700;color:#fff">Asaas</div>
                 <div style="font-size:11px;color:rgba(255,255,255,0.3)">1 chave necessária</div>
               </div>
               <span id="cred-status-pb" style="margin-left:auto;font-size:11px;font-weight:700"></span>
             </div>
-            <!-- Bearer Token -->
+            <!-- API Key -->
             <div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:5px;font-weight:600;letter-spacing:0.5px">BEARER TOKEN</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:5px;font-weight:600;letter-spacing:0.5px">API KEY</div>
               <div style="display:flex;gap:8px">
                 <div style="flex:1;position:relative">
-                  <input id="cred-input-pb" type="password" placeholder="650cf0fa-xxxx-xxxx-xxxx-xxxx..." autocomplete="off"
+                  <input id="cred-input-pb" type="password" placeholder="$aact_prod_..." autocomplete="off"
                     style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 42px 10px 12px;color:#fff;font-size:11px;font-family:monospace;outline:none;transition:border 0.2s"
-                    onfocus="this.style.borderColor='rgba(255,179,0,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                    onfocus="this.style.borderColor='rgba(0,189,126,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
                     oninput="marcarCredAlterada('pb')" />
                   <span onclick="toggleVerChave('pb')" id="eye-pb" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:13px">👁</span>
                 </div>
                 <button onclick="salvarCredencial('pb')" id="btn-cred-pb"
-                  style="background:#FFB300;color:#000;border:none;padding:0 16px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.4;pointer-events:none;transition:all 0.2s"
+                  style="background:#00BD7E;color:#fff;border:none;padding:0 16px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.4;pointer-events:none;transition:all 0.2s"
                   disabled>Salvar</button>
               </div>
-              <div style="margin-top:5px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: minhaconta.pagbank.com → APIs & Integrações → Token de Segurança</div>
+              <div style="margin-top:5px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: app.asaas.com → Integrações → API Key → Chave de API</div>
             </div>
           </div>
 
@@ -14692,21 +14677,22 @@ app.get('/admin', (c) => {
             </div>
           </div>
 
-          <!-- PagBank Webhook -->
-          <div style="background:#0A1520;border-radius:12px;padding:16px;border:1px solid rgba(255,179,0,0.12)">
+          <!-- Asaas Webhook -->
+          <div style="background:#0A1520;border-radius:12px;padding:16px;border:1px solid rgba(0,189,126,0.15)">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-              <span style="font-size:18px">🏦</span>
+              <span style="font-size:18px">💚</span>
               <div>
-                <div style="font-size:12px;font-weight:700;color:#fff">PagBank</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.3)">Minha Conta → APIs & Integrações → Notificações</div>
+                <div style="font-size:12px;font-weight:700;color:#fff">Asaas</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3)">app.asaas.com → Configurações → Notificações → Webhook</div>
               </div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-              <div style="flex:1;background:rgba(255,179,0,0.06);border:1px solid rgba(255,179,0,0.15);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:11px;color:#FFB300;word-break:break-all" id="wh-url-pb">https://rotaposto.com.br/api/pagbank/webhook</div>
-              <button onclick="copiarWebhook('pb')" style="background:rgba(255,179,0,0.15);color:#FFB300;border:1px solid rgba(255,179,0,0.3);padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all 0.2s" id="btn-copy-pb"><i class="fas fa-copy" style="margin-right:5px"></i>Copiar</button>
+              <div style="flex:1;background:rgba(0,189,126,0.06);border:1px solid rgba(0,189,126,0.18);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:11px;color:#00BD7E;word-break:break-all" id="wh-url-pb">https://rotaposto.com.br/api/asaas/webhook</div>
+              <button onclick="copiarWebhook('pb')" style="background:rgba(0,189,126,0.15);color:#00BD7E;border:1px solid rgba(0,189,126,0.3);padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all 0.2s" id="btn-copy-pb"><i class="fas fa-copy" style="margin-right:5px"></i>Copiar</button>
             </div>
             <div style="font-size:10px;color:rgba(255,255,255,0.25);line-height:1.5">
-              Eventos a marcar: <code style="color:#FFB300">TRANSACTION_PAID</code>, <code style="color:#FFB300">SUBSCRIPTION_CHARGE_PAID</code>, <code style="color:#FFB300">SUBSCRIPTION_CHARGE_OVERDUE</code>
+              Eventos a marcar: <code style="color:#00BD7E">PAYMENT_RECEIVED</code>, <code style="color:#00BD7E">PAYMENT_OVERDUE</code>, <code style="color:#00BD7E">SUBSCRIPTION_DELETED</code><br>
+              Link direto: <a href="https://app.asaas.com/webhooks" target="_blank" style="color:#00BD7E">app.asaas.com → Configurações → Integrações → Webhooks</a>
             </div>
           </div>
 
@@ -14776,7 +14762,7 @@ app.get('/admin', (c) => {
         </div>
         <div style="margin-top:14px;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6">
           💡 As chaves podem ser inseridas diretamente no card <strong style="color:rgba(255,255,255,0.4)">Credenciais de Integração</strong> acima, ou configuradas como Secrets no Cloudflare Workers.<br>
-          Variáveis alternativas: <code style="color:#00C853">WOOVI_API_KEY</code> &nbsp;|&nbsp; <code style="color:#42A5F5">MP_ACCESS_TOKEN</code> &nbsp;|&nbsp; <code style="color:#FFB300">PAGBANK_TOKEN</code>
+          Variáveis alternativas: <code style="color:#00C853">WOOVI_API_KEY</code> &nbsp;|&nbsp; <code style="color:#42A5F5">MP_ACCESS_TOKEN</code> &nbsp;|&nbsp; <code style="color:#00BD7E">ASAAS_API_KEY</code>
         </div>
       </div>
     </div>
@@ -17601,19 +17587,19 @@ async function alterarPermissao(uid, acao) {
 // ════════════════════════════════════════════════════════════
 
 // ─── PAGAMENTOS — config gateway + métodos ───────────────────────────────────
-var _pgConfig = { gateway: 'woovi', pixAtivo: true, cartaoAtivo: true, statusWoovi: null, statusMP: null, statusPagBank: null };
+var _pgConfig = { gateway: 'woovi', pixAtivo: true, cartaoAtivo: true, statusWoovi: null, statusMP: null, statusAsaas: null };
 var _pgTemWooviEnv = false;
 var _pgTemMPEnv = false;
-var _pgTemPagBankEnv = false;
+var _pgTemAsaasEnv = false;
 
 async function carregarConfigPagamento() {
   try {
     const res = await fetch('/api/admin/config/pagamento?key=' + encodeURIComponent(ADMIN_KEY));
     const data = await res.json();
     _pgConfig = data.config || _pgConfig;
-    _pgTemWooviEnv   = data.temWooviEnv   || Boolean(_pgConfig.wooviAppId)   || false;
-    _pgTemMPEnv      = data.temMPEnv      || Boolean(_pgConfig.mpAccessToken) || false;
-    _pgTemPagBankEnv = data.temPagBankEnv || Boolean(_pgConfig.pagbankToken)  || false;
+    _pgTemWooviEnv  = data.temWooviEnv  || Boolean(_pgConfig.wooviAppId)   || false;
+    _pgTemMPEnv     = data.temMPEnv     || Boolean(_pgConfig.mpAccessToken) || false;
+    _pgTemAsaasEnv  = data.temAsaasEnv  || Boolean(_pgConfig.asaasApiKey)   || false;
   } catch(e) { console.warn('carregarConfigPagamento:', e); }
   renderGatewayCards();
   renderMetodoToggles();
@@ -17646,14 +17632,14 @@ function renderGatewayCards() {
       status: _pgConfig.statusMP
     },
     {
-      id: 'pagbank',
-      nome: 'PagBank',
+      id: 'asaas',
+      nome: 'Asaas',
       sub: 'PIX recorrente + suspensão automática',
-      icon: '🏦',
-      cor: '#FFB300',
+      icon: '💚',
+      cor: '#00BD7E',
       desc: 'PIX recorrente com cobrança automática. Lembrete de inadimplência + suspensão D+3 + reativação via PIX.',
-      temEnv: _pgTemPagBankEnv,
-      status: _pgConfig.statusPagBank
+      temEnv: _pgTemAsaasEnv,
+      status: _pgConfig.statusAsaas
     }
   ];
   el.innerHTML = gateways.map(function(g) {
@@ -17663,7 +17649,7 @@ function renderGatewayCards() {
     var statusColor = g.status === 'ok' ? '#00C853' : g.status === 'erro' ? '#FF5252' : 'rgba(255,255,255,0.25)';
     return '<div onclick="selecionarGateway(&apos;' + g.id + '&apos;)" style="'
       + 'cursor:pointer;border-radius:16px;padding:20px;flex:1;min-width:240px;max-width:320px;'
-      + 'background:' + (ativo ? 'rgba(' + (g.id==='woovi'?'0,200,83':g.id==='pagbank'?'255,179,0':'66,165,245') + ',0.08)' : 'rgba(255,255,255,0.03)') + ';'
+      + 'background:' + (ativo ? 'rgba(' + (g.id==='woovi'?'0,200,83':g.id==='asaas'?'0,189,126':'66,165,245') + ',0.08)' : 'rgba(255,255,255,0.03)') + ';'
       + 'border:2px solid ' + (ativo ? g.cor : 'rgba(255,255,255,0.08)') + ';'
       + 'transition:all 0.2s;position:relative'
       + '">'
@@ -17725,10 +17711,10 @@ function renderIntegracaoStatus() {
       varEnv: 'MP_ACCESS_TOKEN'
     },
     {
-      id: 'pagbank',
-      nome: 'PagBank', icon: '🏦', cor: '#FFB300',
-      temEnv: _pgTemPagBankEnv, status: _pgConfig.statusPagBank,
-      varEnv: 'PAGBANK_TOKEN'
+      id: 'asaas',
+      nome: 'Asaas', icon: '💚', cor: '#00BD7E',
+      temEnv: _pgTemAsaasEnv, status: _pgConfig.statusAsaas,
+      varEnv: 'ASAAS_API_KEY'
     }
   ];
   el.innerHTML = items.map(function(it) {
@@ -17864,10 +17850,10 @@ var _credMap = {
   'mp-pk':   'mpPublicKey',
   'mp-cid':  'mpClientId',
   'mp-cs':   'mpClientSecret',
-  'pb':      'pagbankToken'
+  'pb':      'asaasApiKey'
 };
 // Cor de destaque por gateway
-var _credCors = { woovi: '#00C853', 'mp': '#42A5F5', 'mp-pk': '#42A5F5', 'mp-cid': '#42A5F5', 'mp-cs': '#42A5F5', pb: '#FFB300' };
+var _credCors = { woovi: '#00C853', 'mp': '#42A5F5', 'mp-pk': '#42A5F5', 'mp-cid': '#42A5F5', 'mp-cs': '#42A5F5', pb: '#00BD7E' };
 // Gateway pai de cada campo (para atualizar status do card-pai)
 var _credGateway = { 'woovi': 'woovi', 'mp': 'mp', 'mp-pk': 'mp', 'mp-cid': 'mp', 'mp-cs': 'mp', 'pb': 'pb' };
 
@@ -17901,7 +17887,7 @@ function _popularInputsCredenciais(config) {
   var gatewayInfo = {
     woovi: { cor: '#00C853', borderOk: 'rgba(0,200,83,0.35)', borderWarn: 'rgba(255,179,0,0.25)' },
     mp:    { cor: '#42A5F5', borderOk: 'rgba(66,165,245,0.35)', borderWarn: 'rgba(255,179,0,0.25)' },
-    pb:    { cor: '#FFB300', borderOk: 'rgba(255,179,0,0.45)', borderWarn: 'rgba(255,179,0,0.25)' }
+    pb:    { cor: '#00BD7E', borderOk: 'rgba(0,189,126,0.45)', borderWarn: 'rgba(0,189,126,0.25)' }
   };
   ['woovi', 'mp', 'pb'].forEach(function(gw) {
     var cnt = contadores[gw];
@@ -17928,7 +17914,7 @@ function _popularInputsCredenciais(config) {
 
   // Badge do header geral
   var totalGeral = contadores.woovi + contadores.mp + contadores.pb;
-  var maxGeral   = totais.woovi + totais.mp + totais.pb; // 1+4+1 = 6
+  var maxGeral   = totais.woovi + totais.mp + totais.pb; // 1+4+1 = 6 (Woovi+4 MP+Asaas)
   var badge = document.getElementById('badge-cred-resumo');
   if (badge) {
     if (totalGeral === maxGeral) {
@@ -18044,7 +18030,7 @@ async function salvarCredencial(id) {
       // Atualizar flags temEnv locais
       if (gwPai === 'woovi') _pgTemWooviEnv = true;
       if (gwPai === 'mp')    _pgTemMPEnv    = true;
-      if (gwPai === 'pb')    _pgTemPagBankEnv = true;
+      if (gwPai === 'pb')    _pgTemAsaasEnv = true;
       // Re-popular todos os inputs para atualizar contadores e bordas
       if (data.config) _popularInputsCredenciais(data.config);
       renderIntegracaoStatus();
@@ -20971,7 +20957,7 @@ export default {
     // Sincronização ANP
     ctx.waitUntil(syncAnpScheduled(kv))
 
-    // ── PagBank: suspensão automática D+3 ───────────────────────────────────
+    // ── Asaas: suspensão automática D+3 ────────────────────────────────────
     ctx.waitUntil((async () => {
       if (!kv) return
       const agora = Date.now()
@@ -20986,9 +20972,9 @@ export default {
             if (!raw) continue
             const assin = JSON.parse(raw) as AssinaturaUsuario
 
-            // Somente assinaturas PagBank com inadimplência marcada e ainda ACTIVE
+            // Somente assinaturas Asaas com inadimplência marcada e ainda ACTIVE
             if (
-              assin.gateway !== 'pagbank' ||
+              assin.gateway !== 'asaas' ||
               !assin.avisoInadimplencia ||
               !assin.inadimplenciaEm ||
               assin.status === 'SUSPENDED' ||
@@ -21001,10 +20987,10 @@ export default {
               assin.suspensaoEm = agora
               assin.tentativasSuspensao = (assin.tentativasSuspensao || 0) + 1
               await kv.put(k.name, JSON.stringify(assin), { expirationTtl: 60 * 60 * 24 * 400 })
-              console.log(`[cron] PagBank suspensão automática: userId=${assin.userId}, inadimplenciaEm=${assin.inadimplenciaEm}`)
+              console.log(`[cron] Asaas suspensão automática: userId=${assin.userId}, inadimplenciaEm=${assin.inadimplenciaEm}`)
             }
           } catch (e) {
-            console.error('[cron] Erro ao processar inadimplência PagBank:', e)
+            console.error('[cron] Erro ao processar inadimplência Asaas:', e)
           }
         }
       } catch (e) {
