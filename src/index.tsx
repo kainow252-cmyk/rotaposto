@@ -11119,6 +11119,225 @@ app.post('/api/admin/script/propagar-logos', async (c) => {
   return c.json({ ok: true, total: listaR2.length, atualizados, ignorados, erros, resultados })
 })
 
+// ─── POST /api/admin/script/auto-fotos — busca foto Google Places + logo SVG automaticamente ──
+app.post('/api/admin/script/auto-fotos', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+
+  const kv = getKV(c.env as any)
+  const r2 = (c.env as Record<string,unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+  if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 500)
+
+  // Mapa de bandeira → URL do logo SVG (mesmo mapeamento do app)
+  const logoSvgPorBandeira = (bandeira: string): string | null => {
+    if (!bandeira) return null
+    const n = bandeira.toUpperCase()
+    if (n.includes('SHELL'))                                             return 'https://rotaposto.com.br/static/logos/shell.svg'
+    if (n.includes('PETROBRAS') || /\bBR\b/.test(n))                    return 'https://rotaposto.com.br/static/logos/br.svg'
+    if (n.includes('IPIRANGA'))                                          return 'https://rotaposto.com.br/static/logos/ipiranga.svg'
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN'))                   return 'https://rotaposto.com.br/static/logos/raizen.svg'
+    if (/\bALE\b/.test(n) || n.includes('ALEPOSTO'))                    return 'https://rotaposto.com.br/static/logos/ale.svg'
+    if (n.includes('TEXACO'))                                            return 'https://rotaposto.com.br/static/logos/texaco.svg'
+    if (n.includes('VIBRA'))                                             return 'https://rotaposto.com.br/static/logos/vibra.svg'
+    if (n.includes('ESSO'))                                              return 'https://rotaposto.com.br/static/logos/esso.svg'
+    if (n.includes('PITSTOP') || n.includes('PIT STOP'))                return 'https://rotaposto.com.br/static/logos/pitstop.svg'
+    if (n.includes('BANDEIRANTE'))                                       return 'https://rotaposto.com.br/static/logos/bandeirante.svg'
+    if (n.includes('COPAGAZ'))                                           return 'https://rotaposto.com.br/static/logos/copagaz.svg'
+    if (n.includes('ULTRAGAZ'))                                          return 'https://rotaposto.com.br/static/logos/ultragaz.svg'
+    if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS'))          return 'https://rotaposto.com.br/static/logos/supergasbras.svg'
+    return null // Independente → sem logo automático
+  }
+
+  // Busca foto real + rating do Google Places por nome+cidade (Text Search)
+  const buscarFotoGoogle = async (nomePosto: string, cidade: string, lat?: number | null, lng?: number | null): Promise<{ fotoUrl: string | null; rating: number | null; placeId: string | null }> => {
+    if (!googleKey) return { fotoUrl: null, rating: null, placeId: null }
+    try {
+      // Se temos coordenadas, usar Nearby Search (mais preciso)
+      if (lat && lng) {
+        const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': googleKey,
+            'X-Goog-FieldMask': 'places.id,places.displayName,places.photos,places.rating',
+            'Accept-Language': 'pt-BR'
+          },
+          body: JSON.stringify({
+            includedTypes: ['gas_station'],
+            maxResultCount: 3,
+            locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: 100 } },
+            rankPreference: 'DISTANCE'
+          }),
+          signal: AbortSignal.timeout(8000)
+        })
+        if (res.ok) {
+          const json = await res.json() as any
+          const place = (json.places || [])[0]
+          if (place) {
+            let fotoUrl: string | null = null
+            if (place.photos?.length > 0) {
+              const photoRef = place.photos[0].name
+              fotoUrl = `https://places.googleapis.com/v1/${photoRef}/media?key=${googleKey}&maxWidthPx=800`
+            }
+            return { fotoUrl, rating: place.rating || null, placeId: place.id || null }
+          }
+        }
+      }
+      // Fallback: Text Search por nome + cidade
+      const query = encodeURIComponent(`${nomePosto} ${cidade} posto combustivel`)
+      const res2 = await fetch(`https://places.googleapis.com/v1/places:searchText`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': googleKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.photos,places.rating',
+          'Accept-Language': 'pt-BR'
+        },
+        body: JSON.stringify({ textQuery: `${nomePosto} ${cidade}`, includedType: 'gas_station', maxResultCount: 1 }),
+        signal: AbortSignal.timeout(8000)
+      })
+      if (!res2.ok) return { fotoUrl: null, rating: null, placeId: null }
+      const json2 = await res2.json() as any
+      const place2 = (json2.places || [])[0]
+      if (!place2) return { fotoUrl: null, rating: null, placeId: null }
+      let fotoUrl2: string | null = null
+      if (place2.photos?.length > 0) {
+        const photoRef = place2.photos[0].name
+        fotoUrl2 = `https://places.googleapis.com/v1/${photoRef}/media?key=${googleKey}&maxWidthPx=800`
+      }
+      return { fotoUrl: fotoUrl2, rating: place2.rating || null, placeId: place2.id || null }
+    } catch { return { fotoUrl: null, rating: null, placeId: null } }
+  }
+
+  // 1. Listar todos os parceiros
+  const listaR2: Array<{ id: string; data: Record<string,unknown> }> = []
+  if (r2) {
+    try {
+      const listed = await r2.list({ prefix: 'parceiro--' })
+      for (const obj of listed.objects) {
+        const id = obj.key.replace('parceiro--', '')
+        if (id.startsWith('email_') || id.startsWith('cnpj_')) continue
+        try {
+          const data = await r2Get(r2, `parceiro:${id}`) as Record<string,unknown> | null
+          if (data && data.id) listaR2.push({ id: String(data.id), data })
+        } catch {}
+      }
+    } catch {}
+  }
+  if (listaR2.length === 0 && kv) {
+    try {
+      const kvList = await kv.list({ prefix: 'parceiro:' })
+      for (const k of kvList.keys) {
+        const seg = k.name.replace('parceiro:', '')
+        if (seg.startsWith('sess_') || seg.startsWith('email_') || seg.startsWith('cnpj_')) continue
+        try {
+          const raw = await kv.get(k.name)
+          if (!raw) continue
+          const data = JSON.parse(raw) as Record<string,unknown>
+          if (data?.id) listaR2.push({ id: String(data.id), data })
+        } catch {}
+      }
+    } catch {}
+  }
+
+  const resultados: Array<Record<string,unknown>> = []
+  let logosSalvos = 0, fotosSalvas = 0, jaOkCount = 0, erros = 0
+
+  for (const { id, data } of listaR2) {
+    if (id === 'p_teste') continue
+    const nomePosto = String(data.nomePosto || '')
+    const bandeira  = String(data.bandeira  || '')
+    const cidade    = String(data.cidade    || '')
+    const lat       = data.lat  ? Number(data.lat)  : null
+    const lng       = data.lng  ? Number(data.lng)  : null
+
+    let modificado = false
+    const res: Record<string,unknown> = { id, nomePosto, bandeira, acoes: [] as string[] }
+
+    try {
+      // ── A) Logo da bandeira automático (se não tem fotoBandeira) ──
+      if (!data.fotoBandeira) {
+        const logoUrl = logoSvgPorBandeira(bandeira || nomePosto)
+        if (logoUrl) {
+          data.fotoBandeira = logoUrl
+          ;(res.acoes as string[]).push('logo_svg:' + logoUrl.split('/').pop())
+          logosSalvos++
+          modificado = true
+        }
+      }
+
+      // ── B) Foto panorâmica do Google (se não tem fotoExterna) ──
+      if (!data.fotoExterna) {
+        const { fotoUrl, rating, placeId } = await buscarFotoGoogle(nomePosto, cidade, lat, lng)
+        if (fotoUrl) {
+          data.fotoExterna = fotoUrl
+          ;(res.acoes as string[]).push('foto_google:ok')
+          fotosSalvas++
+          modificado = true
+        } else {
+          ;(res.acoes as string[]).push('foto_google:nao_encontrada')
+        }
+        if (rating && !data.rating) { data.rating = rating; modificado = true }
+        if (placeId && !data.googlePlaceId) { data.googlePlaceId = placeId; modificado = true }
+        res.rating = rating
+        res.placeId = placeId
+      }
+
+      if (!modificado) {
+        jaOkCount++
+        res.status = 'ja_tem_foto'
+        resultados.push(res)
+        continue
+      }
+
+      // Salvar parceiro atualizado
+      if (r2) {
+        await r2Put(r2, `parceiro:${id}`, data)
+      } else if (kv) {
+        await kv.put(`parceiro:${id}`, JSON.stringify(data), { expirationTtl: 365 * 24 * 3600 })
+      }
+
+      // Propagar para posto:band KV (usado na lista/mapa)
+      const fotoFinal = data.fotoExterna ? String(data.fotoExterna) : (data.fotoBandeira ? String(data.fotoBandeira) : null)
+      if (fotoFinal) {
+        const bandKey = `posto:band:${id}`
+        const bandRaw = await kv.get(bandKey)
+        const band: Record<string,unknown> = bandRaw ? JSON.parse(bandRaw) : { postoId: id }
+        band.fotoUrl = fotoFinal
+        band.fotoTs  = Date.now()
+        await kv.put(bandKey, JSON.stringify(band), { expirationTtl: 365 * 24 * 3600 })
+        const cnpjStr = data.cnpj ? String(data.cnpj).replace(/[^0-9]/g, '') : ''
+        if (cnpjStr && cnpjStr.length >= 11) {
+          const ck = `posto:band:posto_${cnpjStr}`
+          const cr = await kv.get(ck)
+          const cb: Record<string,unknown> = cr ? JSON.parse(cr) : { postoId: `posto_${cnpjStr}` }
+          cb.fotoUrl = fotoFinal; cb.fotoTs = Date.now(); cb.parceiroId = id
+          await kv.put(ck, JSON.stringify(cb), { expirationTtl: 365 * 24 * 3600 })
+        }
+      }
+
+      res.status = 'atualizado'
+      resultados.push(res)
+    } catch(e) {
+      erros++
+      resultados.push({ id, nomePosto, status: 'erro', msg: String(e) })
+    }
+  }
+
+  return c.json({
+    ok: true,
+    total: listaR2.length,
+    logosSalvos,
+    fotosSalvas,
+    jaOkCount,
+    erros,
+    googleKeyDisponivel: !!googleKey,
+    resultados
+  })
+})
+
 // ─── GET /api/admin/parceiros — lista TODOS os postos (R2 + KV fallback + p_teste persistido) ──
 app.get('/api/admin/parceiros', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -12391,11 +12610,16 @@ app.get('/admin', (c) => {
         <button id="btn-propagar-logos" onclick="rodarPropagacaoLogos()" style="background:linear-gradient(135deg,#1565C0,#0D47A1);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Raleway',sans-serif" title="Propaga foto de cada parceiro para a lista e mapa de usuários">
           <i class="fas fa-share-alt"></i> Propagar logos no mapa/lista
         </button>
+        <button id="btn-auto-fotos" onclick="rodarAutoFotos()" style="background:linear-gradient(135deg,#00695C,#004D40);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Raleway',sans-serif" title="Busca foto real do Google Maps e logo da bandeira automaticamente para todos os postos sem foto">
+          <i class="fas fa-magic"></i> Buscar fotos Google auto
+        </button>
         <button class="btn-refresh" onclick="toggleParceirosTabela(true);carregarParceirosCadastrados()"><i class="fas fa-sync-alt"></i> Atualizar</button>
       </div>
     </div>
     <!-- Resultado da propagação de logos -->
     <div id="propagar-logos-resultado" style="display:none;background:rgba(21,101,192,0.12);border:1px solid rgba(21,101,192,0.3);border-radius:12px;padding:14px 18px;margin-bottom:14px;font-size:12px;color:#90CAF9"></div>
+    <!-- Resultado auto-fotos -->
+    <div id="auto-fotos-resultado" style="display:none;background:rgba(0,105,92,0.12);border:1px solid rgba(0,105,92,0.4);border-radius:12px;padding:14px 18px;margin-bottom:14px;font-size:12px;color:#80CBC4"></div>
 
     <!-- Filtros -->
     <div class="section-card" style="padding:16px 20px;margin-bottom:14px">
@@ -14279,6 +14503,53 @@ async function rodarPropagacaoLogos() {
     showToast('❌ Erro ao propagar logos: ' + e.message, 'err');
   } finally {
     btn.innerHTML = '<i class="fas fa-share-alt"></i> Propagar logos no mapa/lista';
+    btn.style.pointerEvents = '';
+  }
+}
+
+// ─── Script: buscar fotos Google e logos automático ──────────────────────────
+async function rodarAutoFotos() {
+  const btn = document.getElementById('btn-auto-fotos');
+  const resultado = document.getElementById('auto-fotos-resultado');
+  if (!btn || !resultado) return;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos...';
+  btn.style.pointerEvents = 'none';
+  resultado.style.display = 'block';
+  resultado.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando fotos reais do Google Maps e logos das bandeiras — aguarde...';
+  try {
+    const r = await fetch('/api/admin/script/auto-fotos?key=' + encodeURIComponent(ADMIN_KEY), { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao buscar fotos');
+    const linhas = (d.resultados || []).map(function(x) {
+      const icone = x.status === 'atualizado' ? '✅' : x.status === 'ja_tem_foto' ? '⚪' : '❌';
+      const acoes = (x.acoes || []).map(function(a) {
+        if (a.startsWith('logo_svg:'))   return '<span style="color:#FFD600">🏷️ logo: ' + a.replace('logo_svg:','') + '</span>';
+        if (a === 'foto_google:ok')       return '<span style="color:#69F0AE">📸 foto Google ✓</span>';
+        if (a === 'foto_google:nao_encontrada') return '<span style="color:#888">📸 Google: não encontrada</span>';
+        return a;
+      }).join(' | ');
+      const rating = x.rating ? ' ★' + x.rating : '';
+      return icone + ' <b>' + (x.nomePosto || x.id) + '</b> ' + (acoes || '') + rating;
+    }).join('<br>');
+    const googleOk = d.googleKeyDisponivel
+      ? '<span style="color:#69F0AE">✓ Google API disponível</span>'
+      : '<span style="color:#FF8A65">⚠️ Google API KEY ausente — só logos salvos</span>';
+    resultado.innerHTML =
+      '<b style="color:#fff">✅ Auto-fotos concluído!</b> ' + googleOk + '<br>' +
+      '<span style="color:#80CBC4">Logos salvos: <b>' + d.logosSalvos + '</b></span> &nbsp;|&nbsp; ' +
+      '<span style="color:#A5D6A7">Fotos Google: <b>' + d.fotosSalvas + '</b></span> &nbsp;|&nbsp; ' +
+      '<span style="color:#888">Já ok: <b>' + d.jaOkCount + '</b></span> &nbsp;|&nbsp; ' +
+      '<span style="color:#EF9A9A">Erros: <b>' + d.erros + '</b></span> &nbsp;|&nbsp; ' +
+      'Total: <b>' + d.total + '</b>' +
+      (linhas ? '<div style="margin-top:10px;max-height:220px;overflow-y:auto;font-size:11px;line-height:2">' + linhas + '</div>' : '');
+    showToast('✅ Fotos: ' + d.fotosSalvas + ' Google | ' + d.logosSalvos + ' logos salvos!', 'ok');
+    // Auto-rodar propagar-logos para refletir as novas fotos no mapa/lista
+    setTimeout(rodarPropagacaoLogos, 800);
+  } catch(e) {
+    resultado.innerHTML = '❌ Erro: ' + e.message;
+    showToast('❌ Erro ao buscar fotos: ' + e.message, 'err');
+  } finally {
+    btn.innerHTML = '<i class="fas fa-magic"></i> Buscar fotos Google auto';
     btn.style.pointerEvents = '';
   }
 }
