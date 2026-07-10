@@ -16097,45 +16097,39 @@ function renderizarAbasPlanosApp() {
   if (!tabs) return;
   var cards = _planosAppData.map(function(p, i) {
     var cor = p.cor || '#42A5F5';
-    var rgb = _hexToRgb(cor);
     var isAtivo = i === _planoAppTabIdx;
     var preco = p.valor ? 'R$ ' + (p.valor/100).toFixed(2).replace('.',',') : 'Grátis';
     var cicloLabel = { forever:'', monthly:'/mês', yearly:'/ano', weekly:'/sem' }[p.ciclo] || '';
     return '<div onclick="selecionarPlanoAppTab(' + i + ')" style="'
-      + 'cursor:pointer;border-radius:20px;padding:0;text-align:center;'
-      + 'border:2.5px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.07)') + ';'
-      + 'background:' + (isAtivo ? 'linear-gradient(145deg,rgba(' + rgb + ',0.18) 0%,rgba(' + rgb + ',0.06) 100%)' : 'rgba(255,255,255,0.025)') + ';'
-      + 'transition:all 0.25s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;flex-shrink:0;'
-      + 'box-shadow:' + (isAtivo ? '0 8px 32px rgba(' + rgb + ',0.28),inset 0 1px 0 rgba(255,255,255,0.1)' : '0 2px 8px rgba(0,0,0,0.2)') + ';'
-      + 'transform:' + (isAtivo ? 'translateY(-3px) scale(1.02)' : 'none') + ';'
+      + 'cursor:pointer;border-radius:12px;padding:0;text-align:center;width:130px;flex-shrink:0;'
+      + 'border:1.5px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.08)') + ';'
+      + 'background:' + (isAtivo ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)') + ';'
+      + 'transition:all 0.18s ease;position:relative;overflow:hidden;'
       + '">'
-      // Barra gradiente topo
-      + '<div style="height:5px;background:linear-gradient(90deg,' + cor + ' 0%,' + cor + '55 100%);opacity:' + (isAtivo ? '1' : '0.3') + '"></div>'
-      // Conteúdo do card
-      + '<div style="padding:18px 14px 16px">'
+      // Barra cor topo — só no selecionado
+      + (isAtivo ? '<div style="height:3px;background:' + cor + '"></div>' : '<div style="height:3px;background:rgba(255,255,255,0.05)"></div>')
+      // Conteúdo
+      + '<div style="padding:16px 12px 14px">'
       // Badge DESTAQUE
-      + (p.destaque ? '<div style="position:absolute;top:14px;right:-1px;background:linear-gradient(90deg,' + cor + ',' + cor + 'aa);color:#fff;font-size:8px;font-weight:900;padding:3px 10px;border-radius:20px 0 0 20px;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(' + rgb + ',0.4)">⭐ TOP</div>' : '')
-      // Emoji grande
-      + '<div style="font-size:32px;margin-bottom:10px;line-height:1;filter:' + (isAtivo ? 'drop-shadow(0 4px 8px rgba(' + rgb + ',0.5))' : 'grayscale(0.3) opacity(0.7)') + '">' + (p.emoji || '📦') + '</div>'
+      + (p.destaque ? '<div style="position:absolute;top:10px;right:8px;background:rgba(255,214,0,0.15);color:#FFD600;font-size:8px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:0.3px">TOP</div>' : '')
+      // Emoji
+      + '<div style="font-size:28px;margin-bottom:8px;line-height:1;opacity:' + (isAtivo ? '1' : '0.5') + '">' + (p.emoji || '📦') + '</div>'
       // Nome
-      + '<div style="font-size:11px;font-weight:900;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.4)') + ';margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">' + p.nome + '</div>'
+      + '<div style="font-size:11px;font-weight:700;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.45)') + ';margin-bottom:5px;text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.nome + '</div>'
       // Preço
-      + '<div style="font-size:14px;font-weight:800;color:' + (isAtivo ? cor : 'rgba(255,255,255,0.25)') + ';line-height:1">' + preco + '<span style="font-size:10px;font-weight:600;opacity:0.7">' + cicloLabel + '</span></div>'
+      + '<div style="font-size:12px;font-weight:700;color:' + (isAtivo ? cor : 'rgba(255,255,255,0.2)') + '">' + preco + '<span style="font-size:10px;font-weight:500">' + cicloLabel + '</span></div>'
       + '</div>'
-      // Indicador selecionado
-      + (isAtivo ? '<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:' + cor + ';opacity:0.8"></div>' : '')
       + '</div>';
   }).join('');
 
   // Card "+ Novo Plano"
   cards += '<div onclick="abrirModalNovoPlanoApp()" style="'
-    + 'cursor:pointer;border-radius:20px;padding:0;text-align:center;flex-shrink:0;'
-    + 'border:2.5px dashed rgba(255,255,255,0.12);background:rgba(255,255,255,0.02);'
-    + 'transition:all 0.2s;min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px'
+    + 'cursor:pointer;border-radius:12px;padding:0;text-align:center;flex-shrink:0;width:110px;'
+    + 'border:1.5px dashed rgba(255,255,255,0.1);background:rgba(255,255,255,0.015);'
+    + 'transition:all 0.18s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px'
     + '" class="plano-novo-card">'
-    + '<div style="width:40px;height:40px;border-radius:50%;border:2px dashed rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04)">'
-    + '<i class="fas fa-plus" style="font-size:16px;color:rgba(255,255,255,0.3)"></i></div>'
-    + '<div style="font-size:11px;font-weight:800;color:rgba(255,255,255,0.25);letter-spacing:0.5px">Novo Plano</div>'
+    + '<i class="fas fa-plus" style="font-size:18px;color:rgba(255,255,255,0.2)"></i>'
+    + '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.2)">Novo Plano</div>'
     + '</div>';
 
   tabs.innerHTML = cards;
@@ -16179,70 +16173,68 @@ function renderizarPlanoAppSelecionado() {
   }).join('');
 
   panel.innerHTML = ''
-  // Wrapper com animação de entrada
-  + '<div style="background:linear-gradient(145deg,rgba(13,27,42,1) 0%,rgba(10,20,35,1) 100%);border:2px solid rgba(' + rgb + ',0.25);border-radius:22px;overflow:hidden;width:100%;box-shadow:0 12px 48px rgba(' + rgb + ',0.12),inset 0 1px 0 rgba(255,255,255,0.05)">'
-  // Gradiente superior
-  + '<div style="height:6px;background:linear-gradient(90deg,' + cor + ' 0%,' + cor + '44 60%,transparent 100%)"></div>'
+  // Wrapper — mesma linguagem visual do section-card
+  + '<div style="border-top:1px solid rgba(255,255,255,0.06);margin-top:8px">'
+  // Faixa colorida fina sinalizando plano selecionado
+  + '<div style="height:3px;background:' + cor + ';opacity:0.6;margin-bottom:0"></div>'
 
   // ── Cabeçalho do editor ──
-  + '<div style="padding:24px 28px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+  + '<div style="padding:20px 24px 16px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
   // Emoji picker
-  +   '<div style="position:relative">'
-  +     '<input id="pa-emoji-' + i + '" type="text" maxlength="4" value="' + (p.emoji||'📦') + '" style="background:rgba(' + rgb + ',0.12);border:2px solid rgba(' + rgb + ',0.3);border-radius:14px;color:#fff;font-size:28px;text-align:center;padding:10px;width:62px;height:62px;font-family:inherit;outline:none;cursor:pointer;box-sizing:border-box">'
-  +   '</div>'
+  +   '<input id="pa-emoji-' + i + '" type="text" maxlength="4" value="' + (p.emoji||'📦') + '" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:26px;text-align:center;padding:8px;width:56px;height:56px;font-family:inherit;outline:none;cursor:pointer;box-sizing:border-box;flex-shrink:0">'
   // Nome + descrição
-  +   '<div style="flex:1;min-width:200px">'
-  +     '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Nome do plano</div>'
-  +     '<input id="pa-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g, '&quot;') + '" style="width:100%;background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:18px;font-weight:900;padding:8px 14px;font-family:inherit;outline:none;margin-bottom:8px;box-sizing:border-box;transition:border-color 0.15s" placeholder="Nome do plano">'
-  +     '<input id="pa-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g, '&quot;') + '" style="width:100%;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.06);border-radius:10px;color:rgba(255,255,255,0.5);font-size:12px;padding:7px 14px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s" placeholder="Subtítulo exibido no app...">'
+  +   '<div style="flex:1;min-width:180px">'
+  +     '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Nome do Plano</label>'
+  +     '<input id="pa-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g, '&quot;') + '" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:16px;font-weight:700;padding:7px 12px;font-family:inherit;outline:none;margin-bottom:6px;box-sizing:border-box" placeholder="Nome do plano">'
+  +     '<input id="pa-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g, '&quot;') + '" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;color:rgba(255,255,255,0.45);font-size:12px;padding:6px 12px;font-family:inherit;outline:none;box-sizing:border-box" placeholder="Subtítulo exibido no app...">'
   +   '</div>'
   // Cor
-  +   '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0">'
-  +     '<div style="font-size:9px;color:rgba(255,255,255,0.3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Cor</div>'
-  +     '<input id="pa-cor-' + i + '" type="color" value="' + cor + '" title="Cor do plano" style="width:48px;height:48px;border:2px solid rgba(255,255,255,0.12);border-radius:12px;background:rgba(255,255,255,0.04);padding:4px;cursor:pointer;flex-shrink:0">'
+  +   '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'
+  +     '<label style="font-size:9px;color:rgba(255,255,255,0.3);font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Cor</label>'
+  +     '<input id="pa-cor-' + i + '" type="color" value="' + cor + '" style="width:44px;height:44px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.04);padding:3px;cursor:pointer">'
   +   '</div>'
   + '</div>'
 
   // ── Preço + Ciclo ──
-  + '<div style="padding:20px 28px;border-bottom:1px solid rgba(255,255,255,0.06);display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px">'
+  + '<div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.06);display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px">'
   +   '<div>'
-  +     '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">💰 Preço (em centavos)</div>'
-  +     '<div style="display:flex;align-items:center;gap:8px">'
-  +       '<span style="font-size:20px;font-weight:800;color:rgba(255,255,255,0.3)">R$</span>'
-  +       '<input id="pa-valor-' + i + '" type="number" min="0" step="1" value="' + p.valor + '" ' + (isGratis ? 'disabled' : '') + ' style="background:rgba(255,255,255,0.06);border:1.5px solid ' + (isGratis ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)') + ';border-radius:12px;color:#fff;font-size:26px;font-weight:900;padding:10px 16px;width:160px;font-family:inherit;outline:none;' + (isGratis ? 'opacity:0.3;cursor:not-allowed' : '') + '">'
+  +     '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px">Preço (centavos)</label>'
+  +     '<div style="display:flex;align-items:center;gap:6px">'
+  +       '<span style="font-size:16px;font-weight:700;color:rgba(255,255,255,0.3)">R$</span>'
+  +       '<input id="pa-valor-' + i + '" type="number" min="0" step="1" value="' + p.valor + '" ' + (isGratis ? 'disabled' : '') + ' style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:22px;font-weight:800;padding:8px 12px;width:130px;font-family:inherit;outline:none;' + (isGratis ? 'opacity:0.3;cursor:not-allowed' : '') + '">'
   +     '</div>'
-  +     '<div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:6px">ex: 9900 → R$ 99,00</div>'
+  +     '<div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:5px">ex: 9900 → R$ 99,00</div>'
   +   '</div>'
   +   '<div>'
-  +     '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">🔄 Ciclo de Cobrança</div>'
-  +     '<select id="pa-ciclo-' + i + '" ' + (isGratis ? 'disabled' : '') + ' style="width:100%;background:rgba(10,20,35,0.8);border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:14px;font-weight:600;padding:12px 16px;font-family:inherit;outline:none;cursor:pointer;' + (isGratis ? 'opacity:0.3;cursor:not-allowed' : '') + '">' + cicloOpts + '</select>'
+  +     '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px">Ciclo de Cobrança</label>'
+  +     '<select id="pa-ciclo-' + i + '" ' + (isGratis ? 'disabled' : '') + ' style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-weight:600;padding:10px 12px;font-family:inherit;outline:none;cursor:pointer;' + (isGratis ? 'opacity:0.3;cursor:not-allowed' : '') + '">' + cicloOpts + '</select>'
   +   '</div>'
   + '</div>'
 
   // ── Toggle Destaque ──
-  + '<div style="padding:16px 28px;border-bottom:1px solid rgba(255,255,255,0.06)">'
-  +   '<label style="display:flex;align-items:center;gap:12px;cursor:pointer;width:fit-content;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.07);border-radius:12px;padding:12px 20px;transition:border-color 0.15s" class="plano-switch-destaque-app">'
-  +     '<input id="pa-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FFD600;width:18px;height:18px;cursor:pointer">'
-  +     '<span style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.75)">⭐ Plano em Destaque</span>'
-  +     '<span style="font-size:11px;color:rgba(255,255,255,0.3);margin-left:4px">— aparece primeiro na tela do app</span>'
+  + '<div style="padding:12px 24px;border-bottom:1px solid rgba(255,255,255,0.06)">'
+  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;width:fit-content">'
+  +     '<input id="pa-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FFD600;width:16px;height:16px;cursor:pointer">'
+  +     '<span style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.7)">⭐ Plano em Destaque</span>'
+  +     '<span style="font-size:11px;color:rgba(255,255,255,0.3)">— aparece primeiro no app</span>'
   +   '</label>'
   + '</div>'
 
   // ── Benefícios/Features ──
-  + '<div style="padding:20px 28px;border-bottom:1px solid rgba(255,255,255,0.06)">'
-  +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
-  +     '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:0.8px"><i class="fas fa-mobile-alt" style="color:' + cor + ';margin-right:8px"></i>Benefícios exibidos no App</div>'
-  +     '<button onclick="adicionarFeatureApp(' + i + ')" style="background:rgba(' + rgb + ',0.15);color:' + cor + ';border:1.5px solid rgba(' + rgb + ',0.3);border-radius:10px;padding:6px 14px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit"><i class="fas fa-plus" style="margin-right:4px"></i>Adicionar</button>'
+  + '<div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.06)">'
+  +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+  +     '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px"><i class="fas fa-mobile-alt" style="margin-right:6px;opacity:0.6"></i>Benefícios exibidos no App</label>'
+  +     '<button onclick="adicionarFeatureApp(' + i + ')" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit"><i class="fas fa-plus" style="margin-right:4px"></i>Adicionar</button>'
   +   '</div>'
-  +   '<div id="pa-features-' + i + '">' + (featuresHtml || '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.2);font-size:12px">Nenhum benefício cadastrado. Clique em Adicionar.</div>') + '</div>'
+  +   '<div id="pa-features-' + i + '">' + (featuresHtml || '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.2);font-size:12px">Nenhum benefício cadastrado.</div>') + '</div>'
   + '</div>'
 
   // ── Rodapé: ID + ações ──
-  + '<div style="padding:18px 28px;background:rgba(0,0,0,0.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'
-  +   '<div style="font-size:10px;color:rgba(255,255,255,0.15);font-family:monospace;background:rgba(255,255,255,0.04);padding:4px 10px;border-radius:6px">ID: ' + p.id + '</div>'
-  +   '<div style="display:flex;gap:10px;align-items:center">'
-  +     (!isProtected ? '<button onclick="deletarPlanoApp(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.1);color:#FF5252;border:1.5px solid rgba(255,82,82,0.2);padding:9px 18px;border-radius:12px;cursor:pointer;font-size:12px;font-weight:800;font-family:inherit"><i class="fas fa-trash" style="margin-right:6px"></i>Excluir</button>' : '')
-  +     '<button onclick="salvarPlanoApp(' + i + ',&apos;' + p.id + '&apos;)" id="pa-save-btn-' + i + '" class="plano-save-btn" style="background:linear-gradient(135deg,' + cor + ' 0%,' + cor + 'cc 100%);color:#fff;border:none;padding:11px 32px;border-radius:12px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;transition:transform 0.15s,filter 0.15s"><i class="fas fa-save" style="margin-right:8px"></i>Salvar alterações</button>'
+  + '<div style="padding:14px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'
+  +   '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace">ID: ' + p.id + '</div>'
+  +   '<div style="display:flex;gap:8px;align-items:center">'
+  +     (!isProtected ? '<button onclick="deletarPlanoApp(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.08);color:rgba(255,82,82,0.8);border:1px solid rgba(255,82,82,0.15);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit"><i class="fas fa-trash" style="margin-right:5px"></i>Excluir</button>' : '')
+  +     '<button onclick="salvarPlanoApp(' + i + ',&apos;' + p.id + '&apos;)" id="pa-save-btn-' + i + '" class="plano-save-btn" style="background:#FF6D00;color:#fff;border:none;padding:9px 24px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;transition:transform 0.15s,filter 0.15s"><i class="fas fa-save" style="margin-right:7px"></i>Salvar alterações</button>'
   +   '</div>'
   + '</div>'
   + '</div>';
@@ -16457,44 +16449,38 @@ function renderizarAbasPlanos() {
   if (!tabs) return;
   var cards = _planosData.map(function(p, i) {
     var cor = p.cor || '#FF6D00';
-    var rgb = _hexToRgb(cor);
     var isAtivo = i === _planoTabIdx;
     return '<div onclick="selecionarPlanoTab(' + i + ')" style="'
-      + 'cursor:pointer;border-radius:20px;padding:0;text-align:center;'
-      + 'border:2.5px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.07)') + ';'
-      + 'background:' + (isAtivo ? 'linear-gradient(145deg,rgba(' + rgb + ',0.18) 0%,rgba(' + rgb + ',0.06) 100%)' : 'rgba(255,255,255,0.025)') + ';'
-      + 'transition:all 0.25s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;flex-shrink:0;width:140px;'
-      + 'box-shadow:' + (isAtivo ? '0 8px 32px rgba(' + rgb + ',0.28),inset 0 1px 0 rgba(255,255,255,0.1)' : '0 2px 8px rgba(0,0,0,0.2)') + ';'
-      + 'transform:' + (isAtivo ? 'translateY(-3px) scale(1.02)' : 'none') + ';'
+      + 'cursor:pointer;border-radius:12px;padding:0;text-align:center;width:130px;flex-shrink:0;'
+      + 'border:1.5px solid ' + (isAtivo ? cor : 'rgba(255,255,255,0.08)') + ';'
+      + 'background:' + (isAtivo ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)') + ';'
+      + 'transition:all 0.18s ease;position:relative;overflow:hidden;'
       + '">'
-      // Barra colorida topo
-      + '<div style="height:5px;background:linear-gradient(90deg,' + cor + ' 0%,' + cor + '44 100%);opacity:' + (isAtivo ? '1' : '0.3') + '"></div>'
+      // Barra cor topo
+      + (isAtivo ? '<div style="height:3px;background:' + cor + '"></div>' : '<div style="height:3px;background:rgba(255,255,255,0.05)"></div>')
       // Conteúdo
-      + '<div style="padding:16px 12px 14px">'
+      + '<div style="padding:14px 12px 12px">'
       // Badge destaque
-      + (p.destaque ? '<div style="position:absolute;top:12px;right:-1px;background:linear-gradient(90deg,' + cor + ',' + cor + 'aa);color:#fff;font-size:8px;font-weight:900;padding:2px 10px;border-radius:20px 0 0 20px;letter-spacing:0.5px">⭐ TOP</div>' : '')
+      + (p.destaque ? '<div style="position:absolute;top:10px;right:8px;background:rgba(255,214,0,0.15);color:#FFD600;font-size:8px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:0.3px">TOP</div>' : '')
       // Emoji
-      + '<div style="font-size:30px;margin-bottom:8px;line-height:1;filter:' + (isAtivo ? 'drop-shadow(0 4px 8px rgba(' + rgb + ',0.5))' : 'grayscale(0.3) opacity(0.7)') + '">' + (p.emoji || '📦') + '</div>'
+      + '<div style="font-size:26px;margin-bottom:6px;line-height:1;opacity:' + (isAtivo ? '1' : '0.45') + '">' + (p.emoji || '📦') + '</div>'
       // Nome
-      + '<div style="font-size:10px;font-weight:900;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.4)') + ';margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.nome + '</div>'
+      + '<div style="font-size:10px;font-weight:700;color:' + (isAtivo ? '#fff' : 'rgba(255,255,255,0.4)') + ';margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.nome + '</div>'
       // Contador postos
-      + '<div style="font-size:28px;font-weight:900;color:' + (isAtivo ? cor : 'rgba(255,255,255,0.2)') + ';line-height:1" id="plano-tab-count-' + i + '">–</div>'
-      + '<div style="font-size:9px;color:rgba(255,255,255,0.25);margin-top:3px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase">postos</div>'
+      + '<div style="font-size:24px;font-weight:800;color:' + (isAtivo ? cor : 'rgba(255,255,255,0.2)') + ';line-height:1" id="plano-tab-count-' + i + '">–</div>'
+      + '<div style="font-size:9px;color:rgba(255,255,255,0.25);margin-top:2px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase">postos</div>'
       + '</div>'
-      // Indicador selecionado
-      + (isAtivo ? '<div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:' + cor + ';opacity:0.8"></div>' : '')
       + '</div>';
   }).join('');
 
   // Card "+ Novo Plano"
   cards += '<div id="btn-novo-plano-tab" onclick="abrirModalNovoPLano()" style="'
-    + 'cursor:pointer;border-radius:20px;padding:0;text-align:center;flex-shrink:0;width:140px;'
-    + 'border:2.5px dashed rgba(255,255,255,0.12);background:rgba(255,255,255,0.02);'
-    + 'transition:all 0.2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:145px'
+    + 'cursor:pointer;border-radius:12px;padding:0;text-align:center;flex-shrink:0;width:110px;'
+    + 'border:1.5px dashed rgba(255,255,255,0.1);background:rgba(255,255,255,0.015);'
+    + 'transition:all 0.18s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:118px'
     + '" class="plano-novo-card">'
-    + '<div style="width:40px;height:40px;border-radius:50%;border:2px dashed rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04)">'
-    + '<i class="fas fa-plus" style="font-size:16px;color:rgba(255,255,255,0.3)"></i></div>'
-    + '<div style="font-size:11px;font-weight:800;color:rgba(255,255,255,0.25);letter-spacing:0.5px">Novo Plano</div>'
+    + '<i class="fas fa-plus" style="font-size:18px;color:rgba(255,255,255,0.2)"></i>'
+    + '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.2)">Novo Plano</div>'
     + '</div>';
 
   tabs.innerHTML = cards;
@@ -16540,9 +16526,9 @@ function renderizarPlanoSelecionado() {
   var beneficiosPlano = Array.isArray(p.beneficios) ? p.beneficios : [];
   var benefCheckboxes = BENEFICIOS_POSTO.map(function(b) {
     var checked = beneficiosPlano.includes(b.id);
-    return '<label style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1.5px solid '
-      + (checked ? cor + '66' : 'rgba(255,255,255,0.07)')
-      + ';border-radius:10px;padding:10px 12px;cursor:pointer;transition:border-color 0.15s" id="pp-blabel-' + i + '-' + b.id + '">'
+    return '<label style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid '
+      + (checked ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)')
+      + ';border-radius:8px;padding:9px 12px;cursor:pointer;transition:border-color 0.15s" id="pp-blabel-' + i + '-' + b.id + '">'
       + '<input type="checkbox" data-plano-idx="' + i + '" data-bid="' + b.id + '" '
       + (checked ? 'checked' : '') + ' onchange="toggleBeneficioPostoCard(parseInt(this.dataset.planoIdx),this.dataset.bid,this.checked,this)"'
       + ' style="accent-color:' + cor + ';width:15px;height:15px;flex-shrink:0;cursor:pointer">'
@@ -16552,74 +16538,71 @@ function renderizarPlanoSelecionado() {
   }).join('');
 
   grid.innerHTML = ''
-  + '<div style="background:linear-gradient(145deg,rgba(13,27,42,1) 0%,rgba(10,20,35,1) 100%);border:2px solid rgba(' + rgb + ',0.25);border-radius:22px;overflow:hidden;width:100%;box-shadow:0 12px 48px rgba(' + rgb + ',0.12),inset 0 1px 0 rgba(255,255,255,0.05)">'
-  // Gradiente superior
-  + '<div style="height:6px;background:linear-gradient(90deg,' + cor + ' 0%,' + cor + '44 60%,transparent 100%)"></div>'
+  // Wrapper flat — integra na section-card existente
+  + '<div style="border-top:1px solid rgba(255,255,255,0.06);margin-top:8px">'
+  // Faixa colorida fina
+  + '<div style="height:3px;background:' + cor + ';opacity:0.6"></div>'
 
   // ── Cabeçalho ──
-  + '<div style="padding:24px 28px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
-  +   '<div style="position:relative">'
-  +     '<input id="pp-emoji-' + i + '" type="text" maxlength="4" value="' + (p.emoji||'📦') + '" style="background:rgba(' + rgb + ',0.12);border:2px solid rgba(' + rgb + ',0.3);border-radius:14px;color:#fff;font-size:28px;text-align:center;padding:10px;width:62px;height:62px;font-family:inherit;outline:none;cursor:pointer;box-sizing:border-box">'
+  + '<div style="padding:20px 24px 16px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
+  +   '<input id="pp-emoji-' + i + '" type="text" maxlength="4" value="' + (p.emoji||'📦') + '" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:26px;text-align:center;padding:8px;width:56px;height:56px;font-family:inherit;outline:none;cursor:pointer;box-sizing:border-box;flex-shrink:0">'
+  +   '<div style="flex:1;min-width:180px">'
+  +     '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Nome do Plano</label>'
+  +     '<input id="pp-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g,'&quot;') + '" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:16px;font-weight:700;padding:7px 12px;font-family:inherit;outline:none;margin-bottom:6px;box-sizing:border-box" placeholder="Nome do plano">'
+  +     '<input id="pp-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g,'&quot;') + '" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;color:rgba(255,255,255,0.45);font-size:12px;padding:6px 12px;font-family:inherit;outline:none;box-sizing:border-box" placeholder="Descrição exibida no checkout...">'
   +   '</div>'
-  +   '<div style="flex:1;min-width:200px">'
-  +     '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Nome do plano</div>'
-  +     '<input id="pp-nome-' + i + '" type="text" value="' + p.nome.replace(/"/g,'&quot;') + '" style="width:100%;background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-size:18px;font-weight:900;padding:8px 14px;font-family:inherit;outline:none;margin-bottom:8px;box-sizing:border-box;transition:border-color 0.15s" placeholder="Nome do plano">'
-  +     '<input id="pp-desc-' + i + '" type="text" value="' + (p.descricao||'').replace(/"/g,'&quot;') + '" style="width:100%;background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.06);border-radius:10px;color:rgba(255,255,255,0.5);font-size:12px;padding:7px 14px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s" placeholder="Descrição exibida no checkout...">'
-  +   '</div>'
-  +   '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0">'
-  +     '<div style="font-size:9px;color:rgba(255,255,255,0.3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Cor</div>'
-  +     '<input id="pp-cor-' + i + '" type="color" value="' + cor + '" title="Cor do plano" style="width:48px;height:48px;border:2px solid rgba(255,255,255,0.12);border-radius:12px;background:rgba(255,255,255,0.04);padding:4px;cursor:pointer">'
+  +   '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'
+  +     '<label style="font-size:9px;color:rgba(255,255,255,0.3);font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Cor</label>'
+  +     '<input id="pp-cor-' + i + '" type="color" value="' + cor + '" style="width:44px;height:44px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.04);padding:3px;cursor:pointer">'
   +   '</div>'
   + '</div>'
 
   // ── Preço + Ciclo ──
-  + '<div style="padding:20px 28px;border-bottom:1px solid rgba(255,255,255,0.06);display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px">'
+  + '<div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.06);display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px">'
   +   '<div>'
-  +     '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">💰 Preço (em centavos)</div>'
-  +     '<div style="display:flex;align-items:center;gap:8px">'
-  +       '<span style="font-size:20px;font-weight:800;color:rgba(255,255,255,0.3)">R$</span>'
-  +       '<input id="pp-valor-' + i + '" type="number" min="0" step="1" value="' + p.valor + '" ' + (isGratis ? 'disabled' : '') + ' style="background:rgba(255,255,255,0.06);border:1.5px solid ' + (isGratis ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)') + ';border-radius:12px;color:#fff;font-size:26px;font-weight:900;padding:10px 16px;width:160px;font-family:inherit;outline:none;' + (isGratis ? 'opacity:0.3;cursor:not-allowed' : '') + '">'
+  +     '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px">Preço (centavos)</label>'
+  +     '<div style="display:flex;align-items:center;gap:6px">'
+  +       '<span style="font-size:16px;font-weight:700;color:rgba(255,255,255,0.3)">R$</span>'
+  +       '<input id="pp-valor-' + i + '" type="number" min="0" step="1" value="' + p.valor + '" ' + (isGratis ? 'disabled' : '') + ' style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:22px;font-weight:800;padding:8px 12px;width:130px;font-family:inherit;outline:none;' + (isGratis ? 'opacity:0.3;cursor:not-allowed' : '') + '">'
   +     '</div>'
-  +     '<div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:6px">ex: 9900 → R$ 99,00</div>'
+  +     '<div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:5px">ex: 9900 → R$ 99,00</div>'
   +   '</div>'
   +   '<div>'
-  +     '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">🔄 Ciclo de Cobrança</div>'
-  +     '<select id="pp-ciclo-' + i + '" onchange="ppToggleTrialBox(' + i + ')" style="width:100%;background:rgba(10,20,35,0.8);border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:14px;font-weight:600;padding:12px 16px;font-family:inherit;outline:none;cursor:pointer">' + cicloOpts + '</select>'
+  +     '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px">Ciclo de Cobrança</label>'
+  +     '<select id="pp-ciclo-' + i + '" onchange="ppToggleTrialBox(' + i + ')" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:13px;font-weight:600;padding:10px 12px;font-family:inherit;outline:none;cursor:pointer">' + cicloOpts + '</select>'
   +   '</div>'
   + '</div>'
 
   // ── Trial box ──
-  + '<div id="pp-trial-box-' + i + '" style="display:' + (['trial','forever'].includes(p.ciclo) ? 'flex' : 'none') + ';align-items:center;gap:12px;background:rgba(255,214,0,0.06);border-bottom:1px solid rgba(255,214,0,0.1);padding:14px 28px;flex-wrap:wrap">'
-  +   '<div style="display:flex;align-items:center;gap:8px">'
-  +     '<i class="fas fa-clock" style="color:#FFD600;font-size:14px"></i>'
-  +     '<span style="font-size:12px;color:#FFD600;font-weight:800">Dias de teste gratuito:</span>'
-  +   '</div>'
-  +   '<input id="pp-dias-' + i + '" type="number" min="0" max="365" value="' + (p.diasTeste||0) + '" style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,214,0,0.3);border-radius:10px;color:#FFD600;font-size:18px;font-weight:900;padding:8px 14px;width:90px;font-family:inherit;outline:none;text-align:center">'
+  + '<div id="pp-trial-box-' + i + '" style="display:' + (['trial','forever'].includes(p.ciclo) ? 'flex' : 'none') + ';align-items:center;gap:12px;background:rgba(255,214,0,0.04);border-bottom:1px solid rgba(255,214,0,0.08);padding:12px 24px;flex-wrap:wrap">'
+  +   '<i class="fas fa-clock" style="color:#FFD600;font-size:13px"></i>'
+  +   '<span style="font-size:12px;color:#FFD600;font-weight:700">Dias de teste gratuito:</span>'
+  +   '<input id="pp-dias-' + i + '" type="number" min="0" max="365" value="' + (p.diasTeste||0) + '" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,214,0,0.2);border-radius:8px;color:#FFD600;font-size:16px;font-weight:800;padding:6px 12px;width:80px;font-family:inherit;outline:none;text-align:center">'
   +   '<span style="font-size:11px;color:rgba(255,255,255,0.3)">(0 = sem trial)</span>'
   + '</div>'
 
   // ── Switches ──
-  + '<div style="padding:16px 28px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;gap:16px;flex-wrap:wrap">'
-  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:rgba(0,200,83,0.06);border:1.5px solid rgba(0,200,83,0.15);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);transition:border-color 0.15s" class="plano-switch-ativo">'
-  +     '<input id="pp-ativo-' + i + '" type="checkbox" ' + (p.ativo ? 'checked' : '') + ' style="accent-color:#00C853;width:17px;height:17px;cursor:pointer">✅ Plano Ativo'
+  + '<div style="padding:12px 24px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;gap:20px;flex-wrap:wrap">'
+  +   '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:rgba(255,255,255,0.7)">'
+  +     '<input id="pp-ativo-' + i + '" type="checkbox" ' + (p.ativo ? 'checked' : '') + ' style="accent-color:#00C853;width:15px;height:15px;cursor:pointer">✅ Plano Ativo'
   +   '</label>'
-  +   '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:rgba(255,214,0,0.06);border:1.5px solid rgba(255,214,0,0.15);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);transition:border-color 0.15s" class="plano-switch-destaque">'
-  +     '<input id="pp-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FFD600;width:17px;height:17px;cursor:pointer">⭐ Mais Popular'
+  +   '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:rgba(255,255,255,0.7)">'
+  +     '<input id="pp-destaque-' + i + '" type="checkbox" ' + (p.destaque ? 'checked' : '') + ' style="accent-color:#FFD600;width:15px;height:15px;cursor:pointer">⭐ Mais Popular'
   +   '</label>'
   + '</div>'
 
   // ── Benefícios ──
-  + '<div style="padding:20px 28px;border-bottom:1px solid rgba(255,255,255,0.06)">'
-  +   '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px"><i class="fas fa-gas-pump" style="color:' + cor + ';margin-right:8px"></i>Benefícios do Posto Parceiro</div>'
-  +   '<div id="pp-bens-' + i + '" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">' + benefCheckboxes + '</div>'
+  + '<div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.06)">'
+  +   '<label style="font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:12px"><i class="fas fa-gas-pump" style="margin-right:6px;opacity:0.6"></i>Benefícios do Posto Parceiro</label>'
+  +   '<div id="pp-bens-' + i + '" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">' + benefCheckboxes + '</div>'
   + '</div>'
 
   // ── Rodapé ──
-  + '<div style="padding:18px 28px;background:rgba(0,0,0,0.25);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'
-  +   '<div style="font-size:10px;color:rgba(255,255,255,0.15);font-family:monospace;background:rgba(255,255,255,0.04);padding:4px 10px;border-radius:6px">ID: ' + p.id + '</div>'
+  + '<div style="padding:14px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'
+  +   '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace">ID: ' + p.id + '</div>'
   +   '<div style="display:flex;gap:10px;align-items:center">'
-  +     (!isProtected ? '<button onclick="deletarPlanoPostoInline(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.1);color:#FF5252;border:1.5px solid rgba(255,82,82,0.2);padding:9px 18px;border-radius:12px;cursor:pointer;font-size:12px;font-weight:800;font-family:inherit"><i class="fas fa-trash" style="margin-right:6px"></i>Excluir</button>' : '')
-  +     '<button onclick="salvarPlanoPostoInline(' + i + ',&apos;' + p.id + '&apos;)" class="plano-save-btn" style="background:linear-gradient(135deg,' + cor + ' 0%,' + cor + 'cc 100%);color:#fff;border:none;padding:11px 32px;border-radius:12px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;transition:transform 0.15s,filter 0.15s"><i class="fas fa-save" style="margin-right:8px"></i>Salvar alterações</button>'
+  +     (!isProtected ? '<button onclick="deletarPlanoPostoInline(&apos;' + p.id + '&apos;)" style="background:rgba(255,82,82,0.08);color:rgba(255,82,82,0.8);border:1px solid rgba(255,82,82,0.15);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit"><i class="fas fa-trash" style="margin-right:5px"></i>Excluir</button>' : '')
+  +     '<button onclick="salvarPlanoPostoInline(' + i + ',&apos;' + p.id + '&apos;)" class="plano-save-btn" style="background:#FF6D00;color:#fff;border:none;padding:9px 24px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;transition:transform 0.15s,filter 0.15s"><i class="fas fa-save" style="margin-right:7px"></i>Salvar alterações</button>'
   +   '</div>'
   + '</div>'
   + '</div>';
