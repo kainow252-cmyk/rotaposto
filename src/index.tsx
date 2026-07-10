@@ -13308,24 +13308,33 @@ app.get('/admin', (c) => {
   <!-- ══ PRODUTOS & PLANOS ══ -->
   <!-- ══ PLANOS DO APP (B2C) ══ -->
   <section id="section-planos-app" style="display:none">
-    <!-- Header -->
+    <!-- Header da página -->
     <div class="page-header" style="margin-bottom:24px">
       <div>
         <h2 style="margin:0">📱 Planos do App</h2>
-        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Selecione um plano para editar · Planos exibidos na tela de assinatura do app</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Planos exibidos na tela de assinatura do app</div>
       </div>
     </div>
 
-    <!-- Cards de seleção de plano (scroll horizontal em mobile) -->
-    <div style="overflow-x:auto;padding-bottom:8px;margin-bottom:24px;-webkit-overflow-scrolling:touch">
-      <div id="planos-app-tabs" style="display:flex;gap:14px;min-width:max-content;padding:4px 2px 12px"></div>
-    </div>
+    <!-- Unified card — igual ao padrão Dados & Contatos -->
+    <div class="section-card">
+      <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <h3 style="margin:0;font-size:15px;font-weight:800;color:#fff"><i class="fas fa-layer-group" style="color:#FF6D00;margin-right:8px"></i>Selecione um plano para editar</h3>
+        <button onclick="abrirModalNovoPlanoApp()" style="background:rgba(255,109,0,0.15);color:#FF6D00;border:1.5px solid rgba(255,109,0,0.35);border-radius:10px;padding:8px 18px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px"><i class="fas fa-plus"></i> Novo Plano</button>
+      </div>
+      <div class="section-body">
+        <!-- Cards de seleção de plano (scroll horizontal em mobile) -->
+        <div style="overflow-x:auto;padding-bottom:4px;margin-bottom:4px;-webkit-overflow-scrolling:touch">
+          <div id="planos-app-tabs" style="display:flex;gap:14px;min-width:max-content;padding:4px 2px 12px"></div>
+        </div>
 
-    <!-- Painel de edição do plano selecionado -->
-    <div id="planos-app-panel" style="margin-bottom:28px">
-      <div style="text-align:center;padding:60px;color:rgba(255,255,255,0.3);font-size:13px">
-        <i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:16px;display:block;opacity:0.5"></i>
-        Carregando planos...
+        <!-- Painel de edição do plano selecionado — aparece abaixo na mesma card -->
+        <div id="planos-app-panel">
+          <div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,0.25);font-size:13px">
+            <i class="fas fa-hand-pointer" style="font-size:28px;margin-bottom:16px;display:block;opacity:0.4"></i>
+            Selecione um plano acima para editar
+          </div>
+        </div>
       </div>
     </div>
 
@@ -13391,24 +13400,33 @@ app.get('/admin', (c) => {
 
   <!-- ══ PLANOS DOS POSTOS (B2B) ══ -->
   <section id="section-planos" style="display:none">
-    <!-- Header -->
+    <!-- Header da página -->
     <div class="page-header" style="margin-bottom:24px">
       <div>
-        <h2 style="margin:0">⛽ Planos para Postos Parceiros</h2>
-        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Selecione um plano para editar · Clique em + Novo para adicionar</div>
+        <h2 style="margin:0">⛽ Planos dos Postos</h2>
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px;font-weight:600">Planos disponíveis para postos parceiros</div>
       </div>
     </div>
 
-    <!-- Cards de seleção de plano (scroll horizontal em mobile) -->
-    <div style="overflow-x:auto;padding-bottom:8px;margin-bottom:24px;-webkit-overflow-scrolling:touch">
-      <div id="planos-tabs" style="display:flex;gap:14px;min-width:max-content;padding:4px 2px 12px"></div>
-    </div>
+    <!-- Unified card — igual ao padrão Dados & Contatos -->
+    <div class="section-card">
+      <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <h3 style="margin:0;font-size:15px;font-weight:800;color:#fff"><i class="fas fa-gas-pump" style="color:#FF6D00;margin-right:8px"></i>Selecione um plano para editar</h3>
+        <button onclick="abrirModalNovoPlano()" style="background:rgba(255,109,0,0.15);color:#FF6D00;border:1.5px solid rgba(255,109,0,0.35);border-radius:10px;padding:8px 18px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px"><i class="fas fa-plus"></i> Novo Plano</button>
+      </div>
+      <div class="section-body">
+        <!-- Cards de seleção de plano (scroll horizontal em mobile) -->
+        <div style="overflow-x:auto;padding-bottom:4px;margin-bottom:4px;-webkit-overflow-scrolling:touch">
+          <div id="planos-tabs" style="display:flex;gap:14px;min-width:max-content;padding:4px 2px 12px"></div>
+        </div>
 
-    <!-- Painel de edição do plano selecionado -->
-    <div id="planos-grid" style="margin-bottom:28px">
-      <div style="text-align:center;padding:60px;color:rgba(255,255,255,0.3);font-size:13px">
-        <i class="fas fa-spinner fa-spin" style="font-size:28px;margin-bottom:16px;display:block;opacity:0.5"></i>
-        Carregando planos...
+        <!-- Painel de edição do plano selecionado — aparece abaixo na mesma card -->
+        <div id="planos-grid">
+          <div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,0.25);font-size:13px">
+            <i class="fas fa-hand-pointer" style="font-size:28px;margin-bottom:16px;display:block;opacity:0.4"></i>
+            Selecione um plano acima para editar
+          </div>
+        </div>
       </div>
     </div>
 
@@ -16775,6 +16793,7 @@ function abrirModalEditarPlano(id) {
 }
 
 // ─── Modal: abrir para criar novo plano ─────────────────────────────────────
+function abrirModalNovoPlano() { abrirModalNovoPLano(); }
 function abrirModalNovoPLano() {
   _planoEditandoId = null;
   document.getElementById('modal-plano-titulo').textContent = '➕ Novo Plano para Postos';
