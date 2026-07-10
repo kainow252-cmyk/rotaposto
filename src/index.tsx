@@ -11223,9 +11223,10 @@ interface ConfigPagamento {
   gateway: 'woovi' | 'mercadopago' | 'pagbank'  // gateway ativo
   pixAtivo: boolean
   cartaoAtivo: boolean
-  // Credenciais salvas pelo admin (opcionais — fallback para env secrets)
-  wooviAppId?: string
-  mpPublicKey?: string
+  // Credenciais salvas pelo admin (fallback para env secrets)
+  wooviAppId?: string      // App ID / API Key da Woovi/OpenPix
+  mpAccessToken?: string   // Access Token do Mercado Pago
+  pagbankToken?: string    // Bearer Token do PagBank
   // Status: definido ao testar conexão
   statusWoovi?:   'ok' | 'erro' | 'nao_configurado'
   statusMP?:      'ok' | 'erro' | 'nao_configurado'
@@ -11288,7 +11289,7 @@ app.post('/api/admin/config/pagamento/testar', async (c) => {
     const wooviKey = (c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || config.wooviAppId || ''
     if (!wooviKey) {
       await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusWoovi: 'nao_configurado', atualizadoEm: Date.now() }))
-      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'App ID da Woovi não configurado.' })
+      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'App ID da Woovi não configurado. Insira a chave no campo Credenciais.' })
     }
     try {
       const r = await fetch('https://api.openpix.com.br/api/v1/customer?limit=1', {
@@ -11305,10 +11306,10 @@ app.post('/api/admin/config/pagamento/testar', async (c) => {
   }
 
   if (gateway === 'mercadopago') {
-    const mpToken = (c.env as any)?.MP_ACCESS_TOKEN || ''
+    const mpToken = (c.env as any)?.MP_ACCESS_TOKEN || config.mpAccessToken || ''
     if (!mpToken) {
       await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusMP: 'nao_configurado', atualizadoEm: Date.now() }))
-      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'Access Token do Mercado Pago não configurado.' })
+      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'Access Token do Mercado Pago não configurado. Insira a chave no campo Credenciais.' })
     }
     try {
       const r = await fetch('https://api.mercadopago.com/v1/payment_methods', {
@@ -11325,10 +11326,10 @@ app.post('/api/admin/config/pagamento/testar', async (c) => {
   }
 
   if (gateway === 'pagbank') {
-    const pbToken = (c.env as any)?.PAGBANK_TOKEN || ''
+    const pbToken = (c.env as any)?.PAGBANK_TOKEN || config.pagbankToken || ''
     if (!pbToken) {
       await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusPagBank: 'nao_configurado', atualizadoEm: Date.now() }))
-      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'Token PagBank não configurado (secret PAGBANK_TOKEN).' })
+      return c.json({ ok: false, status: 'nao_configurado', mensagem: 'Token PagBank não configurado. Insira a chave no campo Credenciais.' })
     }
     try {
       const r = await testarConexaoPagBank(pbToken)
@@ -11397,8 +11398,8 @@ app.post('/api/admin/planos/criar-no-gateway', async (c) => {
   }
 
   if (config.gateway === 'mercadopago') {
-    const mpToken = (c.env as any)?.MP_ACCESS_TOKEN || ''
-    if (!mpToken) return c.json({ erro: 'Mercado Pago não configurado' }, 400)
+    const mpToken = (c.env as any)?.MP_ACCESS_TOKEN || config.mpAccessToken || ''
+    if (!mpToken) return c.json({ erro: 'Mercado Pago não configurado. Insira o Access Token no campo Credenciais.' }, 400)
     try {
       const r = await fetch('https://api.mercadopago.com/preapproval_plan', {
         method: 'POST',
@@ -14392,6 +14393,103 @@ app.get('/admin', (c) => {
       </div>
     </div>
 
+    <!-- ── Credenciais de Integração ── -->
+    <div class="section-card" style="margin-bottom:16px">
+      <div class="section-header" style="display:flex;align-items:center;justify-content:space-between">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:rgba(255,255,255,0.7)"><i class="fas fa-key" style="margin-right:8px;opacity:0.6"></i>Credenciais de Integração</h3>
+        <span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600">Salvas com segurança no KV</span>
+      </div>
+      <div class="section-body">
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:18px">Insira as chaves de cada gateway. As chaves ficam salvas e são usadas automaticamente. Você pode alterar a qualquer momento.</div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+
+          <!-- Woovi -->
+          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(0,200,83,0.15)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <div style="width:34px;height:34px;border-radius:10px;background:rgba(0,200,83,0.15);display:flex;align-items:center;justify-content:center;font-size:18px">📱</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#fff">Woovi / OpenPix</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3)">App ID ou API Key</div>
+              </div>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+                <span id="cred-status-woovi" style="font-size:11px;font-weight:700"></span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;position:relative">
+                <input id="cred-input-woovi" type="password" placeholder="App ID Woovi (ex: Q2xpZW50X0lk...)" autocomplete="off"
+                  style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 42px 11px 14px;color:#fff;font-size:12px;font-family:monospace;outline:none;transition:border 0.2s"
+                  onfocus="this.style.borderColor='rgba(0,200,83,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                  oninput="marcarCredAlterada('woovi')" />
+                <span onclick="toggleVerChave('woovi')" id="eye-woovi" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:14px">👁</span>
+              </div>
+              <button onclick="salvarCredencial('woovi')" id="btn-cred-woovi"
+                style="background:#00C853;color:#fff;border:none;padding:0 18px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.5;pointer-events:none;transition:all 0.2s"
+                disabled>Salvar</button>
+            </div>
+            <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: painel.woovi.com → Configurações → App ID</div>
+          </div>
+
+          <!-- Mercado Pago -->
+          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(66,165,245,0.15)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <div style="width:34px;height:34px;border-radius:10px;background:rgba(66,165,245,0.15);display:flex;align-items:center;justify-content:center;font-size:18px">💳</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#fff">Mercado Pago</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3)">Access Token de Produção</div>
+              </div>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+                <span id="cred-status-mp" style="font-size:11px;font-weight:700"></span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;position:relative">
+                <input id="cred-input-mp" type="password" placeholder="APP_USR-xxxx... (Access Token de produção)" autocomplete="off"
+                  style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 42px 11px 14px;color:#fff;font-size:12px;font-family:monospace;outline:none;transition:border 0.2s"
+                  onfocus="this.style.borderColor='rgba(66,165,245,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                  oninput="marcarCredAlterada('mp')" />
+                <span onclick="toggleVerChave('mp')" id="eye-mp" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:14px">👁</span>
+              </div>
+              <button onclick="salvarCredencial('mp')" id="btn-cred-mp"
+                style="background:#42A5F5;color:#fff;border:none;padding:0 18px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.5;pointer-events:none;transition:all 0.2s"
+                disabled>Salvar</button>
+            </div>
+            <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: mercadopago.com.br → Suas integrações → Credenciais → Access Token</div>
+          </div>
+
+          <!-- PagBank -->
+          <div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(255,179,0,0.15)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <div style="width:34px;height:34px;border-radius:10px;background:rgba(255,179,0,0.15);display:flex;align-items:center;justify-content:center;font-size:18px">🏦</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#fff">PagBank</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3)">Bearer Token de Produção</div>
+              </div>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+                <span id="cred-status-pb" style="font-size:11px;font-weight:700"></span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;position:relative">
+                <input id="cred-input-pb" type="password" placeholder="650cf0fa-xxxx-xxxx-xxxx-xxxxxxxxxxxx..." autocomplete="off"
+                  style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 42px 11px 14px;color:#fff;font-size:12px;font-family:monospace;outline:none;transition:border 0.2s"
+                  onfocus="this.style.borderColor='rgba(255,179,0,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                  oninput="marcarCredAlterada('pb')" />
+                <span onclick="toggleVerChave('pb')" id="eye-pb" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,0.3);font-size:14px">👁</span>
+              </div>
+              <button onclick="salvarCredencial('pb')" id="btn-cred-pb"
+                style="background:#FFB300;color:#000;border:none;padding:0 18px;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;opacity:0.5;pointer-events:none;transition:all 0.2s"
+                disabled>Salvar</button>
+            </div>
+            <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,0.2)">Encontre em: minhaconta.pagbank.com → Extrato e Negócios → APIs & Integrações → Token</div>
+          </div>
+
+        </div>
+        <div id="cred-msg-global" style="margin-top:12px;font-size:12px;font-weight:700"></div>
+      </div>
+    </div>
+
     <!-- ── Métodos de Pagamento ── -->
     <div class="section-card" style="margin-bottom:16px">
       <div class="section-header">
@@ -14453,8 +14551,8 @@ app.get('/admin', (c) => {
           <!-- renderizado por JS -->
         </div>
         <div style="margin-top:14px;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6">
-          As credenciais (App ID Woovi / Access Token MP) devem ser configuradas como <strong style="color:rgba(255,255,255,0.4)">Secrets</strong> no painel do Cloudflare Workers.<br>
-          Variáveis: <code style="color:#FF6D00">WOOVI_APP_ID</code> ou <code style="color:#FF6D00">OPENPIX_KEY</code> &nbsp;|&nbsp; <code style="color:#42A5F5">MP_ACCESS_TOKEN</code>
+          💡 As chaves podem ser inseridas diretamente no card <strong style="color:rgba(255,255,255,0.4)">Credenciais de Integração</strong> acima, ou configuradas como Secrets no Cloudflare Workers.<br>
+          Variáveis alternativas: <code style="color:#00C853">WOOVI_APP_ID</code> &nbsp;|&nbsp; <code style="color:#42A5F5">MP_ACCESS_TOKEN</code> &nbsp;|&nbsp; <code style="color:#FFB300">PAGBANK_TOKEN</code>
         </div>
       </div>
     </div>
@@ -17289,13 +17387,14 @@ async function carregarConfigPagamento() {
     const res = await fetch('/api/admin/config/pagamento?key=' + encodeURIComponent(ADMIN_KEY));
     const data = await res.json();
     _pgConfig = data.config || _pgConfig;
-    _pgTemWooviEnv   = data.temWooviEnv   || false;
-    _pgTemMPEnv      = data.temMPEnv      || false;
-    _pgTemPagBankEnv = data.temPagBankEnv || false;
+    _pgTemWooviEnv   = data.temWooviEnv   || Boolean(_pgConfig.wooviAppId)   || false;
+    _pgTemMPEnv      = data.temMPEnv      || Boolean(_pgConfig.mpAccessToken) || false;
+    _pgTemPagBankEnv = data.temPagBankEnv || Boolean(_pgConfig.pagbankToken)  || false;
   } catch(e) { console.warn('carregarConfigPagamento:', e); }
   renderGatewayCards();
   renderMetodoToggles();
   renderIntegracaoStatus();
+  _popularInputsCredenciais(_pgConfig);
 }
 
 function renderGatewayCards() {
@@ -17351,7 +17450,7 @@ function renderGatewayCards() {
       + '<div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5;margin-bottom:12px">' + g.desc + '</div>'
       + '<div style="display:flex;align-items:center;justify-content:space-between">'
       +   '<span style="font-size:11px;color:' + statusColor + ';font-weight:700">' + statusTxt + '</span>'
-      +   '<span style="font-size:10px;color:rgba(255,255,255,0.2)">' + (g.temEnv ? '🔑 Secret configurado' : '⚠ Sem credencial') + '</span>'
+      +   '<span style="font-size:10px;color:' + (g.temEnv ? 'rgba(0,200,83,0.6)' : 'rgba(255,255,255,0.2)') + '">' + (g.temEnv ? '🔑 Chave configurada' : '⚠ Sem credencial') + '</span>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -17411,22 +17510,24 @@ function renderIntegracaoStatus() {
   el.innerHTML = items.map(function(it) {
     var statusTxt = it.status === 'ok' ? '✅ Conectado' : it.status === 'erro' ? '❌ Erro de conexão' : '○ Não testado';
     var statusColor = it.status === 'ok' ? '#00C853' : it.status === 'erro' ? '#FF5252' : 'rgba(255,255,255,0.3)';
-    return '<div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid rgba(255,255,255,0.07)">'
+    var credLabel = it.id === 'woovi' ? 'cred-status-woovi' : it.id === 'mercadopago' ? 'cred-status-mp' : 'cred-status-pb';
+    return '<div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid ' + (it.temEnv ? 'rgba(0,200,83,0.15)' : 'rgba(255,255,255,0.07)') + '">'
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
       +   '<span style="font-size:24px">' + it.icon + '</span>'
       +   '<div style="font-size:14px;font-weight:700;color:#fff">' + it.nome + '</div>'
       + '</div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-      +   '<span style="font-size:11px;color:rgba(255,255,255,0.35)">Secret no Cloudflare:</span>'
-      +   '<span style="font-size:11px;font-weight:700;color:' + (it.temEnv ? '#00C853' : '#FF5252') + '">' + (it.temEnv ? '✅ Configurado' : '❌ Ausente') + '</span>'
+      +   '<span style="font-size:11px;color:rgba(255,255,255,0.35)">Chave API:</span>'
+      +   '<span style="font-size:11px;font-weight:700;color:' + (it.temEnv ? '#00C853' : '#FF9800') + '">' + (it.temEnv ? '🔑 Configurada' : '⚠ Não configurada') + '</span>'
       + '</div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
       +   '<span style="font-size:11px;color:rgba(255,255,255,0.35)">Conexão API:</span>'
       +   '<span style="font-size:11px;font-weight:700;color:' + statusColor + '">' + statusTxt + '</span>'
       + '</div>'
-      + '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;word-break:break-all">' + it.varEnv + '</div>'
-      + '<div style="margin-top:10px">'
-      +   '<button onclick="testarGatewayEspecifico(&apos;' + it.id + '&apos;)" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.1);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-bolt" style="margin-right:5px"></i>Testar</button>'
+      + '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;word-break:break-all;margin-bottom:10px">Secret alternativo: ' + it.varEnv + '</div>'
+      + '<div style="display:flex;gap:8px">'
+      +   '<button onclick="testarGatewayEspecifico(&apos;' + it.id + '&apos;)" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.1);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-bolt" style="margin-right:5px"></i>Testar Conexão</button>'
+      +   (it.temEnv ? '' : '<button onclick="showSection(\'pagamentos\',null);setTimeout(function(){document.getElementById(\'cred-input-' + (it.id==='woovi'?'woovi':it.id==='mercadopago'?'mp':'pb') + '\').focus()},200)" style="background:rgba(255,179,0,0.08);color:#FFB300;border:1px solid rgba(255,179,0,0.2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-key" style="margin-right:5px"></i>Inserir Chave</button>')
       + '</div>'
       + '</div>';
   }).join('');
@@ -17508,6 +17609,117 @@ function mostrarToastPagamentos(msg, cor) {
   t.style.display = 'block';
   t.style.opacity = '1';
   setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.style.display = 'none'; t.style.opacity = '1'; }, 400); }, 3500);
+}
+
+// ─── CREDENCIAIS dos Gateways ────────────────────────────────────────────────
+// Mapa de chave → campo KV
+var _credMap = { woovi: 'wooviAppId', mp: 'mpAccessToken', pb: 'pagbankToken' };
+var _credCors = { woovi: '#00C853', mp: '#42A5F5', pb: '#FFB300' };
+
+// Chamada após carregar config — preenche os inputs com valor mascarado
+function _popularInputsCredenciais(config) {
+  ['woovi', 'mp', 'pb'].forEach(function(id) {
+    var kvField = _credMap[id];
+    var val = config[kvField] || '';
+    var el = document.getElementById('cred-input-' + id);
+    var statusEl = document.getElementById('cred-status-' + id);
+    var btn = document.getElementById('btn-cred-' + id);
+    if (!el) return;
+    if (val) {
+      // Mostrar valor mascarado (últimos 6 chars visíveis)
+      el.value = val.length > 10 ? '••••••••••••' + val.slice(-6) : val;
+      el.dataset.original = val;
+      el.dataset.preenchido = '1';
+      if (statusEl) { statusEl.textContent = '✅ Configurada'; statusEl.style.color = '#00C853'; }
+    } else {
+      el.value = '';
+      el.dataset.original = '';
+      el.dataset.preenchido = '';
+      if (statusEl) { statusEl.textContent = '⚠ Não configurada'; statusEl.style.color = 'rgba(255,255,255,0.3)'; }
+    }
+    // Botão começa desabilitado (habilita só ao digitar)
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; }
+  });
+}
+
+function marcarCredAlterada(id) {
+  var btn = document.getElementById('btn-cred-' + id);
+  var el = document.getElementById('cred-input-' + id);
+  if (!btn || !el) return;
+  var val = el.value.trim();
+  var mudou = val !== '' && (!el.dataset.preenchido || !val.startsWith('••'));
+  if (mudou) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+    btn.style.pointerEvents = 'none';
+  }
+}
+
+function toggleVerChave(id) {
+  var el = document.getElementById('cred-input-' + id);
+  var eye = document.getElementById('eye-' + id);
+  if (!el) return;
+  if (el.type === 'password') {
+    el.type = 'text';
+    if (eye) eye.textContent = '🙈';
+  } else {
+    el.type = 'password';
+    if (eye) eye.textContent = '👁';
+  }
+}
+
+async function salvarCredencial(id) {
+  var el = document.getElementById('cred-input-' + id);
+  var btn = document.getElementById('btn-cred-' + id);
+  var statusEl = document.getElementById('cred-status-' + id);
+  var msg = document.getElementById('cred-msg-global');
+  if (!el) return;
+  var val = el.value.trim();
+  // Se valor ainda está mascarado (não alterado), não salvar
+  if (val.startsWith('••')) { return; }
+  if (!val) {
+    if (msg) { msg.textContent = '❌ Chave não pode ser vazia.'; msg.style.color = '#FF5252'; }
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  var kvField = _credMap[id];
+  var payload = {};
+  payload[kvField] = val;
+  try {
+    const res = await fetch('/api/admin/config/pagamento?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.ok) {
+      // Mascarar novamente após salvar
+      el.value = val.length > 10 ? '••••••••••••' + val.slice(-6) : val;
+      el.dataset.original = val;
+      el.dataset.preenchido = '1';
+      el.type = 'password';
+      document.getElementById('eye-' + id).textContent = '👁';
+      if (statusEl) { statusEl.textContent = '✅ Configurada'; statusEl.style.color = '#00C853'; }
+      if (msg) { msg.textContent = '✅ Chave salva com sucesso!'; msg.style.color = '#00C853'; }
+      mostrarToastPagamentos('✅ Credencial salva!', _credCors[id]);
+      // Atualizar flag temEnv local
+      if (id === 'woovi') _pgTemWooviEnv = true;
+      if (id === 'mp')    _pgTemMPEnv    = true;
+      if (id === 'pb')    _pgTemPagBankEnv = true;
+      renderIntegracaoStatus();
+      renderGatewayCards();
+    } else {
+      if (msg) { msg.textContent = '❌ Erro ao salvar: ' + (data.erro || ''); msg.style.color = '#FF5252'; }
+    }
+  } catch(e) {
+    if (msg) { msg.textContent = '❌ ' + e.message; msg.style.color = '#FF5252'; }
+  } finally {
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; btn.style.pointerEvents = 'none'; btn.textContent = 'Salvar'; }
+    setTimeout(function() { if (msg) msg.textContent = ''; }, 4500);
+  }
 }
 
 // ─── PLANOS DO APP (B2C) — edição de preços e benefícios ────────────────────
