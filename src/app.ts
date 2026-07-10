@@ -459,13 +459,37 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
 
     #det-header {
-      position: relative; height: 160px; flex-shrink: 0;
+      position: relative; height: 180px; flex-shrink: 0;
       background: linear-gradient(160deg, var(--navy) 0%, #1a2a4a 100%);
       overflow: hidden;
     }
 
     #det-hero-img {
-      width: 100%; height: 100%; object-fit: cover; opacity: 0.45;
+      width: 100%; height: 100%; object-fit: cover; opacity: 0.55;
+      transition: opacity 0.3s;
+    }
+
+    /* Quando não tem foto Google: mostrar logo da bandeira centralizado */
+    #det-header.sem-foto {
+      display: flex; align-items: center; justify-content: center;
+    }
+    #det-bandeira-hero {
+      display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; opacity: 0.9;
+    }
+    #det-header.sem-foto #det-bandeira-hero { display: flex; }
+    #det-header.sem-foto #det-hero-img { display: none; }
+    #det-bandeira-hero-logo {
+      width: 72px; height: 72px; border-radius: 18px;
+      background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; backdrop-filter: blur(4px);
+    }
+    #det-bandeira-hero-logo img { width:60px; height:60px; object-fit:contain; padding:6px; }
+    #det-bandeira-hero-nome {
+      font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.7);
+      letter-spacing: 0.5px; text-transform: uppercase;
     }
 
     .det-overlay-btns {
@@ -482,16 +506,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     .det-btn-group { display: flex; gap: 8px; }
 
     #det-logo-badge {
-      position: absolute; bottom: -20px; left: 16px;
-      width: 44px; height: 44px; border-radius: 12px;
-      background: white; border: 2px solid white;
-      box-shadow: var(--shadow-strong);
+      position: absolute; bottom: -22px; left: 16px;
+      width: 52px; height: 52px; border-radius: 14px;
+      background: white; border: 3px solid white;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
       display: flex; align-items: center; justify-content: center;
       font-size: 16px; overflow: hidden;
     }
+    #det-logo-badge img { width:100%; height:100%; object-fit:contain; padding:5px; }
 
     #det-body {
-      padding: 28px 16px calc(var(--sab) + 80px);
+      padding: 34px 16px calc(var(--sab) + 80px);
     }
 
     #det-nome {
@@ -1875,7 +1900,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     <!-- TELA 9: DETALHES -->
     <div id="view-detalhes" class="view">
       <div id="det-header">
-        <img id="det-hero-img" src="https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&q=70" alt="Posto"/>
+        <img id="det-hero-img" src="" alt="Posto" style="display:none"/>
+        <div id="det-bandeira-hero">
+          <div id="det-bandeira-hero-logo"><img id="det-bandeira-hero-img" src="" alt=""/></div>
+          <div id="det-bandeira-hero-nome"></div>
+        </div>
         <div class="det-overlay-btns">
           <button class="det-btn-icon" onclick="goToView('lista')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
@@ -4025,20 +4054,63 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var isColab = p.fontePreco === 'colaborativo';
     var isEstimado = !isReal && !isColab;
 
+    // ── Hero banner: foto do Google Maps (se disponível) ou logo da bandeira ──
+    var detHeader = document.getElementById('det-header');
+    var detHeroImg = document.getElementById('det-hero-img') as HTMLImageElement;
+    var detBandInfo = getBandeiraCor(p.bandeira || p.nome);
+    var detLogoSvg = getBandeiraLogoUrl(p.bandeira || p.nome);
+    var detFotoGoogle = p.fotoUrl && (p.fotoUrl.startsWith('http') || p.fotoUrl.startsWith('/api'))
+      ? p.fotoUrl : null;
+
+    if (detFotoGoogle) {
+      // Tem foto do Google Maps → mostrar no hero
+      detHeader.classList.remove('sem-foto');
+      detHeader.style.background = 'linear-gradient(160deg, var(--navy) 0%, #1a2a4a 100%)';
+      detHeroImg.style.display = 'block';
+      detHeroImg.src = detFotoGoogle;
+      detHeroImg.onerror = function() {
+        // Se foto falhar → cair no modo sem-foto
+        detHeader.classList.add('sem-foto');
+        detHeader.style.background = detBandInfo.cor;
+        detHeroImg.style.display = 'none';
+      };
+    } else {
+      // Sem foto → fundo com cor da bandeira + logo centralizado
+      detHeader.classList.add('sem-foto');
+      detHeader.style.background = 'linear-gradient(135deg, ' + detBandInfo.cor + ' 0%, ' + detBandInfo.border + ' 100%)';
+      detHeroImg.style.display = 'none';
+    }
+
+    // Logo da bandeira centralizado no hero (quando sem foto)
+    var heroBandImg = document.getElementById('det-bandeira-hero-img') as HTMLImageElement;
+    var heroBandNome = document.getElementById('det-bandeira-hero-nome');
+    if (heroBandImg) { heroBandImg.src = detLogoSvg; }
+    if (heroBandNome) { heroBandNome.textContent = detBandInfo.bandNome; }
+
+    // ── Badge do logo (canto inferior esquerdo do header) ──
     var detLogoEl = document.getElementById('det-logo-badge');
-    var detLogoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
     var _detEmoji = getEmoji(p.bandeira || p.nome);
-    if (detLogoUrl) {
+    // Badge: fotoUrl parceiro → SVG da bandeira com fundo da cor oficial
+    var detLogoFoto = p.fotoUrl && p.fotoUrl.startsWith('/api') ? p.fotoUrl : null;
+    var detBadgeSrc = detLogoFoto || detLogoSvg;
+    if (detBadgeSrc) {
       var _imgDet = document.createElement('img');
-      _imgDet.src = detLogoUrl;
-      _imgDet.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:8px;';
+      _imgDet.src = detBadgeSrc;
+      _imgDet.style.cssText = 'width:100%;height:100%;object-fit:contain;padding:5px;';
       _imgDet.alt = '';
-      _imgDet.onerror = function() { detLogoEl.textContent = _detEmoji; };
+      _imgDet.onerror = function() {
+        if (detLogoFoto && _imgDet.src !== location.origin + detLogoSvg) {
+          _imgDet.src = detLogoSvg;
+        } else { detLogoEl.textContent = _detEmoji; }
+      };
       detLogoEl.innerHTML = '';
       detLogoEl.appendChild(_imgDet);
-      detLogoEl.style.background = '#fff';
+      // Fundo da cor da bandeira (não branco) para o badge
+      detLogoEl.style.background = detBandInfo.cor;
+      detLogoEl.style.borderColor = detBandInfo.border || detBandInfo.cor;
     } else {
       detLogoEl.textContent = _detEmoji;
+      detLogoEl.style.background = detBandInfo.cor;
     }
     document.getElementById('det-nome').textContent = p.nome;
     document.getElementById('det-endereco').textContent = (p.endereco || '') + (p.bairro ? ' - ' + p.bairro : '') + ', ' + (p.cidade || '') + (p.estado ? ' - ' + p.estado : '');
@@ -4094,19 +4166,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         + '</div>';
     }
 
-    // Foto Google Places
-    var fotoHtml = '';
-    if (p.fotoUrl) {
-      fotoHtml = '<img src="' + p.fotoUrl + '" style="width:100%;height:130px;object-fit:cover;border-radius:12px;margin-bottom:8px;" onerror="this.style.display=&quot;none&quot;" loading="lazy" alt="Foto do posto"/>';
-    }
-
     // Telefone
     var telefoneHtml = '';
     if (p.telefone) {
       telefoneHtml = '<div style="font-size:12px;color:#555;margin-bottom:6px;">📞 <a href="tel:' + p.telefone + '" style="color:#FF6D00;text-decoration:none;">' + p.telefone + '</a></div>';
     }
 
-    list.innerHTML = fotoHtml + statusBadge + ratingHtml + telefoneHtml
+    list.innerHTML = statusBadge + ratingHtml + telefoneHtml
       + (fuels.map(function(f) {
           return '<div class="det-fuel-row"><span class="det-fuel-nome">'+f[0]+'</span><span class="det-fuel-price">R$ '+f[1].toFixed(2).replace('.',',')+'</span></div>';
         }).join('') || '<div class="det-fuel-row"><span class="det-fuel-nome" style="color:var(--gray)">Preços não disponíveis</span></div>')
