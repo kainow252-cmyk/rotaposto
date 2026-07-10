@@ -537,7 +537,36 @@ app.get('/api/postos', async (c) => {
       if (!kvMerge && !r2Merge) return lista
       const resultados = await Promise.all(lista.map(async (p) => {
         const cnpjSoNum = (p.cnpj || '').replace(/[^0-9]/g, '')
+
+        // ── Postos Google/OSM sem CNPJ (ex: google-ChIJ...) ──────────────────
+        // Buscar no KV posto:band:{p.id} para aplicar logo/fotoUrl salvo pelo admin
+        if (!cnpjSoNum && p.id && kvMerge) {
+          try {
+            const bandRaw = await kvMerge.get(`posto:band:${p.id}`)
+            if (bandRaw) {
+              const band = JSON.parse(bandRaw) as Record<string, unknown>
+              const fotoAdmin = band.fotoUrl ? String(band.fotoUrl) : null
+              const logoAdmin = band.logoUrl ? String(band.logoUrl) : null
+              const fotoFinal = fotoAdmin || logoAdmin
+              if (fotoFinal) {
+                const merged = { ...p } as any
+                // Preservar foto Google como fotoGoogle (hero/banner)
+                if (p.fotoUrl && !merged.fotoGoogle) {
+                  merged.fotoGoogle = p.fotoUrl
+                }
+                merged.fotoUrl = fotoFinal
+                if (band.bandeira && String(band.bandeira) !== 'independente') {
+                  merged.bandeira = String(band.bandeira)
+                }
+                return merged as PostoReal
+              }
+            }
+          } catch { /* ignora erro de KV — retorna p original */ }
+          return p
+        }
+
         if (!cnpjSoNum) return p
+
         try {
           const parceiro = await buscarParceiroPorCNPJ(cnpjSoNum)
           if (!parceiro) return p
