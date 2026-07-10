@@ -7344,9 +7344,69 @@ const state = {
   rotaUrl: null
 };
 
+// ═══ PERSISTÊNCIA DA ÚLTIMA BUSCA ══════════════════════════════════════════
+const STORE = {
+  salvar() {
+    try {
+      localStorage.setItem('rp_last_comb',    state.combustivel);
+      localStorage.setItem('rp_last_lat',     String(state.lat));
+      localStorage.setItem('rp_last_lng',     String(state.lng));
+      if (state.consumoKmL)   localStorage.setItem('rp_last_consumo', String(state.consumoKmL));
+      if (state.litrosTanque) localStorage.setItem('rp_last_tanque',  String(state.litrosTanque));
+      // Nome da localização (valor do input de busca)
+      const inp = document.getElementById('busca-input');
+      if (inp && inp.value.trim()) localStorage.setItem('rp_last_loc_nome', inp.value.trim());
+    } catch {}
+  },
+  restaurar() {
+    try {
+      const comb    = localStorage.getItem('rp_last_comb');
+      const consumo = localStorage.getItem('rp_last_consumo');
+      const tanque  = localStorage.getItem('rp_last_tanque');
+      // Combustível
+      if (comb && ['gasolina','etanol','diesel','gnv'].includes(comb)) {
+        state.combustivel = comb;
+        // Ativar chip correto em ambas as views
+        document.querySelectorAll('#view-destaque .chip, #view-lista .chip').forEach(c => {
+          const onclick = c.getAttribute('onclick') || '';
+          const ativo = onclick.includes("'" + comb + "'");
+          c.classList.toggle('active', ativo);
+        });
+      }
+      // Consumo e tanque
+      if (consumo) {
+        const sel = document.getElementById('select-consumo');
+        if (sel) sel.value = consumo;
+        state.consumoKmL = parseFloat(consumo);
+      }
+      if (tanque) {
+        const sel = document.getElementById('select-tanque');
+        if (sel) sel.value = tanque;
+        state.litrosTanque = parseFloat(tanque);
+      }
+      // Nome da localização
+      const locNome = localStorage.getItem('rp_last_loc_nome');
+      if (locNome) {
+        const inp = document.getElementById('busca-input');
+        if (inp) inp.value = locNome;
+      }
+    } catch {}
+  },
+  temUltimaPosicao() {
+    return !!localStorage.getItem('rp_last_lat') && !!localStorage.getItem('rp_last_lng');
+  },
+  ultimaPosicao() {
+    return {
+      lat: parseFloat(localStorage.getItem('rp_last_lat') || '-23.5505'),
+      lng: parseFloat(localStorage.getItem('rp_last_lng') || '-46.6333'),
+    };
+  }
+};
+
 // ═══ INIT ═════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   iniciarMapa();
+  STORE.restaurar();   // ← restaura combustível, consumo, tanque, nome do local
   usarLocalizacao();
   configurarBusca();
   registrarSW();
@@ -7356,24 +7416,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ═══ GEOLOCALIZAÇÃO ══════════════════════════════════════════════════════════
 function usarLocalizacao() {
+  // Se tem última posição salva, usa imediatamente e busca — não espera GPS
+  if (STORE.temUltimaPosicao()) {
+    const pos = STORE.ultimaPosicao();
+    state.lat = pos.lat;
+    state.lng = pos.lng;
+    if (state.map) state.map.setView([state.lat, state.lng], 14);
+    buscarPostos(); // busca instantânea com última posição
+  }
+  // Em paralelo, tenta obter posição atual do GPS
   if (!navigator.geolocation) {
-    mostrarToast('Geolocalização não disponível');
-    buscarPostos();
+    if (!STORE.temUltimaPosicao()) {
+      mostrarToast('Geolocalização não disponível');
+      buscarPostos();
+    }
     return;
   }
-  mostrarLoading('Obtendo sua localização...');
   navigator.geolocation.getCurrentPosition(
     (pos) => {
+      const mudou = Math.abs(pos.coords.latitude - state.lat) > 0.001
+                 || Math.abs(pos.coords.longitude - state.lng) > 0.001;
       state.lat = pos.coords.latitude;
       state.lng = pos.coords.longitude;
       if (state.map) state.map.setView([state.lat, state.lng], 14);
-      buscarPostos();
-      mostrarToast('📍 Localização obtida!');
+      if (mudou) {
+        // Limpa nome salvo — agora é GPS, não busca manual
+        localStorage.removeItem('rp_last_loc_nome');
+        const inp = document.getElementById('busca-input');
+        if (inp) inp.value = '';
+        buscarPostos();
+      }
+      mostrarToast('📍 Localização atualizada!');
     },
     () => {
-      ocultarLoading();
-      mostrarToast('Localização negada, usando São Paulo');
-      buscarPostos();
+      if (!STORE.temUltimaPosicao()) {
+        mostrarToast('Localização negada, usando São Paulo');
+        buscarPostos();
+      }
     },
     { timeout: 8000 }
   );
@@ -7422,7 +7501,9 @@ function selecionarSugestao(i) {
   const s = document.getElementById('sugestoes')._sugestoes[i];
   state.lat = s.lat;
   state.lng = s.lng;
-  document.getElementById('busca-input').value = s.nome.split(',').slice(0, 2).join(', ');
+  const nomeLocal = s.nome.split(',').slice(0, 2).join(', ');
+  document.getElementById('busca-input').value = nomeLocal;
+  localStorage.setItem('rp_last_loc_nome', nomeLocal); // salva nome imediatamente
   ocultarSugestoes();
   if (state.map) state.map.setView([state.lat, state.lng], 14);
   buscarPostos();
@@ -7455,8 +7536,8 @@ async function buscarPostos() {
     renderizarDestaque();
     renderizarLista();
     atualizarMapa();
-    // Atualizar painel desktop com localização atual
     atualizarPainelLocalizacao(data);
+    STORE.salvar(); // ← persiste posição + combustível + consumo após busca ok
   } catch (e) {
     mostrarToast('Erro ao buscar postos');
   } finally {
@@ -7922,6 +8003,11 @@ function mudarCombustivel(comb, btn) {
   state.combustivel = comb;
   document.querySelectorAll('#view-destaque .chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
+  // Sincronizar chip da view-lista
+  document.querySelectorAll('#view-lista .chip').forEach(c => {
+    c.classList.toggle('active', (c.getAttribute('onclick')||'').includes("'" + comb + "'"));
+  });
+  STORE.salvar();
   buscarPostos();
 }
 
@@ -7929,6 +8015,11 @@ function mudarCombustivelLista(comb, btn) {
   state.combustivel = comb;
   document.querySelectorAll('#view-lista .chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
+  // Sincronizar chip do view-destaque
+  document.querySelectorAll('#view-destaque .chip').forEach(c => {
+    c.classList.toggle('active', (c.getAttribute('onclick')||'').includes("'" + comb + "'"));
+  });
+  STORE.salvar();
   buscarPostos();
 }
 
@@ -7960,6 +8051,8 @@ function atualizarConsumo(val) {
   // Atualizar parâmetros de busca para próxima requisição
   state.consumoKmL = consumo;
   state.litrosTanque = tanque;
+  localStorage.setItem('rp_last_consumo', String(consumo));
+  localStorage.setItem('rp_last_tanque',  String(tanque));
   // Re-renderizar com os dados atuais (score é recalculado pelo backend na próxima busca)
   renderizarDestaque();
   renderizarLista();
