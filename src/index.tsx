@@ -2393,43 +2393,70 @@ app.post('/api/pagamento/cancelar', async (c) => {
   }
 })
 
-// ─── API: Upload de foto de perfil (base64) ───────────────────────────────────
-// Armazena temporariamente em memória (produção: usar R2 ou Firebase Storage)
-const FOTOS_PERFIL = new Map<string, { url: string; ts: number }>()
-
+// ─── API: Upload de foto de perfil (base64 → R2) ─────────────────────────────
 app.post('/api/perfil/foto', async (c) => {
   try {
     const body = await c.req.json()
     const { userId, fotoBase64, mimeType } = body
+    const r2 = (c.env as any)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const kv = getKV(c.env as any)
 
     if (!userId || !fotoBase64) {
       return c.json({ sucesso: false, mensagem: 'Dados incompletos' }, 400)
     }
 
-    // Validar tamanho (max 2MB base64 = ~1.5MB real)
+    // Validar tamanho (max 2MB base64 ≈ 1.5MB real)
     if (fotoBase64.length > 2 * 1024 * 1024) {
-      return c.json({ sucesso: false, mensagem: 'Imagem muito grande. Maximo 1.5MB.' }, 400)
+      return c.json({ sucesso: false, mensagem: 'Imagem muito grande. Máximo 1.5MB.' }, 400)
     }
 
     const mime = mimeType || 'image/jpeg'
-    const dataUrl = `data:${mime};base64,${fotoBase64}`
-    FOTOS_PERFIL.set(userId, { url: dataUrl, ts: Date.now() })
+    const ext  = mime === 'image/png' ? 'png' : 'jpg'
+    const key  = `perfil-foto/${userId}.${ext}`
 
-    return c.json({
-      sucesso: true,
-      fotoUrl: dataUrl,
-      mensagem: 'Foto de perfil atualizada!'
-    })
-  } catch {
-    return c.json({ sucesso: false, mensagem: 'Erro ao salvar foto' }, 500)
+    // Decodificar base64 → bytes
+    const binaryStr = atob(fotoBase64)
+    const bytes = new Uint8Array(binaryStr.length)
+    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i)
+
+    // Salvar no R2 (persistente)
+    if (r2) {
+      await r2.put(key, bytes, {
+        httpMetadata: { contentType: mime },
+        customMetadata: { userId, ts: Date.now().toString() }
+      })
+      const fotoUrl = `/api/perfil/foto/${userId}`
+      // Salvar URL no KV também (para acesso rápido)
+      if (kv) await kv.put(`perfil:foto:${userId}`, fotoUrl, { expirationTtl: 60 * 60 * 24 * 365 * 2 })
+      return c.json({ sucesso: true, fotoUrl, mensagem: 'Foto de perfil atualizada!' })
+    }
+
+    // Fallback: sem R2 — retornar dataUrl direto (só persiste no cliente via localStorage)
+    const dataUrl = `data:${mime};base64,${fotoBase64}`
+    return c.json({ sucesso: true, fotoUrl: dataUrl, mensagem: 'Foto salva localmente.' })
+  } catch (e) {
+    return c.json({ sucesso: false, mensagem: 'Erro ao salvar foto: ' + String(e) }, 500)
   }
 })
 
-app.get('/api/perfil/foto/:userId', (c) => {
+app.get('/api/perfil/foto/:userId', async (c) => {
   const userId = c.req.param('userId')
-  const foto = FOTOS_PERFIL.get(userId)
-  if (!foto) return c.json({ fotoUrl: null })
-  return c.json({ fotoUrl: foto.url, ts: foto.ts })
+  const r2 = (c.env as any)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  if (!r2) return c.json({ fotoUrl: null })
+
+  // Tentar jpg primeiro, depois png
+  let obj = await r2.get(`perfil-foto/${userId}.jpg`)
+  if (!obj) obj = await r2.get(`perfil-foto/${userId}.png`)
+  if (!obj) return c.json({ fotoUrl: null })
+
+  const mime = obj.httpMetadata?.contentType || 'image/jpeg'
+  return new Response(obj.body, {
+    headers: {
+      'Content-Type': mime,
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
 })
 
 // ─── API: Veículo do usuário — GET e POST ────────────────────────────────────

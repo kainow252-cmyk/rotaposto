@@ -4912,9 +4912,15 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         .then(function(data) {
           if (spinner) spinner.classList.remove('ativo');
           if (data.sucesso) {
+            // Se voltou URL do R2, adicionar cache-bust; senão usar dataUrl local
             var fotoUrl = data.fotoUrl;
+            if (fotoUrl && fotoUrl.startsWith('/api/')) {
+              fotoUrl = fotoUrl + '?t=' + Date.now();
+            }
             // Salvar no localStorage para persistência entre sessões
             localStorage.setItem('rp_foto_perfil_' + uid, fotoUrl);
+            // Atualizar avatar na UI com URL final
+            atualizarAvatarUI(fotoUrl);
             // Atualizar Firebase profile (photoURL)
             if (window._fbUpdateProfile && window._fbAuth && window._fbAuth.currentUser) {
               window._fbUpdateProfile(window._fbAuth.currentUser, { photoURL: fotoUrl })
@@ -4927,7 +4933,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         })
         .catch(function() {
           if (spinner) spinner.classList.remove('ativo');
-          // Manter foto na UI mesmo offline (localStorage já salvo)
+          // Manter foto na UI mesmo offline (compressedDataUrl já aplicado)
           var uid2 = currentUser && currentUser.uid;
           if (uid2) {
             localStorage.setItem('rp_foto_perfil_' + uid2, compressedDataUrl);
