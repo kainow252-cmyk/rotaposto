@@ -22196,7 +22196,7 @@ app.get('/rotasegura/admin', (c) => {
     <div class="topbar-title">RotaSegura Admin</div>
   </div>
   <span class="topbar-sub">Painel de Passageiros</span>
-  <a href="/rotasegura/motorista/ladmin" class="topbar-link"><i class="fas fa-car"></i> Ver Motoristas</a>
+  <a href="/rotasegura/motorista/admin" class="topbar-link"><i class="fas fa-car"></i> Ver Motoristas</a>
 </div>
 
 <!-- LOGIN -->
@@ -22421,9 +22421,9 @@ if (savedKey) { AKEY = savedKey; carregarDados() }
 })
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ─── ADMIN MOTORISTA: /rotasegura/motorista/ladmin ────────────────────────────
+// ─── ADMIN MOTORISTA: /rotasegura/motorista/admin ────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
-app.get('/rotasegura/motorista/ladmin', (c) => {
+app.get('/rotasegura/motorista/admin', (c) => {
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
