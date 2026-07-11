@@ -16541,7 +16541,12 @@ async function enviarLogoBand() {
       if (btn) {
         var cell = row.querySelector('td:first-child');
         if (cell) {
-          cell.innerHTML = '<img src="' + logoFinal + '" style="width:32px;height:32px;object-fit:contain;border-radius:6px;background:#fff;padding:2px" onerror="this.style.display=\'none\'">';
+          var _img = document.createElement('img');
+          _img.src = logoFinal;
+          _img.style.cssText = 'width:32px;height:32px;object-fit:contain;border-radius:6px;background:#fff;padding:2px';
+          _img.onerror = function(){ this.style.display='none'; };
+          cell.innerHTML = '';
+          cell.appendChild(_img);
         }
       }
     });
