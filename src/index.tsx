@@ -4733,8 +4733,8 @@ app.get('/ir', async (c) => {
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;overflow:hidden;background:#e8e8e8;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  html,body{width:100%;height:100%;overflow:hidden;background:#D1E8FF;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Raleway,sans-serif}
 
   #map{position:absolute;inset:0;z-index:0}
 
@@ -4749,52 +4749,58 @@ app.get('/ir', async (c) => {
   #status-txt{color:#1e293b;font-size:15px;font-weight:600;text-align:center;padding:0 32px;margin-bottom:5px}
   #sub-txt{color:#64748b;font-size:13px;text-align:center;padding:0 32px}
 
-  /* topo */
+  /* topo — estilo igual ao header do app */
   #top-bar{
     position:absolute;top:0;left:0;right:0;z-index:200;
-    background:linear-gradient(to bottom,rgba(255,255,255,.97) 55%,transparent);
-    padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 32px;
+    background:#0B1426;
+    padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 14px;
     pointer-events:none;
-    display:flex;align-items:flex-start;gap:10px}
+    display:flex;align-items:center;gap:10px;
+    box-shadow:0 2px 12px rgba(0,0,0,.35)}
   #btn-back{
     pointer-events:all;
     flex-shrink:0;
-    width:36px;height:36px;
-    background:#fff;backdrop-filter:blur(8px);
-    border:1.5px solid rgba(0,0,0,.10);
-    border-radius:50%;color:#1e293b;font-size:18px;
+    width:38px;height:38px;
+    background:rgba(255,255,255,.10);backdrop-filter:blur(8px);
+    border:1.5px solid rgba(255,255,255,.15);
+    border-radius:10px;color:#fff;font-size:18px;
     cursor:pointer;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 2px 8px rgba(0,0,0,.15);line-height:1;
-    margin-top:1px}
-  #btn-back:active{transform:scale(.9);background:#f1f5f9}
+    box-shadow:none;line-height:1}
+  #btn-back:active{transform:scale(.9);background:rgba(255,255,255,.2)}
   #top-bar-info{flex:1;min-width:0}
-  #top-bar-logo{width:34px;height:34px;border-radius:8px;background:#fff;
-    border:1px solid rgba(0,0,0,.10);flex-shrink:0;
+  #top-bar-logo{width:36px;height:36px;border-radius:10px;background:#fff;
+    border:none;flex-shrink:0;
     display:flex;align-items:center;justify-content:center;
-    overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.10)}
+    overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3)}
   #top-bar-logo img{width:100%;height:100%;object-fit:contain;padding:3px}
-  #top-bar h1{color:#0B1426;font-size:15px;font-weight:700;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    text-shadow:none}
-  #rota-info{color:#475569;font-size:13px;font-weight:500;margin-top:4px;
+  #top-bar h1{color:#fff;font-size:15px;font-weight:700;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #rota-info{color:rgba(255,255,255,.6);font-size:12px;font-weight:500;margin-top:3px;
     display:flex;align-items:center;gap:8px}
   #rota-info .badge{
-    background:rgba(249,115,22,.25);border:1px solid rgba(249,115,22,.5);
-    color:#f97316;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700}
+    background:rgba(249,115,22,.35);border:1px solid rgba(249,115,22,.6);
+    color:#f97316;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700}
 
-  /* botão centralizar */
+  /* botão centralizar — mira laranja igual ao app */
   #btn-center{
     position:absolute;right:14px;bottom:138px;z-index:200;
     width:44px;height:44px;border-radius:50%;border:none;
-    background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.4);
-    font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25);
+    font-size:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
     -webkit-tap-highlight-color:transparent}
+  #btn-center::before{
+    content:'';
+    width:22px;height:22px;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f97316' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v4M12 18v4M2 12h4M18 12h4'/%3E%3C/svg%3E") center/contain no-repeat;
+    display:block}
 
   /* barra inferior */
   #bottom-bar{
     position:absolute;bottom:0;left:0;right:0;z-index:200;
     padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));
-    background:linear-gradient(to top,rgba(255,255,255,.98) 65%,transparent)}
+    background:#fff;
+    border-radius:20px 20px 0 0;
+    box-shadow:0 -4px 20px rgba(0,0,0,.12)}
 
   /* card de rota */
   #rota-card{
@@ -4825,14 +4831,16 @@ app.get('/ir', async (c) => {
   /* Leaflet customização */
   .leaflet-control-attribution,.leaflet-control-zoom{display:none!important}
 
-  /* pin posto */
-  .pin-posto{
-    width:38px;height:38px;border-radius:50% 50% 50% 0;
-    transform:rotate(-45deg);background:#f97316;
-    border:3px solid #fff;box-shadow:0 3px 14px rgba(249,115,22,.7)}
-  .pin-posto em{
-    display:block;transform:rotate(45deg);
-    font-size:17px;line-height:32px;text-align:center;font-style:normal}
+  /* pin posto — badge branco com logo + preço (igual ao mapa de postos) */
+  .pin-posto-badge{
+    background:#fff;border-radius:10px;
+    box-shadow:0 2px 10px rgba(0,0,0,.22);border:2px solid #fff;
+    display:flex;align-items:center;gap:5px;
+    padding:4px 8px 4px 5px;white-space:nowrap}
+  .pin-posto-badge img{
+    width:22px;height:22px;object-fit:contain;border-radius:5px;flex-shrink:0}
+  .pin-posto-badge span{
+    font-size:12px;font-weight:800;color:#0B1426;line-height:1}
 
   /* pin usuário — seta direcional em modo nav, círculo em modo estático */
   .pin-user-wrap{
@@ -5015,6 +5023,7 @@ app.get('/ir', async (c) => {
   var DLAT = ${temCoords ? lat : 'null'};
   var DLNG = ${temCoords ? lng : 'null'};
   var NOME = ${JSON.stringify(tituloSafe)};
+  var LOGO = ${JSON.stringify(logoFinalUrl)};
 
   var _map, _userMarker, _rotaLayer;
   var _userLat = null, _userLng = null;
@@ -5354,8 +5363,9 @@ app.get('/ir', async (c) => {
     _map = L.map('map',{center:center,zoom:zoom,
       zoomControl:false,attributionControl:false});
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      maxZoom:19
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+      maxZoom:19,
+      subdomains:'abcd'
     }).addTo(_map);
 
     // Garantir que o pane não tenha rotação residual (bug de sessão anterior)
@@ -5369,10 +5379,11 @@ app.get('/ir', async (c) => {
       }
     }, 300);
 
-    // Marcador do posto destino
+    // Marcador do posto destino — badge branco com logo + nome
     if(DLAT&&DLNG){
-      var html='<div class="pin-posto"><em>⛽</em></div>';
-      var icon=L.divIcon({html:html,className:'',iconSize:[38,38],iconAnchor:[19,38]});
+      var logoUrl=LOGO||'/static/logos/independente.svg';
+      var html='<div class="pin-posto-badge"><img src="'+logoUrl+'" onerror="this.src=\'/static/logos/independente.svg\'"><span>'+NOME.substring(0,18)+'</span></div>';
+      var icon=L.divIcon({html:html,className:'',iconSize:[null,null],iconAnchor:[0,36]});
       L.marker([DLAT,DLNG],{icon:icon}).addTo(_map)
         .bindPopup('<b>'+NOME+'</b>',{closeButton:false,maxWidth:200});
     }
