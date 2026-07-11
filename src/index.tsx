@@ -600,6 +600,29 @@ app.get('/api/postos', async (c) => {
 
         try {
           const parceiro = await buscarParceiroPorCNPJ(cnpjSoNum)
+
+          // ── Postos ANP com CNPJ mas SEM parceiro cadastrado ──────────────────
+          // Verificar logo manual do admin via posto:band:{p.id} (ex: posto:band:anp-160103)
+          if (!parceiro && p.id && kvMerge) {
+            try {
+              const bandRaw = await kvMerge.get(`posto:band:${p.id}`)
+              if (bandRaw) {
+                const band = JSON.parse(bandRaw) as Record<string, unknown>
+                const fotoAdmin = band.fotoUrl ? String(band.fotoUrl) : null
+                const logoAdmin = band.logoUrl ? String(band.logoUrl) : null
+                const fotoFinal = fotoAdmin || logoAdmin
+                if (fotoFinal) {
+                  const merged2 = { ...p } as any
+                  if (p.fotoUrl && !merged2.fotoGoogle) merged2.fotoGoogle = p.fotoUrl
+                  merged2.fotoUrl = fotoFinal
+                  if (band.bandeira && String(band.bandeira) !== 'independente') merged2.bandeira = String(band.bandeira)
+                  return merged2 as PostoReal
+                }
+              }
+            } catch {}
+            return p
+          }
+
           if (!parceiro) return p
           const merged = { ...p } as any
           if (parceiro.bandeira && String(parceiro.bandeira) !== '—') {
@@ -16481,12 +16504,25 @@ async function enviarLogoBand() {
     if (!r.ok || !d.ok) throw new Error(d.erro || 'Erro ao enviar');
     if (st) { st.textContent='✅ Logo salvo! Já aparece no mapa e lista.'; st.style.color='#00C853'; }
     showToast('✅ Logo do posto salvo com sucesso!', 'ok');
-    // Atualizar preview com a nova logo
+    var logoFinal = d.logoUrl + '?t=' + Date.now();
+    // Atualizar preview no modal
     var img = document.getElementById('logo-band-preview-img');
-    if (img) { img.src = d.logoUrl + '?t=' + Date.now(); img.style.display='block'; }
+    if (img) { img.src = logoFinal; img.style.display='block'; }
     _logoBandFile = null;
     var inp = document.getElementById('logo-band-input');
     if (inp) inp.value = '';
+    // Atualizar célula da tabela imediatamente (sem recarregar toda a lista)
+    // A tabela tem células na coluna 0 de cada linha com data-posto-id
+    var rows = document.querySelectorAll('#postos-tbody tr');
+    rows.forEach(function(row) {
+      var btn = row.querySelector('button[onclick*="' + _logoBandPostoId + '"]');
+      if (btn) {
+        var cell = row.querySelector('td:first-child');
+        if (cell) {
+          cell.innerHTML = '<img src="' + logoFinal + '" style="width:32px;height:32px;object-fit:contain;border-radius:6px;background:#fff;padding:2px" onerror="this.style.display=\'none\'">';
+        }
+      }
+    });
     // Fechar modal após 1.5s e recarregar lista
     setTimeout(function() {
       fecharModalLogoBand();
@@ -20378,6 +20414,9 @@ app.post('/api/admin/posto-band/logo', async (c) => {
     band.fotoTs   = uploadTs
     band.logoUploadAdmin = true
     await kv.put(bandKey, JSON.stringify(band), { expirationTtl: 365 * 24 * 3600 })
+
+    // Invalidar cache em memória para que a logo apareça imediatamente
+    cache.clear()
 
     return c.json({ ok: true, logoUrl, uploadTs, postoId, safeId })
   } catch(e) {
