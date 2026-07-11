@@ -8708,13 +8708,17 @@ function _abrirModalPostoComPosto(posto) {
     : posto.distancia.toFixed(1) + 'km';
 
   const modalBandeiraHtml = posto.fotoUrl
-    ? \`<div class="modal-bandeira-box" style="background:#fff;padding:3px;overflow:hidden">
+    ? \`<div class="modal-bandeira-box" style="background:#fff;padding:3px;overflow:hidden;position:relative">
         <img src="\${posto.fotoUrl}" alt="\${posto.bandeira}"
           style="width:46px;height:46px;object-fit:contain;border-radius:9px;"
-          onerror="this.parentElement.style.background='';this.parentElement.innerHTML='<span style=\\'font-size:22px\\'>\${posto.emoji}</span><span style=\\'font-size:9px;color:rgba(255,255,255,0.7);font-weight:800\\'>\${posto.bandeira.substring(0,7)}</span>'">
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.parentElement.style.background='';">
+        <div style="display:none;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:46px;height:46px">
+          <span style="font-size:22px">\${posto.emoji || '\u26fd'}</span>
+          <span style="font-size:9px;color:rgba(255,255,255,0.7);font-weight:800">\${posto.bandeira.substring(0,7)}</span>
+        </div>
       </div>\`
     : \`<div class="modal-bandeira-box">
-        <span style="font-size:22px">\${posto.emoji}</span>
+        <span style="font-size:22px">\${posto.emoji || '\u26fd'}</span>
         <span style="font-size:9px;color:rgba(255,255,255,0.7);font-weight:800">\${posto.bandeira.substring(0,7)}</span>
       </div>\`;
 
