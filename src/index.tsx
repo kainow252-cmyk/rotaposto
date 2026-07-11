@@ -4730,7 +4730,7 @@ app.get('/ir', async (c) => {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <title>Rota — ${tituloSafe}</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:100%;height:100%;overflow:hidden;background:#D1E8FF;
@@ -5023,13 +5023,13 @@ app.get('/ir', async (c) => {
   <button id="btn-fechar-chegou" onclick="document.getElementById('chegou-banner').classList.remove('visible')">Fechar</button>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
 <script>
+var DLAT = ${temCoords ? lat : 'null'};
+var DLNG = ${temCoords ? lng : 'null'};
+var NOME = ${JSON.stringify(tituloSafe)};
+var LOGO = ${JSON.stringify(logoFinalUrl)};
 (function(){
-  var DLAT = ${temCoords ? lat : 'null'};
-  var DLNG = ${temCoords ? lng : 'null'};
-  var NOME = ${JSON.stringify(tituloSafe)};
-  var LOGO = ${JSON.stringify(logoFinalUrl)};
 
   var _map, _userMarker, _rotaLayer;
   var _userLat = null, _userLng = null;
@@ -5374,6 +5374,17 @@ app.get('/ir', async (c) => {
       subdomains:'abcd'
     }).addTo(_map);
 
+    // ⚡ Segurança: se GPS não responder em 3s, mostra mapa centrado no destino
+    setTimeout(function(){
+      var o=document.getElementById('overlay');
+      if(o && !o.classList.contains('hide')){
+        // Overlay ainda visível — mostra mapa centralizado no posto destino
+        if(DLAT&&DLNG) _map.setView([DLAT,DLNG],14,{animate:false});
+        hideOverlay();
+        setInfoDist('Aguardando GPS…');
+      }
+    }, 3000);
+
     // Garantir que o pane não tenha rotação residual (bug de sessão anterior)
     setTimeout(function(){
       var pane = document.querySelector('#map .leaflet-map-pane');
@@ -5641,10 +5652,24 @@ app.get('/ir', async (c) => {
   });
 
   /* ── Init ────────────────────────────── */
-  if(typeof L!=='undefined'){
-    initMap();
+  function _boot(){
+    if(typeof L!=='undefined'){
+      initMap();
+    } else {
+      setStatus('Erro ao carregar mapa','Sem conexão com CDN do mapa');
+      // Mesmo com erro, mostra botão de pular após 3s
+      setTimeout(function(){
+        var b=document.getElementById('btn-pular-gps');
+        if(b) b.classList.add('visible');
+        setStatus('Mapa indisponível','Verifique sua internet');
+      },3000);
+    }
+  }
+  // Garante que o DOM e o Leaflet já carregaram
+  if(document.readyState==='complete'){
+    _boot();
   } else {
-    setStatus('Erro ao carregar mapa','Verifique sua conexão');
+    window.addEventListener('load',_boot);
   }
 
 })();
