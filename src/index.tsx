@@ -4739,15 +4739,20 @@ app.get('/ir', async (c) => {
   #map{position:absolute;inset:0;z-index:0}
 
   /* overlay */
-  #overlay{position:fixed;inset:0;background:#f1f5f9;
+  #overlay{position:fixed;inset:0;background:rgba(11,20,38,0.82);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    z-index:9999;transition:opacity .5s}
+    z-index:9999;transition:opacity .4s}
   #overlay.hide{opacity:0;pointer-events:none}
-  .spin{width:44px;height:44px;border:3px solid rgba(255,255,255,.1);
-    border-top-color:#f97316;border-radius:50%;animation:spin .85s linear infinite;margin-bottom:14px}
+  .spin{width:44px;height:44px;border:3px solid rgba(249,115,22,.25);
+    border-top-color:#f97316;border-radius:50%;animation:spin .85s linear infinite;margin-bottom:16px}
   @keyframes spin{to{transform:rotate(360deg)}}
-  #status-txt{color:#1e293b;font-size:15px;font-weight:600;text-align:center;padding:0 32px;margin-bottom:5px}
-  #sub-txt{color:#64748b;font-size:13px;text-align:center;padding:0 32px}
+  #status-txt{color:#fff;font-size:15px;font-weight:700;text-align:center;padding:0 32px;margin-bottom:6px}
+  #sub-txt{color:rgba(255,255,255,.55);font-size:13px;text-align:center;padding:0 32px}
+  #btn-pular-gps{
+    margin-top:20px;padding:10px 28px;border:1.5px solid rgba(255,255,255,.25);
+    border-radius:20px;background:transparent;color:rgba(255,255,255,.7);
+    font-size:13px;cursor:pointer;display:none}
+  #btn-pular-gps.visible{display:block}
 
   /* topo — estilo igual ao header do app */
   #top-bar{
@@ -4951,6 +4956,7 @@ app.get('/ir', async (c) => {
   <div class="spin"></div>
   <div id="status-txt">Obtendo localização…</div>
   <div id="sub-txt">Aguarde um momento</div>
+  <button id="btn-pular-gps" onclick="pularGPS()">Continuar sem GPS</button>
 </div>
 
 <div id="map"></div>
@@ -5441,6 +5447,13 @@ app.get('/ir', async (c) => {
     }
   }
 
+  /* ── Pular GPS (fallback manual) ─────── */
+  function pularGPS(){
+    hideOverlay();
+    setInfoDist('GPS não obtido — toque em Traçar Rota');
+    if(DLAT&&DLNG) _map.setView([DLAT,DLNG],15,{animate:true});
+  }
+
   /* ── GPS ─────────────────────────────── */
   function obterGPS(){
     if(!navigator.geolocation){
@@ -5449,32 +5462,51 @@ app.get('/ir', async (c) => {
     }
     setStatus('Obtendo localização…','Aguarde um momento');
     var _ok=false;
+
+    // Após 5s mostra botão "Continuar sem GPS"
+    var _tPular=setTimeout(function(){
+      var b=document.getElementById('btn-pular-gps');
+      if(b&&!_ok) b.classList.add('visible');
+      setStatus('Obtendo localização…','Pode demorar em locais fechados');
+    },5000);
+
+    // Timeout total: 20s — depois esconde overlay mesmo sem GPS
     var _t=setTimeout(function(){
       if(_ok)return;
+      clearTimeout(_tPular);
       if(_watchId!=null){navigator.geolocation.clearWatch(_watchId);_watchId=null;}
       hideOverlay();
-      setInfoDist('GPS indisponível');
-    },13000);
+      setInfoDist('GPS indisponível — toque em Traçar Rota');
+    },20000);
 
     _watchId=navigator.geolocation.watchPosition(
       function(pos){
+        var lat=pos.coords.latitude;
+        var lng=pos.coords.longitude;
         var acc=pos.coords.accuracy;
-        atualizarUser(pos.coords.latitude,pos.coords.longitude);
-        if(!_ok && acc<=200){
-          _ok=true; clearTimeout(_t);
-          _map.setView([pos.coords.latitude,pos.coords.longitude],15,{animate:true});
+        atualizarUser(lat,lng);
+        // Aceita qualquer leitura (precisão até 500m) para não travar a tela
+        if(!_ok){
+          _ok=true;
+          clearTimeout(_t);
+          clearTimeout(_tPular);
+          _map.setView([lat,lng],15,{animate:true});
           hideOverlay();
           // Traça rota automaticamente ao obter GPS
-          tracarRota(pos.coords.latitude,pos.coords.longitude);
+          tracarRota(lat,lng);
         }
       },
       function(err){
         clearTimeout(_t);
+        clearTimeout(_tPular);
         if(_watchId!=null){navigator.geolocation.clearWatch(_watchId);_watchId=null;}
         hideOverlay();
-        setInfoDist(err.code===1 ? 'Permita localização' : 'GPS indisponível');
+        var msg=err.code===1
+          ? 'Permita localização nas configurações'
+          : 'GPS indisponível — toque em Traçar Rota';
+        setInfoDist(msg);
       },
-      {enableHighAccuracy:true,timeout:13000,maximumAge:0}
+      {enableHighAccuracy:true,timeout:20000,maximumAge:5000}
     );
   }
 
@@ -5547,41 +5579,56 @@ app.get('/ir', async (c) => {
 
   /* ── Botão "Iniciar Navegação" ─────────── */
   document.getElementById('btn-nav').addEventListener('click',function(){
-    if(!_steps.length){alert('Rota ainda não calculada.');return;}
+    if(!_steps.length){
+      // Tenta traçar rota se ainda não foi calculada
+      if(_userLat!=null){ tracarRota(_userLat,_userLng); }
+      else { setInfoDist('Aguardando GPS…'); }
+      return;
+    }
     _navAtiva  = true;
-    _mapaLivre = false; // navegação sempre segue o usuário
+    _mapaLivre = false;
     _stepIdx   = 0;
     _distPercorrida = 0;
+
+    // Garante que overlay sumiu
+    hideOverlay();
 
     // Esconde top-bar (substitui pelo banner)
     var tb=document.getElementById('top-bar');
     if(tb) tb.style.display='none';
 
-    // Mostra banner
+    // Esconde bottom-bar durante navegação
+    var bb=document.getElementById('bottom-bar');
+    if(bb) bb.style.display='none';
+
+    // Mostra banner de navegação
     var banner=document.getElementById('nav-banner');
     if(banner) banner.classList.add('visible');
 
     // Atualiza primeiro step
     atualizarBannerNav();
 
-    // Ajusta mapa para modo navegação (centrado no usuário, zoom 18 + bearing)
+    // Ajusta mapa para modo navegação (centrado no usuário, zoom 18)
     if(_userLat!=null){
       _map.setView([_userLat,_userLng],18,{animate:true});
       atualizarSetaUsuario(_bearing);
       aplicarRotacaoMapa(_bearing);
     }
 
-    // Esconde botão de iniciar (já está navegando)
+    // Esconde botão de iniciar
     this.classList.remove('ativo');
   });
 
   /* ── Botão fechar navegação ───────────── */
   document.getElementById('btn-nav-close').addEventListener('click',function(){
     _navAtiva=false;
-    _mapaLivre = true; // libera mapa ao sair da navegação
+    _mapaLivre = true;
     document.getElementById('nav-banner').classList.remove('visible');
+    // Restaura top-bar e bottom-bar
     var tb=document.getElementById('top-bar');
-    if(tb) tb.style.display='block';
+    if(tb) tb.style.display='flex';
+    var bb=document.getElementById('bottom-bar');
+    if(bb) bb.style.display='block';
     // Reexibe botão se rota ainda existe
     if(_rotaOk){
       var btnNav=document.getElementById('btn-nav');
