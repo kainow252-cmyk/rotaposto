@@ -5030,6 +5030,9 @@ app.get('/ir', async (c) => {
   var _stepIdx    = 0;        // step atual
   var _totalDist  = 0;        // distância total da rota (metros)
   var _distPercorrida = 0;    // acumulada pelo GPS
+  var _recalcTimeout  = null;  // timer de recálculo de rota
+  var _ultimoRecalc   = 0;     // timestamp do último recálculo (evita spam)
+  var _recalcAtivo    = false; // se está exibindo aviso de recálculo
 
   /* ── Mapa de manobras → emoji ─────────── */
   var MANOBRA_ICON = {
@@ -5197,6 +5200,111 @@ app.get('/ir', async (c) => {
     document.getElementById('nav-prog-label').textContent=pct+'%';
   }
 
+  /* ── Verifica desvio de rota e recalcula ── */
+  function verificarDesvioRota(lat,lng){
+    if(!_navAtiva||!_steps.length||_recalcAtivo) return;
+    // Calcular distância até a polyline da rota
+    var distRota=distanciaAteRota(lat,lng);
+    if(distRota>60){
+      // Fora da rota — acionar recálculo após 3s sem corrigir
+      if(!_recalcTimeout){
+        _recalcTimeout=setTimeout(function(){
+          var agora=Date.now();
+          if(agora-_ultimoRecalc<20000) return; // cooldown 20s entre recálculos
+          _recalcAtivo=true;
+          _ultimoRecalc=agora;
+          mostrarAvisoRecalculo();
+          recalcularRota(lat,lng);
+        },3000);
+      }
+    } else {
+      // Voltou para a rota — cancela recálculo pendente
+      if(_recalcTimeout){ clearTimeout(_recalcTimeout); _recalcTimeout=null; }
+    }
+  }
+
+  /* ── Distância do ponto até a polyline da rota ── */
+  function distanciaAteRota(lat,lng){
+    if(!_rotaLayer) return 0;
+    var latlng=L.latLng(lat,lng);
+    var minDist=Infinity;
+    // Percorre todos os pontos da polyline
+    var latLngs=_rotaLayer.getLatLngs();
+    for(var i=0;i<latLngs.length-1;i++){
+      var p1=latLngs[i], p2=latLngs[i+1];
+      var d=distPtoSegmento(lat,lng,p1.lat,p1.lng,p2.lat,p2.lng);
+      if(d<minDist) minDist=d;
+    }
+    return minDist;
+  }
+
+  /* ── Distância de ponto até segmento (metros) ── */
+  function distPtoSegmento(pLat,pLng,aLat,aLng,bLat,bLng){
+    var ax=aLng,ay=aLat,bx=bLng,by=bLat,px=pLng,py=pLat;
+    var dx=bx-ax,dy=by-ay;
+    if(dx===0&&dy===0) return haversine(pLat,pLng,aLat,aLng);
+    var t=((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy);
+    t=Math.max(0,Math.min(1,t));
+    var nearLat=ay+t*dy, nearLng=ax+t*dx;
+    return haversine(pLat,pLng,nearLat,nearLng);
+  }
+
+  /* ── Mostra aviso visual de recalculando ── */
+  function mostrarAvisoRecalculo(){
+    var el=document.getElementById('nav-instruction');
+    var arrow=document.getElementById('nav-arrow');
+    var dist=document.getElementById('nav-dist-step');
+    if(arrow) arrow.textContent='🔄';
+    if(el) el.textContent='Recalculando rota...';
+    if(dist) dist.textContent='';
+  }
+
+  /* ── Recalcula rota a partir da posição atual ── */
+  function recalcularRota(lat,lng){
+    if(!DLAT||!DLNG) return;
+    var url='https://router.project-osrm.org/route/v1/driving/'
+      +lng+','+lat+';'+DLNG+','+DLAT
+      +'?overview=full&geometries=geojson&steps=true';
+    fetch(url)
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.code!=='Ok'||!d.routes||!d.routes[0]) throw new Error('no route');
+        var route=d.routes[0];
+        // Atualizar steps
+        _steps=route.legs&&route.legs[0]&&route.legs[0].steps?route.legs[0].steps:[];
+        _stepIdx=0;
+        _totalDist=route.distance;
+        _distPercorrida=0;
+        // Redesenhar polyline
+        if(_rotaLayer) _map.removeLayer(_rotaLayer);
+        var coords=route.geometry.coordinates.map(function(c){return[c[1],c[0]];});
+        _rotaLayer=L.polyline(coords,{
+          color:'#f97316',weight:5,opacity:.9,
+          lineCap:'round',lineJoin:'round'
+        }).addTo(_map);
+        // Atualizar UI
+        atualizarBannerNav();
+        // Mostrar toast de confirmação
+        var dist=fmtDist(route.distance);
+        var dur=fmtDur(route.duration);
+        showCard(dist,dur);
+        // Toast brevíssimo
+        var el=document.getElementById('nav-instruction');
+        if(el) el.style.color='#4CAF50';
+        setTimeout(function(){ if(el) el.style.color=''; },1500);
+      })
+      .catch(function(){
+        var el=document.getElementById('nav-instruction');
+        var arrow=document.getElementById('nav-arrow');
+        if(arrow) arrow.textContent='⚠️';
+        if(el) el.textContent='Sem sinal — recalculando...';
+      })
+      .finally(function(){
+        _recalcAtivo=false;
+        _recalcTimeout=null;
+      });
+  }
+
   /* ── Localiza step mais próximo ─────────── */
   function detectarStepAtual(lat,lng){
     if(!_steps.length) return;
@@ -5311,7 +5419,14 @@ app.get('/ir', async (c) => {
       _map.setView([lat,lng],18,{animate:true,duration:0.8});
       atualizarSetaUsuario(_bearing);
       aplicarRotacaoMapa(_bearing);
+      // Acumular distância percorrida
+      if(_prevLat!==null&&_prevLng!==null){
+        var dMoveu=haversine(_prevLat,_prevLng,lat,lng);
+        if(dMoveu>2&&dMoveu<100) _distPercorrida+=dMoveu; // filtra ruído/teleport
+      }
       detectarStepAtual(lat,lng);
+      // Detectar desvio de rota e recalcular
+      verificarDesvioRota(lat,lng);
     }
   }
 
