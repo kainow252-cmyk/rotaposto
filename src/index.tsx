@@ -11515,10 +11515,20 @@ app.get('/api/admin/config/pagamento', async (c) => {
   if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
   const config = await getConfigPagamento(kv)
   // Verificar credenciais nos env secrets
-  const temWooviEnv  = Boolean((c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || (c.env as any)?.WOOVI_API_KEY)
-  const temMPEnv     = Boolean((c.env as any)?.MP_ACCESS_TOKEN)
-  const temAsaasEnv  = Boolean((c.env as any)?.ASAAS_API_KEY)
-  return c.json({ config, temWooviEnv, temMPEnv, temAsaasEnv })
+  const wooviKey  = (c.env as any)?.WOOVI_APP_ID || (c.env as any)?.OPENPIX_KEY || (c.env as any)?.WOOVI_API_KEY || ''
+  const mpKey     = (c.env as any)?.MP_ACCESS_TOKEN || ''
+  const asaasKey  = (c.env as any)?.ASAAS_API_KEY || ''
+  const temWooviEnv  = Boolean(wooviKey)
+  const temMPEnv     = Boolean(mpKey)
+  const temAsaasEnv  = Boolean(asaasKey)
+  // Prefixo seguro para diagnóstico (6 chars + **)
+  const mask = (s: string) => s ? s.slice(0, 6) + '****' : ''
+  return c.json({
+    config,
+    temWooviEnv, temMPEnv, temAsaasEnv,
+    // prefixos para diagnóstico de chaves inválidas (nunca expõem a chave completa)
+    _diag: { woovi: mask(wooviKey), mp: mask(mpKey), asaas: mask(asaasKey) }
+  })
 })
 
 // POST /api/admin/config/pagamento
@@ -11562,10 +11572,18 @@ app.post('/api/admin/config/pagamento/testar', async (c) => {
       })
       const statusWoovi = r.ok ? 'ok' : 'erro'
       await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusWoovi, atualizadoEm: Date.now() }))
-      return c.json({ ok: r.ok, status: statusWoovi, mensagem: r.ok ? '✅ Woovi conectado!' : `Erro HTTP ${r.status}` })
+      let mensagemWoovi = r.ok ? '✅ Woovi conectado!' : ''
+      if (!r.ok) {
+        if (r.status === 401) {
+          mensagemWoovi = `❌ AppID inválido (HTTP 401). Verifique o AppID no painel Woovi/OpenPix → Configurações → API.`
+        } else {
+          mensagemWoovi = `❌ Erro HTTP ${r.status}`
+        }
+      }
+      return c.json({ ok: r.ok, status: statusWoovi, mensagem: mensagemWoovi })
     } catch (e) {
       await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusWoovi: 'erro', atualizadoEm: Date.now() }))
-      return c.json({ ok: false, status: 'erro', mensagem: 'Falha de rede: ' + String(e) })
+      return c.json({ ok: false, status: 'erro', mensagem: 'Falha de rede ao testar Woovi: ' + String(e) })
     }
   }
 
@@ -11582,7 +11600,15 @@ app.post('/api/admin/config/pagamento/testar', async (c) => {
       })
       const statusMP = r.ok ? 'ok' : 'erro'
       await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusMP, atualizadoEm: Date.now() }))
-      return c.json({ ok: r.ok, status: statusMP, mensagem: r.ok ? '✅ Mercado Pago conectado!' : `Erro HTTP ${r.status}` })
+      let mensagemMP = r.ok ? '✅ Mercado Pago conectado!' : ''
+      if (!r.ok) {
+        if (r.status === 400 || r.status === 401) {
+          mensagemMP = `❌ Access Token inválido (HTTP ${r.status}). Verifique em mercadopago.com.br → Suas Integrações → Credenciais.`
+        } else {
+          mensagemMP = `❌ Erro HTTP ${r.status}`
+        }
+      }
+      return c.json({ ok: r.ok, status: statusMP, mensagem: mensagemMP })
     } catch (e) {
       await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...config, statusMP: 'erro', atualizadoEm: Date.now() }))
       return c.json({ ok: false, status: 'erro', mensagem: 'Falha de rede: ' + String(e) })
