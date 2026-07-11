@@ -4980,7 +4980,7 @@ app.get('/ir', async (c) => {
 <div id="top-bar">
   <button id="btn-back" onclick="history.back()" title="Voltar">&#8592;</button>
   <div id="top-bar-logo">
-    <img src="${logoFinalUrl}" alt="" onerror="this.src='${logoSvgUrl}'">
+    <img src="${logoFinalUrl}" alt="" onerror="this.src=&quot;${logoSvgUrl}&quot;">
   </div>
   <div id="top-bar-info">
     <h1>${tituloSafe}</h1>
@@ -4996,7 +4996,7 @@ app.get('/ir', async (c) => {
 <div id="bottom-bar">
   <div id="rota-card" style="display:none">
     <div id="rota-card-logo">
-      <img src="${logoFinalUrl}" alt="" onerror="this.src='${logoSvgUrl}'">
+      <img src="${logoFinalUrl}" alt="" onerror="this.src=&quot;${logoSvgUrl}&quot;">
     </div>
     <div>
       <div class="rc-dist" id="card-dist">—</div>
@@ -5016,7 +5016,7 @@ app.get('/ir', async (c) => {
 <!-- Overlay chegou ao destino -->
 <div id="chegou-banner">
   <div id="chegou-icon" style="font-size:0;width:56px;height:56px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;box-shadow:0 2px 8px rgba(0,0,0,.15);">
-    <img src="${logoFinalUrl}" alt="⛽" style="width:48px;height:48px;object-fit:contain;padding:4px;" onerror="this.outerHTML='<span style=\'font-size:32px\'>⛽</span>'">
+    <img src="${logoFinalUrl}" alt="⛽" style="width:48px;height:48px;object-fit:contain;padding:4px;" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=&quot;font-size:32px&quot;>&#x26FD;</span>')">
   </div>
   <div id="chegou-titulo">Você chegou!</div>
   <div id="chegou-sub">${tituloSafe}</div>
@@ -5399,7 +5399,7 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     // Marcador do posto destino — badge branco com logo + nome
     if(DLAT&&DLNG){
       var logoUrl=LOGO||'/static/logos/independente.svg';
-      var html='<div class="pin-posto-badge"><img src="'+logoUrl+'" onerror="this.src=\'/static/logos/independente.svg\'"><span>'+NOME.substring(0,18)+'</span></div>';
+      var html='<div class="pin-posto-badge"><img src="'+logoUrl+'" onerror="this.src=&quot;/static/logos/independente.svg&quot;"><span>'+NOME.substring(0,18)+'</span></div>';
       var icon=L.divIcon({html:html,className:'',iconSize:[null,null],iconAnchor:[0,36]});
       L.marker([DLAT,DLNG],{icon:icon}).addTo(_map)
         .bindPopup('<b>'+NOME+'</b>',{closeButton:false,maxWidth:200});
