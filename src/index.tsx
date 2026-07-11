@@ -11635,6 +11635,29 @@ app.post('/api/admin/config/pagamento/testar', async (c) => {
   return c.json({ erro: 'Gateway inválido' }, 400)
 })
 
+// POST /api/admin/config/pagamento/resetar-status — limpa o status de erro de um gateway no KV
+app.post('/api/admin/config/pagamento/resetar-status', async (c) => {
+  const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
+  const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+  if (key !== ADMIN_PASS) return c.json({ erro: 'Não autorizado' }, 401)
+  const kv = getKV(c.env as any)
+  if (!kv) return c.json({ erro: 'KV não disponível' }, 500)
+  const { gateway } = await c.req.json() as { gateway: string }
+  const config = await getConfigPagamento(kv)
+  const update: Partial<ConfigPagamento> = { atualizadoEm: Date.now() }
+  if (gateway === 'woovi')       update.statusWoovi = undefined
+  else if (gateway === 'mercadopago') update.statusMP = undefined
+  else if (gateway === 'asaas')  update.statusAsaas = undefined
+  else return c.json({ erro: 'Gateway inválido' }, 400)
+  const novaConfig = { ...config, ...update }
+  // Remover o campo de status para volcar ao estado "não testado"
+  if (gateway === 'woovi')       delete novaConfig.statusWoovi
+  else if (gateway === 'mercadopago') delete novaConfig.statusMP
+  else if (gateway === 'asaas')  delete novaConfig.statusAsaas
+  await kv.put(PAGAMENTO_CONFIG_KEY, JSON.stringify({ ...novaConfig, atualizadoEm: Date.now() }))
+  return c.json({ ok: true, mensagem: `Status de ${gateway} resetado para "não testado"` })
+})
+
 // POST /api/admin/planos/criar-no-gateway — cria plano/charge no gateway e salva ID externo no KV
 app.post('/api/admin/planos/criar-no-gateway', async (c) => {
   const key = c.req.query('key') || c.req.header('X-Admin-Key') || ''
@@ -17833,6 +17856,7 @@ var _pgConfig = { gateway: 'woovi', pixAtivo: true, cartaoAtivo: true, statusWoo
 var _pgTemWooviEnv = false;
 var _pgTemMPEnv = false;
 var _pgTemAsaasEnv = false;
+var _pgDiag = { woovi: '', mp: '', asaas: '' };
 
 async function carregarConfigPagamento() {
   try {
@@ -17842,6 +17866,7 @@ async function carregarConfigPagamento() {
     _pgTemWooviEnv  = data.temWooviEnv  || Boolean(_pgConfig.wooviAppId)   || false;
     _pgTemMPEnv     = data.temMPEnv     || Boolean(_pgConfig.mpAccessToken) || false;
     _pgTemAsaasEnv  = data.temAsaasEnv  || Boolean(_pgConfig.asaasApiKey)   || false;
+    _pgDiag = data._diag || { woovi: '', mp: '', asaas: '' };
   } catch(e) { console.warn('carregarConfigPagamento:', e); }
   renderGatewayCards();
   renderMetodoToggles();
@@ -17887,22 +17912,40 @@ function renderGatewayCards() {
   el.innerHTML = gateways.map(function(g) {
     var ativo = _pgConfig.gateway === g.id;
     var statusDot = g.status === 'ok' ? '#00C853' : g.status === 'erro' ? '#FF5252' : 'rgba(255,255,255,0.2)';
-    var statusTxt = g.status === 'ok' ? '● Conectado' : g.status === 'erro' ? '● Erro' : '○ Não testado';
+    var statusTxt = g.status === 'ok' ? '● Conectado' : g.status === 'erro' ? '● Erro na última verificação' : '○ Não testado ainda';
     var statusColor = g.status === 'ok' ? '#00C853' : g.status === 'erro' ? '#FF5252' : 'rgba(255,255,255,0.25)';
+    // Dica de erro baseada no diagnóstico
+    var diagKey = g.id === 'mercadopago' ? 'mp' : g.id;
+    var diagPrefix = _pgDiag[diagKey] || '';
+    var dicaErro = '';
+    if (g.status === 'erro') {
+      if (!g.temEnv) {
+        dicaErro = '⚠ Credencial não configurada no Pages';
+      } else if (g.id === 'woovi') {
+        dicaErro = '⚠ AppID inválido — clique em Testar Conexão para detalhes';
+      } else if (g.id === 'asaas') {
+        dicaErro = '⚠ API Key inválida ou expirada';
+      } else {
+        dicaErro = '⚠ Verifique as credenciais';
+      }
+    } else if (g.status !== 'ok' && !g.temEnv) {
+      dicaErro = '⚠ Sem credencial configurada';
+    }
     return '<div onclick="selecionarGateway(&apos;' + g.id + '&apos;)" style="'
       + 'cursor:pointer;border-radius:16px;padding:20px;flex:1;min-width:240px;max-width:320px;'
       + 'background:' + (ativo ? 'rgba(' + (g.id==='woovi'?'0,200,83':g.id==='asaas'?'0,189,126':'66,165,245') + ',0.08)' : 'rgba(255,255,255,0.03)') + ';'
-      + 'border:2px solid ' + (ativo ? g.cor : 'rgba(255,255,255,0.08)') + ';'
+      + 'border:2px solid ' + (ativo ? g.cor : g.status === 'erro' ? 'rgba(255,82,82,0.3)' : 'rgba(255,255,255,0.08)') + ';'
       + 'transition:all 0.2s;position:relative'
       + '">'
       + (ativo ? '<div style="position:absolute;top:12px;right:12px;background:' + g.cor + ';color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px">ATIVO</div>' : '')
       + '<div style="font-size:32px;margin-bottom:10px">' + g.icon + '</div>'
       + '<div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:2px">' + g.nome + '</div>'
       + '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:10px">' + g.sub + '</div>'
-      + '<div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5;margin-bottom:12px">' + g.desc + '</div>'
+      + '<div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5;margin-bottom:8px">' + g.desc + '</div>'
+      + (dicaErro ? '<div style="font-size:11px;color:#FF8A65;background:rgba(255,82,82,0.08);border-radius:6px;padding:5px 8px;margin-bottom:8px">' + dicaErro + '</div>' : '')
       + '<div style="display:flex;align-items:center;justify-content:space-between">'
       +   '<span style="font-size:11px;color:' + statusColor + ';font-weight:700">' + statusTxt + '</span>'
-      +   '<span style="font-size:10px;color:' + (g.temEnv ? 'rgba(0,200,83,0.6)' : 'rgba(255,255,255,0.2)') + '">' + (g.temEnv ? '🔑 Chave configurada' : '⚠ Sem credencial') + '</span>'
+      +   '<span style="font-size:10px;color:' + (g.temEnv ? 'rgba(0,200,83,0.6)' : 'rgba(255,100,100,0.5)') + '">' + (g.temEnv ? '🔑 Chave configurada' : '⚠ Sem credencial') + '</span>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -17960,26 +18003,45 @@ function renderIntegracaoStatus() {
     }
   ];
   el.innerHTML = items.map(function(it) {
-    var statusTxt = it.status === 'ok' ? '✅ Conectado' : it.status === 'erro' ? '❌ Erro de conexão' : '○ Não testado';
+    var statusTxt = it.status === 'ok' ? '✅ Conectado' : it.status === 'erro' ? '❌ Erro na última verificação' : '○ Não testado';
     var statusColor = it.status === 'ok' ? '#00C853' : it.status === 'erro' ? '#FF5252' : 'rgba(255,255,255,0.3)';
     var credLabel = it.id === 'woovi' ? 'cred-status-woovi' : it.id === 'mercadopago' ? 'cred-status-mp' : 'cred-status-pb';
-    return '<div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid ' + (it.temEnv ? 'rgba(0,200,83,0.15)' : 'rgba(255,255,255,0.07)') + '">'
+    var diagKey2 = it.id === 'mercadopago' ? 'mp' : it.id;
+    var diagPrefix2 = _pgDiag[diagKey2] || '';
+    // Mensagem de diagnóstico específica por gateway
+    var dicaErroInt = '';
+    if (it.status === 'erro') {
+      if (!it.temEnv) {
+        dicaErroInt = '⚠ Credencial ausente — adicione a secret <code>' + it.varEnv + '</code> no Cloudflare Pages.';
+      } else if (it.id === 'woovi') {
+        dicaErroInt = '⚠ AppID inválido (HTTP 401). Acesse app.woovi.com → Configurações → API e copie o AppID correto. Depois atualize a secret <code>WOOVI_API_KEY</code> no Pages.';
+      } else if (it.id === 'asaas') {
+        dicaErroInt = '⚠ API Key inválida. Acesse app.asaas.com → Minha Conta → Integrações → API Key.';
+      } else {
+        dicaErroInt = '⚠ Verifique as credenciais e clique em Testar Conexão.';
+      }
+    } else if (!it.temEnv) {
+      dicaErroInt = 'Sem credencial — adicione a secret <code>' + it.varEnv + '</code> no Cloudflare Pages.';
+    }
+    return '<div style="background:#0A1520;border-radius:14px;padding:18px;border:1px solid ' + (it.status === 'erro' ? 'rgba(255,82,82,0.25)' : it.temEnv ? 'rgba(0,200,83,0.15)' : 'rgba(255,255,255,0.07)') + '">'
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
       +   '<span style="font-size:24px">' + it.icon + '</span>'
       +   '<div style="font-size:14px;font-weight:700;color:#fff">' + it.nome + '</div>'
       + '</div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
       +   '<span style="font-size:11px;color:rgba(255,255,255,0.35)">Chave API:</span>'
-      +   '<span style="font-size:11px;font-weight:700;color:' + (it.temEnv ? '#00C853' : '#FF9800') + '">' + (it.temEnv ? '🔑 Configurada' : '⚠ Não configurada') + '</span>'
+      +   '<span style="font-size:11px;font-weight:700;color:' + (it.temEnv ? '#00C853' : '#FF9800') + '">' + (it.temEnv ? (diagPrefix2 ? '🔑 ' + diagPrefix2 : '🔑 Configurada') : '⚠ Não configurada') + '</span>'
       + '</div>'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:' + (dicaErroInt ? '8px' : '12px') + '">'
       +   '<span style="font-size:11px;color:rgba(255,255,255,0.35)">Conexão API:</span>'
       +   '<span style="font-size:11px;font-weight:700;color:' + statusColor + '">' + statusTxt + '</span>'
       + '</div>'
-      + '<div style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;word-break:break-all;margin-bottom:10px">Secret alternativo: ' + it.varEnv + '</div>'
-      + '<div style="display:flex;gap:8px">'
+      + (dicaErroInt ? '<div style="font-size:11px;color:#FF8A65;background:rgba(255,82,82,0.08);border-radius:6px;padding:6px 10px;margin-bottom:10px;line-height:1.5">' + dicaErroInt + '</div>' : '')
+      + '<div style="font-size:10px;color:rgba(255,255,255,0.15);font-family:monospace;word-break:break-all;margin-bottom:10px">Variável de ambiente: ' + it.varEnv + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
       +   '<button onclick="testarGatewayEspecifico(&apos;' + it.id + '&apos;)" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.1);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-bolt" style="margin-right:5px"></i>Testar Conexão</button>'
-      +   (it.temEnv ? '' : '<button onclick="irParaCredenciais()" style="background:rgba(255,179,0,0.08);color:#FFB300;border:1px solid rgba(255,179,0,0.2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-key" style="margin-right:5px"></i>Inserir Chave</button>')
+      +   (it.status === 'erro' ? '<button onclick="resetarStatusGateway(&apos;' + it.id + '&apos;)" style="background:rgba(255,100,0,0.08);color:#FF8A65;border:1px solid rgba(255,100,0,0.2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-times-circle" style="margin-right:5px"></i>Limpar Erro</button>' : '')
+      +   (!it.temEnv ? '<button onclick="irParaCredenciais()" style="background:rgba(255,179,0,0.08);color:#FFB300;border:1px solid rgba(255,179,0,0.2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit"><i class="fas fa-key" style="margin-right:5px"></i>Inserir Chave</button>' : '')
       + '</div>'
       + '</div>';
   }).join('');
@@ -18030,6 +18092,24 @@ function irParaCredenciais() {
 }
 
 async function testarGateway() { await testarGatewayEspecifico(_pgConfig.gateway); }
+
+async function resetarStatusGateway(gw) {
+  try {
+    const res = await fetch('/api/admin/config/pagamento/resetar-status?key=' + encodeURIComponent(ADMIN_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gateway: gw })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      mostrarToastPagamentos('✅ Status de "' + gw + '" limpo!', '#FF8A65');
+      await carregarConfigPagamento();
+    } else {
+      mostrarToastPagamentos('❌ ' + (data.erro || 'Erro ao resetar'), '#FF5252');
+    }
+  } catch(e) {
+    mostrarToastPagamentos('❌ ' + e.message, '#FF5252');
+  }
+}
 
 async function testarGatewayEspecifico(gw) {
   var btn = document.getElementById('btn-testar-gateway');
