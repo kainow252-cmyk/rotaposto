@@ -14285,11 +14285,12 @@ app.get('/admin', (c) => {
         <div style="overflow-x:auto">
           <table style="min-width:700px">
             <thead><tr>
+              <th style="width:42px"></th>
               <th>Nome</th><th>Bandeira</th><th>Fonte</th>
               <th>Gasolina</th><th>Etanol</th><th>Diesel</th>
-              <th>Cidade</th>
+              <th>Logo</th>
             </tr></thead>
-            <tbody id="postos-tbody"><tr><td colspan="7" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Carregando postos...</td></tr></tbody>
+            <tbody id="postos-tbody"><tr><td colspan="8" style="text-align:center;padding:32px;color:rgba(255,255,255,0.3)">Carregando postos...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -17449,7 +17450,7 @@ function abrirModalEditarPorCNPJ(cnpj) {
 // ── POSTOS (MAPA/API) ────────────────────────────────────────────────────────
 async function carregarPostos() {
   const tbody = document.getElementById('postos-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Buscando postos em ' + adminCidade + '...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:rgba(255,255,255,0.3)">Buscando postos em ' + adminCidade + '...</td></tr>';
   const cidadeLabel = document.getElementById('postos-cidade-label');
   if (cidadeLabel) cidadeLabel.textContent = adminCidade + ', ' + adminUF;
   try {
