@@ -3363,6 +3363,28 @@ app.get('/.well-known/assetlinks.json', (c) => {
           "0C:8C:4C:B5:7B:FC:FB:26:1C:0E:E1:74:A0:23:DD:83:70:3B:CA:34:17:0B:CD:D5:F8:75:51:B9:E3:9D:C0:56"
         ]
       }
+    },
+    {
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "br.com.rotaposto.rotasegura.passageiro",
+        "sha256_cert_fingerprints": [
+          // SHA-256 do keystore RotaSegura Passageiro
+          "4C:48:FC:74:5C:7D:C8:43:17:8E:8C:6A:62:E1:23:9C:F3:33:88:A4:3E:ED:2D:A0:3D:9A:8B:41:9E:5C:57:53"
+        ]
+      }
+    },
+    {
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "br.com.rotaposto.rotasegura.motorista",
+        "sha256_cert_fingerprints": [
+          // SHA-256 do keystore RotaSegura Motorista
+          "A7:4F:D8:A6:E7:DC:1C:C4:C3:8E:4F:45:87:54:EF:6A:80:04:90:A1:48:AE:02:85:42:87:03:26:1D:00:2C:BD"
+        ]
+      }
     }
   ]
   return new Response(JSON.stringify(payload), {
