@@ -12951,10 +12951,23 @@ app.get('/api/admin/anp-busca', async (c) => {
   }
 })
 
-app.get('/admin', (c) => {
+app.get('/admin', async (c) => {
   const key = c.req.query('key') || ''
   const staffMode = c.req.query('staff') === '1'
   const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
+
+  // Invalidar cache do Cloudflare para esta URL usando a Cache API
+  try {
+    const cache = (caches as any).default
+    if (cache && typeof cache.delete === 'function') {
+      const urlsToInvalidate = [
+        new Request(c.req.url),
+        new Request(`https://rotaposto.com.br/admin`),
+        new Request(`https://rotaposto.com.br/admin?key=rotaposto%40admin2026`),
+      ]
+      await Promise.allSettled(urlsToInvalidate.map(r => cache.delete(r)))
+    }
+  } catch (_) { /* silently ignore cache errors */ }
 
   // ── Tela de Login ─────────────────────────────────────────────────────────
   // Permite acesso com chave master OU via modo staff (autenticado no client)
@@ -13126,11 +13139,16 @@ app.get('/admin', (c) => {
   }
 
   const adminKey = encodeURIComponent(key)
+  const adminVersion = 'v20250711'
   const html = `<!DOCTYPE html>
+<!-- RotaPosto Admin ${adminVersion} -->
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
   <title>RotaPosto Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet"/>
@@ -19587,6 +19605,10 @@ async function confirmarRedefinirSenha() {
 </body>
 </html>`
 
+  // Nunca cachear o admin — força o CDN/browser a sempre pegar a versão mais recente
+  c.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+  c.header('Pragma', 'no-cache')
+  c.header('Surrogate-Control', 'no-store')
   return c.html(html)
 })
 

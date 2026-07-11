@@ -2,6 +2,11 @@
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Cross-Origin-Embedder-Policy: unsafe-none
 
+/admin
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Pragma: no-cache
+  Surrogate-Control: no-store
+
 /x5LakcrEBYEZAk0jBiw7VA7EYXo-0HQ14lInP4I2HFVq_gzqonn8yvvESRPrVaLr
   Cache-Control: no-cache, no-store, must-revalidate
   Content-Type: text/plain
