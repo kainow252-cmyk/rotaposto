@@ -58,6 +58,7 @@ export interface MotoristaRS {
   fotoCnh?: string         // foto da CNH
   fotoDocVeiculo?: string  // foto do documento do veículo
   fotoCnhVerso?: string    // verso da CNH (opcional)
+  fotoSeguro?: string      // apólice / documento de seguro (OBRIGATÓRIO)
   docsStatus?: 'pendente' | 'aprovado' | 'rejeitado'
   docsObs?: string         // observação do admin
   // Geolocalização no cadastro
@@ -82,6 +83,7 @@ export interface PassageiroRS {
   telefone: string
   fotoSelfie?: string      // selfie do passageiro
   fotoDoc?: string         // doc de identidade (opcional)
+  fotoSeguro?: string      // apólice / documento de seguro (OBRIGATÓRIO)
   docsStatus?: 'pendente' | 'aprovado' | 'rejeitado'
   // Geolocalização no cadastro
   geoLat?: number

@@ -21632,8 +21632,8 @@ app.post('/api/rotasegura/motorista/docs', async (c) => {
     const motorista = await kvGetMotorista(kv, auth.userId)
     if (!motorista) return c.json({ erro: 'Motorista não encontrado' }, 404)
 
-    // Aceita: fotoSelfie, fotoCnh, fotoDocVeiculo, fotoCnhVerso (base64 data URL)
-    const campos = ['fotoSelfie','fotoCnh','fotoDocVeiculo','fotoCnhVerso'] as const
+    // Aceita: fotoSelfie, fotoCnh, fotoDocVeiculo, fotoCnhVerso, fotoSeguro (base64 data URL)
+    const campos = ['fotoSelfie','fotoCnh','fotoDocVeiculo','fotoCnhVerso','fotoSeguro'] as const
     let atualizado = false
     for (const campo of campos) {
       if (body[campo] && typeof body[campo] === 'string') {
@@ -21684,6 +21684,10 @@ app.post('/api/rotasegura/passageiro/docs', async (c) => {
       if (body.fotoDoc.length > 1_100_000) return c.json({ erro: 'Documento muito grande (máx 800KB)' }, 413)
       passageiro.fotoDoc = body.fotoDoc
     }
+    if (body.fotoSeguro) {
+      if (body.fotoSeguro.length > 1_100_000) return c.json({ erro: 'Seguro muito grande (máx 800KB)' }, 413)
+      passageiro.fotoSeguro = body.fotoSeguro
+    }
     if (body.geoLat && body.geoLng) {
       passageiro.geoLat = Number(body.geoLat)
       passageiro.geoLng = Number(body.geoLng)
@@ -21729,7 +21733,7 @@ app.get('/api/rotasegura/admin/motoristas', async (c) => {
           ganhoTotal: m.ganhoTotal, criadoEm: m.criadoEm,
           geoLat: m.geoLat, geoLng: m.geoLng, geoEndereco: m.geoEndereco,
           temSelfie: !!m.fotoSelfie, temCnh: !!m.fotoCnh,
-          temDocVeiculo: !!m.fotoDocVeiculo,
+          temDocVeiculo: !!m.fotoDocVeiculo, temSeguro: !!m.fotoSeguro,
           cep: m.cep, logradouro: m.logradouro, bairro: m.bairro
         }
       })
@@ -21759,7 +21763,7 @@ app.get('/api/rotasegura/admin/passageiros', async (c) => {
           cpf: p.cpf, status: p.status, docsStatus: p.docsStatus,
           avaliacao: p.avaliacao, criadoEm: p.criadoEm,
           geoLat: p.geoLat, geoLng: p.geoLng, geoEndereco: p.geoEndereco,
-          temSelfie: !!p.fotoSelfie, temDoc: !!p.fotoDoc,
+          temSelfie: !!p.fotoSelfie, temDoc: !!p.fotoDoc, temSeguro: !!p.fotoSeguro,
           asaasCustomerId: p.asaasCustomerId
         }
       })
@@ -21784,6 +21788,7 @@ app.get('/api/rotasegura/admin/motorista/:id/foto/:tipo', async (c) => {
     cnh: motorista.fotoCnh,
     docveiculo: motorista.fotoDocVeiculo,
     cnhverso: motorista.fotoCnhVerso,
+    seguro: motorista.fotoSeguro,
   }
   const foto = mapa[tipo]
   if (!foto) return c.json({ erro: 'Foto não encontrada' }, 404)
@@ -21811,6 +21816,7 @@ app.get('/api/rotasegura/admin/passageiro/:id/foto/:tipo', async (c) => {
   const mapa: Record<string, string | undefined> = {
     selfie: passageiro.fotoSelfie,
     doc: passageiro.fotoDoc,
+    seguro: passageiro.fotoSeguro,
   }
   const foto = mapa[tipo]
   if (!foto) return c.json({ erro: 'Foto não encontrada' }, 404)
@@ -21867,13 +21873,13 @@ app.post('/api/rotasegura/admin/motorista/:id/foto', async (c) => {
   try {
     const body = await c.req.json()
     const { tipo, dataUrl } = body
-    // tipo: selfie | cnh | docveiculo | cnhverso
+    // tipo: selfie | cnh | docveiculo | cnhverso | seguro
     const campoMap: Record<string, string> = {
       selfie: 'fotoSelfie', cnh: 'fotoCnh',
-      docveiculo: 'fotoDocVeiculo', cnhverso: 'fotoCnhVerso'
+      docveiculo: 'fotoDocVeiculo', cnhverso: 'fotoCnhVerso', seguro: 'fotoSeguro'
     }
     const campo = campoMap[tipo]
-    if (!campo) return c.json({ erro: 'Tipo inválido. Use: selfie, cnh, docveiculo, cnhverso' }, 400)
+    if (!campo) return c.json({ erro: 'Tipo inválido. Use: selfie, cnh, docveiculo, cnhverso, seguro' }, 400)
     if (!dataUrl || !dataUrl.startsWith('data:')) return c.json({ erro: 'dataUrl inválido' }, 400)
     if (dataUrl.length > 1_500_000) return c.json({ erro: 'Imagem muito grande (máx ~1MB)' }, 413)
     ;(motorista as any)[campo] = dataUrl
@@ -21896,10 +21902,10 @@ app.post('/api/rotasegura/admin/passageiro/:id/foto', async (c) => {
   try {
     const body = await c.req.json()
     const { tipo, dataUrl } = body
-    // tipo: selfie | doc
-    const campoMap: Record<string, string> = { selfie: 'fotoSelfie', doc: 'fotoDoc' }
+    // tipo: selfie | doc | seguro
+    const campoMap: Record<string, string> = { selfie: 'fotoSelfie', doc: 'fotoDoc', seguro: 'fotoSeguro' }
     const campo = campoMap[tipo]
-    if (!campo) return c.json({ erro: 'Tipo inválido. Use: selfie, doc' }, 400)
+    if (!campo) return c.json({ erro: 'Tipo inválido. Use: selfie, doc, seguro' }, 400)
     if (!dataUrl || !dataUrl.startsWith('data:')) return c.json({ erro: 'dataUrl inválido' }, 400)
     if (dataUrl.length > 1_500_000) return c.json({ erro: 'Imagem muito grande (máx ~1MB)' }, 413)
     ;(passageiro as any)[campo] = dataUrl
@@ -22575,6 +22581,25 @@ app.get('/rotasegura/login', (c) => {
       </div>
     </div>
 
+    <!-- Seguro OBRIGATÓRIO -->
+    <div class="form-group" style="margin-top:4px">
+      <label class="form-label">
+        <i class="fas fa-shield-alt" style="color:#00C851;margin-right:4px"></i>
+        Documento de Seguro <span style="color:#ff4458;font-size:11px;font-weight:700">* obrigatório</span>
+      </label>
+      <div id="seguroBox" class="foto-box foto-box-required" onclick="abrirFoto('seguro')">
+        <div id="seguroPreview" class="foto-preview"></div>
+        <div class="foto-label" id="seguroLabel"><i class="fas fa-shield-alt" style="color:#ff4458"></i><span>Foto da apólice de seguro</span></div>
+      </div>
+      <input id="seguroInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="lerFoto(this,'seguro')"/>
+      <div id="seguroOpts" class="foto-opts" style="display:none">
+        <button class="foto-opt-btn" onclick="document.getElementById('seguroInput').setAttribute('capture','environment');document.getElementById('seguroInput').click()"><i class="fas fa-camera"></i> Câmera</button>
+        <button class="foto-opt-btn" onclick="document.getElementById('seguroInput').removeAttribute('capture');document.getElementById('seguroInput').click()"><i class="fas fa-image"></i> Galeria</button>
+        <button class="foto-opt-btn" style="color:#ff4458" onclick="removerFoto('seguro')"><i class="fas fa-trash"></i> Remover</button>
+      </div>
+      <div style="font-size:11px;color:rgba(255,200,0,.7);margin-top:5px"><i class="fas fa-info-circle"></i> Envie foto da apólice, cartão ou comprovante de seguro</div>
+    </div>
+
     <!-- Localização -->
     <div class="form-group">
       <label class="form-label"><i class="fas fa-map-marker-alt" style="color:#00C851;margin-right:4px"></i>Localização</label>
@@ -22594,6 +22619,9 @@ app.get('/rotasegura/login', (c) => {
 <style>
   .foto-box{border:1.5px dashed rgba(0,200,81,.3);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(0,200,81,.03);min-height:70px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;position:relative}
   .foto-box:hover{border-color:rgba(0,200,81,.6);background:rgba(0,200,81,.07)}
+  .foto-box-required{border-color:rgba(255,68,88,.4);background:rgba(255,68,88,.03)}
+  .foto-box-required:hover{border-color:rgba(255,68,88,.7);background:rgba(255,68,88,.07)}
+  .foto-box-required.tem-foto{border-color:rgba(0,200,81,.5);background:rgba(0,200,81,.05)}
   .foto-label{display:flex;flex-direction:column;align-items:center;gap:6px;color:rgba(255,255,255,.4);font-size:12px}
   .foto-label i{font-size:22px;color:#00C851}
   .foto-preview{display:none;width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,200,81,.4);overflow:hidden;margin:0 auto}
@@ -22610,6 +22638,7 @@ app.get('/rotasegura/login', (c) => {
 
 <script>
 let _selfieB64 = null
+let _seguroB64 = null
 let _geoLat = null, _geoLng = null, _geoEnd = ''
 
 function mudarAba(aba) {
@@ -22648,6 +22677,11 @@ function lerFoto(input, tipo) {
       canvas.getContext('2d').drawImage(img, 0, 0, w, h)
       const comprimida = canvas.toDataURL('image/jpeg', 0.75)
       if (tipo === 'selfie') _selfieB64 = comprimida
+      if (tipo === 'seguro') {
+        _seguroB64 = comprimida
+        document.getElementById('seguroBox').classList.remove('foto-box-required')
+        document.getElementById('seguroBox').classList.add('tem-foto')
+      }
       // Preview
       const prev = document.getElementById(tipo + 'Preview')
       prev.innerHTML = '<img src="' + comprimida + '"/>'
@@ -22662,6 +22696,11 @@ function lerFoto(input, tipo) {
 
 function removerFoto(tipo) {
   if (tipo === 'selfie') _selfieB64 = null
+  if (tipo === 'seguro') {
+    _seguroB64 = null
+    document.getElementById('seguroBox').classList.add('foto-box-required')
+    document.getElementById('seguroBox').classList.remove('tem-foto')
+  }
   document.getElementById(tipo + 'Preview').classList.remove('show')
   document.getElementById(tipo + 'Preview').innerHTML = ''
   document.getElementById(tipo + 'Label').style.display = 'flex'
@@ -22739,6 +22778,7 @@ async function fazerCadastro() {
 
   if (!nome || !email || !senha || !telefone) { mostrarErro('Preencha todos os campos obrigatórios'); return }
   if (senha.length < 6) { mostrarErro('Senha deve ter pelo menos 6 caracteres'); return }
+  if (!_seguroB64) { mostrarErro('Foto do documento de seguro é obrigatória'); document.getElementById('seguroBox').scrollIntoView({behavior:'smooth',block:'center'}); return }
 
   const btn = document.getElementById('btnCadastro')
   btn.disabled = true
@@ -22755,11 +22795,13 @@ async function fazerCadastro() {
       localStorage.setItem('rs_token_passageiro', d.token)
       localStorage.setItem('rs_passageiro', JSON.stringify(d.passageiro))
       // Enviar docs + geo em background
-      if (_selfieB64 || _geoLat) {
+      // Enviar docs (seguro obrigatório + selfie opcional + geo opcional)
+      {
         fetch('/api/rotasegura/passageiro/docs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + d.token },
           body: JSON.stringify({
+            fotoSeguro: _seguroB64,
             ...(_selfieB64 && { fotoSelfie: _selfieB64 }),
             ...(_geoLat && { geoLat: _geoLat, geoLng: _geoLng, geoEndereco: _geoEnd })
           })
@@ -23004,6 +23046,25 @@ app.get('/rotasegura/motorista/login', (c) => {
       </div>
     </div>
 
+    <!-- Seguro OBRIGATÓRIO -->
+    <div class="form-group">
+      <label class="form-label">
+        <i class="fas fa-shield-alt" style="color:#ff6b35;margin-right:4px"></i>
+        Seguro do veículo <span style="color:#ff4458;font-size:11px;font-weight:700">* obrigatório</span>
+      </label>
+      <div id="box_m_seguro" class="foto-box foto-box-req-moto" onclick="abrirOpts('m_seguro')">
+        <div id="prev_m_seguro" class="foto-prev-wrap" style="display:none"><img id="img_m_seguro" class="foto-prev-img" src=""/></div>
+        <div id="lbl_m_seguro" class="foto-lbl"><i class="fas fa-shield-alt" style="font-size:20px;color:#ff6b35"></i><span>Apólice ou comprovante de seguro</span></div>
+      </div>
+      <input id="inp_m_seguro" type="file" accept="image/*" capture="environment" style="display:none" onchange="lerFotoM(this,'m_seguro')"/>
+      <div id="opts_m_seguro" class="foto-opts" style="display:none">
+        <button class="foto-opt-btn" onclick="tirarFoto('m_seguro','environment')"><i class="fas fa-camera"></i> Câmera</button>
+        <button class="foto-opt-btn" onclick="anexarFoto('m_seguro')"><i class="fas fa-image"></i> Galeria</button>
+        <button class="foto-opt-btn" style="color:#ff4458" onclick="removerFotoM('m_seguro')"><i class="fas fa-trash"></i></button>
+      </div>
+      <div style="font-size:11px;color:rgba(255,200,0,.7);margin-top:5px"><i class="fas fa-info-circle"></i> Foto da apólice, cartão ou comprovante de seguro do veículo</div>
+    </div>
+
     <!-- Localização -->
     <div class="form-group">
       <label class="form-label"><i class="fas fa-map-marker-alt" style="color:#4d8bff;margin-right:4px"></i>Localização atual</label>
@@ -23032,10 +23093,13 @@ app.get('/rotasegura/motorista/login', (c) => {
   .foto-opt-btn:hover{background:rgba(255,255,255,.1)}
   .btn-geo-m{width:100%;padding:11px 14px;background:rgba(26,106,255,.08);border:1px solid rgba(26,106,255,.25);border-radius:11px;color:#4d8bff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;transition:all .2s}
   .btn-geo-m:hover,.btn-geo-m.captured{background:rgba(26,106,255,.15);border-color:#4d8bff}
+  .foto-box-req-moto{border-color:rgba(255,107,53,.4);background:rgba(255,107,53,.03)}
+  .foto-box-req-moto:hover{border-color:rgba(255,107,53,.7);background:rgba(255,107,53,.07)}
+  .foto-box-req-moto.tem-foto{border-color:rgba(26,106,255,.5);background:rgba(26,106,255,.05)}
 </style>
 
 <script>
-let _mFotos = { m_selfie: null, m_cnh: null, m_docveiculo: null }
+let _mFotos = { m_selfie: null, m_cnh: null, m_docveiculo: null, m_seguro: null }
 let _mGeoLat = null, _mGeoLng = null, _mGeoEnd = ''
 
 function mudarAba(aba) {
@@ -23085,6 +23149,10 @@ function lerFotoM(input, id) {
       document.getElementById('prev_' + id).style.display = 'block'
       document.getElementById('lbl_' + id).style.display = 'none'
       document.getElementById('opts_' + id).style.display = 'flex'
+      if (id === 'm_seguro') {
+        document.getElementById('box_m_seguro').classList.remove('foto-box-req-moto')
+        document.getElementById('box_m_seguro').classList.add('tem-foto')
+      }
     }
     img2.src = e.target.result
   }
@@ -23096,6 +23164,10 @@ function removerFotoM(id) {
   document.getElementById('prev_' + id).style.display = 'none'
   document.getElementById('lbl_' + id).style.display = 'flex'
   document.getElementById('opts_' + id).style.display = 'none'
+  if (id === 'm_seguro') {
+    document.getElementById('box_m_seguro').classList.add('foto-box-req-moto')
+    document.getElementById('box_m_seguro').classList.remove('tem-foto')
+  }
 }
 
 // ── Geo motorista ─────────────────────────────────────────────────────────────
@@ -23215,6 +23287,7 @@ async function fazerCadastro() {
   }
   if (senha.length < 6) { mostrarErro('Senha deve ter pelo menos 6 caracteres'); return }
   if (cnpj && cnpj.length !== 14) { mostrarErro('CNPJ inválido — deve ter 14 dígitos'); return }
+  if (!_mFotos.m_seguro) { mostrarErro('Foto do seguro do veículo é obrigatória'); document.getElementById('box_m_seguro').scrollIntoView({behavior:'smooth',block:'center'}); return }
 
   const btn = document.getElementById('btnCadastro')
   btn.disabled = true
@@ -23238,10 +23311,10 @@ async function fazerCadastro() {
     if (d.ok && d.token) {
       localStorage.setItem('rs_token_motorista', d.token)
       localStorage.setItem('rs_motorista', JSON.stringify(d.motorista))
-      // Enviar docs + geo em background
-      const temDocs = Object.values(_mFotos).some(Boolean) || _mGeoLat
-      if (temDocs) {
+      // Enviar docs + geo (seguro obrigatório + demais opcionais)
+      {
         const docsPayload = {}
+        docsPayload.fotoSeguro = _mFotos.m_seguro
         if (_mFotos.m_selfie) docsPayload.fotoSelfie = _mFotos.m_selfie
         if (_mFotos.m_cnh) docsPayload.fotoCnh = _mFotos.m_cnh
         if (_mFotos.m_docveiculo) docsPayload.fotoDocVeiculo = _mFotos.m_docveiculo

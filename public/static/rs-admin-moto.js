@@ -50,7 +50,8 @@ function abrirUpload(id, nome) {
     {k:'selfie',    l:'Selfie'},
     {k:'cnh',       l:'CNH Frente'},
     {k:'cnhverso',  l:'CNH Verso'},
-    {k:'docveiculo',l:'Doc Ve\u00edculo (CRLV)'}
+    {k:'docveiculo',l:'Doc Ve\u00edculo (CRLV)'},
+    {k:'seguro',    l:'\ud83d\udee1\ufe0f Seguro'}
   ];
   document.getElementById('upTipos').innerHTML = tipos.map(function(t, i) {
     var isFirst = i === 0;
@@ -148,6 +149,7 @@ async function upEnviar() {
       if (_upTipo === 'cnh')        m.temCnh = true;
       if (_upTipo === 'cnhverso')   m.temCnh = true;
       if (_upTipo === 'docveiculo') m.temDocVeiculo = true;
+      if (_upTipo === 'seguro')     m.temSeguro = true;
       if (!m.docsStatus || m.docsStatus === 'sem_docs') m.docsStatus = 'pendente';
     }
     fecharUpload();
@@ -215,8 +217,9 @@ function rowMotorista(m) {
   var docsIcons = '';
   if (m.temSelfie)    docsIcons += '<button class="btn-sm btn-ver" title="Selfie" onclick="verFoto(&quot;' + esc(m.id) + '&quot;,&quot;selfie&quot;,&quot;' + esc(m.nome) + '&quot;)"><i class="fas fa-camera"></i></button>';
   if (m.temCnh)       docsIcons += '<button class="btn-sm btn-ver" title="CNH" onclick="verFoto(&quot;' + esc(m.id) + '&quot;,&quot;cnh&quot;,&quot;' + esc(m.nome) + '&quot;)"><i class="fas fa-id-card"></i></button>';
-  if (m.temDocVeiculo)docsIcons += '<button class="btn-sm btn-ver" title="Doc Ve\u00edculo" onclick="verFoto(&quot;' + esc(m.id) + '&quot;,&quot;docveiculo&quot;,&quot;' + esc(m.nome) + '&quot;)"><i class="fas fa-car"></i></button>';
-  var nenhum = !m.temSelfie && !m.temCnh && !m.temDocVeiculo;
+  if (m.temDocVeiculo)docsIcons += '<button class="btn-sm btn-ver" title="Doc Veículo" onclick="verFoto(&quot;' + esc(m.id) + '&quot;,&quot;docveiculo&quot;,&quot;' + esc(m.nome) + '&quot;)"><i class="fas fa-car"></i></button>';
+  if (m.temSeguro)    docsIcons += '<button class="btn-sm btn-ver" title="Seguro" style="color:#ffc107;border-color:rgba(255,193,7,.3)" onclick="verFoto(&quot;' + esc(m.id) + '&quot;,&quot;seguro&quot;,&quot;' + esc(m.nome) + '&quot;)"><i class="fas fa-shield-alt"></i></button>';
+  var nenhum = !m.temSelfie && !m.temCnh && !m.temDocVeiculo && !m.temSeguro;
   var ds = m.docsStatus || 'pendente';
   var docsCell = nenhum
     ? '<span class="badge badge-nodocs">Sem docs</span>'
@@ -287,7 +290,7 @@ async function carregarThumb(id, tipo, elId, entidade) {
 
 async function verFoto(id, tipo, nome) {
   modalId = id;
-  var tipoLabel = {selfie:'Selfie',cnh:'CNH Frente',cnhverso:'CNH Verso',docveiculo:'Doc Ve\u00edculo'};
+  var tipoLabel = {selfie:'Selfie',cnh:'CNH Frente',cnhverso:'CNH Verso',docveiculo:'Doc Ve\u00edculo',seguro:'Seguro'};
   document.getElementById('modalTitulo').textContent = (tipoLabel[tipo]||tipo) + ' \u2014 ' + nome;
   document.getElementById('modalInfo').textContent = 'Carregando...';
   var img = document.getElementById('modalImg');
@@ -297,7 +300,8 @@ async function verFoto(id, tipo, nome) {
   var tipos = [];
   if (m && m.temSelfie)    tipos.push({k:'selfie',    l:'Selfie'});
   if (m && m.temCnh)       tipos.push({k:'cnh',       l:'CNH'});
-  if (m && m.temDocVeiculo)tipos.push({k:'docveiculo',l:'Doc Ve\u00edculo'});
+  if (m && m.temDocVeiculo)tipos.push({k:'docveiculo',l:'Doc Veículo'});
+  if (m && m.temSeguro)    tipos.push({k:'seguro',    l:'Seguro'});
   document.getElementById('modalTabs').innerHTML = tipos.map(function(t) {
     return '<button class="modal-tab ' + (t.k===tipo?'on':'') + '" onclick="verFoto(&quot;' + esc(id) + '&quot;,&quot;' + t.k + '&quot;,&quot;' + esc(nome) + '&quot;)">' + t.l + '</button>';
   }).join('');

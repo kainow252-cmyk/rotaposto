@@ -46,7 +46,7 @@ function abrirUpload(id, nome) {
   _upId = id; _upTipo = 'selfie'; _upDataUrl = '';
   document.getElementById('upTitulo').textContent = 'Anexar documento — ' + nome;
   /* botões de tipo */
-  var tipos = [{k:'selfie',l:'Selfie'},{k:'doc',l:'Documento / RG / CNH'}];
+  var tipos = [{k:'selfie',l:'Selfie'},{k:'doc',l:'Documento / RG / CNH'},{k:'seguro',l:'🛡️ Seguro'}];
   document.getElementById('upTipos').innerHTML = tipos.map(function(t) {
     return '<button class="up-tipo-btn' + (t.k === 'selfie' ? ' on' : '') + '" ' +
       'onclick="upTrocarTipo(this,\'' + t.k + '\')" ' +
@@ -143,6 +143,7 @@ async function upEnviar() {
     if (p) {
       if (_upTipo === 'selfie') p.temSelfie = true;
       if (_upTipo === 'doc') p.temDoc = true;
+      if (_upTipo === 'seguro') p.temSeguro = true;
       if (!p.docsStatus || p.docsStatus === 'sem_docs') p.docsStatus = 'pendente';
     }
     fecharUpload();
@@ -212,13 +213,14 @@ function rowPassageiro(p) {
   var avatarIcon = p.temSelfie ? '' : '<i class="fas fa-user" style="color:rgba(255,255,255,.3)"></i>';
   /* docs badge */
   var docsBadge = '';
-  if (!p.temSelfie && !p.temDoc) {
+  if (!p.temSelfie && !p.temDoc && !p.temSeguro) {
     docsBadge = '<span class="badge badge-nodocs"><i class="fas fa-image"></i> Sem docs</span>';
   } else {
     var ds = p.docsStatus || 'pendente';
     docsBadge = '<span class="badge badge-' + ds + '">' + ds + '</span>';
     if (p.temSelfie) docsBadge += ' <button class="btn-sm btn-ver" title="Ver selfie" onclick="verFoto(&quot;' + esc(p.id) + '&quot;,&quot;selfie&quot;,&quot;' + esc(p.nome) + '&quot;)"><i class="fas fa-camera"></i></button>';
     if (p.temDoc)    docsBadge += ' <button class="btn-sm btn-ver" title="Ver documento" onclick="verFoto(&quot;' + esc(p.id) + '&quot;,&quot;doc&quot;,&quot;' + esc(p.nome) + '&quot;)"><i class="fas fa-id-card"></i></button>';
+    if (p.temSeguro) docsBadge += ' <button class="btn-sm btn-ver" title="Ver seguro" style="color:#ffc107;border-color:rgba(255,193,7,.3)" onclick="verFoto(&quot;' + esc(p.id) + '&quot;,&quot;seguro&quot;,&quot;' + esc(p.nome) + '&quot;)"><i class="fas fa-shield-alt"></i></button>';
   }
   /* geo */
   var geoCell = p.geoLat
@@ -282,7 +284,7 @@ async function carregarThumb(id, tipo, elId, entidade) {
 }
 
 async function verFoto(id, tipo, nome) {
-  var tipoLabel = {selfie:'Selfie',doc:'Documento',cnh:'CNH',docveiculo:'Doc Ve\u00edculo',cnhverso:'CNH (verso)'};
+  var tipoLabel = {selfie:'Selfie',doc:'Documento',cnh:'CNH',docveiculo:'Doc Ve\u00edculo',cnhverso:'CNH (verso)',seguro:'Seguro'};
   document.getElementById('modalTitulo').textContent = (tipoLabel[tipo]||tipo) + ' \u2014 ' + nome;
   document.getElementById('modalInfo').textContent = 'Carregando...';
   document.getElementById('modalImg').src = '';
