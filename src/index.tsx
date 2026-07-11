@@ -25073,6 +25073,295 @@ window.addEventListener('load', initMap)
   return c.html(html)
 })
 
+// ── POLÍTICA DE PRIVACIDADE — RotaSegura Passageiro ───────────────────────────
+app.get('/rotasegura/privacidade', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Política de Privacidade — RotaSegura Passageiro</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8f9fa;color:#1a1a2e;line-height:1.7}
+    .hero{background:linear-gradient(135deg,#00C851,#007E33);padding:48px 24px 40px;text-align:center;color:#fff}
+    .hero-icon{font-size:48px;margin-bottom:12px}
+    .hero h1{font-size:26px;font-weight:800;margin-bottom:6px}
+    .hero p{font-size:14px;opacity:.85;max-width:480px;margin:0 auto}
+    .badge{display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;margin-top:14px;letter-spacing:.5px}
+    .container{max-width:760px;margin:0 auto;padding:40px 24px 64px}
+    .update{background:#e8f5e9;border-left:4px solid #00C851;border-radius:0 8px 8px 0;padding:10px 16px;margin-bottom:32px;font-size:13px;color:#2e7d32}
+    h2{font-size:18px;font-weight:700;color:#007E33;margin:32px 0 12px;display:flex;align-items:center;gap:8px}
+    h2::before{content:'';display:block;width:4px;height:20px;background:#00C851;border-radius:2px;flex-shrink:0}
+    p{font-size:14px;color:#444;margin-bottom:12px}
+    ul{padding-left:20px;margin-bottom:12px}
+    ul li{font-size:14px;color:#444;margin-bottom:6px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px}
+    th{background:#e8f5e9;color:#2e7d32;padding:10px 14px;text-align:left;font-weight:700;border-bottom:2px solid #00C851}
+    td{padding:9px 14px;border-bottom:1px solid #e0e0e0;color:#444;vertical-align:top}
+    tr:last-child td{border-bottom:none}
+    .contact-box{background:#e8f5e9;border-radius:12px;padding:20px 24px;margin-top:32px;border:1px solid rgba(0,200,81,.25)}
+    .contact-box h3{font-size:15px;font-weight:700;color:#007E33;margin-bottom:8px}
+    .contact-box a{color:#007E33;text-decoration:none;font-weight:600}
+    .footer-note{margin-top:32px;padding:16px;background:#fff;border-radius:10px;border:1px solid #e0e0e0;font-size:12px;color:#888;text-align:center}
+    @media(max-width:480px){.container{padding:24px 16px 48px}.hero{padding:36px 16px 32px}}
+  </style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-icon">🛡️</div>
+  <h1>Política de Privacidade</h1>
+  <p>RotaSegura — App do Passageiro</p>
+  <span class="badge">PASSAGEIRO</span>
+</div>
+
+<div class="container">
+  <div class="update">📅 Última atualização: julho de 2025 &nbsp;·&nbsp; Versão 1.0</div>
+
+  <h2>1. Sobre este documento</h2>
+  <p>Esta Política de Privacidade descreve como o <strong>RotaSegura</strong>, operado pela <strong>RotaPosto</strong> (<em>rotaposto.com.br</em>), coleta, usa e protege as informações dos <strong>passageiros</strong> que utilizam o aplicativo Android <code>br.com.rotaposto.rotasegura</code>.</p>
+  <p>Ao criar uma conta e usar o aplicativo, você concorda com as práticas descritas nesta política.</p>
+
+  <h2>2. Dados que coletamos</h2>
+  <table>
+    <tr><th>Dado</th><th>Finalidade</th><th>Obrigatório?</th></tr>
+    <tr><td>Nome completo</td><td>Identificação na plataforma</td><td>Sim</td></tr>
+    <tr><td>E-mail</td><td>Login e comunicações</td><td>Sim</td></tr>
+    <tr><td>CPF</td><td>Verificação de identidade</td><td>Sim</td></tr>
+    <tr><td>Telefone</td><td>Contato e autenticação</td><td>Sim</td></tr>
+    <tr><td>Foto de perfil</td><td>Identificação visual para o motorista</td><td>Opcional</td></tr>
+    <tr><td>Selfie / Foto de rosto</td><td>Verificação KYC (segurança)</td><td>Sim</td></tr>
+    <tr><td>Localização (GPS)</td><td>Solicitar corrida, rastrear rota em tempo real</td><td>Sim (durante a corrida)</td></tr>
+    <tr><td>Dados de pagamento</td><td>Cobrança da corrida via PIX (processado pelo Asaas)</td><td>Sim</td></tr>
+    <tr><td>Histórico de corridas</td><td>Consulta do usuário e suporte</td><td>Automático</td></tr>
+  </table>
+
+  <h2>3. Como usamos seus dados</h2>
+  <ul>
+    <li>Criar e manter sua conta de passageiro</li>
+    <li>Conectar você a motoristas verificados próximos</li>
+    <li>Calcular a rota e o valor da corrida</li>
+    <li>Processar o pagamento via PIX (integração Asaas)</li>
+    <li>Verificar sua identidade e garantir a segurança da plataforma</li>
+    <li>Enviar notificações relacionadas à corrida (ex.: motorista a caminho)</li>
+    <li>Cumprir obrigações legais</li>
+  </ul>
+
+  <h2>4. Permissões do dispositivo</h2>
+  <table>
+    <tr><th>Permissão</th><th>Uso</th></tr>
+    <tr><td>Localização precisa (GPS)</td><td>Determinar ponto de partida, rastrear corrida em tempo real</td></tr>
+    <tr><td>Câmera</td><td>Envio de selfie para verificação de identidade</td></tr>
+    <tr><td>Armazenamento</td><td>Upload de foto de perfil e selfie</td></tr>
+    <tr><td>Internet</td><td>Comunicação com servidores RotaSegura</td></tr>
+  </table>
+
+  <h2>5. Compartilhamento de dados</h2>
+  <p>Seus dados <strong>não são vendidos</strong> a terceiros. Compartilhamos apenas o necessário:</p>
+  <ul>
+    <li><strong>Motorista da corrida</strong>: nome, foto de perfil e localização durante a corrida</li>
+    <li><strong>Asaas</strong>: processamento do pagamento PIX (política: <a href="https://www.asaas.com/politica-de-privacidade" target="_blank">asaas.com/politica-de-privacidade</a>)</li>
+    <li><strong>Cloudflare</strong>: hospedagem e CDN (política: <a href="https://www.cloudflare.com/privacypolicy/" target="_blank">cloudflare.com/privacypolicy</a>)</li>
+  </ul>
+
+  <h2>6. Retenção e exclusão de dados</h2>
+  <p>Mantemos seus dados enquanto sua conta estiver ativa. Você pode solicitar a exclusão da conta e de todos os dados a qualquer momento pelo e-mail <strong>privacidade@rotaposto.com.br</strong>. Após a solicitação, excluímos os dados em até <strong>30 dias</strong>, exceto os exigidos por lei.</p>
+
+  <h2>7. Segurança</h2>
+  <ul>
+    <li>Senhas armazenadas com hash bcrypt</li>
+    <li>Comunicação criptografada via HTTPS/TLS</li>
+    <li>Tokens JWT com expiração de 30 dias</li>
+    <li>Fotos armazenadas em bucket R2 (acesso restrito)</li>
+    <li>Logs de acesso mantidos por 90 dias</li>
+  </ul>
+
+  <h2>8. Seus direitos</h2>
+  <p>Conforme a <strong>LGPD (Lei 13.709/2018)</strong>, você tem direito a:</p>
+  <ul>
+    <li>Acessar os dados que temos sobre você</li>
+    <li>Corrigir dados incorretos</li>
+    <li>Solicitar a exclusão dos seus dados</li>
+    <li>Revogar o consentimento para uso dos dados</li>
+    <li>Portabilidade dos seus dados</li>
+  </ul>
+
+  <h2>9. Menores de idade</h2>
+  <p>O RotaSegura não é destinado a menores de <strong>18 anos</strong>. Não coletamos intencionalmente dados de menores. Se identificarmos um cadastro de menor de idade, a conta será encerrada.</p>
+
+  <h2>10. Alterações nesta política</h2>
+  <p>Podemos atualizar esta política periodicamente. Notificaremos você por e-mail ou notificação no app em caso de mudanças relevantes. O uso continuado após a notificação constitui aceite da nova versão.</p>
+
+  <div class="contact-box">
+    <h3>📬 Fale com o DPO (Encarregado de Dados)</h3>
+    <p>Para exercer seus direitos ou esclarecer dúvidas sobre privacidade:</p>
+    <p><strong>E-mail:</strong> <a href="mailto:privacidade@rotaposto.com.br">privacidade@rotaposto.com.br</a></p>
+    <p><strong>Site:</strong> <a href="https://rotaposto.com.br">rotaposto.com.br</a></p>
+    <p style="margin-top:8px;font-size:13px;color:#555">Respondemos em até 15 dias úteis.</p>
+  </div>
+
+  <div class="footer-note">
+    Esta política aplica-se ao app <strong>RotaSegura — Passageiro</strong> (<code>br.com.rotaposto.rotasegura</code>).<br/>
+    Operado por RotaPosto · rotaposto.com.br · CNPJ: conforme cadastro na loja
+  </div>
+</div>
+</body>
+</html>`
+  return c.html(html)
+})
+
+// ── POLÍTICA DE PRIVACIDADE — RotaSegura Motorista ────────────────────────────
+app.get('/rotasegura/motorista/privacidade', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Política de Privacidade — RotaSegura Motorista</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8f9fa;color:#1a1a2e;line-height:1.7}
+    .hero{background:linear-gradient(135deg,#1a6aff,#0044cc);padding:48px 24px 40px;text-align:center;color:#fff}
+    .hero-icon{font-size:48px;margin-bottom:12px}
+    .hero h1{font-size:26px;font-weight:800;margin-bottom:6px}
+    .hero p{font-size:14px;opacity:.85;max-width:480px;margin:0 auto}
+    .badge{display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;margin-top:14px;letter-spacing:.5px}
+    .container{max-width:760px;margin:0 auto;padding:40px 24px 64px}
+    .update{background:#e3f0ff;border-left:4px solid #1a6aff;border-radius:0 8px 8px 0;padding:10px 16px;margin-bottom:32px;font-size:13px;color:#0044cc}
+    h2{font-size:18px;font-weight:700;color:#0044cc;margin:32px 0 12px;display:flex;align-items:center;gap:8px}
+    h2::before{content:'';display:block;width:4px;height:20px;background:#1a6aff;border-radius:2px;flex-shrink:0}
+    p{font-size:14px;color:#444;margin-bottom:12px}
+    ul{padding-left:20px;margin-bottom:12px}
+    ul li{font-size:14px;color:#444;margin-bottom:6px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px}
+    th{background:#e3f0ff;color:#0044cc;padding:10px 14px;text-align:left;font-weight:700;border-bottom:2px solid #1a6aff}
+    td{padding:9px 14px;border-bottom:1px solid #e0e0e0;color:#444;vertical-align:top}
+    tr:last-child td{border-bottom:none}
+    .contact-box{background:#e3f0ff;border-radius:12px;padding:20px 24px;margin-top:32px;border:1px solid rgba(26,106,255,.25)}
+    .contact-box h3{font-size:15px;font-weight:700;color:#0044cc;margin-bottom:8px}
+    .contact-box a{color:#0044cc;text-decoration:none;font-weight:600}
+    .footer-note{margin-top:32px;padding:16px;background:#fff;border-radius:10px;border:1px solid #e0e0e0;font-size:12px;color:#888;text-align:center}
+    @media(max-width:480px){.container{padding:24px 16px 48px}.hero{padding:36px 16px 32px}}
+  </style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-icon">🚗</div>
+  <h1>Política de Privacidade</h1>
+  <p>RotaSegura — App do Motorista</p>
+  <span class="badge">MOTORISTA</span>
+</div>
+
+<div class="container">
+  <div class="update">📅 Última atualização: julho de 2025 &nbsp;·&nbsp; Versão 1.0</div>
+
+  <h2>1. Sobre este documento</h2>
+  <p>Esta Política de Privacidade descreve como o <strong>RotaSegura</strong>, operado pela <strong>RotaPosto</strong> (<em>rotaposto.com.br</em>), coleta, usa e protege as informações dos <strong>motoristas parceiros</strong> que utilizam o aplicativo Android <code>br.com.rotaposto.rotaseguramotorista</code>.</p>
+  <p>Ao criar uma conta como motorista parceiro e usar o aplicativo, você concorda com as práticas descritas nesta política.</p>
+
+  <h2>2. Dados que coletamos</h2>
+  <table>
+    <tr><th>Dado</th><th>Finalidade</th><th>Obrigatório?</th></tr>
+    <tr><td>Nome completo</td><td>Identificação e exibição ao passageiro</td><td>Sim</td></tr>
+    <tr><td>E-mail</td><td>Login, comunicações e emissão de cobranças</td><td>Sim</td></tr>
+    <tr><td>CPF</td><td>Verificação de identidade e abertura de subconta financeira</td><td>Sim</td></tr>
+    <tr><td>Telefone</td><td>Contato e comunicação com passageiro</td><td>Sim</td></tr>
+    <tr><td>CNPJ (MEI)</td><td>Cadastro de subconta Asaas para recebimento</td><td>Opcional</td></tr>
+    <tr><td>Endereço completo</td><td>Cadastro de subconta financeira (Asaas)</td><td>Sim</td></tr>
+    <tr><td>Renda mensal</td><td>Conformidade com regulamentação financeira</td><td>Sim</td></tr>
+    <tr><td>Foto de perfil</td><td>Identificação visual para o passageiro</td><td>Opcional</td></tr>
+    <tr><td>Selfie / Foto de rosto</td><td>Verificação KYC (segurança)</td><td>Sim</td></tr>
+    <tr><td>CNH (frente e verso)</td><td>Verificação de habilitação</td><td>Sim</td></tr>
+    <tr><td>CRLV do veículo</td><td>Verificação do veículo</td><td>Sim</td></tr>
+    <tr><td>Localização (GPS)</td><td>Receber corridas próximas, rastrear rota em tempo real</td><td>Sim (quando online)</td></tr>
+    <tr><td>Dados bancários / PIX</td><td>Recebimento dos pagamentos via subconta Asaas</td><td>Sim</td></tr>
+    <tr><td>Histórico de corridas e ganhos</td><td>Consulta, suporte e obrigações fiscais</td><td>Automático</td></tr>
+  </table>
+
+  <h2>3. Como usamos seus dados</h2>
+  <ul>
+    <li>Criar e manter sua conta de motorista parceiro</li>
+    <li>Abrir subconta no Asaas para recebimento de corridas (split de pagamento)</li>
+    <li>Verificar sua CNH, CRLV e identidade (KYC)</li>
+    <li>Exibir sua localização para passageiros próximos quando você estiver online</li>
+    <li>Calcular e processar o repasse financeiro (80% motorista / 20% plataforma)</li>
+    <li>Enviar notificações de novas corridas disponíveis</li>
+    <li>Manter registros para conformidade com obrigações fiscais e regulatórias</li>
+  </ul>
+
+  <h2>4. Permissões do dispositivo</h2>
+  <table>
+    <tr><th>Permissão</th><th>Uso</th></tr>
+    <tr><td>Localização precisa (GPS) em segundo plano</td><td>Receber solicitações de corrida e enviar posição ao passageiro durante a corrida</td></tr>
+    <tr><td>Câmera</td><td>Envio de selfie e fotos de documentos (CNH, CRLV)</td></tr>
+    <tr><td>Armazenamento</td><td>Upload de documentos e foto de perfil</td></tr>
+    <tr><td>Internet</td><td>Comunicação com servidores RotaSegura</td></tr>
+    <tr><td>Notificações</td><td>Alertas de novas corridas disponíveis</td></tr>
+  </table>
+
+  <h2>5. Localização em segundo plano</h2>
+  <p>O app do motorista utiliza a localização em segundo plano (<em>background location</em>) <strong>exclusivamente</strong> quando você está com o status <strong>"Online"</strong> ativado no app, para que passageiros próximos possam encontrar você. A coleta de localização é interrompida imediatamente ao ficar offline.</p>
+  <p>Você pode desativar a localização em segundo plano a qualquer momento nas configurações do dispositivo.</p>
+
+  <h2>6. Compartilhamento de dados</h2>
+  <p>Seus dados <strong>não são vendidos</strong> a terceiros. Compartilhamos apenas o necessário:</p>
+  <ul>
+    <li><strong>Passageiro da corrida</strong>: nome, foto de perfil, localização em tempo real e modelo do veículo durante a corrida</li>
+    <li><strong>Asaas</strong>: dados cadastrais para abertura de subconta e processamento do split de pagamento (política: <a href="https://www.asaas.com/politica-de-privacidade" target="_blank">asaas.com/politica-de-privacidade</a>)</li>
+    <li><strong>Cloudflare</strong>: hospedagem e CDN (política: <a href="https://www.cloudflare.com/privacypolicy/" target="_blank">cloudflare.com/privacypolicy</a>)</li>
+  </ul>
+
+  <h2>7. Dados financeiros e fiscais</h2>
+  <p>Os repasses financeiros são processados exclusivamente pelo <strong>Asaas</strong> (instituição de pagamento regulamentada pelo Banco Central). A RotaSegura não armazena dados de conta bancária completos. Registros de transações são mantidos por <strong>5 anos</strong> conforme exigência da legislação fiscal brasileira.</p>
+
+  <h2>8. Retenção e exclusão de dados</h2>
+  <p>Mantemos seus dados enquanto sua conta estiver ativa. Ao encerrar a parceria, você pode solicitar a exclusão da conta pelo e-mail <strong>privacidade@rotaposto.com.br</strong>. Dados financeiros e fiscais são retidos pelo período mínimo exigido por lei (5 anos). Os demais dados são excluídos em até <strong>30 dias</strong>.</p>
+
+  <h2>9. Segurança</h2>
+  <ul>
+    <li>Senhas armazenadas com hash bcrypt</li>
+    <li>Comunicação criptografada via HTTPS/TLS</li>
+    <li>Tokens JWT com expiração de 30 dias</li>
+    <li>Documentos (CNH, CRLV, selfie) armazenados em bucket R2 com acesso restrito</li>
+    <li>Acesso admin protegido por chave de acesso</li>
+    <li>Logs de acesso mantidos por 90 dias</li>
+  </ul>
+
+  <h2>10. Seus direitos (LGPD)</h2>
+  <p>Conforme a <strong>LGPD (Lei 13.709/2018)</strong>, você tem direito a:</p>
+  <ul>
+    <li>Acessar os dados que temos sobre você</li>
+    <li>Corrigir dados incorretos ou desatualizados</li>
+    <li>Solicitar a exclusão dos seus dados (exceto os de retenção obrigatória)</li>
+    <li>Revogar o consentimento para uso dos dados</li>
+    <li>Portabilidade dos seus dados</li>
+    <li>Informação sobre compartilhamento com terceiros</li>
+  </ul>
+
+  <h2>11. Menores de idade</h2>
+  <p>O RotaSegura Motorista é destinado exclusivamente a maiores de <strong>18 anos</strong> com CNH válida. Não coletamos intencionalmente dados de menores.</p>
+
+  <h2>12. Alterações nesta política</h2>
+  <p>Podemos atualizar esta política periodicamente. Notificaremos você por e-mail ou notificação no app em caso de mudanças relevantes. O uso continuado após a notificação constitui aceite da nova versão.</p>
+
+  <div class="contact-box">
+    <h3>📬 Fale com o DPO (Encarregado de Dados)</h3>
+    <p>Para exercer seus direitos ou esclarecer dúvidas sobre privacidade:</p>
+    <p><strong>E-mail:</strong> <a href="mailto:privacidade@rotaposto.com.br">privacidade@rotaposto.com.br</a></p>
+    <p><strong>Site:</strong> <a href="https://rotaposto.com.br">rotaposto.com.br</a></p>
+    <p style="margin-top:8px;font-size:13px;color:#555">Respondemos em até 15 dias úteis.</p>
+  </div>
+
+  <div class="footer-note">
+    Esta política aplica-se ao app <strong>RotaSegura — Motorista</strong> (<code>br.com.rotaposto.rotaseguramotorista</code>).<br/>
+    Operado por RotaPosto · rotaposto.com.br · CNPJ: conforme cadastro na loja
+  </div>
+</div>
+</body>
+</html>`
+  return c.html(html)
+})
+
 // ─── Export: fetch handler + scheduled (cron) ─────────────────────────────────
 export default {
   fetch: app.fetch,
