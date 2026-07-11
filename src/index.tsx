@@ -7719,8 +7719,9 @@ app.get('/app_old', (c) => {
       <button class="btn-icon" onclick="usarLocalizacao()" title="Usar minha localização">
         <i class="fas fa-crosshairs"></i>
       </button>
-      <button class="btn-icon" onclick="abrirFiltros()" title="Configurações">
+      <button class="btn-icon" onclick="abrirFiltros()" title="Filtros" id="btn-filtros" style="position:relative">
         <i class="fas fa-sliders-h"></i>
+        <span id="filtro-badge" style="display:none;position:absolute;top:2px;right:2px;background:#FF6D00;color:#fff;font-size:9px;font-weight:800;border-radius:8px;padding:1px 4px;line-height:1.4"></span>
       </button>
       <!-- Área dinâmica: botão login ou avatar do usuário -->
       <div id="header-auth-area" style="display:flex;align-items:center;gap:6px">
@@ -7997,7 +7998,8 @@ const state = {
   map: null,
   marcadores: [],
   postoSelecionado: null,
-  rotaUrl: null
+  rotaUrl: null,
+  raioKm: 10
 };
 
 // ═══ PERSISTÊNCIA DA ÚLTIMA BUSCA ══════════════════════════════════════════
@@ -8039,6 +8041,12 @@ const STORE = {
         const sel = document.getElementById('select-tanque');
         if (sel) sel.value = tanque;
         state.litrosTanque = parseFloat(tanque);
+      }
+      // Raio de busca
+      var raioSalvo = localStorage.getItem('rp_raio_km');
+      if (raioSalvo && [2,5,10,20,50].indexOf(parseInt(raioSalvo)) >= 0) {
+        state.raioKm = parseInt(raioSalvo);
+        setTimeout(_atualizarBadgeFiltro, 200);
       }
       // Nome da localização
       const locNome = localStorage.getItem('rp_last_loc_nome');
@@ -8184,7 +8192,7 @@ async function buscarPostos() {
   try {
     const consumo = state.consumoKmL || 12;
     const tanque  = state.litrosTanque || 50;
-    const url = \`/api/postos?lat=\${state.lat}&lng=\${state.lng}&combustivel=\${state.combustivel}&raio=15&consumo=\${consumo}&litros=\${tanque}\`;
+    const url = \`/api/postos?lat=\${state.lat}&lng=\${state.lng}&combustivel=\${state.combustivel}&raio=\${state.raioKm}&consumo=\${consumo}&litros=\${tanque}\`;
     const res = await fetch(url);
     const data = await res.json();
     state.postos = data.postos || [];
@@ -8785,7 +8793,72 @@ function formatarData(str) {
 }
 
 function abrirFiltros() {
-  mostrarToast('⚙️ Configurações em breve');
+  if (!document.getElementById('modal-filtros')) {
+    var m = document.createElement('div');
+    m.id = 'modal-filtros';
+    m.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px)';
+    var botoesRaio = [2,5,10,20,50].map(function(km) {
+      return '<button onclick="selecionarRaio(' + km + ')" id="raio-btn-' + km + '"'
+        + ' style="flex:1;min-width:52px;padding:10px 6px;border-radius:10px;border:2px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55);font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s">'
+        + km + ' km</button>';
+    }).join('');
+    m.innerHTML = '<div style="width:100%;max-width:480px;background:#13202F;border-radius:22px 22px 0 0;padding:24px 20px 32px;box-shadow:0 -4px 32px rgba(0,0,0,0.5)">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+      + '<span style="font-size:17px;font-weight:800;color:#fff"><i class="fas fa-sliders-h" style="color:#FF6D00;margin-right:8px"></i>Filtros</span>'
+      + '<button onclick="fecharFiltros()" style="background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px">×</button>'
+      + '</div>'
+      + '<div style="margin-bottom:8px;font-size:12px;color:rgba(255,255,255,0.45);font-weight:700;letter-spacing:.5px">RAIO DE BUSCA</div>'
+      + '<div id="raio-opcoes" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">' + botoesRaio + '</div>'
+      + '<button onclick="aplicarFiltros()" style="width:100%;padding:15px;background:#FF6D00;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">'
+      + '<i class="fas fa-search" style="margin-right:8px"></i>Buscar com estes filtros'
+      + '</button>'
+      + '</div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', function(e) { if (e.target === m) fecharFiltros(); });
+  }
+  _atualizarBotoesRaio();
+  document.getElementById('modal-filtros').style.display = 'flex';
+}
+
+function _atualizarBotoesRaio() {
+  [2,5,10,20,50].forEach(function(km) {
+    var btn = document.getElementById('raio-btn-' + km);
+    if (!btn) return;
+    var ativo = state.raioKm === km;
+    btn.style.background = ativo ? '#FF6D00' : 'rgba(255,255,255,0.06)';
+    btn.style.color = ativo ? '#fff' : 'rgba(255,255,255,0.55)';
+    btn.style.borderColor = ativo ? '#FF6D00' : 'rgba(255,255,255,0.12)';
+  });
+}
+
+function selecionarRaio(km) {
+  state.raioKm = km;
+  _atualizarBotoesRaio();
+  _atualizarBadgeFiltro();
+  try { localStorage.setItem('rp_raio_km', String(km)); } catch {}
+}
+
+function _atualizarBadgeFiltro() {
+  var badge = document.getElementById('filtro-badge');
+  if (!badge) return;
+  if (state.raioKm !== 10) {
+    badge.textContent = state.raioKm + 'km';
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function fecharFiltros() {
+  var m = document.getElementById('modal-filtros');
+  if (m) m.style.display = 'none';
+}
+
+async function aplicarFiltros() {
+  fecharFiltros();
+  _atualizarBadgeFiltro();
+  mostrarToast('Buscando em raio de ' + state.raioKm + ' km...');
+  await buscarPostos();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
