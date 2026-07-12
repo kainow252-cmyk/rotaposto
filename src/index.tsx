@@ -4733,221 +4733,285 @@ app.get('/ir', async (c) => {
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;overflow:hidden;background:#D1E8FF;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Raleway,sans-serif}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0d1b2a;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 
   #map{position:absolute;inset:0;z-index:0}
 
-  /* overlay */
-  #overlay{position:fixed;inset:0;background:rgba(11,20,38,0.82);
+  /* ── Overlay de carregamento ─────────── */
+  #overlay{position:fixed;inset:0;background:rgba(8,15,28,0.92);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     z-index:9999;transition:opacity .4s}
   #overlay.hide{opacity:0;pointer-events:none}
-  .spin{width:44px;height:44px;border:3px solid rgba(249,115,22,.25);
-    border-top-color:#f97316;border-radius:50%;animation:spin .85s linear infinite;margin-bottom:16px}
+  .spin{width:44px;height:44px;border:3px solid rgba(0,212,170,.2);
+    border-top-color:#00d4aa;border-radius:50%;animation:spin .85s linear infinite;margin-bottom:16px}
   @keyframes spin{to{transform:rotate(360deg)}}
   #status-txt{color:#fff;font-size:15px;font-weight:700;text-align:center;padding:0 32px;margin-bottom:6px}
-  #sub-txt{color:rgba(255,255,255,.55);font-size:13px;text-align:center;padding:0 32px}
+  #sub-txt{color:rgba(255,255,255,.5);font-size:13px;text-align:center;padding:0 32px}
   #btn-pular-gps{
-    margin-top:20px;padding:10px 28px;border:1.5px solid rgba(255,255,255,.25);
-    border-radius:20px;background:transparent;color:rgba(255,255,255,.7);
+    margin-top:20px;padding:10px 28px;border:1.5px solid rgba(255,255,255,.2);
+    border-radius:20px;background:transparent;color:rgba(255,255,255,.65);
     font-size:13px;cursor:pointer;display:none}
   #btn-pular-gps.visible{display:block}
 
-  /* topo — estilo igual ao header do app */
+  /* ── Top-bar (antes da nav) ──────────── */
   #top-bar{
     position:absolute;top:0;left:0;right:0;z-index:200;
-    background:#0B1426;
-    padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 14px;
+    background:rgba(10,20,40,.92);backdrop-filter:blur(12px);
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 12px;
     pointer-events:none;
     display:flex;align-items:center;gap:10px;
-    box-shadow:0 2px 12px rgba(0,0,0,.35)}
+    box-shadow:0 2px 16px rgba(0,0,0,.5)}
   #btn-back{
-    pointer-events:all;
-    flex-shrink:0;
-    width:38px;height:38px;
-    background:rgba(255,255,255,.10);backdrop-filter:blur(8px);
-    border:1.5px solid rgba(255,255,255,.15);
-    border-radius:10px;color:#fff;font-size:18px;
+    pointer-events:all;flex-shrink:0;
+    width:36px;height:36px;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+    border-radius:50%;color:#fff;font-size:17px;
     cursor:pointer;display:flex;align-items:center;justify-content:center;
-    box-shadow:none;line-height:1}
-  #btn-back:active{transform:scale(.9);background:rgba(255,255,255,.2)}
+    -webkit-tap-highlight-color:transparent}
+  #btn-back:active{transform:scale(.88)}
   #top-bar-info{flex:1;min-width:0}
-  #top-bar-logo{width:36px;height:36px;border-radius:10px;background:#fff;
-    border:none;flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;
-    overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  #top-bar-logo{width:34px;height:34px;border-radius:8px;background:#fff;
+    flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.4)}
   #top-bar-logo img{width:100%;height:100%;object-fit:contain;padding:3px}
-  #top-bar h1{color:#fff;font-size:15px;font-weight:700;
+  #top-bar h1{color:#fff;font-size:14px;font-weight:700;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #rota-info{color:rgba(255,255,255,.6);font-size:12px;font-weight:500;margin-top:3px;
+  #rota-info{color:rgba(255,255,255,.55);font-size:12px;font-weight:500;margin-top:2px;
     display:flex;align-items:center;gap:8px}
   #rota-info .badge{
-    background:rgba(249,115,22,.35);border:1px solid rgba(249,115,22,.6);
-    color:#f97316;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700}
+    background:rgba(0,212,170,.2);border:1px solid rgba(0,212,170,.5);
+    color:#00d4aa;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700}
 
-  /* botão centralizar — mira laranja igual ao app */
-  #btn-center{
-    position:absolute;right:14px;bottom:138px;z-index:200;
-    width:44px;height:44px;border-radius:50%;border:none;
-    background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25);
-    font-size:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    -webkit-tap-highlight-color:transparent}
-  #btn-center::before{
-    content:'';
-    width:22px;height:22px;
-    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f97316' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v4M12 18v4M2 12h4M18 12h4'/%3E%3C/svg%3E") center/contain no-repeat;
-    display:block}
-
-  /* barra inferior */
-  #bottom-bar{
-    position:absolute;bottom:0;left:0;right:0;z-index:200;
-    padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));
-    background:#fff;
-    border-radius:20px 20px 0 0;
-    box-shadow:0 -4px 20px rgba(0,0,0,.12)}
-
-  /* card de rota */
-  #rota-card{
-    display:none;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);
-    border-radius:14px;padding:10px 14px;margin-bottom:10px;
-    display:flex;align-items:center;gap:10px}
-  #rota-card-logo{width:36px;height:36px;border-radius:8px;background:#fff;
-    border:1px solid rgba(0,0,0,.08);flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;overflow:hidden}
-  #rota-card-logo img{width:100%;height:100%;object-fit:contain;padding:3px}
-  #rota-card .rc-icon{font-size:22px}
-  #rota-card .rc-dist{color:#0B1426;font-size:16px;font-weight:800}
-  #rota-card .rc-dur{color:#64748b;font-size:13px;margin-top:1px}
-
-  /* botão principal — Traçar Rota */
-  #btn-rota{
-    display:flex;align-items:center;justify-content:center;gap:10px;
-    width:100%;padding:17px;border:none;border-radius:16px;cursor:pointer;
-    background:linear-gradient(135deg,#f97316,#ea580c);
-    box-shadow:0 4px 20px rgba(249,115,22,.45);
-    color:#fff;font-size:16px;font-weight:800;
-    transition:transform .12s,box-shadow .12s;
-    -webkit-tap-highlight-color:transparent}
-  #btn-rota:active{transform:scale(.96);box-shadow:0 2px 10px rgba(249,115,22,.3)}
-  #btn-rota.calculando{opacity:.7;pointer-events:none}
-  #btn-rota .bt-icon{font-size:20px}
-
-  /* Leaflet customização */
+  /* ── Leaflet ─────────────────────────── */
   .leaflet-control-attribution,.leaflet-control-zoom{display:none!important}
 
-  /* pin posto — badge branco com logo + preço (igual ao mapa de postos) */
+  /* ── Pin posto destino ───────────────── */
   .pin-posto-badge{
     background:#fff;border-radius:10px;
-    box-shadow:0 2px 10px rgba(0,0,0,.22);border:2px solid #fff;
+    box-shadow:0 2px 12px rgba(0,0,0,.35);border:2px solid #fff;
     display:flex;align-items:center;gap:5px;
     padding:4px 8px 4px 5px;white-space:nowrap}
-  .pin-posto-badge img{
-    width:22px;height:22px;object-fit:contain;border-radius:5px;flex-shrink:0}
-  .pin-posto-badge span{
-    font-size:12px;font-weight:800;color:#0B1426;line-height:1}
+  .pin-posto-badge img{width:22px;height:22px;object-fit:contain;border-radius:5px;flex-shrink:0}
+  .pin-posto-badge span{font-size:12px;font-weight:800;color:#0d1b2a;line-height:1}
 
-  /* pin usuário — seta direcional em modo nav, círculo em modo estático */
+  /* ── Pin usuário — seta estilo GM ───── */
   .pin-user-wrap{
-    position:relative;width:36px;height:36px;
+    position:relative;width:48px;height:48px;
     display:flex;align-items:center;justify-content:center;
-    transition:transform 0.4s ease}
-  .pin-user{
-    width:0;height:0;
-    border-left:9px solid transparent;
-    border-right:9px solid transparent;
-    border-bottom:24px solid #3b82f6;
-    filter:drop-shadow(0 2px 6px rgba(59,130,246,.8))}
-  .pin-user-dot{
-    position:absolute;width:10px;height:10px;border-radius:50%;
-    background:#3b82f6;border:2px solid #fff;
-    box-shadow:0 2px 8px rgba(59,130,246,.8);
-    top:50%;left:50%;transform:translate(-50%,-50%);
-    display:none}
+    transition:transform 0.35s ease}
+  /* halo externo pulsante (maior, mais suave) */
+  .pulse-ring-outer{
+    position:absolute;top:50%;left:50%;
+    width:52px;height:52px;border-radius:50%;
+    background:rgba(66,133,244,.18);
+    transform:translate(-50%,-50%);
+    animation:pulseOuter 2.2s ease-out infinite}
+  @keyframes pulseOuter{
+    0%{width:48px;height:48px;opacity:.7}
+    100%{width:80px;height:80px;opacity:0}}
+  /* halo interno */
   .pulse-ring{
     position:absolute;top:50%;left:50%;
-    width:38px;height:38px;border-radius:50%;
-    border:2px solid rgba(59,130,246,.5);
+    width:30px;height:30px;border-radius:50%;
+    background:rgba(66,133,244,.35);
     transform:translate(-50%,-50%);
-    animation:pulse 2s ease-out infinite}
-  @keyframes pulse{0%{transform:translate(-50%,-50%) scale(.7);opacity:1}100%{transform:translate(-50%,-50%) scale(2);opacity:0}}
-  /* mapa sem rotação — bearing apenas na seta do marcador */
-  #map{ transition:none }
-  #map .leaflet-map-pane{ transition:none }
+    animation:pulseInner 2.2s ease-out infinite .4s}
+  @keyframes pulseInner{
+    0%{width:28px;height:28px;opacity:1}
+    100%{width:50px;height:50px;opacity:0}}
+  /* círculo azul sólido */
+  .pin-user-circle{
+    position:absolute;top:50%;left:50%;
+    width:22px;height:22px;border-radius:50%;
+    background:#4285f4;border:3px solid #fff;
+    box-shadow:0 2px 10px rgba(66,133,244,.8);
+    transform:translate(-50%,-50%)}
+  /* seta branca sobre o círculo */
+  .pin-user{
+    position:absolute;top:50%;left:50%;
+    width:0;height:0;
+    border-left:7px solid transparent;
+    border-right:7px solid transparent;
+    border-bottom:16px solid #fff;
+    transform:translate(-50%,-65%);
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))}
 
-  /* linha de rota */
-  .rota-line{stroke:#f97316;stroke-width:5;stroke-opacity:.9;
+  /* mapa sem rotação */
+  #map{transition:none}
+  #map .leaflet-map-pane{transition:none}
+
+  /* ── Linha de rota ciano ─────────────── */
+  .rota-line{stroke:#00d4ff;stroke-width:6;stroke-opacity:1;
     stroke-linecap:round;stroke-linejoin:round}
 
-  /* ── Banner turn-by-turn ─────────────── */
+  /* ════════════════════════════════════════
+     BANNER TURN-BY-TURN — estilo Google Maps
+     ════════════════════════════════════════ */
   #nav-banner{
     display:none!important;
     position:absolute;top:0;left:0;right:0;z-index:300;
-    background:linear-gradient(135deg,#1e3a5f,#0f2744);
-    border-bottom:2px solid rgba(249,115,22,.5);
-    padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 14px;
-    animation:slideDown .3s ease}
+    animation:slideDown .25s ease}
   @keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
   #nav-banner.visible{display:block!important}
 
-  #nav-step{
-    display:flex;align-items:center;gap:14px}
+  /* Banner principal — fundo verde escuro GM */
+  #nav-main{
+    background:#1a6b4a;
+    padding:calc(env(safe-area-inset-top,0px) + 14px) 14px 14px;
+    display:flex;align-items:center;gap:12px;
+    box-shadow:0 4px 20px rgba(0,0,0,.4)}
+
+  /* Ícone da manobra — grande e destacado */
   #nav-arrow{
-    font-size:36px;min-width:44px;text-align:center;line-height:1;
-    filter:drop-shadow(0 0 8px rgba(249,115,22,.6))}
+    font-size:42px;min-width:52px;text-align:center;line-height:1;
+    filter:drop-shadow(0 0 6px rgba(255,255,255,.3))}
+
   #nav-text-wrap{flex:1;min-width:0}
-  #nav-instruction{
-    color:#fff;font-size:15px;font-weight:700;
-    line-height:1.3;word-break:break-word}
   #nav-dist-step{
-    color:rgba(255,255,255,.55);font-size:13px;margin-top:3px;font-weight:500}
-  #nav-progress{
-    display:flex;align-items:center;gap:6px;margin-top:10px}
-  #nav-prog-bar{
-    flex:1;height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden}
-  #nav-prog-fill{
-    height:100%;background:#f97316;border-radius:2px;
-    transition:width .5s ease;width:0%}
-  #nav-prog-label{
-    color:rgba(255,255,255,.4);font-size:11px;white-space:nowrap}
+    color:#a8f0d0;font-size:13px;font-weight:600;margin-bottom:2px;
+    letter-spacing:.3px}
+  #nav-instruction{
+    color:#fff;font-size:22px;font-weight:800;
+    line-height:1.2;word-break:break-word}
+
+  /* Badge de destino no canto superior direito do banner */
+  #nav-dest-badge{
+    width:44px;height:44px;border-radius:50%;
+    background:#fff;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  #nav-dest-badge img{width:38px;height:38px;object-fit:contain;padding:3px}
+
+  /* Banner secundário — "Depois, →" */
+  #nav-next{
+    background:#155c3e;
+    padding:8px 14px;
+    display:flex;align-items:center;gap:8px;
+    border-bottom:1px solid rgba(255,255,255,.06)}
+  #nav-next-label{color:rgba(255,255,255,.65);font-size:13px;font-weight:500}
+  #nav-next-arrow{font-size:16px;color:#a8f0d0}
+  #nav-next-text{color:#fff;font-size:14px;font-weight:600;flex:1;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   /* Botão fechar navegação */
   #btn-nav-close{
-    position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:14px;
-    background:rgba(255,255,255,.12);border:none;border-radius:50%;
-    width:30px;height:30px;color:#fff;font-size:16px;
+    position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);right:8px;
+    background:rgba(0,0,0,.25);border:none;border-radius:50%;
+    width:32px;height:32px;color:#fff;font-size:14px;
     cursor:pointer;display:flex;align-items:center;justify-content:center;
+    -webkit-tap-highlight-color:transparent;z-index:10}
+
+  /* ── Botões flutuantes (lado direito) ── */
+  #fab-group{
+    position:absolute;right:12px;z-index:200;
+    display:flex;flex-direction:column;gap:10px;
+    bottom:200px;transition:bottom .3s}
+  #fab-group.nav-ativa{bottom:130px}
+  .fab-btn{
+    width:46px;height:46px;border-radius:50%;border:none;
+    background:#1a2233;box-shadow:0 2px 12px rgba(0,0,0,.5);
+    color:#fff;font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
     -webkit-tap-highlight-color:transparent}
+  .fab-btn:active{transform:scale(.88)}
+  /* Ícones SVG inline para os FABs */
+  #fab-center svg, #fab-sound svg{width:20px;height:20px}
 
-  /* Chegou! overlay */
-  #chegou-banner{
-    display:none;position:fixed;inset:0;z-index:9000;
-    background:rgba(255,255,255,.96);
-    flex-direction:column;align-items:center;justify-content:center;gap:16px}
-  #chegou-banner.visible{display:flex}
-  #chegou-icon{font-size:64px;animation:bounce .6s ease infinite alternate}
-  @keyframes bounce{from{transform:scale(.9)}to{transform:scale(1.05)}}
-  #chegou-titulo{color:#0B1426;font-size:22px;font-weight:800;text-align:center}
-  #chegou-sub{color:#64748b;font-size:14px;text-align:center;padding:0 32px}
-  #btn-fechar-chegou{
-    margin-top:8px;padding:14px 36px;border:none;border-radius:16px;
-    background:linear-gradient(135deg,#f97316,#ea580c);
-    color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+  /* ── Barra inferior antes da nav ─────── */
+  #bottom-bar{
+    position:absolute;bottom:0;left:0;right:0;z-index:200;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));
+    background:#111c2d;border-radius:20px 20px 0 0;
+    box-shadow:0 -4px 24px rgba(0,0,0,.5)}
 
-  /* btn Iniciar Navegação */
-  #btn-nav{
-    display:none; /* JS muda para flex */
-    width:100%;padding:17px;border:none;border-radius:16px;cursor:pointer;
-    background:linear-gradient(135deg,#1d4ed8,#1e40af);
-    box-shadow:0 4px 20px rgba(29,78,216,.45);
+  #rota-card{
+    display:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;padding:10px 14px;margin-bottom:10px;
+    align-items:center;gap:10px}
+  #rota-card-logo{width:34px;height:34px;border-radius:8px;background:#fff;
+    flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  #rota-card-logo img{width:100%;height:100%;object-fit:contain;padding:3px}
+  #rota-card .rc-dist{color:#fff;font-size:16px;font-weight:800}
+  #rota-card .rc-dur{color:rgba(255,255,255,.5);font-size:13px;margin-top:1px}
+
+  #btn-rota{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;
+    background:linear-gradient(135deg,#1a6b4a,#155c3e);
+    box-shadow:0 4px 18px rgba(26,107,74,.5);
     color:#fff;font-size:16px;font-weight:800;
-    margin-top:10px;
-    transition:transform .12s,box-shadow .12s;
+    transition:transform .12s;-webkit-tap-highlight-color:transparent}
+  #btn-rota:active{transform:scale(.96)}
+  #btn-rota.calculando{opacity:.65;pointer-events:none}
+  #btn-rota .bt-icon{font-size:20px}
+
+  #btn-nav{
+    display:none;
+    width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;
+    background:linear-gradient(135deg,#4285f4,#1a56db);
+    box-shadow:0 4px 18px rgba(66,133,244,.4);
+    color:#fff;font-size:16px;font-weight:800;
+    margin-top:10px;transition:transform .12s;
     -webkit-tap-highlight-color:transparent;
     align-items:center;justify-content:center;gap:10px}
   #btn-nav.ativo{display:flex!important}
   #btn-nav:active{transform:scale(.96)}
   #btn-nav .bt-icon{font-size:20px}
+
+  /* ── Barra inferior de navegação ─────── */
+  #nav-bottom{
+    display:none;
+    position:absolute;bottom:0;left:0;right:0;z-index:200;
+    background:#111c2d;border-radius:20px 20px 0 0;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));
+    box-shadow:0 -4px 24px rgba(0,0,0,.5)}
+  #nav-bottom.visible{display:block}
+
+  /* Linha handle */
+  #nav-bottom-handle{
+    width:36px;height:4px;border-radius:2px;
+    background:rgba(255,255,255,.2);margin:0 auto 12px}
+
+  /* Info ETA */
+  #nav-eta-row{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px}
+  #nav-eta-time{
+    color:#00d4aa;font-size:26px;font-weight:800;line-height:1}
+  #nav-eta-unit{color:rgba(255,255,255,.5);font-size:13px;margin-left:3px}
+  #nav-eta-details{color:rgba(255,255,255,.55);font-size:13px;text-align:right;line-height:1.5}
+  #nav-eta-arrive{color:rgba(255,255,255,.35);font-size:12px}
+
+  /* Botões da barra nav */
+  #nav-bottom-btns{display:flex;gap:10px;align-items:center}
+  #btn-cancel-nav{
+    width:44px;height:44px;border-radius:50%;border:none;
+    background:rgba(255,255,255,.1);color:#fff;font-size:18px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;-webkit-tap-highlight-color:transparent}
+  #btn-cancel-nav:active{transform:scale(.88)}
+  .nav-oval-btn{
+    flex:1;padding:12px 16px;border:none;border-radius:100px;
+    background:rgba(255,255,255,.1);color:#fff;font-size:14px;font-weight:600;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+    -webkit-tap-highlight-color:transparent}
+  .nav-oval-btn:active{background:rgba(255,255,255,.18)}
+
+  /* ── Chegou! ─────────────────────────── */
+  #chegou-banner{
+    display:none;position:fixed;inset:0;z-index:9000;
+    background:rgba(10,20,40,.96);
+    flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  #chegou-banner.visible{display:flex}
+  #chegou-icon{animation:bounce .6s ease infinite alternate}
+  @keyframes bounce{from{transform:scale(.9)}to{transform:scale(1.05)}}
+  #chegou-titulo{color:#fff;font-size:22px;font-weight:800;text-align:center}
+  #chegou-sub{color:rgba(255,255,255,.5);font-size:14px;text-align:center;padding:0 32px}
+  #btn-fechar-chegou{
+    margin-top:8px;padding:14px 36px;border:none;border-radius:14px;
+    background:linear-gradient(135deg,#1a6b4a,#155c3e);
+    color:#fff;font-size:16px;font-weight:800;cursor:pointer}
 </style>
 </head>
 <body>
@@ -4961,22 +5025,29 @@ app.get('/ir', async (c) => {
 
 <div id="map"></div>
 
-<!-- Banner de navegação turn-by-turn -->
+<!-- ══ BANNER TURN-BY-TURN (estilo Google Maps) ══ -->
 <div id="nav-banner">
   <button id="btn-nav-close" title="Fechar navegação">✕</button>
-  <div id="nav-step">
+  <!-- Banner principal: instrução + ícone manobra -->
+  <div id="nav-main">
     <div id="nav-arrow">⬆️</div>
     <div id="nav-text-wrap">
+      <div id="nav-dist-step">em —</div>
       <div id="nav-instruction">Siga em frente</div>
-      <div id="nav-dist-step">—</div>
+    </div>
+    <div id="nav-dest-badge">
+      <img src="${logoFinalUrl}" alt="" onerror="this.src=&quot;${logoSvgUrl}&quot;">
     </div>
   </div>
-  <div id="nav-progress">
-    <div id="nav-prog-bar"><div id="nav-prog-fill"></div></div>
-    <div id="nav-prog-label">0%</div>
+  <!-- Banner secundário: próxima manobra -->
+  <div id="nav-next">
+    <span id="nav-next-label">Depois,</span>
+    <span id="nav-next-arrow">⬆️</span>
+    <span id="nav-next-text">—</span>
   </div>
 </div>
 
+<!-- ══ TOP-BAR (antes da navegação) ══ -->
 <div id="top-bar">
   <button id="btn-back" onclick="history.back()" title="Voltar">&#8592;</button>
   <div id="top-bar-logo">
@@ -4991,8 +5062,17 @@ app.get('/ir', async (c) => {
   </div>
 </div>
 
-<button id="btn-center" title="Centralizar">📍</button>
+<!-- ══ BOTÕES FLUTUANTES (lado direito) ══ -->
+<div id="fab-group">
+  <button class="fab-btn" id="fab-center" title="Recentralizar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="3"/></svg>
+  </button>
+  <button class="fab-btn" id="fab-sound" title="Som">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+  </button>
+</div>
 
+<!-- ══ BOTTOM-BAR (antes da navegação) ══ -->
 <div id="bottom-bar">
   <div id="rota-card" style="display:none">
     <div id="rota-card-logo">
@@ -5011,6 +5091,31 @@ app.get('/ir', async (c) => {
     <span class="bt-icon">▶</span>
     <span>Iniciar Navegação</span>
   </button>
+</div>
+
+<!-- ══ BARRA INFERIOR DE NAVEGAÇÃO (ETA estilo GM) ══ -->
+<div id="nav-bottom">
+  <div id="nav-bottom-handle"></div>
+  <div id="nav-eta-row">
+    <div>
+      <span id="nav-eta-time">—</span><span class="nav-eta-unit">min</span>
+      <div id="nav-eta-details" id="nav-eta-dist">— km</div>
+    </div>
+    <div style="text-align:right">
+      <div id="nav-eta-arrive" style="color:rgba(255,255,255,.45);font-size:12px">Chegada</div>
+      <div id="nav-eta-hora" style="color:#fff;font-size:15px;font-weight:700">—:—</div>
+    </div>
+  </div>
+  <div id="nav-bottom-btns">
+    <button id="btn-cancel-nav" title="Cancelar">✕</button>
+    <button class="nav-oval-btn" id="btn-recentralizar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="3"/></svg>
+      Recentralizar
+    </button>
+    <button class="nav-oval-btn" id="btn-reportar">
+      ⚠️ Reportar
+    </button>
+  </div>
 </div>
 
 <!-- Overlay chegou ao destino -->
@@ -5197,7 +5302,7 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     return 'Continue'+(rua?' pela '+rua:'');
   }
 
-  /* ── Atualiza banner de navegação ─────── */
+  /* ── Atualiza banner de navegação (estilo Google Maps) ── */
   function atualizarBannerNav(){
     if(!_navAtiva||!_steps.length) return;
     var step=_steps[_stepIdx]||_steps[_steps.length-1];
@@ -5205,14 +5310,49 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     var instr=traduzirInstrucao(step);
     var distStep=step.distance>0?fmtDist(step.distance):'';
 
+    // Banner principal
     document.getElementById('nav-arrow').textContent=emoji;
     document.getElementById('nav-instruction').textContent=instr;
     document.getElementById('nav-dist-step').textContent=distStep?('em '+distStep):'';
 
-    // Progresso
-    var pct=_totalDist>0?Math.min(100,Math.round(_distPercorrida/_totalDist*100)):0;
-    document.getElementById('nav-prog-fill').style.width=pct+'%';
-    document.getElementById('nav-prog-label').textContent=pct+'%';
+    // Banner secundário — próxima manobra
+    var nextStep=_steps[_stepIdx+1];
+    var nb=document.getElementById('nav-next');
+    if(nextStep&&nextStep.maneuver&&nextStep.maneuver.type!=='arrive'){
+      document.getElementById('nav-next-arrow').textContent=getManobra(nextStep);
+      document.getElementById('nav-next-text').textContent=traduzirInstrucao(nextStep);
+      if(nb) nb.style.display='flex';
+    } else {
+      if(nb) nb.style.display='none';
+    }
+
+    // ETA na barra inferior
+    atualizarETA();
+  }
+
+  /* ── Atualiza ETA na barra inferior ──── */
+  function atualizarETA(){
+    if(!_totalDist) return;
+    var distRest=Math.max(0,_totalDist-_distPercorrida);
+    // Velocidade média estimada: 40 km/h em modo urbano
+    var velMedia=40/3.6; // m/s
+    var tempoRest=distRest/velMedia; // segundos
+    var minRest=Math.round(tempoRest/60);
+
+    var etaTime=document.getElementById('nav-eta-time');
+    var etaDist=document.getElementById('nav-eta-details');
+    var etaHora=document.getElementById('nav-eta-hora');
+
+    if(etaTime) etaTime.textContent=minRest<1?'1':String(minRest);
+    if(etaDist) etaDist.textContent=(distRest/1000).toFixed(1)+' km';
+
+    // Hora de chegada estimada
+    if(etaHora){
+      var chegada=new Date(Date.now()+tempoRest*1000);
+      var hh=('0'+chegada.getHours()).slice(-2);
+      var mm=('0'+chegada.getMinutes()).slice(-2);
+      etaHora.textContent=hh+':'+mm;
+    }
   }
 
   /* ── Verifica desvio de rota e recalcula ── */
@@ -5290,11 +5430,11 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
         _stepIdx=0;
         _totalDist=route.distance;
         _distPercorrida=0;
-        // Redesenhar polyline
+        // Redesenhar polyline — ciano estilo Google Maps
         if(_rotaLayer) _map.removeLayer(_rotaLayer);
         var coords=route.geometry.coordinates.map(function(c){return[c[1],c[0]];});
         _rotaLayer=L.polyline(coords,{
-          color:'#f97316',weight:5,opacity:.9,
+          color:'#00d4ff',weight:7,opacity:1,
           lineCap:'round',lineJoin:'round'
         }).addTo(_map);
         // Atualizar UI
@@ -5305,7 +5445,7 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
         showCard(dist,dur);
         // Toast brevíssimo
         var el=document.getElementById('nav-instruction');
-        if(el) el.style.color='#4CAF50';
+        if(el) el.style.color='#00d4aa';
         setTimeout(function(){ if(el) el.style.color=''; },1500);
       })
       .catch(function(){
@@ -5355,6 +5495,10 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
   function mostrarChegou(){
     _navAtiva=false;
     document.getElementById('nav-banner').classList.remove('visible');
+    var nb=document.getElementById('nav-bottom');
+    if(nb) nb.classList.remove('visible');
+    var fg=document.getElementById('fab-group');
+    if(fg) fg.classList.remove('nav-ativa');
     document.getElementById('chegou-banner').classList.add('visible');
     if(_watchId!=null){
       navigator.geolocation.clearWatch(_watchId);_watchId=null;
@@ -5369,7 +5513,8 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     _map = L.map('map',{center:center,zoom:zoom,
       zoomControl:false,attributionControl:false});
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+    // ── CartoDB Dark Matter — tiles escuros estilo Google Maps noturno ──
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
       maxZoom:19,
       subdomains:'abcd'
     }).addTo(_map);
@@ -5405,10 +5550,28 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
         .bindPopup('<b>'+NOME+'</b>',{closeButton:false,maxWidth:200});
     }
 
-    // Botão centralizar
-    document.getElementById('btn-center').addEventListener('click',function(){
-      if(_userLat!=null) _map.setView([_userLat,_userLng],16,{animate:true});
+    // FAB centralizar (lado direito) — recentra no usuário
+    document.getElementById('fab-center').addEventListener('click',function(){
+      if(_userLat!=null) _map.setView([_userLat,_userLng],_navAtiva?18:16,{animate:true});
       else if(DLAT)      _map.setView([DLAT,DLNG],15,{animate:true});
+    });
+
+    // Botão "Recentralizar" na barra inferior de navegação
+    document.getElementById('btn-recentralizar').addEventListener('click',function(){
+      if(_userLat!=null) _map.setView([_userLat,_userLng],18,{animate:true});
+    });
+
+    // FAB som — toggle simples (visual apenas)
+    var _somAtivo=true;
+    document.getElementById('fab-sound').addEventListener('click',function(){
+      _somAtivo=!_somAtivo;
+      this.style.opacity=_somAtivo?'1':'0.45';
+      this.title=_somAtivo?'Som':'Som desligado';
+    });
+
+    // Botão reportar
+    document.getElementById('btn-reportar').addEventListener('click',function(){
+      alert('Obrigado pelo reporte! Informação enviada.');
     });
 
     // GPS
@@ -5430,8 +5593,9 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     _prevLat=lat; _prevLng=lng;
 
     if(!_userMarker){
-      var h='<div class="pin-user-wrap"><div class="pin-user"></div><div class="pulse-ring"></div></div>';
-      var ic=L.divIcon({html:h,className:'',iconSize:[36,36],iconAnchor:[18,18]});
+      // Marcador estilo Google Maps: círculo azul + seta branca + halos pulsantes
+      var h='<div class="pin-user-wrap"><div class="pulse-ring-outer"></div><div class="pulse-ring"></div><div class="pin-user-circle"></div><div class="pin-user"></div></div>';
+      var ic=L.divIcon({html:h,className:'',iconSize:[48,48],iconAnchor:[24,24]});
       _userMarker=L.marker([lat,lng],{icon:ic,zIndexOffset:1000}).addTo(_map);
     } else {
       _userMarker.setLatLng([lat,lng]);
@@ -5455,6 +5619,8 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
       detectarStepAtual(lat,lng);
       // Detectar desvio de rota e recalcular
       verificarDesvioRota(lat,lng);
+      // Atualiza ETA na barra inferior
+      atualizarETA();
     }
   }
 
@@ -5548,11 +5714,11 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
           _steps=route.legs[0].steps;
         }
 
-        // Linha no mapa
+        // Linha no mapa — ciano estilo Google Maps
         if(_rotaLayer) _map.removeLayer(_rotaLayer);
         var coords=route.geometry.coordinates.map(function(c){return[c[1],c[0]];});
         _rotaLayer=L.polyline(coords,{
-          color:'#f97316',weight:5,opacity:.9,
+          color:'#00d4ff',weight:7,opacity:1,
           lineCap:'round',lineJoin:'round'
         }).addTo(_map);
 
@@ -5604,19 +5770,27 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     // Garante que overlay sumiu
     hideOverlay();
 
-    // Esconde top-bar (substitui pelo banner)
+    // Esconde top-bar (substitui pelo banner de nav)
     var tb=document.getElementById('top-bar');
     if(tb) tb.style.display='none';
 
-    // Esconde bottom-bar durante navegação
+    // Esconde bottom-bar padrão
     var bb=document.getElementById('bottom-bar');
     if(bb) bb.style.display='none';
 
-    // Mostra banner de navegação
+    // Mostra banner de navegação turn-by-turn
     var banner=document.getElementById('nav-banner');
     if(banner) banner.classList.add('visible');
 
-    // Atualiza primeiro step
+    // Mostra barra inferior de navegação (ETA)
+    var navBot=document.getElementById('nav-bottom');
+    if(navBot) navBot.classList.add('visible');
+
+    // Ajusta posição dos FABs para nav ativa
+    var fg=document.getElementById('fab-group');
+    if(fg) fg.classList.add('nav-ativa');
+
+    // Atualiza primeiro step + ETA
     atualizarBannerNav();
 
     // Ajusta mapa para modo navegação (centrado no usuário, zoom 18)
@@ -5630,11 +5804,17 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     this.classList.remove('ativo');
   });
 
-  /* ── Botão fechar navegação ───────────── */
-  document.getElementById('btn-nav-close').addEventListener('click',function(){
+  /* ── Função central para cancelar navegação ── */
+  function cancelarNavegacao(){
     _navAtiva=false;
     _mapaLivre = true;
     document.getElementById('nav-banner').classList.remove('visible');
+    // Esconde barra nav inferior
+    var nb=document.getElementById('nav-bottom');
+    if(nb) nb.classList.remove('visible');
+    // Ajusta FABs de volta
+    var fg=document.getElementById('fab-group');
+    if(fg) fg.classList.remove('nav-ativa');
     // Restaura top-bar e bottom-bar
     var tb=document.getElementById('top-bar');
     if(tb) tb.style.display='flex';
@@ -5649,7 +5829,13 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     removerRotacaoMapa();
     _bearing=0;
     if(_rotaLayer) _map.fitBounds(_rotaLayer.getBounds(),{padding:[60,60]});
-  });
+  }
+
+  /* ── Botão fechar (X) no banner ───────────── */
+  document.getElementById('btn-nav-close').addEventListener('click', cancelarNavegacao);
+
+  /* ── Botão cancelar na barra inferior ─────── */
+  document.getElementById('btn-cancel-nav').addEventListener('click', cancelarNavegacao);
 
   /* ── Init ────────────────────────────── */
   function _boot(){
