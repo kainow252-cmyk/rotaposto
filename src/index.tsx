@@ -5365,19 +5365,18 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
   /* ── Verifica desvio de rota e recalcula ── */
   function verificarDesvioRota(lat,lng){
     if(!_navAtiva||!_steps.length||_recalcAtivo) return;
-    // Calcular distância até a polyline da rota
     var distRota=distanciaAteRota(lat,lng);
-    if(distRota>60){
-      // Fora da rota — acionar recálculo após 3s sem corrigir
+    if(distRota>35){
+      // Fora da rota — aciona recálculo após 1s sem corrigir
       if(!_recalcTimeout){
         _recalcTimeout=setTimeout(function(){
           var agora=Date.now();
-          if(agora-_ultimoRecalc<20000) return; // cooldown 20s entre recálculos
+          if(agora-_ultimoRecalc<8000) return; // cooldown 8s entre recálculos
           _recalcAtivo=true;
           _ultimoRecalc=agora;
           mostrarAvisoRecalculo();
           recalcularRota(lat,lng);
-        },3000);
+        },1000);
       }
     } else {
       // Voltou para a rota — cancela recálculo pendente
@@ -5424,42 +5423,52 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
   /* ── Recalcula rota a partir da posição atual ── */
   function recalcularRota(lat,lng){
     if(!DLAT||!DLNG) return;
+    // AbortController para timeout de 6s — evita espera infinita
+    var _ctrl=new AbortController();
+    var _tAbort=setTimeout(function(){ _ctrl.abort(); },6000);
+
     var url='https://router.project-osrm.org/route/v1/driving/'
       +lng+','+lat+';'+DLNG+','+DLAT
       +'?overview=full&geometries=geojson&steps=true';
-    fetch(url)
+    fetch(url,{signal:_ctrl.signal})
       .then(function(r){return r.json();})
       .then(function(d){
+        clearTimeout(_tAbort);
         if(d.code!=='Ok'||!d.routes||!d.routes[0]) throw new Error('no route');
         var route=d.routes[0];
-        // Atualizar steps
         _steps=route.legs&&route.legs[0]&&route.legs[0].steps?route.legs[0].steps:[];
         _stepIdx=0;
         _totalDist=route.distance;
         _distPercorrida=0;
-        // Redesenhar polyline — ciano estilo Google Maps
+        // Redesenhar polyline — ciano
         if(_rotaLayer) _map.removeLayer(_rotaLayer);
         var coords=route.geometry.coordinates.map(function(c){return[c[1],c[0]];});
         _rotaLayer=L.polyline(coords,{
           color:'#00d4ff',weight:7,opacity:1,
           lineCap:'round',lineJoin:'round'
         }).addTo(_map);
-        // Atualizar UI
         atualizarBannerNav();
-        // Mostrar toast de confirmação
         var dist=fmtDist(route.distance);
         var dur=fmtDur(route.duration);
         showCard(dist,dur);
-        // Toast brevíssimo
+        // Flash verde confirmando recálculo
         var el=document.getElementById('nav-instruction');
         if(el) el.style.color='#00d4aa';
         setTimeout(function(){ if(el) el.style.color=''; },1500);
       })
-      .catch(function(){
+      .catch(function(err){
+        clearTimeout(_tAbort);
         var el=document.getElementById('nav-instruction');
         var arrow=document.getElementById('nav-arrow');
         if(arrow) arrow.textContent='⚠️';
-        if(el) el.textContent='Sem sinal — recalculando...';
+        if(el) el.textContent='Sem sinal — tentando novamente...';
+        // Tenta novamente em 3s se for erro de rede (não abort)
+        if(err&&err.name!=='AbortError'){
+          setTimeout(function(){
+            _recalcAtivo=false;
+            _recalcTimeout=null;
+          },3000);
+        }
       })
       .finally(function(){
         _recalcAtivo=false;
@@ -5703,13 +5712,18 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     if(btn) btn.classList.add('calculando');
     if(txt) txt.textContent='Calculando rota…';
 
+    // Timeout de 8s para a requisição inicial
+    var _ctrl2=new AbortController();
+    var _tAbort2=setTimeout(function(){ _ctrl2.abort(); },8000);
+
     var url='https://router.project-osrm.org/route/v1/driving/'
       + oLng+','+oLat+';'+DLNG+','+DLAT
       + '?overview=full&geometries=geojson&steps=true';
 
-    fetch(url)
+    fetch(url,{signal:_ctrl2.signal})
       .then(function(r){return r.json();})
       .then(function(d){
+        clearTimeout(_tAbort2);
         if(d.code!=='Ok'||!d.routes||!d.routes[0]) throw new Error('no route');
         var route=d.routes[0];
         var dist=fmtDist(route.distance);
@@ -5746,6 +5760,7 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
         if(btnNav) btnNav.classList.add('ativo');
       })
       .catch(function(){
+        clearTimeout(_tAbort2);
         if(btn) btn.classList.remove('calculando');
         if(txt) txt.textContent='Tentar novamente';
         setInfoDist('Rota indisponível');
