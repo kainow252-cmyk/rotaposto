@@ -4733,7 +4733,7 @@ app.get('/ir', async (c) => {
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;overflow:hidden;background:#0d1b2a;
+  html,body{width:100%;height:100%;overflow:hidden;background:#1a1c2e;
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 
   #map{position:absolute;inset:0;z-index:0}
@@ -5513,10 +5513,11 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     _map = L.map('map',{center:center,zoom:zoom,
       zoomControl:false,attributionControl:false});
 
-    // ── CartoDB Dark Matter — tiles escuros estilo Google Maps noturno ──
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-      maxZoom:19,
-      subdomains:'abcd'
+    // ── Stadia Alidade Smooth Dark — escuro elegante, ruas bem visíveis ──
+    // Muito parecido com Google Maps noturno: ruas cinza-claro sobre fundo azul-escuro
+    L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',{
+      maxZoom:20,
+      attribution:'&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap'
     }).addTo(_map);
 
     // ⚡ Segurança: se GPS não responder em 3s, mostra mapa centrado no destino
