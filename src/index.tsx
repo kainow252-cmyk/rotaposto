@@ -4841,6 +4841,13 @@ app.get('/ir', async (c) => {
   #map{transition:none}
   #map .leaflet-map-pane{transition:none}
 
+  /* ── Clareia levemente os tiles para ruas ficarem visíveis ──
+     brightness(1.35): ruas cinza passam de #555 para ~#888
+     contrast(0.9): suaviza o contraste para não ficar agressivo  */
+  #map .leaflet-tile-pane{
+    filter: brightness(1.4) contrast(0.88) saturate(0.9);
+  }
+
   /* ── Linha de rota ciano ─────────────── */
   .rota-line{stroke:#00d4ff;stroke-width:6;stroke-opacity:1;
     stroke-linecap:round;stroke-linejoin:round}
@@ -5513,11 +5520,11 @@ var LOGO = ${JSON.stringify(logoFinalUrl)};
     _map = L.map('map',{center:center,zoom:zoom,
       zoomControl:false,attributionControl:false});
 
-    // ── Stadia Alidade Smooth Dark — escuro elegante, ruas bem visíveis ──
-    // Muito parecido com Google Maps noturno: ruas cinza-claro sobre fundo azul-escuro
-    L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',{
-      maxZoom:20,
-      attribution:'&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap'
+    // ── CartoDB Dark Matter (sem API key) — fundo escuro com ruas cinza visíveis ──
+    // dark_matter_no_labels: fundo + estradas  |  only_labels: textos por cima
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+      maxZoom:19,
+      subdomains:'abcd'
     }).addTo(_map);
 
     // ⚡ Segurança: se GPS não responder em 3s, mostra mapa centrado no destino
