@@ -1024,19 +1024,31 @@ export function getPainelEmpresaHTML(): string {
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
-  <meta name="painel-version" content="20260708-planos"/>
+  <meta name="painel-version" content="20260730-mobile-app"/>
   <title>RotaPosto Empresas — Painel do Gerente</title>
   <script>
-    // Força reload se versão do painel mudou (quebra cache do browser)
+    // Força reload se versão do painel mudou (quebra cache do browser e SW)
     (function(){
       var v = document.querySelector('meta[name="painel-version"]');
       var current = v ? v.getAttribute('content') : '';
       var stored = localStorage.getItem('rp_painel_version');
       if (stored && stored !== current) {
         localStorage.setItem('rp_painel_version', current);
-        // Reload com cache-bust na query string
-        var url = location.pathname + '?v=' + current;
-        location.replace(url);
+        // 1. Limpa todos os caches do Service Worker
+        if ('caches' in window) {
+          caches.keys().then(function(names){
+            names.forEach(function(name){ caches.delete(name); });
+          });
+        }
+        // 2. Desregistra SW antigo para forçar download fresco
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(regs){
+            regs.forEach(function(reg){ reg.unregister(); });
+          });
+        }
+        // 3. Reload com cache-bust
+        var url = location.pathname + '?v=' + current + '&t=' + Date.now();
+        setTimeout(function(){ location.replace(url); }, 200);
       } else {
         localStorage.setItem('rp_painel_version', current);
       }

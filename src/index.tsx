@@ -5071,7 +5071,7 @@ app.get('/sw.js', (c) => {
   const swCode = `// RotaPosto — Service Worker PWA v4.0
 // REGRA: O SW NUNCA intercepta páginas HTML — apenas assets estáticos (/icons/, /static/)
 // Motivo: páginas são server-side no Cloudflare Worker; interceptá-las causa crash no TWA
-const CACHE_NAME = 'rotaposto-v4';
+const CACHE_NAME = 'rotaposto-v5';
 const STATIC_ASSETS = [
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
