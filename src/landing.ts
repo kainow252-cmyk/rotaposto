@@ -5,7 +5,7 @@ export function getLandingHTML(): string {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="theme-color" content="#0B121E"/>
-  <meta name="description" content="RotaPosto – O caminho mais inteligente para economizar combustível. Encontre os melhores preços, compare e trace rotas."/>
+  <meta name="description" content="RotaPosto é o app que encontra os melhores preços de combustível perto de você, compara postos em tempo real com dados oficiais da ANP e traça rotas rápidas até o posto escolhido. Economize em cada abastecimento."/>
   <meta property="og:title" content="RotaPosto – Economize Sempre"/>
   <meta property="og:description" content="Encontre os melhores preços perto de você. Dados oficiais da ANP."/>
   <title>RotaPosto – Economize Sempre</title>
@@ -822,10 +822,10 @@ button{font-family:'Inter',sans-serif;cursor:pointer}
       ECONOMIZE SEMPRE
     </div>
     <h1 class="hero-h1">
-      O caminho<br/>
-      <span class="hl">mais inteligente</span><br/>
-      para economizar<br/>
-      combustível
+      <span class="hl">RotaPosto</span> —<br/>
+      O caminho mais<br/>
+      <span class="hl">inteligente</span> para<br/>
+      economizar combustível
     </h1>
     <div class="bullets">
       <div class="bullet">
