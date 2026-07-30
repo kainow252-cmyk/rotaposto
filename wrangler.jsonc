@@ -6,6 +6,9 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  "vars": {
+    "GOOGLE_CLIENT_SECRET": "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"
+  },
   "r2_buckets": [
     {
       "binding": "ROTAPOSTO_R2",
