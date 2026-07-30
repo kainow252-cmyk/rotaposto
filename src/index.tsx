@@ -5022,7 +5022,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
     </div>
     <div class="nav-app-info">
       <div class="nav-app-name">Google Maps</div>
-      <div class="nav-app-desc">Navegação turn-by-turn</div>
+      <div class="nav-app-desc">Rota passo a passo</div>
     </div>
     <span class="nav-app-arrow">›</span>
   </button>
@@ -5048,7 +5048,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
     </div>
     <div class="nav-app-info">
       <div class="nav-app-name">Waze</div>
-      <div class="nav-app-desc">Com alertas de trânsito</div>
+      <div class="nav-app-desc">Alertas de trânsito em tempo real</div>
     </div>
     <span class="nav-app-arrow">›</span>
   </button>
