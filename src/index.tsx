@@ -5100,7 +5100,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
   <button id="nav-sheet-cancel" onclick="fecharSeletorNav()">Cancelar</button>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 var DLAT = ${temCoords ? lat : 'null'};
 var DLNG = ${temCoords ? lng : 'null'};
@@ -5201,9 +5200,21 @@ function navegarCom(app){
       + '&travelmode=driving';
   }
 
-  // window.open com _blank: abre nova aba no browser,
-  // e no WebView Android faz o sistema tentar o app registrado para a URL
-  window.open(url, '_blank');
+  // Abre a URL sem sair da tela /ir:
+  // 1. Tenta <a target="_blank"> — funciona em browser e alguns WebViews
+  // 2. Se bloqueado pelo WebView, usa window.location.href como fallback
+  //    (o usuário pode voltar com o botão "Voltar" do Android)
+  try {
+    var a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch(e) {
+    window.location.href = url;
+  }
 }
 
 // ── Leaflet map ──────────────────────────────────────────────────────
@@ -5317,8 +5328,8 @@ function desenharRota(oriLat, oriLng){
     });
 }
 
-// ── Inicialização ─────────────────────────────────────────────────────
-(function(){
+// ── Inicialização — aguarda Leaflet carregar ────────────────────────
+function _iniciarApp(){
   if(!DLAT || !DLNG){
     var loading2 = document.getElementById('map-loading');
     if(loading2) loading2.innerHTML =
@@ -5329,25 +5340,30 @@ function desenharRota(oriLat, oriLng){
     return;
   }
   if(navigator.geolocation){
+    // Timeout menor (5s) + maximumAge alto para aceitar posição cacheada
+    // enableHighAccuracy:false é mais rápido e confiável em WebView
     navigator.geolocation.getCurrentPosition(
       function(pos){
         _userLat = pos.coords.latitude;
         _userLng = pos.coords.longitude;
         iniciarMapa(_userLat, _userLng);
       },
-      function(){
+      function(err){
+        // GPS falhou ou negado — carrega mapa centrado no destino
         document.getElementById('msg-nogps').style.display = 'block';
         iniciarMapa(null, null);
         document.getElementById('eta-dist').textContent = '—';
         document.getElementById('eta-dur').textContent  = 'GPS indisponível';
       },
-      {enableHighAccuracy:true, timeout:8000, maximumAge:30000}
+      {enableHighAccuracy:false, timeout:5000, maximumAge:60000}
     );
   } else {
     iniciarMapa(null, null);
   }
-})();
+}
 </script>
+<!-- Leaflet carregado DEPOIS das variáveis, inicialização via onload -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onload="_iniciarApp()"></script>
 </body>
 </html>`
 
