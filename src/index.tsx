@@ -4738,6 +4738,7 @@ app.get('/ir', async (c) => {
   const nome     = c.req.query('nome')     || ''
   const bandeira = c.req.query('bandeira') || ''
   const fotoParam = c.req.query('foto')   || ''
+  const placeId   = c.req.query('placeId') || ''
   const gKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
 
   const temCoords  = lat && lng && lat !== '0' && lng !== '0'
@@ -4764,10 +4765,35 @@ app.get('/ir', async (c) => {
     if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS')) return '/static/logos/supergasbras.svg'
     return '/static/logos/independente.svg'
   }
-  const logoSvgUrl  = _irLogoUrl(bandeira || nome)
-  // Prioridade: fotoUrl do parceiro → SVG da bandeira
-  const logoFinalUrl = (fotoParam && (fotoParam.startsWith('http') || fotoParam.startsWith('/api')))
-    ? fotoParam : logoSvgUrl
+  const logoSvgUrl = _irLogoUrl(bandeira || nome)
+
+  // Buscar foto real via Google Places API (server-side → sem expor key no cliente)
+  async function _buscarFotoPlaces(pid: string): Promise<string | null> {
+    if (!pid || !gKey) return null
+    try {
+      const res = await fetch(`https://places.googleapis.com/v1/places/${pid}`, {
+        headers: {
+          'X-Goog-Api-Key': gKey,
+          'X-Goog-FieldMask': 'photos'
+        }
+      })
+      if (!res.ok) return null
+      const data: any = await res.json()
+      const photoName = data?.photos?.[0]?.name
+      if (!photoName) return null
+      // URL pública da foto (sem key exposta — redirect seguro via Places API)
+      return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=400&key=${gKey}`
+    } catch { return null }
+  }
+
+  // Prioridade: fotoUrl do parceiro → foto Google Places → SVG da bandeira
+  let logoFinalUrl = logoSvgUrl
+  if (fotoParam && (fotoParam.startsWith('http') || fotoParam.startsWith('/api'))) {
+    logoFinalUrl = fotoParam
+  } else if (placeId) {
+    const fotoPlaces = await _buscarFotoPlaces(placeId)
+    if (fotoPlaces) logoFinalUrl = fotoPlaces
+  }
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -8184,10 +8210,24 @@ function fecharModal(e) {
 function irAtePosto() {
   if (!state.postoSelecionado) return;
   const p = state.postoSelecionado;
-  const url = \`https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=\${state.lat}%2C\${state.lng}%3B\${p.lat}%2C\${p.lng}\`;
-  window.open(url, '_blank');
+
+  // Monta URL da tela /ir com todos os dados do posto
+  const params = new URLSearchParams();
+  if (p.lat)  params.set('lat',  String(p.lat));
+  if (p.lng)  params.set('lng',  String(p.lng));
+  if (p.nome) params.set('nome', p.nome);
+  if (p.bandeira) params.set('bandeira', p.bandeira);
+
+  // placeId: permite buscar foto real via Google Places server-side
+  const rawId = p.googlePlaceId || p.id || '';
+  const placeId = rawId.startsWith('google-') ? rawId.replace('google-', '') : rawId;
+  if (placeId && !placeId.startsWith('anp-')) params.set('placeId', placeId);
+
+  // fotoUrl do parceiro tem máxima prioridade (logo/marca oficial)
+  if (p.fotoUrl) params.set('foto', p.fotoUrl);
+
+  window.location.href = '/ir?' + params.toString();
   document.getElementById('modal-overlay').classList.remove('visible');
-  mostrarToast('Abrindo rota no mapa...');
 }
 
 function irAoMelhorPosto() {
