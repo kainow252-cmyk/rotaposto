@@ -15,7 +15,11 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
-  <title>RotaPosto – Boas-vindas</title>
+  <meta name="description" content="RotaPosto – Encontre os melhores preços de combustível perto de você. Compare postos, economize em cada abastecimento e trace rotas rápidas com dados oficiais da ANP."/>
+  <meta property="og:title" content="RotaPosto – Economize Sempre"/>
+  <meta property="og:description" content="RotaPosto é o app que encontra os melhores preços de combustível, compara postos em tempo real e traça rotas rápidas até o posto escolhido."/>
+  <meta property="og:site_name" content="RotaPosto"/>
+  <title>RotaPosto – Encontre os Melhores Preços de Combustível</title>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -127,6 +131,8 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
       color: rgba(255,255,255,0.72);
       text-align: center; line-height: 1.6;
       margin-bottom: 0;
+      /* Reset h1 para manter visual idêntico ao p anterior */
+      letter-spacing: normal; text-transform: none;
     }
 
     /* Bloco inferior: botões */
@@ -570,7 +576,7 @@ export function getLandingOnboardingHTML(firebaseScripts: string): string {
     <div id="splash-content">
       <div id="splash-logo-wrap">
         <div id="splash-logo-wrap-img"><img id="splash-logo-img" src="/icons/logo-splash.png" alt="RotaPosto" /></div>
-        <p id="splash-sub">O caminho mais inteligente<br/>para economizar combustível</p>
+        <h1 id="splash-sub">RotaPosto — O caminho mais inteligente para economizar combustível</h1>
       </div>
 
       <div id="splash-btns">
