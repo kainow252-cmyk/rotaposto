@@ -4738,6 +4738,7 @@ app.get('/ir', async (c) => {
   const nome     = c.req.query('nome')     || ''
   const bandeira = c.req.query('bandeira') || ''
   const fotoParam = c.req.query('foto')   || ''
+  const gKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
 
   const temCoords  = lat && lng && lat !== '0' && lng !== '0'
   const tituloSafe = nome
@@ -4866,9 +4867,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
 <!-- TOP BAR -->
 <div id="top-bar">
   <button id="btn-back" onclick="history.back()">&#8592;</button>
-  <img id="posto-logo" src="\${logoFinalUrl}" alt="" onerror="this.src='\${logoSvgUrl}'">
+  <img id="posto-logo" src="${logoFinalUrl}" alt="" onerror="if(this.src!==this.dataset.fb){this.dataset.fb=this.src;this.src='${logoSvgUrl}'}">
   <div id="posto-info">
-    <div id="posto-nome">\${tituloSafe}</div>
+    <div id="posto-nome">${tituloSafe}</div>
     <div id="posto-end" id="posto-end">Calculando rota…</div>
   </div>
 </div>
@@ -4903,10 +4904,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
 </div>
 
 <script>
-var DLAT = \${temCoords ? lat : 'null'};
-var DLNG = \${temCoords ? lng : 'null'};
-var NOME = \${JSON.stringify(tituloSafe)};
-var GKEY = \${JSON.stringify(gKey)};
+var DLAT = ${temCoords ? lat : 'null'};
+var DLNG = ${temCoords ? lng : 'null'};
+var NOME = ${JSON.stringify(tituloSafe)};
+var GKEY = ${JSON.stringify(gKey)};
 
 var _userLat = null, _userLng = null;
 
