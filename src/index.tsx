@@ -20298,6 +20298,276 @@ app.get('/api/admin/posto-band/logo-img/:safeId', async (c) => {
   } catch { return c.notFound() }
 })
 
+// ── GET /api/parceiros/anp-consultar — scraping CDP ANP via CNPJ ─────────────
+// Consulta dados públicos do posto na ANP (Agência Nacional do Petróleo)
+// Retorna: nome_fantasia, bandeira, endereço, autorização, equipamentos
+app.get('/api/parceiros/anp-consultar', async (c) => {
+  try {
+    const token   = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    const cnpjRaw = c.req.query('cnpj') || ''
+    const cnpj    = cnpjRaw.replace(/[^0-9]/g, '').slice(0, 14)
+    if (cnpj.length < 14) return c.json({ ok: false, erro: 'CNPJ inválido. Informe 14 dígitos.' }, 400)
+
+    // Autenticar parceiro
+    const kv = getKV(c.env) ?? undefined
+    const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    if (!token) return c.json({ ok: false, erro: 'Token obrigatório' }, 401)
+    const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
+    if (!sess || (sess.exp as number) < Date.now()) return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
+
+    // ── PASSO 1: Iniciar sessão APEX no CDP ANP ─────────────────────────────
+    const BASE = 'https://cdp.anp.gov.br'
+    const UA   = 'Mozilla/5.0 (compatible; RotaPosto-ANP-Integrator/1.0)'
+
+    // Buscar página principal para obter p_instance e cookies
+    const r1 = await fetch(`${BASE}/ords/r/cdp_apex/consulta-dados-publicos-cdp/principal`, {
+      headers: { 'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml' },
+      redirect: 'follow'
+    })
+    if (!r1.ok) return c.json({ ok: false, erro: 'CDP ANP indisponível no momento.' }, 502)
+
+    const html1    = await r1.text()
+    const cookies1 = r1.headers.get('set-cookie') || ''
+
+    // Extrair p_instance (identificador de sessão APEX)
+    const instMatch = html1.match(/p_instance["\s:=]+["']?([A-Z0-9]+)["']?/i)
+                   || html1.match(/wwv_flow\.g_instance\s*=\s*["']([^"']+)["']/i)
+                   || html1.match(/id="pInstance"\s+value="([^"]+)"/)
+    const pInstance = instMatch ? instMatch[1] : ''
+
+    // Extrair p_flow_id (ID do app APEX)
+    const flowMatch = html1.match(/p_flow_id["\s:=]+["']?(\d+)["']?/i)
+                   || html1.match(/wwv_flow\.g_flow_id\s*=\s*(\d+)/i)
+                   || html1.match(/"app-id":(\d+)/)
+    const pFlowId = flowMatch ? flowMatch[1] : '120'
+
+    // ── PASSO 2: Tentar busca via endpoint de pesquisa APEX ─────────────────
+    // O CDP ANP usa APEX AJAX para filtrar resultados por CNPJ
+    const cookieHeader = cookies1.split(',').map((c: string) => c.split(';')[0].trim()).join('; ')
+
+    const searchPayload = new URLSearchParams({
+      p_flow_id:       pFlowId,
+      p_flow_step_id:  '1',
+      p_instance:      pInstance,
+      p_request:       'NATIVE=SEARCH',
+      p_widget_name:   'classic_report',
+      p_widget_action: 'PAGINATE',
+      x01:             cnpj,  // CNPJ como filtro
+      p_json:          JSON.stringify({ regionId: 'R_LISTA_POSTOS', cnpj })
+    })
+
+    // Tentar busca via wwv_flow.show (endpoint padrão APEX para relatórios)
+    const r2resp = await fetch(`${BASE}/ords/wwv_flow.show`, {
+      method: 'POST',
+      headers: {
+        'User-Agent':    UA,
+        'Content-Type':  'application/x-www-form-urlencoded',
+        'Referer':       `${BASE}/ords/r/cdp_apex/consulta-dados-publicos-cdp/principal`,
+        'Cookie':        cookieHeader,
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: searchPayload.toString()
+    })
+
+    // ── PASSO 3: Parsear HTML retornado buscando dados do posto ──────────────
+    let htmlResult = ''
+    if (r2resp.ok) {
+      htmlResult = await r2resp.text()
+    } else {
+      // Fallback: buscar diretamente na página principal com CNPJ na URL
+      const r3 = await fetch(`${BASE}/ords/r/cdp_apex/consulta-dados-publicos-cdp/principal?cnpj=${cnpj}`, {
+        headers: { 'User-Agent': UA, 'Cookie': cookieHeader }
+      })
+      if (r3.ok) htmlResult = await r3.text()
+    }
+
+    // ── PASSO 4: Extrair dados estruturados do HTML ──────────────────────────
+    // Função auxiliar para extrair conteúdo entre tags ou após labels
+    function extrairCampo(html: string, label: string): string {
+      // Padrão 1: <td>LABEL</td><td>VALOR</td>
+      const re1 = new RegExp(`<td[^>]*>[^<]*${label}[^<]*<\\/td>\\s*<td[^>]*>([^<]+)<\\/td>`, 'i')
+      const m1  = html.match(re1)
+      if (m1) return m1[1].trim()
+      // Padrão 2: <label>LABEL</label>...<span>VALOR</span>
+      const re2 = new RegExp(`${label}[^<]*<\\/[^>]+>[^<]*<[^>]+>([^<]{2,80})<\\/`, 'i')
+      const m2  = html.match(re2)
+      if (m2) return m2[1].trim()
+      // Padrão 3: data-label="LABEL" data-value="VALOR"
+      const re3 = new RegExp(`data-label="${label}"[^>]*data-value="([^"]+)"`, 'i')
+      const m3  = html.match(re3)
+      if (m3) return m3[1].trim()
+      return ''
+    }
+
+    // Mapeamento bandeira ANP → nome normalizado RotaPosto
+    function normalizarBandeira(raw: string): string {
+      const b = raw.toUpperCase().trim()
+      if (b.includes('PETROBRAS') || b.includes('BR DISTRIBUIDORA') || b.includes('VIBRA')) return 'Petrobras BR'
+      if (b.includes('SHELL') || b.includes('RAIZEN') || b.includes('RAÍZEN'))              return 'Shell'
+      if (b.includes('IPIRANGA'))                                                            return 'Ipiranga'
+      if (b.includes('ALE') || b.includes('ALÉ'))                                           return 'Ale'
+      if (b.includes('BANDEIRA BRANCA') || b.includes('SEM BANDEIRA') || b.includes('BRANCA')) return 'Sem bandeira'
+      if (b.includes('COSAN') || b.includes('LUBRAX'))                                      return 'Outra'
+      if (b.length > 1) return 'Outra'
+      return 'Sem bandeira'
+    }
+
+    // Verificar se encontrou dados na página
+    const temDados = htmlResult.length > 500 &&
+      (htmlResult.includes(cnpj) ||
+       htmlResult.toLowerCase().includes('nome fantasia') ||
+       htmlResult.toLowerCase().includes('razão social') ||
+       htmlResult.toLowerCase().includes('razao social') ||
+       htmlResult.toLowerCase().includes('distribuidor') ||
+       htmlResult.toLowerCase().includes('bandeira'))
+
+    if (!temDados) {
+      // Retornar estrutura vazia mas indicando CNPJ não encontrado na ANP
+      return c.json({
+        ok: false,
+        erro: 'CNPJ não encontrado na base de dados ANP CDP. Verifique se o posto está regularizado e tente novamente.',
+        cnpj,
+        encontrado: false
+      })
+    }
+
+    // Extrair campos principais
+    const nomeFant   = extrairCampo(htmlResult, 'Nome Fantasia') || extrairCampo(htmlResult, 'NOME FANTASIA')
+    const razaoSoc   = extrairCampo(htmlResult, 'Raz.o Social')  || extrairCampo(htmlResult, 'RAZAO SOCIAL') || extrairCampo(htmlResult, 'RAZÃO SOCIAL')
+    const bandeiraR  = extrairCampo(htmlResult, 'Bandeira')      || extrairCampo(htmlResult, 'BANDEIRA')     || extrairCampo(htmlResult, 'Distribuidora')
+    const autorizaca = extrairCampo(htmlResult, 'Autoriza')      || extrairCampo(htmlResult, 'N. Autoriza')
+    const logradouro = extrairCampo(htmlResult, 'Logradouro')    || extrairCampo(htmlResult, 'Endere.o')
+    const numero_end = extrairCampo(htmlResult, 'N.mero')        || extrairCampo(htmlResult, 'Numero')
+    const bairro_end = extrairCampo(htmlResult, 'Bairro')
+    const municipio  = extrairCampo(htmlResult, 'Munic.pio')     || extrairCampo(htmlResult, 'Cidade')
+    const uf_end     = extrairCampo(htmlResult, '>UF<')          || extrairCampo(htmlResult, 'Estado')
+    const cep_end    = extrairCampo(htmlResult, 'CEP')
+
+    // Extrair equipamentos (tanques + bicos) se presentes
+    const equipamentos: Array<{produto: string, tancagem: string, bicos: string}> = []
+    const eqRegex = /<tr[^>]*>[\s\S]*?<td[^>]*>([\w\s]+combustível[\w\s]*|gasolina|etanol|diesel|gnv|arla|lubrificante)[^<]*<\/td>[\s\S]*?<td[^>]*>(\d+[.,]?\d*)<\/td>[\s\S]*?<td[^>]*>(\d+)<\/td>/gi
+    let eqMatch: RegExpExecArray | null
+    while ((eqMatch = eqRegex.exec(htmlResult)) !== null) {
+      equipamentos.push({ produto: eqMatch[1].trim(), tancagem: eqMatch[2], bicos: eqMatch[3] })
+    }
+
+    const dados = {
+      cnpj,
+      nome_fantasia:   nomeFant  || razaoSoc || '',
+      razao_social:    razaoSoc  || '',
+      bandeira_raw:    bandeiraR || '',
+      bandeira:        normalizarBandeira(bandeiraR || ''),
+      autorizacao:     autorizaca || '',
+      endereco: {
+        logradouro: logradouro || '',
+        numero:     numero_end || '',
+        bairro:     bairro_end || '',
+        municipio:  municipio  || '',
+        uf:         uf_end     || '',
+        cep:        (cep_end || '').replace(/[^0-9]/g, '')
+      },
+      equipamentos,
+      encontrado:  true,
+      fonte:       'ANP CDP - Dados Públicos',
+      consultadoEm: new Date().toISOString()
+    }
+
+    return c.json({ ok: true, dados })
+  } catch(e) {
+    const msg = e instanceof Error ? e.message : 'Erro desconhecido'
+    return c.json({ ok: false, erro: `Erro ao consultar ANP: ${msg}` }, 500)
+  }
+})
+
+// ── POST /api/parceiros/anp-aplicar — aplica dados ANP ao perfil do parceiro ──
+app.post('/api/parceiros/anp-aplicar', async (c) => {
+  try {
+    const kv    = getKV(c.env) ?? undefined
+    const r2    = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
+    const body  = await c.req.json() as Record<string, unknown>
+
+    // Autenticar
+    if (!token) return c.json({ ok: false, erro: 'Token obrigatório' }, 401)
+    const sess = await kvGetParceiro(kv, `sess_${token}`, r2) as Record<string, unknown> | null
+    if (!sess || (sess.exp as number) < Date.now()) return c.json({ ok: false, erro: 'Sessão expirada' }, 401)
+    const parceiroId = String(sess.parceiroId)
+
+    const parceiro = await kvGetParceiro(kv, parceiroId, r2) as Record<string, unknown> | null
+    if (!parceiro) return c.json({ ok: false, erro: 'Posto não encontrado' }, 404)
+
+    // Campos a aplicar (enviados pelo frontend após confirmação do dono)
+    const campos = body.campos as Record<string, unknown> || {}
+    const updated: Record<string, unknown> = { ...parceiro }
+
+    if (campos.nome_fantasia)     updated.nomePosto  = campos.nome_fantasia
+    if (campos.bandeira)          updated.bandeira   = campos.bandeira
+    if (campos.cnpj)              updated.cnpj       = String(campos.cnpj).replace(/[^0-9]/g, '')
+    if (campos.autorizacao)       updated.anpAutorizacao = campos.autorizacao
+    if (campos.equipamentos)      updated.anpEquipamentos = campos.equipamentos
+    if (campos.endereco) {
+      const end = campos.endereco as Record<string, string>
+      updated.endereco = {
+        cep:     end.cep     || (parceiro.endereco as Record<string,string>)?.cep    || '',
+        rua:     end.logradouro || (parceiro.endereco as Record<string,string>)?.rua || '',
+        numero:  end.numero  || (parceiro.endereco as Record<string,string>)?.numero || '',
+        bairro:  end.bairro  || (parceiro.endereco as Record<string,string>)?.bairro || '',
+        cidade:  end.municipio || (parceiro.endereco as Record<string,string>)?.cidade || '',
+        estado:  end.uf      || (parceiro.endereco as Record<string,string>)?.estado  || ''
+      }
+      // Geocodificar endereço ANP para obter lat/lng
+      if (!body.lat) {
+        try {
+          const endStr = [end.logradouro, end.numero, end.bairro, end.municipio, end.uf].filter(Boolean).join(', ')
+          const gKey   = (c.env as any)?.GOOGLE_PLACES_KEY as string || ''
+          if (gKey && endStr) {
+            const geoResp = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(endStr + ', Brasil')}&key=${gKey}`)
+            if (geoResp.ok) {
+              const geoData = await geoResp.json() as any
+              const loc = geoData?.results?.[0]?.geometry?.location
+              if (loc) { updated.lat = loc.lat; updated.lng = loc.lng }
+            }
+          }
+        } catch {}
+      }
+    }
+    if (body.lat) updated.lat = body.lat
+    if (body.lng) updated.lng = body.lng
+
+    updated.anpEnriquecidoEm = new Date().toISOString()
+    updated.atualizadoEm     = new Date().toISOString()
+
+    await kvSetParceiro(kv, parceiroId, updated, undefined, r2)
+
+    // Atualizar posto no índice do mapa se tiver lat/lng
+    if (updated.lat && updated.lng) {
+      try {
+        const postoKey  = `posto:${parceiroId}`
+        const postoData = await kv?.get(postoKey)
+        if (postoData) {
+          const posto = JSON.parse(postoData) as Record<string, unknown>
+          posto.lat      = updated.lat
+          posto.lng      = updated.lng
+          posto.nome     = updated.nomePosto     || posto.nome
+          posto.bandeira = updated.bandeira      || posto.bandeira
+          posto.endereco = updated.endereco      || posto.endereco
+          await kv?.put(postoKey, JSON.stringify(posto))
+        }
+      } catch {}
+    }
+
+    return c.json({
+      ok: true,
+      mensagem: 'Dados ANP aplicados com sucesso ao perfil!',
+      campos_aplicados: Object.keys(campos),
+      lat: updated.lat,
+      lng: updated.lng
+    })
+  } catch(e) {
+    return c.json({ ok: false, erro: 'Erro ao aplicar dados ANP' }, 500)
+  }
+})
+
 // ── POST /api/parceiros/perfil ────────────────────────────────────────────────
 app.post('/api/parceiros/perfil', async (c) => {
   try {

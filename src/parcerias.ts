@@ -1944,7 +1944,17 @@ export function getPainelEmpresaHTML(): string {
             <div>
               <label class="perf-label">Bandeira</label>
               <select id="perf-bandeira" class="login-input" style="margin-bottom:0;cursor:pointer">
-                <option>Sem bandeira</option><option>Petrobras BR</option><option>Shell</option><option>Ipiranga</option><option>Ale</option><option>Raízen</option><option>Outra</option>
+                <option value="Sem bandeira">Sem bandeira</option>
+                <option value="Petrobras BR">Petrobras BR / Vibra</option>
+                <option value="Shell">Shell / Raízen</option>
+                <option value="Ipiranga">Ipiranga</option>
+                <option value="Ale">Ale Combustíveis</option>
+                <option value="Cosan">Cosan / Lubrax+</option>
+                <option value="Daymon">Daymon / MaxFuel</option>
+                <option value="Repsol">Repsol Sinopec</option>
+                <option value="Petrosul">Petrosul</option>
+                <option value="Dislub">Dislub Equador</option>
+                <option value="Outro">Outra bandeira</option>
               </select>
             </div>
             <div>
@@ -2026,6 +2036,50 @@ export function getPainelEmpresaHTML(): string {
           <div class="config-titulo">🔧 Serviços Disponíveis</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px" id="servicos-list">
             <!-- preenchido por JS -->
+          </div>
+        </div>
+
+        <!-- ── Enriquecer com ANP CDP ── -->
+        <div class="config-section" style="margin-top:14px;border:1.5px solid rgba(0,120,212,0.35);background:rgba(0,90,180,0.06);border-radius:14px;padding:18px">
+          <div class="config-titulo" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <span>🏛️ Enriquecer com dados ANP</span>
+            <span style="font-size:11px;font-weight:600;padding:3px 10px;background:#1565C0;color:#fff;border-radius:20px">Dados Oficiais</span>
+          </div>
+          <p style="font-size:13px;color:var(--sub);margin:6px 0 14px;line-height:1.6">
+            Consulte os dados públicos da <strong>Agência Nacional do Petróleo (ANP)</strong> pelo CNPJ do posto.<br>
+            Bandeira, endereço oficial, autorização de funcionamento e equipamentos cadastrados serão importados automaticamente.
+          </p>
+
+          <!-- Botão principal consultar -->
+          <button id="anp-btn-consultar" onclick="anpConsultar()" style="padding:11px 22px;background:#1565C0;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <i class="fas fa-search"></i> Consultar dados na ANP
+          </button>
+          <div id="anp-status" style="font-size:12px;color:var(--sub);min-height:18px;margin-bottom:8px"></div>
+
+          <!-- Painel de resultado (oculto inicialmente) -->
+          <div id="anp-resultado" style="display:none;margin-top:12px">
+            <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:#1E88E5">
+              <i class="fas fa-check-circle"></i> Dados encontrados na ANP — confirme o que deseja importar:
+            </div>
+            <!-- Grid de campos com checkboxes de confirmação -->
+            <div id="anp-campos-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+
+            <!-- Equipamentos (tancagem/bicos) -->
+            <div id="anp-equipamentos-wrap" style="display:none">
+              <div style="font-size:12px;font-weight:700;color:var(--sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Equipamentos cadastrados na ANP</div>
+              <div id="anp-equipamentos-lista" style="font-size:12px;background:rgba(0,0,0,0.04);border-radius:8px;padding:10px;line-height:1.8"></div>
+            </div>
+
+            <!-- Botões de ação -->
+            <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+              <button id="anp-btn-aplicar" onclick="anpAplicar()" style="padding:10px 22px;background:var(--laranja);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px">
+                <i class="fas fa-cloud-download-alt"></i> Importar dados selecionados
+              </button>
+              <button onclick="anpFecharResultado()" style="padding:10px 18px;background:transparent;color:var(--sub);border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">
+                Cancelar
+              </button>
+            </div>
+            <div id="anp-aplicar-msg" style="font-size:12px;font-weight:700;margin-top:8px;display:none"></div>
           </div>
         </div>
 
@@ -3179,6 +3233,181 @@ function renderServicos() {
 function toggleServico(s, btn) {
   if (_servicosSel.has(s)) { _servicosSel.delete(s); btn.style.borderColor='var(--border)'; btn.style.background='#fff'; btn.style.color='var(--sub)'; }
   else { _servicosSel.add(s); btn.style.borderColor='var(--laranja)'; btn.style.background='var(--laranja-claro)'; btn.style.color='var(--laranja)'; }
+}
+
+// ── ANP CDP — Enriquecimento de dados oficiais ──────────────────────────────
+let _anpDados: any = null; // cache dos dados ANP consultados
+
+async function anpConsultar() {
+  const cnpjRaw = (document.getElementById('perf-cnpj') as HTMLInputElement)?.value || '';
+  const cnpj    = cnpjRaw.replace(/[^0-9]/g, '').slice(0, 14);
+  const status  = document.getElementById('anp-status');
+  const btn     = document.getElementById('anp-btn-consultar');
+  const result  = document.getElementById('anp-resultado');
+
+  if (cnpj.length < 14) {
+    if (status) { status.textContent = '⚠️ Preencha o CNPJ do posto antes de consultar a ANP.'; status.style.color = '#d32f2f'; }
+    return;
+  }
+
+  // Esconder resultado anterior
+  if (result) result.style.display = 'none';
+  _anpDados = null;
+
+  if (btn) { (btn as HTMLButtonElement).disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando ANP...'; }
+  if (status) { status.textContent = '⏳ Consultando base de dados pública da ANP...'; status.style.color = 'var(--sub)'; }
+
+  try {
+    const r = await fetch('/api/parceiros/anp-consultar?cnpj=' + encodeURIComponent(cnpj), {
+      headers: { 'Authorization': 'Bearer ' + (_sessao?.token || '') }
+    });
+    const d = await r.json();
+
+    if (!r.ok || !d.ok) {
+      if (status) { status.textContent = '❌ ' + (d.erro || 'Erro ao consultar ANP.'); status.style.color = '#d32f2f'; }
+      return;
+    }
+
+    _anpDados = d.dados;
+    if (status) { status.textContent = '✅ Dados encontrados! Revise e importe os campos desejados.'; status.style.color = '#2e7d32'; }
+    _anpMontarResultado(d.dados);
+
+  } catch(e) {
+    if (status) { status.textContent = '❌ Erro de conexão ao consultar ANP.'; status.style.color = '#d32f2f'; }
+  } finally {
+    if (btn) { (btn as HTMLButtonElement).disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> Consultar dados na ANP'; }
+  }
+}
+
+function _anpMontarResultado(dados: any) {
+  const wrap   = document.getElementById('anp-resultado');
+  const lista  = document.getElementById('anp-campos-lista');
+  const eqWrap = document.getElementById('anp-equipamentos-wrap');
+  const eqList = document.getElementById('anp-equipamentos-lista');
+  if (!wrap || !lista) return;
+
+  // Montar campos com checkboxes
+  const campos: Array<{id: string, label: string, valor: string, checked: boolean}> = [];
+  if (dados.nome_fantasia) campos.push({ id:'anp-ck-nome',     label:'Nome do Posto',  valor: dados.nome_fantasia, checked: true });
+  if (dados.bandeira)      campos.push({ id:'anp-ck-bandeira', label:'Bandeira',        valor: dados.bandeira,      checked: true });
+  if (dados.autorizacao)   campos.push({ id:'anp-ck-aut',      label:'Autorização ANP', valor: dados.autorizacao,   checked: true });
+
+  const end = dados.endereco || {};
+  const endStr = [end.logradouro, end.numero, end.bairro, end.municipio, end.uf, end.cep ? _fmtCep(end.cep) : ''].filter(Boolean).join(', ');
+  if (endStr.trim()) campos.push({ id:'anp-ck-end', label:'Endereço completo', valor: endStr, checked: true });
+
+  lista.innerHTML = campos.map(function(c) {
+    return '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.05);border-radius:10px;cursor:pointer;border:1.5px solid rgba(30,136,229,0.2)">'
+      + '<input type="checkbox" id="' + c.id + '" ' + (c.checked ? 'checked' : '') + ' style="margin-top:2px;accent-color:#1565C0;width:16px;height:16px;flex-shrink:0">'
+      + '<div>'
+      + '<div style="font-size:11px;font-weight:700;color:#1E88E5;text-transform:uppercase;letter-spacing:.5px">' + c.label + '</div>'
+      + '<div style="font-size:13px;font-weight:600;color:var(--text);margin-top:2px">' + c.valor + '</div>'
+      + '</div></label>';
+  }).join('');
+
+  // Equipamentos
+  if (dados.equipamentos && dados.equipamentos.length > 0 && eqWrap && eqList) {
+    eqList.innerHTML = dados.equipamentos.map(function(eq: any) {
+      return '<div>⛽ <strong>' + eq.produto + '</strong> — Tancagem: ' + eq.tancagem + 'm³ · Bicos: ' + eq.bicos + '</div>';
+    }).join('');
+    eqWrap.style.display = 'block';
+  } else if (eqWrap) {
+    eqWrap.style.display = 'none';
+  }
+
+  wrap.style.display = 'block';
+}
+
+function anpFecharResultado() {
+  const wrap = document.getElementById('anp-resultado');
+  if (wrap) wrap.style.display = 'none';
+  _anpDados = null;
+  const status = document.getElementById('anp-status');
+  if (status) { status.textContent = ''; }
+}
+
+async function anpAplicar() {
+  if (!_anpDados) return;
+  const btn = document.getElementById('anp-btn-aplicar');
+  const msg = document.getElementById('anp-aplicar-msg');
+
+  if (btn) { (btn as HTMLButtonElement).disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...'; }
+  if (msg) msg.style.display = 'none';
+
+  // Montar campos selecionados
+  const campos: Record<string, any> = {};
+  if ((document.getElementById('anp-ck-nome')     as HTMLInputElement)?.checked && _anpDados.nome_fantasia)
+    campos.nome_fantasia = _anpDados.nome_fantasia;
+  if ((document.getElementById('anp-ck-bandeira') as HTMLInputElement)?.checked && _anpDados.bandeira)
+    campos.bandeira = _anpDados.bandeira;
+  if ((document.getElementById('anp-ck-aut')      as HTMLInputElement)?.checked && _anpDados.autorizacao)
+    campos.autorizacao = _anpDados.autorizacao;
+  if ((document.getElementById('anp-ck-end')      as HTMLInputElement)?.checked && _anpDados.endereco)
+    campos.endereco = _anpDados.endereco;
+
+  // Sempre incluir CNPJ e equipamentos sem checkbox
+  if (_anpDados.cnpj)         campos.cnpj = _anpDados.cnpj;
+  if (_anpDados.equipamentos) campos.equipamentos = _anpDados.equipamentos;
+
+  if (Object.keys(campos).length === 0) {
+    if (msg) { msg.textContent = '⚠️ Selecione pelo menos um campo para importar.'; msg.style.color = '#d32f2f'; msg.style.display = 'block'; }
+    if (btn) { (btn as HTMLButtonElement).disabled = false; btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Importar dados selecionados'; }
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/parceiros/anp-aplicar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_sessao?.token || '') },
+      body: JSON.stringify({ campos })
+    });
+    const d = await r.json();
+
+    if (r.ok && d.ok) {
+      // Atualizar campos no formulário visualmente
+      if (campos.nome_fantasia) (document.getElementById('perf-nome') as HTMLInputElement).value = campos.nome_fantasia;
+      if (campos.endereco) {
+        const end = campos.endereco;
+        if (end.cep)        (document.getElementById('perf-cep') as HTMLInputElement).value    = _fmtCep(end.cep);
+        if (end.logradouro) (document.getElementById('perf-rua') as HTMLInputElement).value    = end.logradouro;
+        if (end.numero)     (document.getElementById('perf-num') as HTMLInputElement).value    = end.numero;
+        if (end.bairro)     (document.getElementById('perf-bairro') as HTMLInputElement).value = end.bairro;
+        if (end.municipio)  (document.getElementById('perf-cidade') as HTMLInputElement).value = end.municipio;
+        if (end.uf)         (document.getElementById('perf-estado') as HTMLInputElement).value = end.uf;
+        // Mostrar badge endereço
+        const badge = document.getElementById('perf-end-badge');
+        if (badge) { badge.textContent = '✓ Preenchido via ANP'; badge.style.display = 'inline-flex'; }
+      }
+      if (campos.bandeira) {
+        const sel = document.getElementById('perf-bandeira') as HTMLSelectElement;
+        if (sel) {
+          for (let o of sel.options) {
+            if (o.value === campos.bandeira || o.text === campos.bandeira) { o.selected = true; break; }
+          }
+        }
+      }
+      if (d.lat && d.lng) {
+        (document.getElementById('perf-lat') as HTMLInputElement).value = d.lat;
+        (document.getElementById('perf-lng') as HTMLInputElement).value = d.lng;
+        _perfAtualizarMapa(d.lat, d.lng, [campos.endereco?.logradouro, campos.endereco?.numero, campos.endereco?.municipio].filter(Boolean).join(', '));
+      }
+      if (msg) { msg.textContent = '✅ Dados ANP importados! Clique em "Salvar perfil" para confirmar.'; msg.style.color = '#2e7d32'; msg.style.display = 'block'; }
+
+      // Fechar painel resultado após 2s
+      setTimeout(() => {
+        const wrap = document.getElementById('anp-resultado');
+        if (wrap) wrap.style.display = 'none';
+        const status = document.getElementById('anp-status');
+        if (status) { status.textContent = '✅ Dados ANP importados com sucesso!'; status.style.color = '#2e7d32'; }
+      }, 2500);
+    } else {
+      if (msg) { msg.textContent = '❌ ' + (d.erro || 'Erro ao aplicar dados.'); msg.style.color = '#d32f2f'; msg.style.display = 'block'; }
+    }
+  } catch(e) {
+    if (msg) { msg.textContent = '❌ Erro de conexão.'; msg.style.color = '#d32f2f'; msg.style.display = 'block'; }
+  } finally {
+    if (btn) { (btn as HTMLButtonElement).disabled = false; btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Importar dados selecionados'; }
+  }
 }
 
 async function salvarPerfil() {
