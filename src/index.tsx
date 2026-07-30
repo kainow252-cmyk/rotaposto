@@ -1701,9 +1701,53 @@ async function kvGetUserBySubId(kv: KVNamespace, subscriptionId: string): Promis
   } catch { return null }
 }
 
-// Helper: obter KV do env
+// ─── R2-as-KV wrapper ────────────────────────────────────────────────────────
+// O projeto Genspark Hosted não provisiona KV nativo.
+// Este wrapper implementa a mesma interface .get()/.put()/.delete()/.list()
+// usando o bucket R2 (ROTAPOSTO_R2) como storage de key-value JSON.
+// Cada chave KV vira um objeto R2 com prefixo "kv/" no bucket.
+class R2KVWrapper {
+  private r2: R2Bucket
+  constructor(r2: R2Bucket) { this.r2 = r2 }
+
+  async get(key: string): Promise<string | null> {
+    try {
+      const obj = await this.r2.get('kv/' + key)
+      if (!obj) return null
+      return await obj.text()
+    } catch { return null }
+  }
+
+  async put(key: string, value: string, opts?: { expirationTtl?: number }): Promise<void> {
+    try {
+      const httpMetadata: R2HTTPMetadata = { contentType: 'text/plain; charset=utf-8' }
+      const customMetadata: Record<string, string> = {}
+      if (opts?.expirationTtl) {
+        customMetadata['expires'] = String(Date.now() + opts.expirationTtl * 1000)
+      }
+      await this.r2.put('kv/' + key, value, { httpMetadata, customMetadata })
+    } catch { /* silently ignore */ }
+  }
+
+  async delete(key: string): Promise<void> {
+    try { await this.r2.delete('kv/' + key) } catch { /* ignore */ }
+  }
+
+  async list(opts?: { prefix?: string; limit?: number }): Promise<{ keys: { name: string }[] }> {
+    try {
+      const prefix = opts?.prefix ? 'kv/' + opts.prefix : 'kv/'
+      const result = await this.r2.list({ prefix, limit: opts?.limit || 1000 })
+      return { keys: result.objects.map(o => ({ name: o.key.replace(/^kv\//, '') })) }
+    } catch { return { keys: [] } }
+  }
+}
+
+// Helper: obter KV do env — usa R2 como fallback quando KV nativo não está disponível
 function getKV(env: any): KVNamespace | null {
-  return (env as any)?.ROTAPOSTO_KV || null
+  if ((env as any)?.ROTAPOSTO_KV) return (env as any).ROTAPOSTO_KV
+  const r2 = (env as any)?.ROTAPOSTO_R2 as R2Bucket | undefined
+  if (r2) return new R2KVWrapper(r2) as unknown as KVNamespace
+  return null
 }
 
 // ─── API: PIX Recorrente – Criar Assinatura ──────────────────────────────────
@@ -5346,7 +5390,7 @@ app.get('/api/posto/foto-bandeira/:postoId', async (c) => {
     if (!r2) return c.notFound()
     const postoId = c.req.param('postoId')
     // Buscar timestamp do upload no parceiro para ETag dinâmico
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     let fotoTs = ''
     try {
       // Tenta pegar fotoTs do parceiro (muda a cada upload)
@@ -5379,7 +5423,7 @@ app.get('/api/posto/foto-bandeira/:postoId', async (c) => {
 // ── GET /api/posto/:id — dados públicos do posto ──────────────────────────────
 app.get('/api/posto/:id', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const id = c.req.param('id')
     const parceiro = await kvGetParceiro(kv, id, r2) as Record<string, unknown> | null
@@ -5417,7 +5461,7 @@ app.get('/api/posto/:id', async (c) => {
 // ── GET /posto/:id — página pública do posto (marketplace) ───────────────────
 app.get('/posto/:id', async (c) => {
   const id = c.req.param('id')
-  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
   const parceiro = await kvGetParceiro(kv, id, r2) as Record<string, unknown> | null
   const nomePosto = (parceiro?.nomePosto as string) || 'Posto Parceiro RotaPosto'
@@ -19668,7 +19712,7 @@ function hashSimples(senha: string): string {
 // ── POST /api/parceiros/cadastro ──────────────────────────────────────────────
 app.post('/api/parceiros/cadastro', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, string>
     const { cnpj, nome, whatsapp, email, nomePosto, bandeira, plano, cidade, senha } = body
@@ -19724,7 +19768,7 @@ app.post('/api/parceiros/cadastro', async (c) => {
 // ── POST /api/parceiros/login ─────────────────────────────────────────────────
 app.post('/api/parceiros/login', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, string>
     const { email, senha } = body
@@ -19825,7 +19869,7 @@ app.post('/api/parceiros/login', async (c) => {
 // ── POST /api/parceiros/equipe/convidar ───────────────────────────────────────
 app.post('/api/parceiros/equipe/convidar', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 503)
 
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
@@ -19878,7 +19922,7 @@ app.post('/api/parceiros/equipe/convidar', async (c) => {
 // ── GET /api/parceiros/equipe ─────────────────────────────────────────────────
 app.get('/api/parceiros/equipe', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 503)
 
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
@@ -19904,7 +19948,7 @@ app.get('/api/parceiros/equipe', async (c) => {
 // ── DELETE /api/parceiros/equipe/:id ─────────────────────────────────────────
 app.delete('/api/parceiros/equipe/:id', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     if (!kv) return c.json({ ok: false, erro: 'KV indisponível' }, 503)
 
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
@@ -19944,7 +19988,7 @@ app.delete('/api/parceiros/equipe/:id', async (c) => {
 // ── GET /api/parceiros/dashboard ──────────────────────────────────────────────
 app.get('/api/parceiros/dashboard', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const postoId = c.req.query('postoId') || ''
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token') || ''
@@ -20019,7 +20063,7 @@ app.get('/api/parceiros/dashboard', async (c) => {
 // ── GET /api/parceiros/perfil ─────────────────────────────────────────────────
 app.get('/api/parceiros/perfil', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const postoId = c.req.query('postoId') || ''
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
@@ -20053,7 +20097,7 @@ app.get('/api/parceiros/perfil', async (c) => {
 // ── POST /api/parceiros/foto-bandeira — upload da foto/logo do posto ──────────
 app.post('/api/parceiros/foto-bandeira', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
@@ -20136,7 +20180,7 @@ app.post('/api/parceiros/foto-bandeira', async (c) => {
 // Usado para postos Google/OSM que não têm parceiroId cadastrado
 app.post('/api/admin/posto-band/logo', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const ADMIN_PASS = (c.env as Record<string,unknown>)?.ADMIN_PASS as string || 'rotaposto@admin2026'
     const adminKey = c.req.query('key') || ''
@@ -20216,7 +20260,7 @@ app.get('/api/admin/posto-band/logo-img/:safeId', async (c) => {
 // ── POST /api/parceiros/perfil ────────────────────────────────────────────────
 app.post('/api/parceiros/perfil', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
     const body = await c.req.json() as Record<string, unknown>
@@ -20279,7 +20323,7 @@ app.post('/api/parceiros/perfil', async (c) => {
 // ── POST /api/parceiros/cupons/validar ────────────────────────────────────────
 app.post('/api/parceiros/cupons/validar', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, string>
     const { codigo, postoId } = body
@@ -20412,7 +20456,7 @@ app.post('/api/parceiros/cupons/validar', async (c) => {
 // ── GET /api/parceiros/cupons ─────────────────────────────────────────────────
 app.get('/api/parceiros/cupons', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const postoId = c.req.query('postoId') || ''
     const status = c.req.query('status') || '' // GERADO | UTILIZADO | EXPIRADO
@@ -20450,7 +20494,7 @@ app.get('/api/parceiros/cupons', async (c) => {
 // ── POST /api/parceiros/precos ────────────────────────────────────────────────
 app.post('/api/parceiros/precos', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, unknown>
     const { postoId, token, precos } = body as { postoId: string; token: string; precos: Record<string, { precoBomba: number; desconto: number }> }
@@ -20495,7 +20539,7 @@ app.post('/api/parceiros/precos', async (c) => {
 // ── POST /api/parceiros/notificacoes/enviar ───────────────────────────────────
 app.post('/api/parceiros/notificacoes/enviar', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, unknown>
     const { postoId, token, tipo, titulo, mensagem, raioKm, combustivel, preco } = body as {
@@ -20566,7 +20610,7 @@ app.post('/api/parceiros/notificacoes/enviar', async (c) => {
 // ── GET /api/parceiros/promocoes ─────────────────────────────────────────────
 app.get('/api/parceiros/promocoes', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
     let postoId = c.req.query('postoId') || ''
@@ -20600,7 +20644,7 @@ app.get('/api/parceiros/promocoes', async (c) => {
 // Adiciona uma promoção ou substitui o array inteiro (cuando body.promocoes presente)
 app.post('/api/parceiros/promocoes', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, unknown>
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || ''
@@ -20642,7 +20686,7 @@ app.post('/api/parceiros/promocoes', async (c) => {
 // Chamado pelo POSTO para criar um cupom de desconto para clientes usarem
 app.post('/api/parceiros/cupons/criar', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
 
     // Verificar autenticação
@@ -20714,7 +20758,7 @@ app.post('/api/parceiros/cupons/criar', async (c) => {
 // Lista cupons criados pelo posto
 app.get('/api/parceiros/cupons/posto', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
     const postoId = c.req.query('postoId') || ''
     if (!postoId) return c.json({ cupons: [] })
 
@@ -20742,7 +20786,7 @@ app.get('/api/parceiros/cupons/posto', async (c) => {
 // Chamado pelo app consumidor (usuário Premium) para gerar cupom
 app.post('/api/parceiros/cupons/gerar', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, string>
     const { uid, nomeUsuario, postoId, combustivel } = body
@@ -20814,7 +20858,7 @@ app.post('/api/parceiros/cupons/gerar', async (c) => {
 // Buscar configurações do posto (pino, cupons, etc.)
 app.get('/api/parceiros/config', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const postoId = c.req.query('postoId') || ''
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token') || ''
@@ -20850,7 +20894,7 @@ app.get('/api/parceiros/config', async (c) => {
 // ── POST /api/parceiros/config ────────────────────────────────────────────────
 app.post('/api/parceiros/config', async (c) => {
   try {
-    const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+    const kv = getKV(c.env) ?? undefined
   const r2 = (c.env as Record<string, unknown>)?.ROTAPOSTO_R2 as R2Bucket | undefined
     const body = await c.req.json() as Record<string, unknown>
     const { postoId, token, config } = body as { postoId: string; token: string; config: Record<string, unknown> }
@@ -20909,7 +20953,7 @@ async function rsAutenticar(
 // PASSAGEIRO: Cadastro
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/rotasegura/passageiro/cadastro', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -20961,7 +21005,7 @@ app.post('/api/rotasegura/passageiro/cadastro', async (c) => {
 // PASSAGEIRO: Login
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/rotasegura/passageiro/login', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -20995,7 +21039,7 @@ app.post('/api/rotasegura/passageiro/login', async (c) => {
 // PASSAGEIRO: Perfil (rota autenticada)
 // ──────────────────────────────────────────────────────────────────────────────
 app.get('/api/rotasegura/passageiro/perfil', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
   if (!auth || auth.tipo !== 'passageiro') return c.json({ erro: 'Não autenticado' }, 401)
 
@@ -21016,7 +21060,7 @@ app.get('/api/rotasegura/passageiro/perfil', async (c) => {
 // MOTORISTA: Cadastro (cria subconta Asaas com CNPJ obrigatório)
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/rotasegura/motorista/cadastro', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -21116,7 +21160,7 @@ app.post('/api/rotasegura/motorista/cadastro', async (c) => {
 // MOTORISTA: Adicionar/atualizar CNPJ e criar subconta Asaas
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/rotasegura/motorista/subconta', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
   if (!auth || auth.tipo !== 'motorista') return c.json({ erro: 'Não autenticado' }, 401)
 
@@ -21198,7 +21242,7 @@ app.get('/api/rotasegura/diagnostico/asaas', async (c) => {
 // MOTORISTA: Login
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/rotasegura/motorista/login', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -21235,7 +21279,7 @@ app.post('/api/rotasegura/motorista/login', async (c) => {
 // MOTORISTA: Perfil (rota autenticada)
 // ──────────────────────────────────────────────────────────────────────────────
 app.get('/api/rotasegura/motorista/perfil', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
   if (!auth || auth.tipo !== 'motorista') return c.json({ erro: 'Não autenticado' }, 401)
 
@@ -21260,7 +21304,7 @@ app.get('/api/rotasegura/motorista/perfil', async (c) => {
 // ASAAS: Gerar PIX split para corrida (chamado ao finalizar corrida)
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/rotasegura/pagamento/gerar-pix', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   // Auth: passageiro ou sistema interno
@@ -21337,7 +21381,7 @@ app.post('/api/rotasegura/pagamento/gerar-pix', async (c) => {
 // ASAAS: Verificar pagamento da corrida
 // ──────────────────────────────────────────────────────────────────────────────
 app.get('/api/rotasegura/pagamento/status/:paymentId', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
   if (!auth) return c.json({ erro: 'Não autenticado' }, 401)
 
@@ -21366,7 +21410,7 @@ app.get('/api/rotasegura/pagamento/status/:paymentId', async (c) => {
 // ASAAS: Webhook pagamento corrida
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/rotasegura/pagamento/webhook', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   try {
     const body = await c.req.json()
     const evento = body?.event || ''
@@ -21408,14 +21452,14 @@ app.post('/api/rotasegura/pagamento/webhook', async (c) => {
 // MOTORISTA: Logout
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/rotasegura/motorista/logout', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   const token = extrairToken(c.req.header('Authorization') || null)
   if (kv && token) await kvRevogarToken(kv, token)
   return c.json({ ok: true })
 })
 
 app.post('/api/rotasegura/passageiro/logout', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   const token = extrairToken(c.req.header('Authorization') || null)
   if (kv && token) await kvRevogarToken(kv, token)
   return c.json({ ok: true })
@@ -21429,7 +21473,7 @@ const RS_ADMIN_KEY = 'rotasegura-admin-2026'  // Trocar por env secret em prod
 
 // ── Motorista: salvar docs (base64) ──────────────────────────────────────────
 app.post('/api/rotasegura/motorista/docs', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
   if (!auth || auth.tipo !== 'motorista') return c.json({ erro: 'Não autenticado' }, 401)
@@ -21473,7 +21517,7 @@ app.post('/api/rotasegura/motorista/docs', async (c) => {
 
 // ── Passageiro: salvar docs (selfie + geo) ────────────────────────────────────
 app.post('/api/rotasegura/passageiro/docs', async (c) => {
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   const auth = await rsAutenticar(kv, c.req.header('Authorization') || null)
   if (!auth || auth.tipo !== 'passageiro') return c.json({ erro: 'Não autenticado' }, 401)
@@ -21520,7 +21564,7 @@ function rsAdminAuth(c: any): boolean {
 // ── Admin: listar motoristas ──────────────────────────────────────────────────
 app.get('/api/rotasegura/admin/motoristas', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   try {
     const lista = await kv.list({ prefix: 'rs:motorista:' })
@@ -21554,7 +21598,7 @@ app.get('/api/rotasegura/admin/motoristas', async (c) => {
 // ── Admin: listar passageiros ─────────────────────────────────────────────────
 app.get('/api/rotasegura/admin/passageiros', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   try {
     const lista = await kv.list({ prefix: 'rs:passageiro:' })
@@ -21584,7 +21628,7 @@ app.get('/api/rotasegura/admin/passageiros', async (c) => {
 // ── Admin: ver foto de motorista ──────────────────────────────────────────────
 app.get('/api/rotasegura/admin/motorista/:id/foto/:tipo', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   const id = c.req.param('id')
   const tipo = c.req.param('tipo') // selfie | cnh | docveiculo
@@ -21614,7 +21658,7 @@ app.get('/api/rotasegura/admin/motorista/:id/foto/:tipo', async (c) => {
 // ── Admin: ver foto de passageiro ─────────────────────────────────────────────
 app.get('/api/rotasegura/admin/passageiro/:id/foto/:tipo', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   const id = c.req.param('id')
   const tipo = c.req.param('tipo')
@@ -21641,7 +21685,7 @@ app.get('/api/rotasegura/admin/passageiro/:id/foto/:tipo', async (c) => {
 // ── Admin: aprovar / rejeitar docs de motorista ───────────────────────────────
 app.post('/api/rotasegura/admin/motorista/:id/status', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   const id = c.req.param('id')
   const { status, docsStatus, obs } = await c.req.json()
@@ -21657,7 +21701,7 @@ app.post('/api/rotasegura/admin/motorista/:id/status', async (c) => {
 // ── Admin: aprovar / rejeitar docs de passageiro ──────────────────────────────
 app.post('/api/rotasegura/admin/passageiro/:id/status', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   const id = c.req.param('id')
   const { status, docsStatus, obs } = await c.req.json()
@@ -21672,7 +21716,7 @@ app.post('/api/rotasegura/admin/passageiro/:id/status', async (c) => {
 // ── Admin: upload de foto para motorista ─────────────────────────────────────
 app.post('/api/rotasegura/admin/motorista/:id/foto', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   const id = c.req.param('id')
   const motorista = await kvGetMotorista(kv, id)
@@ -21701,7 +21745,7 @@ app.post('/api/rotasegura/admin/motorista/:id/foto', async (c) => {
 // ── Admin: upload de foto para passageiro ────────────────────────────────────
 app.post('/api/rotasegura/admin/passageiro/:id/foto', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   const id = c.req.param('id')
   const passageiro = await kvGetPassageiro(kv, id)
@@ -21727,7 +21771,7 @@ app.post('/api/rotasegura/admin/passageiro/:id/foto', async (c) => {
 // ── Admin: estatísticas gerais ────────────────────────────────────────────────
 app.get('/api/rotasegura/admin/stats', async (c) => {
   if (!rsAdminAuth(c)) return c.json({ erro: 'Não autorizado' }, 401)
-  const kv = (c.env as any)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
   try {
     const [motLista, pasLista, corLista] = await Promise.all([
@@ -21767,7 +21811,7 @@ interface CorridaRS {
 
 // ── API: Solicitar corrida ──────────────────────────────────────────────────────
 app.post('/api/rotasegura/solicitar', async (c) => {
-  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -21819,7 +21863,7 @@ app.post('/api/rotasegura/solicitar', async (c) => {
 
 // ── API: Status da corrida ──────────────────────────────────────────────────────
 app.get('/api/rotasegura/status/:corridaId', async (c) => {
-  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   const corridaId = c.req.param('corridaId')
@@ -21832,7 +21876,7 @@ app.get('/api/rotasegura/status/:corridaId', async (c) => {
 
 // ── API: Cancelar corrida ───────────────────────────────────────────────────────
 app.post('/api/rotasegura/cancelar', async (c) => {
-  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -21859,7 +21903,7 @@ app.post('/api/rotasegura/cancelar', async (c) => {
 
 // ── API: Motorista — buscar corrida disponível ──────────────────────────────────
 app.get('/api/rotasegura/motorista/disponivel', async (c) => {
-  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ corrida: null })
 
   const filaRaw = await kv.get('rotasegura:fila_disponivel')
@@ -21880,7 +21924,7 @@ app.get('/api/rotasegura/motorista/disponivel', async (c) => {
 
 // ── API: Motorista — aceitar corrida ───────────────────────────────────────────
 app.post('/api/rotasegura/motorista/aceitar', async (c) => {
-  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -21921,7 +21965,7 @@ app.post('/api/rotasegura/motorista/aceitar', async (c) => {
 
 // ── API: Motorista — atualizar localização ─────────────────────────────────────
 app.post('/api/rotasegura/motorista/localizacao', async (c) => {
-  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -21943,7 +21987,7 @@ app.post('/api/rotasegura/motorista/localizacao', async (c) => {
 
 // ── API: Motorista — iniciar corrida ───────────────────────────────────────────
 app.post('/api/rotasegura/motorista/iniciar', async (c) => {
-  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -21963,7 +22007,7 @@ app.post('/api/rotasegura/motorista/iniciar', async (c) => {
 
 // ── API: Motorista — finalizar corrida ─────────────────────────────────────────
 app.post('/api/rotasegura/motorista/finalizar', async (c) => {
-  const kv = (c.env as Record<string, unknown>)?.ROTAPOSTO_KV as KVNamespace | undefined
+  const kv = getKV(c.env) ?? undefined
   if (!kv) return c.json({ erro: 'KV indisponível' }, 503)
 
   try {
@@ -24703,8 +24747,8 @@ app.get('/rotasegura/motorista/privacidade', (c) => {
 export default {
   fetch: app.fetch,
   async scheduled(event: { cron: string; scheduledTime: number }, env: Record<string, unknown>, ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<void> {
-    const kv = (env?.ROTAPOSTO_KV as KVNamespace | undefined)
     const r2 = (env?.ROTAPOSTO_R2 as R2Bucket | undefined)
+    const kv = getKV(env) ?? undefined
 
     // Sincronização ANP
     ctx.waitUntil(syncAnpScheduled(kv))
