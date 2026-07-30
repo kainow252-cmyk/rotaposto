@@ -4817,25 +4817,27 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
   min-height:60px;
 }
 #btn-back{
-  width:36px;height:36px;border-radius:50%;border:none;
+  width:38px;height:38px;border-radius:50%;border:none;
   background:#f0f0f0;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;font-size:18px;color:#333;
+  flex-shrink:0;color:#333;
 }
+#btn-back svg{display:block}
 #posto-info{flex:1;overflow:hidden}
 #posto-nome{font-size:14px;font-weight:700;color:#1a1a1a;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#posto-end{font-size:11px;color:#666;margin-top:1px;
+#posto-end{font-size:11px;color:#888;margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#posto-logo{width:36px;height:36px;border-radius:8px;
-  object-fit:contain;background:#f5f5f5;padding:3px;flex-shrink:0}
+#posto-logo{width:38px;height:38px;border-radius:9px;
+  object-fit:contain;background:#f5f5f5;padding:3px;flex-shrink:0;
+  border:1.5px solid #eee}
 
 /* ── Mapa iframe ── */
 #map-wrap{
   position:fixed;
-  top:60px; /* altura top-bar */
+  top:60px;
   left:0;right:0;
-  bottom:130px; /* altura bottom-bar */
+  bottom:120px;
 }
 #map-wrap iframe{width:100%;height:100%;border:none;display:block}
 
@@ -4857,46 +4859,118 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
 #bottom-bar{
   position:fixed;bottom:0;left:0;right:0;z-index:100;
   background:#fff;
-  padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 12px);
-  box-shadow:0 -2px 8px rgba(0,0,0,.1);
+  padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 10px);
+  box-shadow:0 -2px 10px rgba(0,0,0,.1);
 }
 #eta-row{
-  display:flex;align-items:center;gap:12px;
+  display:flex;align-items:center;gap:10px;
   margin-bottom:10px;
 }
-#eta-dist{font-size:22px;font-weight:800;color:#1a1a1a}
-#eta-dur{font-size:16px;color:#444;font-weight:500}
-#eta-sep{width:1px;height:20px;background:#ddd}
-#eta-chegada{font-size:12px;color:#888;margin-left:auto}
-#btn-navegar{
-  width:100%;padding:14px;border:none;border-radius:14px;
-  background:#1a73e8;color:#fff;
-  font-size:16px;font-weight:700;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:8px;
-  transition:background .15s,transform .1s;
-  box-shadow:0 2px 8px rgba(26,115,232,.35);
-}
-#btn-navegar:active{background:#1557b0;transform:scale(.98)}
-#btn-navegar svg{flex-shrink:0}
-
-/* ── Estado sem GPS / sem rota ── */
+#eta-dist{font-size:21px;font-weight:800;color:#1a1a1a}
+#eta-dur{font-size:15px;color:#444;font-weight:600}
+#eta-sep{width:1px;height:18px;background:#ddd}
+#eta-chegada{font-size:12px;color:#888;margin-left:auto;font-weight:500}
 #msg-nogps{
   display:none;
   background:#fff3cd;color:#856404;
   font-size:12px;padding:6px 10px;border-radius:8px;
   margin-bottom:8px;text-align:center;
 }
+#btn-navegar{
+  width:100%;padding:15px;border:none;border-radius:14px;
+  background:#FF6D00;color:#fff;
+  font-size:16px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  transition:background .15s,transform .1s;
+  box-shadow:0 3px 10px rgba(255,109,0,.4);
+  -webkit-tap-highlight-color:transparent;
+}
+#btn-navegar:active{background:#e65100;transform:scale(.98)}
+#btn-navegar svg{flex-shrink:0}
+
+/* ══════════════════════════════════════
+   BOTTOM SHEET — seletor de app de nav
+   ══════════════════════════════════════ */
+#nav-sheet-overlay{
+  position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,0);
+  display:none;
+  transition:background .25s;
+}
+#nav-sheet-overlay.open{
+  background:rgba(0,0,0,.45);
+  display:block;
+}
+#nav-sheet{
+  position:fixed;
+  left:0;right:0;bottom:0;
+  z-index:301;
+  background:#fff;
+  border-radius:22px 22px 0 0;
+  padding:0 0 calc(env(safe-area-inset-bottom,0px) + 20px);
+  transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.32,1,.5,1);
+  box-shadow:0 -4px 32px rgba(0,0,0,.18);
+  will-change:transform;
+}
+#nav-sheet.open{transform:translateY(0)}
+
+/* handle drag */
+#nav-sheet-handle{
+  width:40px;height:4px;background:#e0e0e0;border-radius:4px;
+  margin:12px auto 18px;
+}
+#nav-sheet-title{
+  font-size:13px;font-weight:700;color:#888;
+  text-transform:uppercase;letter-spacing:.8px;
+  text-align:center;margin-bottom:18px;
+}
+.nav-app-btn{
+  display:flex;align-items:center;gap:16px;
+  padding:16px 22px;
+  border:none;background:transparent;
+  width:100%;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .12s;
+}
+.nav-app-btn:active{background:#f5f5f5}
+.nav-app-icon{
+  width:50px;height:50px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;overflow:hidden;
+}
+.nav-app-icon img{width:100%;height:100%;object-fit:cover;border-radius:14px}
+.nav-app-info{flex:1;text-align:left}
+.nav-app-name{font-size:16px;font-weight:700;color:#1a1a1a}
+.nav-app-desc{font-size:12px;color:#888;margin-top:2px}
+.nav-app-arrow{color:#ccc;font-size:18px}
+.nav-divider{height:1px;background:#f0f0f0;margin:0 22px}
+
+/* Botão cancelar */
+#nav-sheet-cancel{
+  display:block;width:calc(100% - 44px);margin:14px 22px 0;
+  padding:14px;border:none;border-radius:14px;
+  background:#f5f5f5;color:#555;
+  font-size:15px;font-weight:700;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+#nav-sheet-cancel:active{background:#ebebeb}
 </style>
 </head>
 <body>
 
 <!-- TOP BAR -->
 <div id="top-bar">
-  <button id="btn-back" onclick="history.back()">&#8592;</button>
-  <img id="posto-logo" src="${logoFinalUrl}" alt="" onerror="if(this.src!==this.dataset.fb){this.dataset.fb=this.src;this.src='${logoSvgUrl}'}">
+  <button id="btn-back" onclick="history.back()" aria-label="Voltar">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  </button>
+  <img id="posto-logo" src="${logoFinalUrl}" alt=""
+    onerror="if(this.src!==this.dataset.fb){this.dataset.fb=this.src;this.src='${logoSvgUrl}'}">
   <div id="posto-info">
     <div id="posto-nome">${tituloSafe}</div>
-    <div id="posto-end" id="posto-end">Calculando rota…</div>
+    <div id="posto-end">Calculando rota…</div>
   </div>
 </div>
 
@@ -4919,14 +4993,83 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
     <span id="eta-dist">—</span>
     <div id="eta-sep"></div>
     <span id="eta-dur">—</span>
-    <span id="eta-chegada">Chegada: —</span>
+    <span id="eta-chegada"></span>
   </div>
-  <button id="btn-navegar" onclick="abrirNavegacao()">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-      <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+  <button id="btn-navegar" onclick="abrirSeletorNav()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="3 11 22 2 13 21 11 13 3 11" fill="#fff" stroke="none"/>
     </svg>
-    Iniciar no Google Maps
+    Iniciar navegação
   </button>
+</div>
+
+<!-- ═══ BOTTOM SHEET — escolha o app de navegação ═══ -->
+<div id="nav-sheet-overlay" onclick="fecharSeletorNav()"></div>
+
+<div id="nav-sheet" role="dialog" aria-label="Escolha o app de navegação">
+  <div id="nav-sheet-handle"></div>
+  <div id="nav-sheet-title">Abrir com</div>
+
+  <!-- Google Maps -->
+  <button class="nav-app-btn" onclick="navegarCom('google')">
+    <div class="nav-app-icon" style="background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15)">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Google_Maps_Logo_2020.svg/512px-Google_Maps_Logo_2020.svg.png" alt="Google Maps"
+        onerror="this.parentElement.innerHTML='<svg viewBox=\'0 0 48 48\' width=\'50\' height=\'50\'><rect width=\'48\' height=\'48\' rx=\'12\' fill=\'#4285F4\'/><text x=\'50%\' y=\'60%\' text-anchor=\'middle\' font-size=\'22\' fill=\'#fff\'>G</text></svg>'">
+    </div>
+    <div class="nav-app-info">
+      <div class="nav-app-name">Google Maps</div>
+      <div class="nav-app-desc">Navegação turn-by-turn</div>
+    </div>
+    <span class="nav-app-arrow">›</span>
+  </button>
+
+  <div class="nav-divider"></div>
+
+  <!-- Waze -->
+  <button class="nav-app-btn" onclick="navegarCom('waze')">
+    <div class="nav-app-icon" style="background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15)">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Waze_icon.svg/512px-Waze_icon.svg.png" alt="Waze"
+        onerror="this.parentElement.innerHTML='<svg viewBox=\'0 0 48 48\' width=\'50\' height=\'50\'><rect width=\'48\' height=\'48\' rx=\'12\' fill=\'#06CCFF\'/><text x=\'50%\' y=\'62%\' text-anchor=\'middle\' font-size=\'22\' fill=\'#fff\'>W</text></svg>'">
+    </div>
+    <div class="nav-app-info">
+      <div class="nav-app-name">Waze</div>
+      <div class="nav-app-desc">Com alertas de trânsito</div>
+    </div>
+    <span class="nav-app-arrow">›</span>
+  </button>
+
+  <div class="nav-divider"></div>
+
+  <!-- Apple Maps — visível só em iOS -->
+  <button class="nav-app-btn" id="btn-apple-maps" onclick="navegarCom('apple')" style="display:none">
+    <div class="nav-app-icon" style="background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15)">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/AppleMaps_logo.svg/512px-AppleMaps_logo.svg.png" alt="Apple Maps"
+        onerror="this.parentElement.innerHTML='<svg viewBox=\'0 0 48 48\' width=\'50\' height=\'50\'><rect width=\'48\' height=\'48\' rx=\'12\' fill=\'#3478F6\'/><text x=\'50%\' y=\'62%\' text-anchor=\'middle\' font-size=\'22\' fill=\'#fff\'>A</text></svg>'">
+    </div>
+    <div class="nav-app-info">
+      <div class="nav-app-name">Apple Maps</div>
+      <div class="nav-app-desc">Nativo do iPhone / iPad</div>
+    </div>
+    <span class="nav-app-arrow">›</span>
+  </button>
+  <div class="nav-divider" id="div-apple" style="display:none"></div>
+
+  <!-- Maps genérico para outros sistemas -->
+  <button class="nav-app-btn" id="btn-maps-gen" onclick="navegarCom('gen')" style="display:none">
+    <div class="nav-app-icon" style="background:#34A853">
+      <svg viewBox="0 0 48 48" width="50" height="50">
+        <rect width="48" height="48" rx="12" fill="#34A853"/>
+        <text x="50%" y="64%" text-anchor="middle" font-size="26" fill="#fff">📍</text>
+      </svg>
+    </div>
+    <div class="nav-app-info">
+      <div class="nav-app-name">Mapas do sistema</div>
+      <div class="nav-app-desc">Abre no app padrão do celular</div>
+    </div>
+    <span class="nav-app-arrow">›</span>
+  </button>
+
+  <button id="nav-sheet-cancel" onclick="fecharSeletorNav()">Cancelar</button>
 </div>
 
 <script>
@@ -4936,14 +5079,114 @@ var NOME = ${JSON.stringify(tituloSafe)};
 var GKEY = ${JSON.stringify(gKey)};
 
 var _userLat = null, _userLng = null;
+var _sheetOpen = false;
+
+// ── Detectar plataforma e mostrar opções corretas ─────────────────────
+(function detectPlataforma(){
+  var ua = navigator.userAgent;
+  var isIOS     = /iPhone|iPad|iPod/.test(ua);
+  var isAndroid = /Android/.test(ua);
+  // iOS → mostrar Apple Maps
+  if(isIOS){
+    document.getElementById('btn-apple-maps').style.display = 'flex';
+    document.getElementById('div-apple').style.display = 'block';
+  }
+  // Nem iOS nem Android (desktop) → mostrar "Mapas do sistema" como extra
+  if(!isIOS && !isAndroid){
+    document.getElementById('btn-maps-gen').style.display = 'flex';
+  }
+})();
+
+// ── Abrir seletor de app de navegação ────────────────────────────────
+function abrirSeletorNav(){
+  if(!DLAT || !DLNG){
+    alert('Sem coordenadas do posto para navegar.');
+    return;
+  }
+  var overlay = document.getElementById('nav-sheet-overlay');
+  var sheet   = document.getElementById('nav-sheet');
+  overlay.style.display = 'block';
+  // força reflow antes de adicionar .open (animação)
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      overlay.classList.add('open');
+      sheet.classList.add('open');
+      _sheetOpen = true;
+    });
+  });
+}
+
+function fecharSeletorNav(){
+  var overlay = document.getElementById('nav-sheet-overlay');
+  var sheet   = document.getElementById('nav-sheet');
+  overlay.classList.remove('open');
+  sheet.classList.remove('open');
+  _sheetOpen = false;
+  setTimeout(function(){ overlay.style.display = 'none'; }, 320);
+}
+
+// Fechar com tecla ESC
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape' && _sheetOpen) fecharSeletorNav();
+});
+
+// ── Navegar com o app escolhido ───────────────────────────────────────
+function navegarCom(app){
+  fecharSeletorNav();
+  var destLat = DLAT, destLng = DLNG;
+  var oriStr  = (_userLat && _userLng) ? _userLat + ',' + _userLng : '';
+  var url     = '';
+
+  if(app === 'google'){
+    // URL universal — abre o app nativo se instalado, senão web
+    url = 'https://www.google.com/maps/dir/?api=1'
+      + '&destination=' + destLat + ',' + destLng
+      + '&travelmode=driving'
+      + '&dir_action=navigate';
+    if(oriStr) url += '&origin=' + oriStr;
+
+  } else if(app === 'waze'){
+    // Waze deep link (Android + iOS)
+    url = 'https://waze.com/ul?ll=' + destLat + '%2C' + destLng
+      + '&navigate=yes'
+      + '&zoom=17';
+
+  } else if(app === 'apple'){
+    // Apple Maps scheme nativo
+    url = 'maps://?daddr=' + destLat + ',' + destLng + '&dirflg=d';
+
+  } else {
+    // Mapas genérico — geo: URI (abre app padrão no Android, Safari no iOS)
+    url = 'geo:' + destLat + ',' + destLng + '?q=' + destLat + ',' + destLng
+      + '(' + encodeURIComponent(NOME) + ')';
+  }
+
+  // Tentar abrir esquema nativo; se falhar em 600ms abre web fallback
+  if(app === 'waze'){
+    // Tenta app scheme do Waze primeiro
+    var wazeApp = 'waze://?ll=' + destLat + ',' + destLng + '&navigate=yes';
+    var did = false;
+    var t = setTimeout(function(){
+      if(!did){ did = true; window.open(url, '_blank'); }
+    }, 600);
+    window.location.href = wazeApp;
+    // Se voltou rápido, o app abriu — cancela o fallback
+    window.addEventListener('blur', function onBlur(){
+      did = true; clearTimeout(t);
+      window.removeEventListener('blur', onBlur);
+    }, {once: true});
+  } else if(app === 'apple'){
+    window.location.href = url;
+  } else {
+    window.open(url, '_blank');
+  }
+}
 
 // ── Carregar iframe do Google Maps Embed ──────────────────────────────
 function carregarMapa(oriLat, oriLng){
   var frame = document.getElementById('gmap-frame');
   var url;
-
   if(oriLat && DLAT){
-    // Embed com rota desenhada (origem → destino)
     url = 'https://www.google.com/maps/embed/v1/directions'
       + '?key=' + GKEY
       + '&origin=' + oriLat + ',' + oriLng
@@ -4951,14 +5194,12 @@ function carregarMapa(oriLat, oriLng){
       + '&mode=driving'
       + '&language=pt-BR';
   } else if(DLAT){
-    // Sem origem — mostra só o destino com pin
     url = 'https://www.google.com/maps/embed/v1/place'
       + '?key=' + GKEY
       + '&q=' + DLAT + ',' + DLNG
       + '&language=pt-BR'
       + '&zoom=16';
   } else {
-    // Sem coords — busca por nome
     url = 'https://www.google.com/maps/embed/v1/place'
       + '?key=' + GKEY
       + '&q=' + encodeURIComponent(NOME)
@@ -4974,10 +5215,8 @@ function calcularETA(oriLat, oriLng){
   var url = 'https://router.project-osrm.org/route/v1/driving/'
     + oriLng + ',' + oriLat + ';' + DLNG + ',' + DLAT
     + '?overview=false&steps=false';
-
   var ctrl = new AbortController();
-  setTimeout(function(){ ctrl.abort(); }, 6000);
-
+  setTimeout(function(){ ctrl.abort(); }, 7000);
   fetch(url, {signal: ctrl.signal})
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -4988,77 +5227,36 @@ function calcularETA(oriLat, oriLng){
       var chegada = new Date(Date.now() + r.duration * 1000);
       var hh = String(chegada.getHours()).padStart(2,'0');
       var mm = String(chegada.getMinutes()).padStart(2,'0');
-
       document.getElementById('eta-dist').textContent = distKm + ' km';
       document.getElementById('eta-dur').textContent  = minutos + ' min';
-      document.getElementById('eta-chegada').textContent = 'Chegada: ' + hh + ':' + mm;
+      document.getElementById('eta-chegada').textContent = 'Chegada ' + hh + ':' + mm;
       document.getElementById('posto-end').textContent = distKm + ' km · ' + minutos + ' min';
     })
     .catch(function(){
-      // OSRM falhou — mostra distância em linha reta
       if(_userLat && DLAT){
         var dLat = (DLAT - _userLat) * Math.PI/180;
         var dLng = (DLNG - _userLng) * Math.PI/180;
         var a = Math.sin(dLat/2)*Math.sin(dLat/2)
               + Math.cos(_userLat*Math.PI/180)*Math.cos(DLAT*Math.PI/180)
               * Math.sin(dLng/2)*Math.sin(dLng/2);
-        var dist = 6371000 * 2 * Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+        var dist = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         document.getElementById('eta-dist').textContent = (dist/1000).toFixed(1) + ' km';
         document.getElementById('eta-dur').textContent  = '~' + Math.round(dist/400) + ' min';
+        document.getElementById('eta-chegada').textContent = '';
       }
     });
 }
 
-// ── Abrir Google Maps para navegação turn-by-turn ────────────────────
-function abrirNavegacao(){
-  var url = 'https://www.google.com/maps/dir/?api=1'
-    + '&destination=' + DLAT + ',' + DLNG
-    + '&travelmode=driving'
-    + '&dir_action=navigate';
-  if(_userLat) url += '&origin=' + _userLat + ',' + _userLng;
-
-  // No Android/iOS com Google Maps instalado, abre o app diretamente
-  // Tenta primeiro o scheme nativo, fallback para web
-  var tried = false;
-  function tryGMApp(){
-    if(tried) return;
-    tried = true;
-    // scheme nativo Google Maps
-    var appUrl = 'comgooglemaps://?daddr=' + DLAT + ',' + DLNG + '&directionsmode=driving';
-    var iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    iframe.src = appUrl;
-    // fallback após 500ms se o app não abriu
-    setTimeout(function(){
-      window.open(url, '_blank');
-      document.body.removeChild(iframe);
-    }, 500);
-  }
-
-  // iOS tenta maps:// primeiro
-  if(/iPhone|iPad|iPod/.test(navigator.userAgent)){
-    var iosUrl = 'maps://?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
-    window.location.href = iosUrl;
-    setTimeout(function(){ window.open(url, '_blank'); }, 500);
-  } else {
-    window.open(url, '_blank');
-  }
-}
-
 // ── Inicialização ─────────────────────────────────────────────────────
 (function(){
-  // Se não tem coords de destino, não tem o que mostrar
   if(!DLAT || !DLNG){
     document.getElementById('map-loading').innerHTML =
       '<div style="font-size:32px">⚠️</div><span>Endereço do posto não disponível</span>';
     document.getElementById('eta-dist').textContent = '—';
-    document.getElementById('btn-navegar').disabled = true;
-    document.getElementById('btn-navegar').style.opacity = '0.5';
+    var btn = document.getElementById('btn-navegar');
+    btn.disabled = true; btn.style.opacity = '0.5';
     return;
   }
-
-  // Tenta obter GPS do usuário
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(
       function(pos){
@@ -5068,7 +5266,6 @@ function abrirNavegacao(){
         calcularETA(_userLat, _userLng);
       },
       function(){
-        // GPS negado ou indisponível — mostra mapa só com destino
         document.getElementById('msg-nogps').style.display = 'block';
         carregarMapa(null, null);
         document.getElementById('eta-dist').textContent = '—';
@@ -5083,7 +5280,6 @@ function abrirNavegacao(){
 </script>
 </body>
 </html>`
-
 
   return c.html(html)
 })
