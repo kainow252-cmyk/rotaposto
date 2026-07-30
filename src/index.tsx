@@ -5160,63 +5160,50 @@ document.addEventListener('keydown', function(e){
 });
 
 // ── Navegar com o app escolhido ───────────────────────────────────────
+// REGRA: usar APENAS URLs https:// — nunca waze://, intent://, geo: ou maps://
+// Motivo: WebView Android (TWA/PWA instalado) bloqueia todos os schemes
+// não-http com ERR_UNKNOWN_URL_SCHEME. URLs https universais funcionam em
+// browser, WebView, iOS Safari e Android Chrome sem nenhum erro.
 function navegarCom(app){
   fecharSeletorNav();
   var destLat = DLAT, destLng = DLNG;
-  var oriStr  = (_userLat && _userLng) ? _userLat + ',' + _userLng : '';
-  var ua      = navigator.userAgent;
-  var isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+  var url = '';
 
   if(app === 'google'){
-    // URL universal google.com/maps — abre app nativo no mobile, web no desktop
-    var gUrl = 'https://www.google.com/maps/dir/?api=1'
+    // https://google.com/maps/dir/ — link universal:
+    // abre app Google Maps nativo no Android/iOS se instalado,
+    // senão abre Google Maps web. Funciona em WebView também.
+    url = 'https://www.google.com/maps/dir/?api=1'
       + '&destination=' + destLat + ',' + destLng
       + '&travelmode=driving'
       + '&dir_action=navigate';
-    if(oriStr) gUrl += '&origin=' + oriStr;
-    window.open(gUrl, '_blank');
+    if(_userLat && _userLng)
+      url += '&origin=' + _userLat + ',' + _userLng;
 
   } else if(app === 'waze'){
-    // URL web do Waze — funciona em qualquer plataforma
-    var wazeWeb = 'https://waze.com/ul?ll=' + destLat + '%2C' + destLng
+    // https://waze.com/ul — link universal do Waze:
+    // abre app Waze nativo se instalado, senão abre Waze web.
+    // NÃO usar waze:// — bloqueado em WebView.
+    url = 'https://waze.com/ul?ll=' + destLat + '%2C' + destLng
       + '&navigate=yes&zoom=17';
 
-    if(isMobile){
-      // Mobile: tenta scheme nativo primeiro; fallback web após 700ms
-      var wazeApp = 'waze://?ll=' + destLat + ',' + destLng + '&navigate=yes';
-      var launched = false;
-      var timer = setTimeout(function(){
-        if(!launched){ launched = true; window.open(wazeWeb, '_blank'); }
-      }, 700);
-      window.addEventListener('blur', function onBlur(){
-        launched = true; clearTimeout(timer);
-        window.removeEventListener('blur', onBlur);
-      }, {once: true});
-      window.location.href = wazeApp;
-    } else {
-      // Desktop: vai direto para web, sem scheme (evita erro no console)
-      window.open(wazeWeb, '_blank');
-    }
-
   } else if(app === 'apple'){
-    // Apple Maps — só iOS/iPadOS; sempre vai via scheme nativo
-    window.location.href = 'maps://?daddr=' + destLat + ',' + destLng + '&dirflg=d';
+    // Apple Maps só existe em iOS — link universal via maps.apple.com
+    // funciona em Safari iOS e abre o app Maps nativo automaticamente.
+    // NÃO usar maps:// — bloqueado em WebView e Android.
+    url = 'https://maps.apple.com/?daddr=' + destLat + ',' + destLng
+      + '&dirflg=d';
 
   } else {
-    // Mapas genérico:
-    // • Mobile Android → geo: URI (abre app padrão)
-    // • Desktop        → Google Maps web (geo: não tem handler no desktop)
-    if(isMobile){
-      window.location.href = 'geo:' + destLat + ',' + destLng
-        + '?q=' + destLat + ',' + destLng
-        + '(' + encodeURIComponent(NOME) + ')';
-    } else {
-      var fallUrl = 'https://www.google.com/maps/dir/?api=1'
-        + '&destination=' + destLat + ',' + destLng
-        + '&travelmode=driving';
-      window.open(fallUrl, '_blank');
-    }
+    // Mapas genérico → Google Maps web (fallback seguro universal)
+    url = 'https://www.google.com/maps/dir/?api=1'
+      + '&destination=' + destLat + ',' + destLng
+      + '&travelmode=driving';
   }
+
+  // window.open com _blank: abre nova aba no browser,
+  // e no WebView Android faz o sistema tentar o app registrado para a URL
+  window.open(url, '_blank');
 }
 
 // ── Leaflet map ──────────────────────────────────────────────────────
