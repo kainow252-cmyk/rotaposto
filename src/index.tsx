@@ -4728,1163 +4728,291 @@ app.get('/ir', async (c) => {
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>Rota — ${tituloSafe}</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<title>Navegar — \${tituloSafe}</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;overflow:hidden;background:#1a1c2e;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 
-  #map{position:absolute;inset:0;z-index:0}
+/* ── Top bar ── */
+#top-bar{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  background:#fff;
+  display:flex;align-items:center;gap:10px;
+  padding:env(safe-area-inset-top,12px) 12px 12px;
+  padding-top:calc(env(safe-area-inset-top,0px) + 12px);
+  box-shadow:0 1px 4px rgba(0,0,0,.12);
+  min-height:60px;
+}
+#btn-back{
+  width:36px;height:36px;border-radius:50%;border:none;
+  background:#f0f0f0;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:18px;color:#333;
+}
+#posto-info{flex:1;overflow:hidden}
+#posto-nome{font-size:14px;font-weight:700;color:#1a1a1a;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#posto-end{font-size:11px;color:#666;margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#posto-logo{width:36px;height:36px;border-radius:8px;
+  object-fit:contain;background:#f5f5f5;padding:3px;flex-shrink:0}
 
-  /* ── Overlay de carregamento ─────────── */
-  #overlay{position:fixed;inset:0;background:rgba(8,15,28,0.92);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    z-index:9999;transition:opacity .4s}
-  #overlay.hide{opacity:0;pointer-events:none}
-  .spin{width:44px;height:44px;border:3px solid rgba(0,212,170,.2);
-    border-top-color:#00d4aa;border-radius:50%;animation:spin .85s linear infinite;margin-bottom:16px}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  #status-txt{color:#fff;font-size:15px;font-weight:700;text-align:center;padding:0 32px;margin-bottom:6px}
-  #sub-txt{color:rgba(255,255,255,.5);font-size:13px;text-align:center;padding:0 32px}
-  #btn-pular-gps{
-    margin-top:20px;padding:10px 28px;border:1.5px solid rgba(255,255,255,.2);
-    border-radius:20px;background:transparent;color:rgba(255,255,255,.65);
-    font-size:13px;cursor:pointer;display:none}
-  #btn-pular-gps.visible{display:block}
+/* ── Mapa iframe ── */
+#map-wrap{
+  position:fixed;
+  top:60px; /* altura top-bar */
+  left:0;right:0;
+  bottom:130px; /* altura bottom-bar */
+}
+#map-wrap iframe{width:100%;height:100%;border:none;display:block}
 
-  /* ── Top-bar (antes da nav) ──────────── */
-  #top-bar{
-    position:absolute;top:0;left:0;right:0;z-index:200;
-    background:rgba(10,20,40,.92);backdrop-filter:blur(12px);
-    padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 12px;
-    pointer-events:none;
-    display:flex;align-items:center;gap:10px;
-    box-shadow:0 2px 16px rgba(0,0,0,.5)}
-  #btn-back{
-    pointer-events:all;flex-shrink:0;
-    width:36px;height:36px;
-    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
-    border-radius:50%;color:#fff;font-size:17px;
-    cursor:pointer;display:flex;align-items:center;justify-content:center;
-    -webkit-tap-highlight-color:transparent}
-  #btn-back:active{transform:scale(.88)}
-  #top-bar-info{flex:1;min-width:0}
-  #top-bar-logo{width:34px;height:34px;border-radius:8px;background:#fff;
-    flex-shrink:0;display:flex;align-items:center;justify-content:center;
-    overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.4)}
-  #top-bar-logo img{width:100%;height:100%;object-fit:contain;padding:3px}
-  #top-bar h1{color:#fff;font-size:14px;font-weight:700;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #rota-info{color:rgba(255,255,255,.55);font-size:12px;font-weight:500;margin-top:2px;
-    display:flex;align-items:center;gap:8px}
-  #rota-info .badge{
-    background:rgba(0,212,170,.2);border:1px solid rgba(0,212,170,.5);
-    color:#00d4aa;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700}
+/* ── Loading placeholder ── */
+#map-loading{
+  position:absolute;inset:0;
+  background:#e8eaed;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:12px;color:#666;font-size:14px;
+  z-index:10;
+}
+.spin{width:36px;height:36px;border:3px solid rgba(66,133,244,.2);
+  border-top-color:#4285f4;border-radius:50%;
+  animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-  /* ── Leaflet ─────────────────────────── */
-  .leaflet-control-attribution,.leaflet-control-zoom{display:none!important}
+/* ── Bottom bar ── */
+#bottom-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:#fff;
+  padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 12px);
+  box-shadow:0 -2px 8px rgba(0,0,0,.1);
+}
+#eta-row{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:10px;
+}
+#eta-dist{font-size:22px;font-weight:800;color:#1a1a1a}
+#eta-dur{font-size:16px;color:#444;font-weight:500}
+#eta-sep{width:1px;height:20px;background:#ddd}
+#eta-chegada{font-size:12px;color:#888;margin-left:auto}
+#btn-navegar{
+  width:100%;padding:14px;border:none;border-radius:14px;
+  background:#1a73e8;color:#fff;
+  font-size:16px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:background .15s,transform .1s;
+  box-shadow:0 2px 8px rgba(26,115,232,.35);
+}
+#btn-navegar:active{background:#1557b0;transform:scale(.98)}
+#btn-navegar svg{flex-shrink:0}
 
-  /* ── Pin posto destino ───────────────── */
-  .pin-posto-badge{
-    background:#fff;border-radius:10px;
-    box-shadow:0 2px 12px rgba(0,0,0,.35);border:2px solid #fff;
-    display:flex;align-items:center;gap:5px;
-    padding:4px 8px 4px 5px;white-space:nowrap}
-  .pin-posto-badge img{width:22px;height:22px;object-fit:contain;border-radius:5px;flex-shrink:0}
-  .pin-posto-badge span{font-size:12px;font-weight:800;color:#0d1b2a;line-height:1}
-
-  /* ── Pin usuário — seta estilo GM ───── */
-  .pin-user-wrap{
-    position:relative;width:48px;height:48px;
-    display:flex;align-items:center;justify-content:center;
-    transition:transform 0.35s ease}
-  /* halo externo pulsante (maior, mais suave) */
-  .pulse-ring-outer{
-    position:absolute;top:50%;left:50%;
-    width:52px;height:52px;border-radius:50%;
-    background:rgba(66,133,244,.18);
-    transform:translate(-50%,-50%);
-    animation:pulseOuter 2.2s ease-out infinite}
-  @keyframes pulseOuter{
-    0%{width:48px;height:48px;opacity:.7}
-    100%{width:80px;height:80px;opacity:0}}
-  /* halo interno */
-  .pulse-ring{
-    position:absolute;top:50%;left:50%;
-    width:30px;height:30px;border-radius:50%;
-    background:rgba(66,133,244,.35);
-    transform:translate(-50%,-50%);
-    animation:pulseInner 2.2s ease-out infinite .4s}
-  @keyframes pulseInner{
-    0%{width:28px;height:28px;opacity:1}
-    100%{width:50px;height:50px;opacity:0}}
-  /* círculo azul sólido */
-  .pin-user-circle{
-    position:absolute;top:50%;left:50%;
-    width:22px;height:22px;border-radius:50%;
-    background:#4285f4;border:3px solid #fff;
-    box-shadow:0 2px 10px rgba(66,133,244,.8);
-    transform:translate(-50%,-50%)}
-  /* seta branca sobre o círculo */
-  .pin-user{
-    position:absolute;top:50%;left:50%;
-    width:0;height:0;
-    border-left:7px solid transparent;
-    border-right:7px solid transparent;
-    border-bottom:16px solid #fff;
-    transform:translate(-50%,-65%);
-    filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))}
-
-  /* mapa sem rotação */
-  #map{transition:none}
-  #map .leaflet-map-pane{transition:none}
-
-  /* ── Clareia levemente os tiles para ruas ficarem visíveis ──
-     brightness(1.35): ruas cinza passam de #555 para ~#888
-     contrast(0.9): suaviza o contraste para não ficar agressivo  */
-  #map .leaflet-tile-pane{
-    filter: brightness(1.4) contrast(0.88) saturate(0.9);
-  }
-
-  /* ── Linha de rota ciano ─────────────── */
-  .rota-line{stroke:#00d4ff;stroke-width:6;stroke-opacity:1;
-    stroke-linecap:round;stroke-linejoin:round}
-
-  /* ════════════════════════════════════════
-     BANNER TURN-BY-TURN — estilo Google Maps
-     ════════════════════════════════════════ */
-  #nav-banner{
-    display:none!important;
-    position:absolute;top:0;left:0;right:0;z-index:300;
-    animation:slideDown .25s ease}
-  @keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
-  #nav-banner.visible{display:block!important}
-
-  /* Banner principal — fundo verde escuro GM */
-  #nav-main{
-    background:#1a6b4a;
-    padding:calc(env(safe-area-inset-top,0px) + 14px) 14px 14px;
-    display:flex;align-items:center;gap:12px;
-    box-shadow:0 4px 20px rgba(0,0,0,.4)}
-
-  /* Ícone da manobra — grande e destacado */
-  #nav-arrow{
-    font-size:42px;min-width:52px;text-align:center;line-height:1;
-    filter:drop-shadow(0 0 6px rgba(255,255,255,.3))}
-
-  #nav-text-wrap{flex:1;min-width:0}
-  #nav-dist-step{
-    color:#a8f0d0;font-size:13px;font-weight:600;margin-bottom:2px;
-    letter-spacing:.3px}
-  #nav-instruction{
-    color:#fff;font-size:22px;font-weight:800;
-    line-height:1.2;word-break:break-word}
-
-  /* Badge de destino no canto superior direito do banner */
-  #nav-dest-badge{
-    width:44px;height:44px;border-radius:50%;
-    background:#fff;flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;
-    overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-  #nav-dest-badge img{width:38px;height:38px;object-fit:contain;padding:3px}
-
-  /* Banner secundário — "Depois, →" */
-  #nav-next{
-    background:#155c3e;
-    padding:8px 14px;
-    display:flex;align-items:center;gap:8px;
-    border-bottom:1px solid rgba(255,255,255,.06)}
-  #nav-next-label{color:rgba(255,255,255,.65);font-size:13px;font-weight:500}
-  #nav-next-arrow{font-size:16px;color:#a8f0d0}
-  #nav-next-text{color:#fff;font-size:14px;font-weight:600;flex:1;min-width:0;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-  /* Botão fechar navegação */
-  #btn-nav-close{
-    position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);right:8px;
-    background:rgba(0,0,0,.25);border:none;border-radius:50%;
-    width:32px;height:32px;color:#fff;font-size:14px;
-    cursor:pointer;display:flex;align-items:center;justify-content:center;
-    -webkit-tap-highlight-color:transparent;z-index:10}
-
-  /* ── Botões flutuantes (lado direito) ── */
-  #fab-group{
-    position:absolute;right:12px;z-index:200;
-    display:flex;flex-direction:column;gap:10px;
-    bottom:200px;transition:bottom .3s}
-  #fab-group.nav-ativa{bottom:130px}
-  .fab-btn{
-    width:46px;height:46px;border-radius:50%;border:none;
-    background:#1a2233;box-shadow:0 2px 12px rgba(0,0,0,.5);
-    color:#fff;font-size:18px;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;
-    -webkit-tap-highlight-color:transparent}
-  .fab-btn:active{transform:scale(.88)}
-  /* Ícones SVG inline para os FABs */
-  #fab-center svg, #fab-sound svg{width:20px;height:20px}
-
-  /* ── Barra inferior antes da nav ─────── */
-  #bottom-bar{
-    position:absolute;bottom:0;left:0;right:0;z-index:200;
-    padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));
-    background:#111c2d;border-radius:20px 20px 0 0;
-    box-shadow:0 -4px 24px rgba(0,0,0,.5)}
-
-  #rota-card{
-    display:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);
-    border-radius:12px;padding:10px 14px;margin-bottom:10px;
-    align-items:center;gap:10px}
-  #rota-card-logo{width:34px;height:34px;border-radius:8px;background:#fff;
-    flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
-  #rota-card-logo img{width:100%;height:100%;object-fit:contain;padding:3px}
-  #rota-card .rc-dist{color:#fff;font-size:16px;font-weight:800}
-  #rota-card .rc-dur{color:rgba(255,255,255,.5);font-size:13px;margin-top:1px}
-
-  #btn-rota{
-    display:flex;align-items:center;justify-content:center;gap:10px;
-    width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;
-    background:linear-gradient(135deg,#1a6b4a,#155c3e);
-    box-shadow:0 4px 18px rgba(26,107,74,.5);
-    color:#fff;font-size:16px;font-weight:800;
-    transition:transform .12s;-webkit-tap-highlight-color:transparent}
-  #btn-rota:active{transform:scale(.96)}
-  #btn-rota.calculando{opacity:.65;pointer-events:none}
-  #btn-rota .bt-icon{font-size:20px}
-
-  #btn-nav{
-    display:none;
-    width:100%;padding:16px;border:none;border-radius:14px;cursor:pointer;
-    background:linear-gradient(135deg,#4285f4,#1a56db);
-    box-shadow:0 4px 18px rgba(66,133,244,.4);
-    color:#fff;font-size:16px;font-weight:800;
-    margin-top:10px;transition:transform .12s;
-    -webkit-tap-highlight-color:transparent;
-    align-items:center;justify-content:center;gap:10px}
-  #btn-nav.ativo{display:flex!important}
-  #btn-nav:active{transform:scale(.96)}
-  #btn-nav .bt-icon{font-size:20px}
-
-  /* ── Barra inferior de navegação ─────── */
-  #nav-bottom{
-    display:none;
-    position:absolute;bottom:0;left:0;right:0;z-index:200;
-    background:#111c2d;border-radius:20px 20px 0 0;
-    padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));
-    box-shadow:0 -4px 24px rgba(0,0,0,.5)}
-  #nav-bottom.visible{display:block}
-
-  /* Linha handle */
-  #nav-bottom-handle{
-    width:36px;height:4px;border-radius:2px;
-    background:rgba(255,255,255,.2);margin:0 auto 12px}
-
-  /* Info ETA */
-  #nav-eta-row{
-    display:flex;align-items:center;justify-content:space-between;
-    margin-bottom:14px}
-  #nav-eta-time{
-    color:#00d4aa;font-size:26px;font-weight:800;line-height:1}
-  #nav-eta-unit{color:rgba(255,255,255,.5);font-size:13px;margin-left:3px}
-  #nav-eta-details{color:rgba(255,255,255,.55);font-size:13px;text-align:right;line-height:1.5}
-  #nav-eta-arrive{color:rgba(255,255,255,.35);font-size:12px}
-
-  /* Botões da barra nav */
-  #nav-bottom-btns{display:flex;gap:10px;align-items:center}
-  #btn-cancel-nav{
-    width:44px;height:44px;border-radius:50%;border:none;
-    background:rgba(255,255,255,.1);color:#fff;font-size:18px;
-    cursor:pointer;display:flex;align-items:center;justify-content:center;
-    flex-shrink:0;-webkit-tap-highlight-color:transparent}
-  #btn-cancel-nav:active{transform:scale(.88)}
-  .nav-oval-btn{
-    flex:1;padding:12px 16px;border:none;border-radius:100px;
-    background:rgba(255,255,255,.1);color:#fff;font-size:14px;font-weight:600;
-    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
-    -webkit-tap-highlight-color:transparent}
-  .nav-oval-btn:active{background:rgba(255,255,255,.18)}
-
-  /* ── Chegou! ─────────────────────────── */
-  #chegou-banner{
-    display:none;position:fixed;inset:0;z-index:9000;
-    background:rgba(10,20,40,.96);
-    flex-direction:column;align-items:center;justify-content:center;gap:16px}
-  #chegou-banner.visible{display:flex}
-  #chegou-icon{animation:bounce .6s ease infinite alternate}
-  @keyframes bounce{from{transform:scale(.9)}to{transform:scale(1.05)}}
-  #chegou-titulo{color:#fff;font-size:22px;font-weight:800;text-align:center}
-  #chegou-sub{color:rgba(255,255,255,.5);font-size:14px;text-align:center;padding:0 32px}
-  #btn-fechar-chegou{
-    margin-top:8px;padding:14px 36px;border:none;border-radius:14px;
-    background:linear-gradient(135deg,#1a6b4a,#155c3e);
-    color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+/* ── Estado sem GPS / sem rota ── */
+#msg-nogps{
+  display:none;
+  background:#fff3cd;color:#856404;
+  font-size:12px;padding:6px 10px;border-radius:8px;
+  margin-bottom:8px;text-align:center;
+}
 </style>
 </head>
 <body>
 
-<div id="overlay">
-  <div class="spin"></div>
-  <div id="status-txt">Obtendo localização…</div>
-  <div id="sub-txt">Aguarde um momento</div>
-  <button id="btn-pular-gps" onclick="pularGPS()">Continuar sem GPS</button>
-</div>
-
-<div id="map"></div>
-
-<!-- ══ BANNER TURN-BY-TURN (estilo Google Maps) ══ -->
-<div id="nav-banner">
-  <button id="btn-nav-close" title="Fechar navegação">✕</button>
-  <!-- Banner principal: instrução + ícone manobra -->
-  <div id="nav-main">
-    <div id="nav-arrow">⬆️</div>
-    <div id="nav-text-wrap">
-      <div id="nav-dist-step">em —</div>
-      <div id="nav-instruction">Siga em frente</div>
-    </div>
-    <div id="nav-dest-badge">
-      <img src="${logoFinalUrl}" alt="" onerror="this.src=&quot;${logoSvgUrl}&quot;">
-    </div>
-  </div>
-  <!-- Banner secundário: próxima manobra -->
-  <div id="nav-next">
-    <span id="nav-next-label">Depois,</span>
-    <span id="nav-next-arrow">⬆️</span>
-    <span id="nav-next-text">—</span>
-  </div>
-</div>
-
-<!-- ══ TOP-BAR (antes da navegação) ══ -->
+<!-- TOP BAR -->
 <div id="top-bar">
-  <button id="btn-back" onclick="history.back()" title="Voltar">&#8592;</button>
-  <div id="top-bar-logo">
-    <img src="${logoFinalUrl}" alt="" onerror="this.src=&quot;${logoSvgUrl}&quot;">
-  </div>
-  <div id="top-bar-info">
-    <h1>${tituloSafe}</h1>
-    <div id="rota-info">
-      <span id="info-dist">Calculando…</span>
-      <span id="info-dur" class="badge" style="display:none"></span>
-    </div>
+  <button id="btn-back" onclick="history.back()">&#8592;</button>
+  <img id="posto-logo" src="\${logoFinalUrl}" alt="" onerror="this.src='\${logoSvgUrl}'">
+  <div id="posto-info">
+    <div id="posto-nome">\${tituloSafe}</div>
+    <div id="posto-end" id="posto-end">Calculando rota…</div>
   </div>
 </div>
 
-<!-- ══ BOTÕES FLUTUANTES (lado direito) ══ -->
-<div id="fab-group">
-  <button class="fab-btn" id="fab-center" title="Recentralizar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="3"/></svg>
-  </button>
-  <button class="fab-btn" id="fab-sound" title="Som">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-  </button>
+<!-- MAPA EMBED -->
+<div id="map-wrap">
+  <div id="map-loading">
+    <div class="spin"></div>
+    <span>Carregando mapa…</span>
+  </div>
+  <iframe id="gmap-frame" allowfullscreen referrerpolicy="no-referrer-when-downgrade"
+    style="opacity:0;transition:opacity .3s"
+    onload="this.style.opacity='1';document.getElementById('map-loading').style.display='none'">
+  </iframe>
 </div>
 
-<!-- ══ BOTTOM-BAR (antes da navegação) ══ -->
+<!-- BOTTOM BAR -->
 <div id="bottom-bar">
-  <div id="rota-card" style="display:none">
-    <div id="rota-card-logo">
-      <img src="${logoFinalUrl}" alt="" onerror="this.src=&quot;${logoSvgUrl}&quot;">
-    </div>
-    <div>
-      <div class="rc-dist" id="card-dist">—</div>
-      <div class="rc-dur" id="card-dur">—</div>
-    </div>
+  <div id="msg-nogps">📍 Ative o GPS para ver a rota completa</div>
+  <div id="eta-row">
+    <span id="eta-dist">—</span>
+    <div id="eta-sep"></div>
+    <span id="eta-dur">—</span>
+    <span id="eta-chegada">Chegada: —</span>
   </div>
-  <button id="btn-rota">
-    <span class="bt-icon">🗺️</span>
-    <span id="btn-rota-txt">Traçar Rota</span>
-  </button>
-  <button id="btn-nav">
-    <span class="bt-icon">▶</span>
-    <span>Iniciar Navegação</span>
+  <button id="btn-navegar" onclick="abrirNavegacao()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+    </svg>
+    Iniciar no Google Maps
   </button>
 </div>
 
-<!-- ══ BARRA INFERIOR DE NAVEGAÇÃO (ETA estilo GM) ══ -->
-<div id="nav-bottom">
-  <div id="nav-bottom-handle"></div>
-  <div id="nav-eta-row">
-    <div>
-      <span id="nav-eta-time">—</span><span class="nav-eta-unit">min</span>
-      <div id="nav-eta-details" id="nav-eta-dist">— km</div>
-    </div>
-    <div style="text-align:right">
-      <div id="nav-eta-arrive" style="color:rgba(255,255,255,.45);font-size:12px">Chegada</div>
-      <div id="nav-eta-hora" style="color:#fff;font-size:15px;font-weight:700">—:—</div>
-    </div>
-  </div>
-  <div id="nav-bottom-btns">
-    <button id="btn-cancel-nav" title="Cancelar">✕</button>
-    <button class="nav-oval-btn" id="btn-recentralizar">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="3"/></svg>
-      Recentralizar
-    </button>
-    <button class="nav-oval-btn" id="btn-reportar">
-      ⚠️ Reportar
-    </button>
-  </div>
-</div>
-
-<!-- Overlay chegou ao destino -->
-<div id="chegou-banner">
-  <div id="chegou-icon" style="font-size:0;width:56px;height:56px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;box-shadow:0 2px 8px rgba(0,0,0,.15);">
-    <img src="${logoFinalUrl}" alt="⛽" style="width:48px;height:48px;object-fit:contain;padding:4px;" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=&quot;font-size:32px&quot;>&#x26FD;</span>')">
-  </div>
-  <div id="chegou-titulo">Você chegou!</div>
-  <div id="chegou-sub">${tituloSafe}</div>
-  <button id="btn-fechar-chegou" onclick="document.getElementById('chegou-banner').classList.remove('visible')">Fechar</button>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
 <script>
-var DLAT = ${temCoords ? lat : 'null'};
-var DLNG = ${temCoords ? lng : 'null'};
-var NOME = ${JSON.stringify(tituloSafe)};
-var LOGO = ${JSON.stringify(logoFinalUrl)};
-(function(){
-
-  var _map, _userMarker, _rotaLayer;
-  var _userLat = null, _userLng = null;
-  var _watchId = null;
-  var _rotaOk   = false;
-  var _prevLat  = null, _prevLng = null;  // última posição para calcular bearing
-  var _bearing  = 0;                       // direção atual em graus (0=Norte)
-  var _mapaRotacionado = false;            // se mapa está em modo rotação
-
-  // Navegação turn-by-turn
-  var _navAtiva   = false;
-  var _steps      = [];       // array de steps do OSRM
-  var _stepIdx    = 0;        // step atual
-  var _totalDist  = 0;        // distância total da rota (metros)
-  var _distPercorrida = 0;    // acumulada pelo GPS
-  var _recalcTimeout  = null;  // timer de recálculo de rota
-  var _ultimoRecalc   = 0;     // timestamp do último recálculo (evita spam)
-  var _recalcAtivo    = false; // se está exibindo aviso de recálculo
-
-  /* ── Mapa de manobras → emoji ─────────── */
-  var MANOBRA_ICON = {
-    'turn-left':         '↰',
-    'turn-right':        '↱',
-    'turn-slight-left':  '↖',
-    'turn-slight-right': '↗',
-    'turn-sharp-left':   '⬅',
-    'turn-sharp-right':  '➡',
-    'uturn':             '↩',
-    'roundabout':        '🔄',
-    'rotary':            '🔄',
-    'merge':             '⬆',
-    'fork':              '⬆',
-    'on-ramp':           '⬆',
-    'off-ramp':          '↘',
-    'arrive':            '⛽',
-    'depart':            '▶',
-    'continue':          '⬆',
-    'new name':          '⬆',
-    'notification':      'ℹ️',
-    'end of road':       '↱'
-  };
-
-  function getManobra(step){
-    var mod=step.maneuver||{};
-    var tipo=(mod.type||'').toLowerCase();
-    var modif=(mod.modifier||'').toLowerCase();
-    var chave=tipo+(modif?('-'+modif):'');
-    return MANOBRA_ICON[chave] || MANOBRA_ICON[tipo] || '⬆';
-  }
-
-  /* ── helpers ──────────────────────────── */
-  function setStatus(t,s){ 
-    var a=document.getElementById('status-txt'),b=document.getElementById('sub-txt');
-    if(a)a.textContent=t; if(b&&s!==undefined)b.textContent=s;
-  }
-  function hideOverlay(){
-    var o=document.getElementById('overlay');
-    if(!o)return; o.classList.add('hide');
-    setTimeout(function(){o.style.display='none';},550);
-  }
-  function setInfoDist(t){
-    var e=document.getElementById('info-dist'); if(e)e.textContent=t;
-  }
-  function setInfoDur(t){
-    var e=document.getElementById('info-dur');
-    if(!e)return;
-    if(t){e.textContent=t;e.style.display='inline-block';}
-    else{e.style.display='none';}
-  }
-  function showCard(dist,dur){
-    var c=document.getElementById('rota-card');
-    var d=document.getElementById('card-dist');
-    var t=document.getElementById('card-dur');
-    if(c)c.style.display='flex';
-    if(d)d.textContent=dist;
-    if(t)t.textContent=dur;
-  }
-  function fmtDist(m){
-    return m<1000 ? Math.round(m)+'m' : (m/1000).toFixed(1)+'km';
-  }
-  function fmtDur(s){
-    var m=Math.round(s/60);
-    return m<60 ? m+' min' : Math.floor(m/60)+'h '+('0'+(m%60)).slice(-2)+'min';
-  }
-  function haversine(la1,lo1,la2,lo2){
-    var R=6371000,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
-    var a=Math.sin(dLa/2)*Math.sin(dLa/2)+
-          Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*
-          Math.sin(dLo/2)*Math.sin(dLo/2);
-    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-  }
-
-  /* ── Calcula bearing entre dois pontos ── */
-  function calcBearing(la1,lo1,la2,lo2){
-    var dLo=(lo2-lo1)*Math.PI/180;
-    var la1r=la1*Math.PI/180, la2r=la2*Math.PI/180;
-    var y=Math.sin(dLo)*Math.cos(la2r);
-    var x=Math.cos(la1r)*Math.sin(la2r)-Math.sin(la1r)*Math.cos(la2r)*Math.cos(dLo);
-    return ((Math.atan2(y,x)*180/Math.PI)+360)%360;
-  }
-
-  /* ── Aplica rotação do mapa — DESATIVADO (causa textos invertidos) ─── */
-  /* A rotação CSS no leaflet-map-pane inverte os rótulos dos tiles quando
-     bearing ~180°. Mantemos apenas a seta do usuário para indicar direção. */
-  function aplicarRotacaoMapa(bearing){
-    // NÃO rotaciona o mapa — só atualiza a seta do marcador
-    _mapaRotacionado = false;
-  }
-
-  /* ── Remove rotação (já desativada, mantida por compatibilidade) ─── */
-  function removerRotacaoMapa(){
-    // Garante que nenhuma rotação residual exista no pane
-    var pane=document.querySelector('#map .leaflet-map-pane');
-    if(pane){
-      var currentTransform = pane.style.transform || '';
-      var match = currentTransform.match(/translate3d\(([^)]+)\)/);
-      var translate = match ? 'translate3d('+match[1]+')' : '';
-      pane.style.transform = translate; // remove qualquer rotate residual
-    }
-    _mapaRotacionado = false;
-  }
-
-  /* ── Atualiza seta do marcador do usuário ─── */
-  function atualizarSetaUsuario(bearing){
-    if(!_userMarker) return;
-    var wrap=_userMarker.getElement&&_userMarker.getElement();
-    if(!wrap) return;
-    var innerWrap=wrap.querySelector('.pin-user-wrap');
-    if(innerWrap) innerWrap.style.transform='rotate('+bearing+'deg)';
-  }
-
-  /* ── Traduz instrução do OSRM ─────────── */
-  function traduzirInstrucao(step){
-    var mod=step.maneuver||{};
-    var tipo=(mod.type||'').toLowerCase();
-    var modif=(mod.modifier||'').toLowerCase();
-    var rua=step.name||'';
-
-    if(tipo==='depart')   return 'Siga em frente'+(rua?' pela '+rua:'');
-    if(tipo==='arrive')   return 'Você chegou ao destino';
-    if(tipo==='continue') return 'Continue'+(rua?' pela '+rua:'');
-    if(tipo==='merge')    return 'Incorpore-se'+(rua?' na '+rua:'');
-    if(tipo==='on-ramp')  return 'Entre na rampa'+(rua?' '+rua:'');
-    if(tipo==='off-ramp') return 'Saia pela rampa'+(rua?' '+rua:'');
-    if(tipo==='fork'){
-      if(modif.indexOf('left')>=0)  return 'Na bifurcação, mantenha à esquerda';
-      if(modif.indexOf('right')>=0) return 'Na bifurcação, mantenha à direita';
-      return 'Siga em frente na bifurcação';
-    }
-    if(tipo==='roundabout'||tipo==='rotary'){
-      var saida=mod.exit?(' '+mod.exit+'ª saída'):'';
-      return 'Na rotatória, pegue a'+saida+(rua?' para '+rua:'');
-    }
-    if(tipo==='turn'||tipo==='end of road'||tipo==='new name'){
-      if(modif==='left')        return 'Vire à esquerda'+(rua?' na '+rua:'');
-      if(modif==='right')       return 'Vire à direita'+(rua?' na '+rua:'');
-      if(modif==='slight left') return 'Vire levemente à esquerda'+(rua?' na '+rua:'');
-      if(modif==='slight right')return 'Vire levemente à direita'+(rua?' na '+rua:'');
-      if(modif==='sharp left')  return 'Vire acentuadamente à esquerda';
-      if(modif==='sharp right') return 'Vire acentuadamente à direita';
-      if(modif==='uturn')       return 'Faça o retorno';
-      return 'Siga em frente'+(rua?' pela '+rua:'');
-    }
-    if(tipo==='uturn') return 'Faça o retorno';
-    return 'Continue'+(rua?' pela '+rua:'');
-  }
-
-  /* ── Atualiza banner de navegação (estilo Google Maps) ── */
-  function atualizarBannerNav(){
-    if(!_navAtiva||!_steps.length) return;
-    var step=_steps[_stepIdx]||_steps[_steps.length-1];
-    var emoji=getManobra(step);
-    var instr=traduzirInstrucao(step);
-    var distStep=step.distance>0?fmtDist(step.distance):'';
-
-    // Banner principal
-    document.getElementById('nav-arrow').textContent=emoji;
-    document.getElementById('nav-instruction').textContent=instr;
-    document.getElementById('nav-dist-step').textContent=distStep?('em '+distStep):'';
-
-    // Banner secundário — próxima manobra
-    var nextStep=_steps[_stepIdx+1];
-    var nb=document.getElementById('nav-next');
-    if(nextStep&&nextStep.maneuver&&nextStep.maneuver.type!=='arrive'){
-      document.getElementById('nav-next-arrow').textContent=getManobra(nextStep);
-      document.getElementById('nav-next-text').textContent=traduzirInstrucao(nextStep);
-      if(nb) nb.style.display='flex';
-    } else {
-      if(nb) nb.style.display='none';
-    }
-
-    // ETA na barra inferior
-    atualizarETA();
-  }
-
-  /* ── Atualiza ETA na barra inferior ──── */
-  function atualizarETA(){
-    if(!_totalDist) return;
-    var distRest=Math.max(0,_totalDist-_distPercorrida);
-    // Velocidade média estimada: 40 km/h em modo urbano
-    var velMedia=40/3.6; // m/s
-    var tempoRest=distRest/velMedia; // segundos
-    var minRest=Math.round(tempoRest/60);
-
-    var etaTime=document.getElementById('nav-eta-time');
-    var etaDist=document.getElementById('nav-eta-details');
-    var etaHora=document.getElementById('nav-eta-hora');
-
-    if(etaTime) etaTime.textContent=minRest<1?'1':String(minRest);
-    if(etaDist) etaDist.textContent=(distRest/1000).toFixed(1)+' km';
-
-    // Hora de chegada estimada
-    if(etaHora){
-      var chegada=new Date(Date.now()+tempoRest*1000);
-      var hh=('0'+chegada.getHours()).slice(-2);
-      var mm=('0'+chegada.getMinutes()).slice(-2);
-      etaHora.textContent=hh+':'+mm;
-    }
-  }
-
-  /* ── Verifica desvio de rota e recalcula ── */
-  function verificarDesvioRota(lat,lng){
-    if(!_navAtiva||!_steps.length||_recalcAtivo) return;
-    var distRota=distanciaAteRota(lat,lng);
-    if(distRota>35){
-      // Fora da rota — aciona recálculo após 1s sem corrigir
-      if(!_recalcTimeout){
-        _recalcTimeout=setTimeout(function(){
-          var agora=Date.now();
-          if(agora-_ultimoRecalc<8000) return; // cooldown 8s entre recálculos
-          _recalcAtivo=true;
-          _ultimoRecalc=agora;
-          mostrarAvisoRecalculo();
-          recalcularRota(lat,lng);
-        },1000);
-      }
-    } else {
-      // Voltou para a rota — cancela recálculo pendente
-      if(_recalcTimeout){ clearTimeout(_recalcTimeout); _recalcTimeout=null; }
-    }
-  }
-
-  /* ── Distância do ponto até a polyline da rota ── */
-  function distanciaAteRota(lat,lng){
-    if(!_rotaLayer) return 0;
-    var latlng=L.latLng(lat,lng);
-    var minDist=Infinity;
-    // Percorre todos os pontos da polyline
-    var latLngs=_rotaLayer.getLatLngs();
-    for(var i=0;i<latLngs.length-1;i++){
-      var p1=latLngs[i], p2=latLngs[i+1];
-      var d=distPtoSegmento(lat,lng,p1.lat,p1.lng,p2.lat,p2.lng);
-      if(d<minDist) minDist=d;
-    }
-    return minDist;
-  }
-
-  /* ── Distância de ponto até segmento (metros) ── */
-  function distPtoSegmento(pLat,pLng,aLat,aLng,bLat,bLng){
-    var ax=aLng,ay=aLat,bx=bLng,by=bLat,px=pLng,py=pLat;
-    var dx=bx-ax,dy=by-ay;
-    if(dx===0&&dy===0) return haversine(pLat,pLng,aLat,aLng);
-    var t=((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy);
-    t=Math.max(0,Math.min(1,t));
-    var nearLat=ay+t*dy, nearLng=ax+t*dx;
-    return haversine(pLat,pLng,nearLat,nearLng);
-  }
-
-  /* ── Mostra aviso visual de recalculando ── */
-  function mostrarAvisoRecalculo(){
-    var el=document.getElementById('nav-instruction');
-    var arrow=document.getElementById('nav-arrow');
-    var dist=document.getElementById('nav-dist-step');
-    if(arrow) arrow.textContent='🔄';
-    if(el) el.textContent='Recalculando rota...';
-    if(dist) dist.textContent='';
-  }
-
-  /* ── Recalcula rota a partir da posição atual ── */
-  function recalcularRota(lat,lng){
-    if(!DLAT||!DLNG) return;
-    // AbortController para timeout de 6s — evita espera infinita
-    var _ctrl=new AbortController();
-    var _tAbort=setTimeout(function(){ _ctrl.abort(); },6000);
-
-    var url='https://router.project-osrm.org/route/v1/driving/'
-      +lng+','+lat+';'+DLNG+','+DLAT
-      +'?overview=full&geometries=geojson&steps=true';
-    fetch(url,{signal:_ctrl.signal})
-      .then(function(r){return r.json();})
-      .then(function(d){
-        clearTimeout(_tAbort);
-        if(d.code!=='Ok'||!d.routes||!d.routes[0]) throw new Error('no route');
-        var route=d.routes[0];
-        _steps=route.legs&&route.legs[0]&&route.legs[0].steps?route.legs[0].steps:[];
-        _stepIdx=0;
-        _totalDist=route.distance;
-        _distPercorrida=0;
-        // Redesenhar polyline — ciano
-        if(_rotaLayer) _map.removeLayer(_rotaLayer);
-        var coords=route.geometry.coordinates.map(function(c){return[c[1],c[0]];});
-        _rotaLayer=L.polyline(coords,{
-          color:'#00d4ff',weight:7,opacity:1,
-          lineCap:'round',lineJoin:'round'
-        }).addTo(_map);
-        atualizarBannerNav();
-        var dist=fmtDist(route.distance);
-        var dur=fmtDur(route.duration);
-        showCard(dist,dur);
-        // Flash verde confirmando recálculo
-        var el=document.getElementById('nav-instruction');
-        if(el) el.style.color='#00d4aa';
-        setTimeout(function(){ if(el) el.style.color=''; },1500);
-      })
-      .catch(function(err){
-        clearTimeout(_tAbort);
-        var el=document.getElementById('nav-instruction');
-        var arrow=document.getElementById('nav-arrow');
-        if(arrow) arrow.textContent='⚠️';
-        if(el) el.textContent='Sem sinal — tentando novamente...';
-        // Tenta novamente em 3s se for erro de rede (não abort)
-        if(err&&err.name!=='AbortError'){
-          setTimeout(function(){
-            _recalcAtivo=false;
-            _recalcTimeout=null;
-          },3000);
-        }
-      })
-      .finally(function(){
-        _recalcAtivo=false;
-        _recalcTimeout=null;
-      });
-  }
-
-  /* ── Localiza step mais próximo ─────────── */
-  function detectarStepAtual(lat,lng){
-    if(!_steps.length) return;
-    var melhorIdx=_stepIdx;
-    var melhorDist=Infinity;
-    // Só verifica steps a partir do atual (não volta atrás)
-    for(var i=_stepIdx;i<_steps.length;i++){
-      var s=_steps[i];
-      var loc=s.maneuver&&s.maneuver.location;
-      if(!loc) continue;
-      var d=haversine(lat,lng,loc[1],loc[0]);
-      if(d<melhorDist){melhorDist=d;melhorIdx=i;}
-      if(d>500&&i>_stepIdx+1) break; // para de procurar se muito longe
-    }
-    // Avança step se passou perto da manobra (< 40m)
-    if(_stepIdx<_steps.length-1){
-      var prox=_steps[_stepIdx+1];
-      var loc2=prox.maneuver&&prox.maneuver.location;
-      if(loc2){
-        var dp=haversine(lat,lng,loc2[1],loc2[0]);
-        if(dp<40){ _stepIdx++; atualizarBannerNav(); }
-      }
-    }
-
-    // Verifica chegada (< 30m do destino)
-    if(DLAT&&DLNG){
-      var dDest=haversine(lat,lng,DLAT,DLNG);
-      if(_navAtiva&&dDest<30) mostrarChegou();
-    }
-  }
-
-  /* ── Mostrar chegou! ─────────────────── */
-  function mostrarChegou(){
-    _navAtiva=false;
-    document.getElementById('nav-banner').classList.remove('visible');
-    var nb=document.getElementById('nav-bottom');
-    if(nb) nb.classList.remove('visible');
-    var fg=document.getElementById('fab-group');
-    if(fg) fg.classList.remove('nav-ativa');
-    document.getElementById('chegou-banner').classList.add('visible');
-    if(_watchId!=null){
-      navigator.geolocation.clearWatch(_watchId);_watchId=null;
-    }
-  }
-
-  /* ── Inicia mapa Leaflet ─────────────── */
-  function initMap(){
-    var center = (DLAT&&DLNG) ? [DLAT,DLNG] : [-14.235,-51.925];
-    var zoom   = (DLAT&&DLNG) ? 14 : 4;
-
-    _map = L.map('map',{center:center,zoom:zoom,
-      zoomControl:false,attributionControl:false});
-
-    // ── CartoDB Dark Matter (sem API key) — fundo escuro com ruas cinza visíveis ──
-    // dark_matter_no_labels: fundo + estradas  |  only_labels: textos por cima
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-      maxZoom:19,
-      subdomains:'abcd'
-    }).addTo(_map);
-
-    // ⚡ Segurança: se GPS não responder em 3s, mostra mapa centrado no destino
-    setTimeout(function(){
-      var o=document.getElementById('overlay');
-      if(o && !o.classList.contains('hide')){
-        // Overlay ainda visível — mostra mapa centralizado no posto destino
-        if(DLAT&&DLNG) _map.setView([DLAT,DLNG],14,{animate:false});
-        hideOverlay();
-        setInfoDist('Aguardando GPS…');
-      }
-    }, 3000);
-
-    // Garantir que o pane não tenha rotação residual (bug de sessão anterior)
-    setTimeout(function(){
-      var pane = document.querySelector('#map .leaflet-map-pane');
-      if(pane){
-        var t = pane.style.transform || '';
-        var m = t.match(/translate3d\(([^)]+)\)/);
-        var tr = m ? 'translate3d('+m[1]+')' : '';
-        pane.style.transform = tr; // remove qualquer rotate
-      }
-    }, 300);
-
-    // Marcador do posto destino — badge branco com logo + nome
-    if(DLAT&&DLNG){
-      var logoUrl=LOGO||'/static/logos/independente.svg';
-      var html='<div class="pin-posto-badge"><img src="'+logoUrl+'" onerror="this.src=&quot;/static/logos/independente.svg&quot;"><span>'+NOME.substring(0,18)+'</span></div>';
-      var icon=L.divIcon({html:html,className:'',iconSize:[null,null],iconAnchor:[0,36]});
-      L.marker([DLAT,DLNG],{icon:icon}).addTo(_map)
-        .bindPopup('<b>'+NOME+'</b>',{closeButton:false,maxWidth:200});
-    }
-
-    // FAB centralizar (lado direito) — recentra no usuário
-    document.getElementById('fab-center').addEventListener('click',function(){
-      if(_userLat!=null) _map.setView([_userLat,_userLng],_navAtiva?18:16,{animate:true});
-      else if(DLAT)      _map.setView([DLAT,DLNG],15,{animate:true});
-    });
-
-    // Botão "Recentralizar" na barra inferior de navegação
-    document.getElementById('btn-recentralizar').addEventListener('click',function(){
-      if(_userLat!=null) _map.setView([_userLat,_userLng],18,{animate:true});
-    });
-
-    // FAB som — toggle simples (visual apenas)
-    var _somAtivo=true;
-    document.getElementById('fab-sound').addEventListener('click',function(){
-      _somAtivo=!_somAtivo;
-      this.style.opacity=_somAtivo?'1':'0.45';
-      this.title=_somAtivo?'Som':'Som desligado';
-    });
-
-    // Botão reportar
-    document.getElementById('btn-reportar').addEventListener('click',function(){
-      alert('Obrigado pelo reporte! Informação enviada.');
-    });
-
-    // GPS
-    obterGPS();
-  }
-
-  /* ── Marcador usuário ────────────────── */
-  function atualizarUser(lat,lng){
-    _userLat=lat; _userLng=lng;
-    if(!_map) return;
-
-    // Calcular bearing se tiver posição anterior
-    if(_prevLat!==null && _prevLng!==null){
-      var dist=haversine(_prevLat,_prevLng,lat,lng);
-      if(dist>3){ // só atualiza bearing se moveu > 3m (evita ruído GPS)
-        _bearing=calcBearing(_prevLat,_prevLng,lat,lng);
-      }
-    }
-    _prevLat=lat; _prevLng=lng;
-
-    if(!_userMarker){
-      // Marcador estilo Google Maps: círculo azul + seta branca + halos pulsantes
-      var h='<div class="pin-user-wrap"><div class="pulse-ring-outer"></div><div class="pulse-ring"></div><div class="pin-user-circle"></div><div class="pin-user"></div></div>';
-      var ic=L.divIcon({html:h,className:'',iconSize:[48,48],iconAnchor:[24,24]});
-      _userMarker=L.marker([lat,lng],{icon:ic,zIndexOffset:1000}).addTo(_map);
-    } else {
-      _userMarker.setLatLng([lat,lng]);
-    }
-
-    if(DLAT&&DLNG&&!_rotaOk){
-      var m=haversine(lat,lng,DLAT,DLNG);
-      setInfoDist(fmtDist(m)+' em linha reta');
-    }
-
-    // Em modo navegação: centraliza + rotaciona mapa na direção do movimento
-    if(_navAtiva){
-      _map.setView([lat,lng],18,{animate:true,duration:0.8});
-      atualizarSetaUsuario(_bearing);
-      aplicarRotacaoMapa(_bearing);
-      // Acumular distância percorrida
-      if(_prevLat!==null&&_prevLng!==null){
-        var dMoveu=haversine(_prevLat,_prevLng,lat,lng);
-        if(dMoveu>2&&dMoveu<100) _distPercorrida+=dMoveu; // filtra ruído/teleport
-      }
-      detectarStepAtual(lat,lng);
-      // Detectar desvio de rota e recalcular
-      verificarDesvioRota(lat,lng);
-      // Atualiza ETA na barra inferior
-      atualizarETA();
-    }
-  }
-
-  /* ── Pular GPS (fallback manual) ─────── */
-  function pularGPS(){
-    hideOverlay();
-    setInfoDist('GPS não obtido — toque em Traçar Rota');
-    if(DLAT&&DLNG) _map.setView([DLAT,DLNG],15,{animate:true});
-  }
-
-  /* ── GPS ─────────────────────────────── */
-  function obterGPS(){
-    if(!navigator.geolocation){
-      hideOverlay(); setInfoDist('GPS não disponível');
-      return;
-    }
-    setStatus('Obtendo localização…','Aguarde um momento');
-    var _ok=false;
-
-    // Após 5s mostra botão "Continuar sem GPS"
-    var _tPular=setTimeout(function(){
-      var b=document.getElementById('btn-pular-gps');
-      if(b&&!_ok) b.classList.add('visible');
-      setStatus('Obtendo localização…','Pode demorar em locais fechados');
-    },5000);
-
-    // Timeout total: 20s — depois esconde overlay mesmo sem GPS
-    var _t=setTimeout(function(){
-      if(_ok)return;
-      clearTimeout(_tPular);
-      if(_watchId!=null){navigator.geolocation.clearWatch(_watchId);_watchId=null;}
-      hideOverlay();
-      setInfoDist('GPS indisponível — toque em Traçar Rota');
-    },20000);
-
-    _watchId=navigator.geolocation.watchPosition(
-      function(pos){
-        var lat=pos.coords.latitude;
-        var lng=pos.coords.longitude;
-        var acc=pos.coords.accuracy;
-        atualizarUser(lat,lng);
-        // Aceita qualquer leitura (precisão até 500m) para não travar a tela
-        if(!_ok){
-          _ok=true;
-          clearTimeout(_t);
-          clearTimeout(_tPular);
-          _map.setView([lat,lng],15,{animate:true});
-          hideOverlay();
-          // Traça rota automaticamente ao obter GPS
-          tracarRota(lat,lng);
-        }
-      },
-      function(err){
-        clearTimeout(_t);
-        clearTimeout(_tPular);
-        if(_watchId!=null){navigator.geolocation.clearWatch(_watchId);_watchId=null;}
-        hideOverlay();
-        var msg=err.code===1
-          ? 'Permita localização nas configurações'
-          : 'GPS indisponível — toque em Traçar Rota';
-        setInfoDist(msg);
-      },
-      {enableHighAccuracy:true,timeout:20000,maximumAge:5000}
-    );
-  }
-
-  /* ── Traça rota via OSRM ─────────────── */
-  function tracarRota(oLat,oLng){
-    if(!DLAT||!DLNG) return;
-    var btn=document.getElementById('btn-rota');
-    var txt=document.getElementById('btn-rota-txt');
-    if(btn) btn.classList.add('calculando');
-    if(txt) txt.textContent='Calculando rota…';
-
-    // Timeout de 8s para a requisição inicial
-    var _ctrl2=new AbortController();
-    var _tAbort2=setTimeout(function(){ _ctrl2.abort(); },8000);
-
-    var url='https://router.project-osrm.org/route/v1/driving/'
-      + oLng+','+oLat+';'+DLNG+','+DLAT
-      + '?overview=full&geometries=geojson&steps=true';
-
-    fetch(url,{signal:_ctrl2.signal})
-      .then(function(r){return r.json();})
-      .then(function(d){
-        clearTimeout(_tAbort2);
-        if(d.code!=='Ok'||!d.routes||!d.routes[0]) throw new Error('no route');
-        var route=d.routes[0];
-        var dist=fmtDist(route.distance);
-        var dur=fmtDur(route.duration);
-
-        // Salva steps para navegação turn-by-turn
-        _steps=[];
-        _totalDist=route.distance;
-        if(route.legs&&route.legs[0]&&route.legs[0].steps){
-          _steps=route.legs[0].steps;
-        }
-
-        // Linha no mapa — ciano estilo Google Maps
-        if(_rotaLayer) _map.removeLayer(_rotaLayer);
-        var coords=route.geometry.coordinates.map(function(c){return[c[1],c[0]];});
-        _rotaLayer=L.polyline(coords,{
-          color:'#00d4ff',weight:7,opacity:1,
-          lineCap:'round',lineJoin:'round'
-        }).addTo(_map);
-
-        // Fit no mapa
-        _map.fitBounds(_rotaLayer.getBounds(),{padding:[60,60]});
-
-        // UI
-        _rotaOk=true;
-        setInfoDist(dist);
-        setInfoDur(dur);
-        showCard(dist,dur);
-        if(btn) btn.classList.remove('calculando');
-        if(txt) txt.textContent='Rota traçada ✓';
-
-        // Mostra botão "Iniciar Navegação"
-        var btnNav=document.getElementById('btn-nav');
-        if(btnNav) btnNav.classList.add('ativo');
-      })
-      .catch(function(){
-        clearTimeout(_tAbort2);
-        if(btn) btn.classList.remove('calculando');
-        if(txt) txt.textContent='Tentar novamente';
-        setInfoDist('Rota indisponível');
-      });
-  }
-
-  /* ── Botão "Traçar Rota" (manual) ────── */
-  document.getElementById('btn-rota').addEventListener('click',function(){
-    if(_rotaOk) return; // já traçada
-    if(_userLat!=null){
-      tracarRota(_userLat,_userLng);
-    } else {
-      setStatus('Aguardando GPS…','Permita acesso à localização');
-    }
-  });
-
-  /* ── Botão "Iniciar Navegação" ─────────── */
-  document.getElementById('btn-nav').addEventListener('click',function(){
-    if(!_steps.length){
-      // Tenta traçar rota se ainda não foi calculada
-      if(_userLat!=null){ tracarRota(_userLat,_userLng); }
-      else { setInfoDist('Aguardando GPS…'); }
-      return;
-    }
-    _navAtiva  = true;
-    _mapaLivre = false;
-    _stepIdx   = 0;
-    _distPercorrida = 0;
-
-    // Garante que overlay sumiu
-    hideOverlay();
-
-    // Esconde top-bar (substitui pelo banner de nav)
-    var tb=document.getElementById('top-bar');
-    if(tb) tb.style.display='none';
-
-    // Esconde bottom-bar padrão
-    var bb=document.getElementById('bottom-bar');
-    if(bb) bb.style.display='none';
-
-    // Mostra banner de navegação turn-by-turn
-    var banner=document.getElementById('nav-banner');
-    if(banner) banner.classList.add('visible');
-
-    // Mostra barra inferior de navegação (ETA)
-    var navBot=document.getElementById('nav-bottom');
-    if(navBot) navBot.classList.add('visible');
-
-    // Ajusta posição dos FABs para nav ativa
-    var fg=document.getElementById('fab-group');
-    if(fg) fg.classList.add('nav-ativa');
-
-    // Atualiza primeiro step + ETA
-    atualizarBannerNav();
-
-    // Ajusta mapa para modo navegação (centrado no usuário, zoom 18)
-    if(_userLat!=null){
-      _map.setView([_userLat,_userLng],18,{animate:true});
-      atualizarSetaUsuario(_bearing);
-      aplicarRotacaoMapa(_bearing);
-    }
-
-    // Esconde botão de iniciar
-    this.classList.remove('ativo');
-  });
-
-  /* ── Função central para cancelar navegação ── */
-  function cancelarNavegacao(){
-    _navAtiva=false;
-    _mapaLivre = true;
-    document.getElementById('nav-banner').classList.remove('visible');
-    // Esconde barra nav inferior
-    var nb=document.getElementById('nav-bottom');
-    if(nb) nb.classList.remove('visible');
-    // Ajusta FABs de volta
-    var fg=document.getElementById('fab-group');
-    if(fg) fg.classList.remove('nav-ativa');
-    // Restaura top-bar e bottom-bar
-    var tb=document.getElementById('top-bar');
-    if(tb) tb.style.display='flex';
-    var bb=document.getElementById('bottom-bar');
-    if(bb) bb.style.display='block';
-    // Reexibe botão se rota ainda existe
-    if(_rotaOk){
-      var btnNav=document.getElementById('btn-nav');
-      if(btnNav) btnNav.classList.add('ativo');
-    }
-    // Remove rotação e volta zoom para ver toda a rota
-    removerRotacaoMapa();
-    _bearing=0;
-    if(_rotaLayer) _map.fitBounds(_rotaLayer.getBounds(),{padding:[60,60]});
-  }
-
-  /* ── Botão fechar (X) no banner ───────────── */
-  document.getElementById('btn-nav-close').addEventListener('click', cancelarNavegacao);
-
-  /* ── Botão cancelar na barra inferior ─────── */
-  document.getElementById('btn-cancel-nav').addEventListener('click', cancelarNavegacao);
-
-  /* ── Init ────────────────────────────── */
-  function _boot(){
-    if(typeof L!=='undefined'){
-      initMap();
-    } else {
-      setStatus('Erro ao carregar mapa','Sem conexão com CDN do mapa');
-      // Mesmo com erro, mostra botão de pular após 3s
-      setTimeout(function(){
-        var b=document.getElementById('btn-pular-gps');
-        if(b) b.classList.add('visible');
-        setStatus('Mapa indisponível','Verifique sua internet');
-      },3000);
-    }
-  }
-  // Garante que o DOM e o Leaflet já carregaram
-  if(document.readyState==='complete'){
-    _boot();
+var DLAT = \${temCoords ? lat : 'null'};
+var DLNG = \${temCoords ? lng : 'null'};
+var NOME = \${JSON.stringify(tituloSafe)};
+var GKEY = \${JSON.stringify(gKey)};
+
+var _userLat = null, _userLng = null;
+
+// ── Carregar iframe do Google Maps Embed ──────────────────────────────
+function carregarMapa(oriLat, oriLng){
+  var frame = document.getElementById('gmap-frame');
+  var url;
+
+  if(oriLat && DLAT){
+    // Embed com rota desenhada (origem → destino)
+    url = 'https://www.google.com/maps/embed/v1/directions'
+      + '?key=' + GKEY
+      + '&origin=' + oriLat + ',' + oriLng
+      + '&destination=' + DLAT + ',' + DLNG
+      + '&mode=driving'
+      + '&language=pt-BR';
+  } else if(DLAT){
+    // Sem origem — mostra só o destino com pin
+    url = 'https://www.google.com/maps/embed/v1/place'
+      + '?key=' + GKEY
+      + '&q=' + DLAT + ',' + DLNG
+      + '&language=pt-BR'
+      + '&zoom=16';
   } else {
-    window.addEventListener('load',_boot);
+    // Sem coords — busca por nome
+    url = 'https://www.google.com/maps/embed/v1/place'
+      + '?key=' + GKEY
+      + '&q=' + encodeURIComponent(NOME)
+      + '&language=pt-BR'
+      + '&zoom=15';
+  }
+  frame.src = url;
+}
+
+// ── Calcular ETA via OSRM (grátis, sem key) ──────────────────────────
+function calcularETA(oriLat, oriLng){
+  if(!DLAT) return;
+  var url = 'https://router.project-osrm.org/route/v1/driving/'
+    + oriLng + ',' + oriLat + ';' + DLNG + ',' + DLAT
+    + '?overview=false&steps=false';
+
+  var ctrl = new AbortController();
+  setTimeout(function(){ ctrl.abort(); }, 6000);
+
+  fetch(url, {signal: ctrl.signal})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.routes || !d.routes.length) return;
+      var r = d.routes[0];
+      var distKm = (r.distance / 1000).toFixed(1);
+      var minutos = Math.round(r.duration / 60);
+      var chegada = new Date(Date.now() + r.duration * 1000);
+      var hh = String(chegada.getHours()).padStart(2,'0');
+      var mm = String(chegada.getMinutes()).padStart(2,'0');
+
+      document.getElementById('eta-dist').textContent = distKm + ' km';
+      document.getElementById('eta-dur').textContent  = minutos + ' min';
+      document.getElementById('eta-chegada').textContent = 'Chegada: ' + hh + ':' + mm;
+      document.getElementById('posto-end').textContent = distKm + ' km · ' + minutos + ' min';
+    })
+    .catch(function(){
+      // OSRM falhou — mostra distância em linha reta
+      if(_userLat && DLAT){
+        var dLat = (DLAT - _userLat) * Math.PI/180;
+        var dLng = (DLNG - _userLng) * Math.PI/180;
+        var a = Math.sin(dLat/2)*Math.sin(dLat/2)
+              + Math.cos(_userLat*Math.PI/180)*Math.cos(DLAT*Math.PI/180)
+              * Math.sin(dLng/2)*Math.sin(dLng/2);
+        var dist = 6371000 * 2 * Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+        document.getElementById('eta-dist').textContent = (dist/1000).toFixed(1) + ' km';
+        document.getElementById('eta-dur').textContent  = '~' + Math.round(dist/400) + ' min';
+      }
+    });
+}
+
+// ── Abrir Google Maps para navegação turn-by-turn ────────────────────
+function abrirNavegacao(){
+  var url = 'https://www.google.com/maps/dir/?api=1'
+    + '&destination=' + DLAT + ',' + DLNG
+    + '&travelmode=driving'
+    + '&dir_action=navigate';
+  if(_userLat) url += '&origin=' + _userLat + ',' + _userLng;
+
+  // No Android/iOS com Google Maps instalado, abre o app diretamente
+  // Tenta primeiro o scheme nativo, fallback para web
+  var tried = false;
+  function tryGMApp(){
+    if(tried) return;
+    tried = true;
+    // scheme nativo Google Maps
+    var appUrl = 'comgooglemaps://?daddr=' + DLAT + ',' + DLNG + '&directionsmode=driving';
+    var iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    iframe.src = appUrl;
+    // fallback após 500ms se o app não abriu
+    setTimeout(function(){
+      window.open(url, '_blank');
+      document.body.removeChild(iframe);
+    }, 500);
   }
 
+  // iOS tenta maps:// primeiro
+  if(/iPhone|iPad|iPod/.test(navigator.userAgent)){
+    var iosUrl = 'maps://?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
+    window.location.href = iosUrl;
+    setTimeout(function(){ window.open(url, '_blank'); }, 500);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+// ── Inicialização ─────────────────────────────────────────────────────
+(function(){
+  // Se não tem coords de destino, não tem o que mostrar
+  if(!DLAT || !DLNG){
+    document.getElementById('map-loading').innerHTML =
+      '<div style="font-size:32px">⚠️</div><span>Endereço do posto não disponível</span>';
+    document.getElementById('eta-dist').textContent = '—';
+    document.getElementById('btn-navegar').disabled = true;
+    document.getElementById('btn-navegar').style.opacity = '0.5';
+    return;
+  }
+
+  // Tenta obter GPS do usuário
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      function(pos){
+        _userLat = pos.coords.latitude;
+        _userLng = pos.coords.longitude;
+        carregarMapa(_userLat, _userLng);
+        calcularETA(_userLat, _userLng);
+      },
+      function(){
+        // GPS negado ou indisponível — mostra mapa só com destino
+        document.getElementById('msg-nogps').style.display = 'block';
+        carregarMapa(null, null);
+        document.getElementById('eta-dist').textContent = '—';
+        document.getElementById('eta-dur').textContent  = 'GPS indisponível';
+      },
+      {enableHighAccuracy:true, timeout:8000, maximumAge:30000}
+    );
+  } else {
+    carregarMapa(null, null);
+  }
 })();
 </script>
 </body>
 </html>`
+
 
   return c.html(html)
 })
