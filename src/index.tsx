@@ -4801,6 +4801,7 @@ app.get('/ir', async (c) => {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>Navegar — \${tituloSafe}</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
@@ -4832,14 +4833,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
   object-fit:contain;background:#f5f5f5;padding:3px;flex-shrink:0;
   border:1.5px solid #eee}
 
-/* ── Mapa iframe ── */
-#map-wrap{
+/* ── Mapa Leaflet ── */
+#map{
   position:fixed;
   top:60px;
   left:0;right:0;
   bottom:120px;
+  background:#e8eaed;
+  z-index:1;
 }
-#map-wrap iframe{width:100%;height:100%;border:none;display:block}
 
 /* ── Loading placeholder ── */
 #map-loading{
@@ -4974,16 +4976,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
   </div>
 </div>
 
-<!-- MAPA EMBED -->
-<div id="map-wrap">
+<!-- MAPA LEAFLET -->
+<div id="map">
   <div id="map-loading">
     <div class="spin"></div>
     <span>Carregando mapa…</span>
   </div>
-  <iframe id="gmap-frame" allowfullscreen referrerpolicy="no-referrer-when-downgrade"
-    style="opacity:0;transition:opacity .3s"
-    onload="this.style.opacity='1';document.getElementById('map-loading').style.display='none'">
-  </iframe>
 </div>
 
 <!-- BOTTOM BAR -->
@@ -5012,9 +5010,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
 
   <!-- Google Maps -->
   <button class="nav-app-btn" onclick="navegarCom('google')">
-    <div class="nav-app-icon" style="background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15)">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Google_Maps_Logo_2020.svg/512px-Google_Maps_Logo_2020.svg.png" alt="Google Maps"
-        onerror="this.parentElement.innerHTML='<svg viewBox=\'0 0 48 48\' width=\'50\' height=\'50\'><rect width=\'48\' height=\'48\' rx=\'12\' fill=\'#4285F4\'/><text x=\'50%\' y=\'60%\' text-anchor=\'middle\' font-size=\'22\' fill=\'#fff\'>G</text></svg>'">
+    <div class="nav-app-icon" style="background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15);border-radius:14px;overflow:hidden">
+      <svg viewBox="0 0 48 48" width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="12" fill="#fff"/>
+        <!-- Pin Google Maps colorido -->
+        <ellipse cx="24" cy="36" rx="7" ry="3" fill="rgba(0,0,0,.15)"/>
+        <path d="M24 6C18.477 6 14 10.477 14 16c0 7.5 10 22 10 22S34 23.5 34 16c0-5.523-4.477-10-10-10z" fill="#EA4335"/>
+        <circle cx="24" cy="16" r="4.5" fill="#fff"/>
+        <!-- Letras G coloridas embaixo -->
+      </svg>
     </div>
     <div class="nav-app-info">
       <div class="nav-app-name">Google Maps</div>
@@ -5027,9 +5031,20 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
 
   <!-- Waze -->
   <button class="nav-app-btn" onclick="navegarCom('waze')">
-    <div class="nav-app-icon" style="background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15)">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Waze_icon.svg/512px-Waze_icon.svg.png" alt="Waze"
-        onerror="this.parentElement.innerHTML='<svg viewBox=\'0 0 48 48\' width=\'50\' height=\'50\'><rect width=\'48\' height=\'48\' rx=\'12\' fill=\'#06CCFF\'/><text x=\'50%\' y=\'62%\' text-anchor=\'middle\' font-size=\'22\' fill=\'#fff\'>W</text></svg>'">
+    <div class="nav-app-icon" style="background:#06CCFF;border-radius:14px;overflow:hidden">
+      <svg viewBox="0 0 48 48" width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="12" fill="#06CCFF"/>
+        <!-- Corpo do Waze -->
+        <ellipse cx="24" cy="26" rx="13" ry="11" fill="#fff"/>
+        <!-- Olhos -->
+        <circle cx="20" cy="24" r="2.5" fill="#1a1a1a"/>
+        <circle cx="28" cy="24" r="2.5" fill="#1a1a1a"/>
+        <!-- Sorriso -->
+        <path d="M20 29 Q24 33 28 29" stroke="#1a1a1a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <!-- Antena -->
+        <path d="M30 17 Q33 12 35 14" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="35" cy="13.5" r="2" fill="#fff"/>
+      </svg>
     </div>
     <div class="nav-app-info">
       <div class="nav-app-name">Waze</div>
@@ -5042,9 +5057,22 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
 
   <!-- Apple Maps — visível só em iOS -->
   <button class="nav-app-btn" id="btn-apple-maps" onclick="navegarCom('apple')" style="display:none">
-    <div class="nav-app-icon" style="background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15)">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/AppleMaps_logo.svg/512px-AppleMaps_logo.svg.png" alt="Apple Maps"
-        onerror="this.parentElement.innerHTML='<svg viewBox=\'0 0 48 48\' width=\'50\' height=\'50\'><rect width=\'48\' height=\'48\' rx=\'12\' fill=\'#3478F6\'/><text x=\'50%\' y=\'62%\' text-anchor=\'middle\' font-size=\'22\' fill=\'#fff\'>A</text></svg>'">
+    <div class="nav-app-icon" style="background:linear-gradient(145deg,#3478F6,#1a56db);border-radius:14px;overflow:hidden">
+      <svg viewBox="0 0 48 48" width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="12" fill="url(#amg)"/>
+        <defs>
+          <linearGradient id="amg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#3478F6"/>
+            <stop offset="100%" stop-color="#1a56db"/>
+          </linearGradient>
+        </defs>
+        <!-- Mapa simplificado -->
+        <path d="M10 14 L24 10 L38 14 L38 38 L24 34 L10 38 Z" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/>
+        <path d="M24 10 L24 34" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
+        <!-- Pin branco -->
+        <path d="M24 16c-3.314 0-6 2.686-6 6 0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6z" fill="#fff"/>
+        <circle cx="24" cy="22" r="2.5" fill="#3478F6"/>
+      </svg>
     </div>
     <div class="nav-app-info">
       <div class="nav-app-name">Apple Maps</div>
@@ -5072,6 +5100,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
   <button id="nav-sheet-cancel" onclick="fecharSeletorNav()">Cancelar</button>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 var DLAT = ${temCoords ? lat : 'null'};
 var DLNG = ${temCoords ? lng : 'null'};
@@ -5182,41 +5211,73 @@ function navegarCom(app){
   }
 }
 
-// ── Carregar iframe do Google Maps Embed ──────────────────────────────
-function carregarMapa(oriLat, oriLng){
-  var frame = document.getElementById('gmap-frame');
-  var url;
-  if(oriLat && DLAT){
-    url = 'https://www.google.com/maps/embed/v1/directions'
-      + '?key=' + GKEY
-      + '&origin=' + oriLat + ',' + oriLng
-      + '&destination=' + DLAT + ',' + DLNG
-      + '&mode=driving'
-      + '&language=pt-BR';
-  } else if(DLAT){
-    url = 'https://www.google.com/maps/embed/v1/place'
-      + '?key=' + GKEY
-      + '&q=' + DLAT + ',' + DLNG
-      + '&language=pt-BR'
-      + '&zoom=16';
-  } else {
-    url = 'https://www.google.com/maps/embed/v1/place'
-      + '?key=' + GKEY
-      + '&q=' + encodeURIComponent(NOME)
-      + '&language=pt-BR'
-      + '&zoom=15';
+// ── Leaflet map ──────────────────────────────────────────────────────
+var _leafMap = null;
+var _routeLine = null;
+
+function iniciarMapa(oriLat, oriLng){
+  // Remover loading overlay
+  var loading = document.getElementById('map-loading');
+  if(loading) loading.style.display = 'none';
+
+  if(!_leafMap){
+    _leafMap = L.map('map', {
+      zoomControl: true,
+      attributionControl: false
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(_leafMap);
   }
-  frame.src = url;
+
+  if(!DLAT || !DLNG) return;
+
+  // Ícone destino — pin laranja RotaPosto
+  var iconDest = L.divIcon({
+    html: '<svg viewBox="0 0 36 48" width="36" height="48" xmlns="http://www.w3.org/2000/svg">'
+        + '<path d="M18 0C8.059 0 0 8.059 0 18c0 12 18 30 18 30S36 30 36 18C36 8.059 27.941 0 18 0z" fill="#FF6D00"/>'
+        + '<circle cx="18" cy="18" r="8" fill="#fff"/>'
+        + '</svg>',
+    className: '',
+    iconSize: [36, 48],
+    iconAnchor: [18, 48],
+    popupAnchor: [0, -48]
+  });
+
+  var destMark = L.marker([DLAT, DLNG], {icon: iconDest}).addTo(_leafMap);
+  destMark.bindPopup('<b>' + NOME + '</b>').openPopup();
+
+  if(oriLat && oriLng){
+    // Ícone origem — ponto azul usuário
+    var iconOri = L.divIcon({
+      html: '<svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">'
+          + '<circle cx="12" cy="12" r="10" fill="#4285F4" stroke="#fff" stroke-width="3"/>'
+          + '</svg>',
+      className: '',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+    L.marker([oriLat, oriLng], {icon: iconOri}).addTo(_leafMap);
+
+    // Fit bounds para mostrar origem + destino
+    var bounds = L.latLngBounds([[oriLat, oriLng], [DLAT, DLNG]]);
+    _leafMap.fitBounds(bounds, {padding: [50, 50]});
+
+    // Rota via OSRM
+    desenharRota(oriLat, oriLng);
+  } else {
+    _leafMap.setView([DLAT, DLNG], 15);
+  }
 }
 
-// ── Calcular ETA via OSRM (grátis, sem key) ──────────────────────────
-function calcularETA(oriLat, oriLng){
+// ── Desenhar rota + calcular ETA via OSRM ────────────────────────────
+function desenharRota(oriLat, oriLng){
   if(!DLAT) return;
   var url = 'https://router.project-osrm.org/route/v1/driving/'
     + oriLng + ',' + oriLat + ';' + DLNG + ',' + DLAT
-    + '?overview=false&steps=false';
+    + '?overview=full&geometries=geojson&steps=false';
   var ctrl = new AbortController();
-  setTimeout(function(){ ctrl.abort(); }, 7000);
+  setTimeout(function(){ ctrl.abort(); }, 9000);
   fetch(url, {signal: ctrl.signal})
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -5231,18 +5292,32 @@ function calcularETA(oriLat, oriLng){
       document.getElementById('eta-dur').textContent  = minutos + ' min';
       document.getElementById('eta-chegada').textContent = 'Chegada ' + hh + ':' + mm;
       document.getElementById('posto-end').textContent = distKm + ' km · ' + minutos + ' min';
+
+      // Desenhar polyline da rota no mapa
+      if(_leafMap && r.geometry && r.geometry.coordinates){
+        var coords = r.geometry.coordinates.map(function(c){ return [c[1], c[0]]; });
+        if(_routeLine) _leafMap.removeLayer(_routeLine);
+        _routeLine = L.polyline(coords, {
+          color: '#4285F4',
+          weight: 5,
+          opacity: 0.85,
+          lineJoin: 'round'
+        }).addTo(_leafMap);
+      }
     })
     .catch(function(){
+      // Fallback haversine
       if(_userLat && DLAT){
-        var dLat = (DLAT - _userLat) * Math.PI/180;
-        var dLng = (DLNG - _userLng) * Math.PI/180;
-        var a = Math.sin(dLat/2)*Math.sin(dLat/2)
-              + Math.cos(_userLat*Math.PI/180)*Math.cos(DLAT*Math.PI/180)
-              * Math.sin(dLng/2)*Math.sin(dLng/2);
-        var dist = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        var dLat2 = (DLAT - _userLat) * Math.PI/180;
+        var dLng2 = (DLNG - _userLng) * Math.PI/180;
+        var a2 = Math.sin(dLat2/2)*Math.sin(dLat2/2)
+               + Math.cos(_userLat*Math.PI/180)*Math.cos(DLAT*Math.PI/180)
+               * Math.sin(dLng2/2)*Math.sin(dLng2/2);
+        var dist = 6371000 * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2));
         document.getElementById('eta-dist').textContent = (dist/1000).toFixed(1) + ' km';
         document.getElementById('eta-dur').textContent  = '~' + Math.round(dist/400) + ' min';
         document.getElementById('eta-chegada').textContent = '';
+        document.getElementById('posto-end').textContent = (dist/1000).toFixed(1) + ' km (aprox.)';
       }
     });
 }
@@ -5250,7 +5325,8 @@ function calcularETA(oriLat, oriLng){
 // ── Inicialização ─────────────────────────────────────────────────────
 (function(){
   if(!DLAT || !DLNG){
-    document.getElementById('map-loading').innerHTML =
+    var loading2 = document.getElementById('map-loading');
+    if(loading2) loading2.innerHTML =
       '<div style="font-size:32px">⚠️</div><span>Endereço do posto não disponível</span>';
     document.getElementById('eta-dist').textContent = '—';
     var btn = document.getElementById('btn-navegar');
@@ -5262,19 +5338,18 @@ function calcularETA(oriLat, oriLng){
       function(pos){
         _userLat = pos.coords.latitude;
         _userLng = pos.coords.longitude;
-        carregarMapa(_userLat, _userLng);
-        calcularETA(_userLat, _userLng);
+        iniciarMapa(_userLat, _userLng);
       },
       function(){
         document.getElementById('msg-nogps').style.display = 'block';
-        carregarMapa(null, null);
+        iniciarMapa(null, null);
         document.getElementById('eta-dist').textContent = '—';
         document.getElementById('eta-dur').textContent  = 'GPS indisponível';
       },
       {enableHighAccuracy:true, timeout:8000, maximumAge:30000}
     );
   } else {
-    carregarMapa(null, null);
+    iniciarMapa(null, null);
   }
 })();
 </script>
