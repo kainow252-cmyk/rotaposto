@@ -4751,7 +4751,7 @@ app.get('/ir', async (c) => {
     if (!band) return '/static/logos/independente.svg'
     const n = band.toUpperCase()
     if (n.includes('SHELL'))                                          return '/static/logos/shell.svg'
-    if (n.includes('PETROBRAS') || /\bBR\b/.test(n) || n.includes('PETRO BR')) return '/static/logos/br.svg'
+    if (n.includes('PETROBRAS') || n === 'BR' || n === 'PETROBRAS BR' || n.startsWith('BR ') || n.endsWith(' BR') || n.includes('PETRO BR')) return '/static/logos/br.svg'
     if (n.includes('IPIRANGA'))                                       return '/static/logos/ipiranga.svg'
     if (n.includes('RAIZEN') || n.includes('RAÍZEN') || n.includes('RAIZ')) return '/static/logos/raizen.svg'
     if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes('ALEPOSTO') || /\bALE\b/.test(n)) return '/static/logos/ale.svg'
@@ -4765,7 +4765,10 @@ app.get('/ir', async (c) => {
     if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS')) return '/static/logos/supergasbras.svg'
     return '/static/logos/independente.svg'
   }
-  const logoSvgUrl = _irLogoUrl(bandeira || nome)
+  // NUNCA usar o nome do posto para inferir logo — só a bandeira explícita
+  // Motivo: nomes como "AUTO POSTO BR LTDA" dariam match em /\bBR\b/ e
+  // mostrariam logo Petrobras BR para postos que não são dessa bandeira
+  const logoSvgUrl = _irLogoUrl(bandeira)
 
   // Buscar foto real via Google Places API (server-side → sem expor key no cliente)
   async function _buscarFotoPlaces(pid: string): Promise<string | null> {
@@ -5272,7 +5275,8 @@ function iniciarMapa(oriLat, oriLng){
     // Rota via OSRM
     desenharRota(oriLat, oriLng);
   } else {
-    _leafMap.setView([DLAT, DLNG], 15);
+    // Sem GPS — zoom 14 mostra bairro inteiro ao redor do posto
+    _leafMap.setView([DLAT, DLNG], 14);
   }
 }
 
@@ -5354,8 +5358,9 @@ function _iniciarApp(){
         iniciarMapa(null, null);
         document.getElementById('eta-dist').textContent = '—';
         document.getElementById('eta-dur').textContent  = 'GPS indisponível';
+        document.getElementById('posto-end').textContent = 'Ative o GPS para ver a rota';
       },
-      {enableHighAccuracy:false, timeout:5000, maximumAge:60000}
+      {enableHighAccuracy:false, timeout:8000, maximumAge:60000}
     );
   } else {
     iniciarMapa(null, null);
