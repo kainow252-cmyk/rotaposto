@@ -5232,11 +5232,25 @@ function iniciarMapa(oriLat, oriLng){
   if(!_leafMap){
     _leafMap = L.map('map', {
       zoomControl: true,
-      attributionControl: false
+      attributionControl: false,
+      // Desabilita qualquer comportamento de clique que gere intent://
+      tap: false
     });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
+      maxZoom: 19,
+      attribution: '' // sem attribution = sem links clicáveis
     }).addTo(_leafMap);
+
+    // Bloquear QUALQUER link dentro do mapa que não seja https://
+    // Evita intent:// e outros schemes que quebram no WebView Android
+    document.getElementById('map').addEventListener('click', function(e){
+      var a = e.target;
+      while(a && a.tagName !== 'A') a = a.parentElement;
+      if(a && a.href && !a.href.startsWith('https://') && !a.href.startsWith('http://')){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
   }
 
   if(!DLAT || !DLNG) return;
