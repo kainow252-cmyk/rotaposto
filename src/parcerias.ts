@@ -1495,21 +1495,24 @@ export function getPainelEmpresaHTML(): string {
         flex-direction:column;
         align-items:center;
         justify-content:center;
-        gap:3px;
+        gap:2px;
         cursor:pointer;
         color:rgba(255,255,255,.45);
         transition:color .2s;
         position:relative;
-        font-size:10px;
+        font-size:9px;
         font-weight:700;
-        letter-spacing:.3px;
+        letter-spacing:.2px;
         text-transform:uppercase;
-        padding:8px 4px;
+        padding:6px 2px;
         border:none;
         background:none;
         -webkit-tap-highlight-color:transparent;
+        min-width:0;
       }
-      .mob-nav-item i { font-size:20px; }
+      .mob-nav-item i { font-size:18px; }
+      #mbn-sair { color:rgba(255,100,100,.7) !important; }
+      #mbn-sair:hover, #mbn-sair:active { color:#ff6b6b !important; }
       .mob-nav-item.ativo { color:#FF6D00; }
       .mob-nav-item.ativo::after {
         content:'';
@@ -2329,6 +2332,10 @@ export function getPainelEmpresaHTML(): string {
     <button class="mob-nav-item" id="mbn-mais" onclick="abrirSidebar()">
       <i class="fas fa-bars"></i>
       <span>Mais</span>
+    </button>
+    <button class="mob-nav-item" id="mbn-sair" onclick="fazerLogout()" style="color:#ff6b6b">
+      <i class="fas fa-sign-out-alt"></i>
+      <span>Sair</span>
     </button>
   </nav>
 
