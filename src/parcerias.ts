@@ -1098,7 +1098,8 @@ export function getPainelEmpresaHTML(): string {
     .sidebar-logo-icon { width:34px; height:34px; background:var(--laranja); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:16px; }
     .sidebar-logo-nome { font-size:14px; font-weight:800; }
     .sidebar-logo-tag { font-size:10px; color:rgba(255,255,255,.5); margin-top:1px; }
-    .sidebar-posto-info { padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.08); }
+    .sidebar-posto-card { padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.08); display:flex; align-items:center; gap:12px; }
+    .sidebar-posto-logo-wrap { width:52px; height:52px; flex-shrink:0; background:rgba(255,255,255,.08); border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; border:1.5px solid rgba(255,255,255,.12); }
     .sidebar-posto-nome { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .sidebar-posto-plano { font-size:11px; color:var(--amarelo); margin-top:3px; }
     .sidebar-posto-status { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:#69F0AE; margin-top:4px; }
@@ -1511,8 +1512,6 @@ export function getPainelEmpresaHTML(): string {
         min-width:0;
       }
       .mob-nav-item i { font-size:18px; }
-      #mbn-sair { color:rgba(255,100,100,.7) !important; }
-      #mbn-sair:hover, #mbn-sair:active { color:#ff6b6b !important; }
       .mob-nav-item.ativo { color:#FF6D00; }
       .mob-nav-item.ativo::after {
         content:'';
@@ -1569,10 +1568,17 @@ export function getPainelEmpresaHTML(): string {
         </div>
       </div>
     </div>
-    <div class="sidebar-posto-info">
-      <div class="sidebar-posto-nome" id="sb-posto-nome">Carregando...</div>
-      <div class="sidebar-posto-plano" id="sb-posto-plano">⭐ Plano Premium</div>
-      <div class="sidebar-posto-status">Ativo</div>
+    <!-- Logo + info do posto -->
+    <div class="sidebar-posto-card">
+      <div class="sidebar-posto-logo-wrap">
+        <img id="sb-posto-logo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:8px;"/>
+        <div id="sb-posto-logo-ph" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;">⛽</div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="sidebar-posto-nome" id="sb-posto-nome">Carregando...</div>
+        <div class="sidebar-posto-plano" id="sb-posto-plano">⭐ Plano Premium</div>
+        <div class="sidebar-posto-status">Ativo</div>
+      </div>
     </div>
     <nav class="sidebar-nav">
       <div class="nav-group-label">Principal</div>
@@ -2333,10 +2339,6 @@ export function getPainelEmpresaHTML(): string {
       <i class="fas fa-bars"></i>
       <span>Mais</span>
     </button>
-    <button class="mob-nav-item" id="mbn-sair" onclick="fazerLogout()" style="color:#ff6b6b">
-      <i class="fas fa-sign-out-alt"></i>
-      <span>Sair</span>
-    </button>
   </nav>
 
 </div>
@@ -2376,6 +2378,8 @@ function mostrarPainel() {
   document.getElementById('tela-painel').style.display = 'block';
   document.getElementById('sb-posto-nome').textContent = _sessao?.postoNome || _sessao?.nome || 'Meu Posto';
   document.getElementById('sb-posto-plano').textContent = '⭐ Plano ' + (_sessao?.plano || 'Premium');
+  // Carrega logo do posto na sidebar
+  _sbAtualizarLogoPosto();
   aplicarPermissoesCargo();
   // Funcionários não vão para equipe — redirecionam para validar (primeira página permitida)
   const cargo = ((_sessao && _sessao.cargo) || 'gerente').toLowerCase();
@@ -2393,6 +2397,27 @@ function fazerLogout() {
 }
 
 function abrirRecuperarSenha() { alert('Em breve. Entre em contato pelo WhatsApp do RotaPosto.'); }
+
+// ── Logo do posto na sidebar ────────────────────────────────────────────────
+async function _sbAtualizarLogoPosto() {
+  const img = document.getElementById('sb-posto-logo');
+  const ph  = document.getElementById('sb-posto-logo-ph');
+  if (!img || !_sessao?.postoId) return;
+  try {
+    // Tenta buscar foto salva no perfil
+    const r = await fetch('/api/parceiros/perfil?postoId=' + _sessao.postoId, {
+      headers: { 'Authorization': 'Bearer ' + _sessao.token }
+    });
+    const d = await r.json();
+    const url = d?.posto?.fotoBandeira || d?.posto?.fotoUrl || '';
+    if (url) {
+      img.src = url + (url.includes('?') ? '&' : '?') + 'sb=1';
+      img.style.display = 'block';
+      if (ph) ph.style.display = 'none';
+      img.onerror = function(){ this.style.display='none'; if(ph) ph.style.display='flex'; };
+    }
+  } catch { /* mantém placeholder */ }
+}
 
 // Abre cadastro sem sair da página (TWA-safe): abre em nova aba no browser,
 // no TWA (que não tem abas) exibe alerta com orientação.
@@ -2981,7 +3006,7 @@ async function perfUploadFotoBandeira() {
     st.style.color = 'var(--verde,#00C853)';
     _perfFotoFile = null;
     btn.style.display = 'none';
-    if (d.fotoUrl) { _perfMostrarFotoBandeira(d.fotoUrl); }
+    if (d.fotoUrl) { _perfMostrarFotoBandeira(d.fotoUrl); _sbAtualizarLogoPosto(); }
   } catch(e) {
     st.textContent = '❌ ' + e.message; st.style.color='#d32f2f';
   } finally {
