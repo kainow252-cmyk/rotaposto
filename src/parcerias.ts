@@ -1378,6 +1378,154 @@ export function getPainelEmpresaHTML(): string {
       .sp-content{padding:16px 12px 24px;box-sizing:border-box}
       .sp-nav,.tc-nav{padding:0 12px;box-sizing:border-box}
     }
+
+    /* ══════════════════════════════════════════════
+       TEMA APP MOBILE — igual visual app RotaPosto
+       Ativado em telas ≤ 600px (smartphones)
+    ══════════════════════════════════════════════ */
+    @media(max-width:600px){
+      /* Fundo escuro geral */
+      body { background:#07111C !important; color:#fff !important; }
+
+      /* Tela carregando — dark */
+      #tela-carregando { background:#07111C !important; }
+      #tela-carregando div[style] { color:#aaa !important; }
+
+      /* Header mobile — laranja sólido, estilo app */
+      .topbar {
+        background:#FF6D00 !important;
+        border-bottom:none !important;
+        box-shadow:none !important;
+        height:60px !important;
+        padding:0 16px !important;
+        position:fixed !important;
+        top:0; left:0; right:0; z-index:150 !important;
+      }
+      .topbar-titulo { color:#fff !important; font-size:17px !important; font-weight:900 !important; }
+      .btn-menu-mobile { color:#fff !important; font-size:22px !important; }
+      .btn-topbar { display:none !important; } /* esconde botões extras no header */
+
+      /* Main — padding top para header fixo, padding bottom para bottom nav */
+      .main { margin-left:0 !important; padding-top:60px !important; padding-bottom:72px !important; }
+      .page-content { background:#07111C !important; min-height:calc(100vh - 132px) !important; padding:16px 14px !important; }
+
+      /* KPI cards — fundo escuro estilo app */
+      .kpi-card {
+        background:#0D1C2B !important;
+        border:1px solid rgba(255,109,0,.2) !important;
+        border-radius:14px !important;
+      }
+      .kpi-label { color:rgba(255,255,255,.6) !important; }
+      .kpi-val { color:#fff !important; }
+      .kpi-delta { color:rgba(255,255,255,.5) !important; }
+      .kpi-up { color:#69F0AE !important; }
+
+      /* Cards brancos — fundo escuro */
+      .chart-card, .table-card, .validador-card, .config-section,
+      .notif-card, .cupom-row, .preco-card {
+        background:#0D1C2B !important;
+        border:1px solid rgba(255,255,255,.08) !important;
+        color:#fff !important;
+      }
+      .chart-header-titulo, .table-titulo { color:#fff !important; }
+
+      /* Tabela dark */
+      table { background:transparent !important; }
+      th { background:#0D1C2B !important; color:rgba(255,255,255,.5) !important; border-bottom:1px solid rgba(255,255,255,.1) !important; }
+      td { color:#fff !important; border-bottom:1px solid rgba(255,255,255,.06) !important; }
+      tr:hover td { background:rgba(255,109,0,.06) !important; }
+
+      /* Labels e subtextos */
+      .kpi-label, .preco-label, .config-row-label, .config-row-desc,
+      .perf-label, .notif-titulo, .config-titulo { color:rgba(255,255,255,.8) !important; }
+      .config-row-desc, .sub, [style*="color:#616161"], [style*="color:#999"] {
+        color:rgba(255,255,255,.45) !important;
+      }
+
+      /* Inputs dark */
+      .validador-input, .preco-input, input, select, textarea {
+        background:#0D1C2B !important;
+        border:1.5px solid rgba(255,255,255,.15) !important;
+        color:#fff !important;
+      }
+      input::placeholder, textarea::placeholder { color:rgba(255,255,255,.35) !important; }
+      input:focus, select:focus { border-color:#FF6D00 !important; }
+
+      /* Botão laranja — mantém */
+      .btn-validar, .btn-topbar-orange { background:#FF6D00 !important; color:#fff !important; }
+
+      /* Badge nav */
+      .nav-badge { background:#FF6D00 !important; }
+
+      /* Banner inadimplência */
+      #banner-inadimplencia-posto { background:#1a0a00 !important; border-color:#FF6D00 !important; }
+
+      /* Scrollbars dark */
+      ::-webkit-scrollbar { width:4px; }
+      ::-webkit-scrollbar-track { background:#07111C; }
+      ::-webkit-scrollbar-thumb { background:#FF6D00; border-radius:2px; }
+
+      /* ── BOTTOM NAVIGATION BAR (estilo app) ── */
+      #mobile-bottom-nav {
+        display:flex !important;
+        position:fixed;
+        bottom:0; left:0; right:0;
+        height:64px;
+        background:#0D1C2B;
+        border-top:1px solid rgba(255,255,255,.1);
+        z-index:200;
+        padding-bottom:env(safe-area-inset-bottom, 0px);
+        box-shadow:0 -2px 16px rgba(0,0,0,.4);
+      }
+      .mob-nav-item {
+        flex:1;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        gap:3px;
+        cursor:pointer;
+        color:rgba(255,255,255,.45);
+        transition:color .2s;
+        position:relative;
+        font-size:10px;
+        font-weight:700;
+        letter-spacing:.3px;
+        text-transform:uppercase;
+        padding:8px 4px;
+        border:none;
+        background:none;
+        -webkit-tap-highlight-color:transparent;
+      }
+      .mob-nav-item i { font-size:20px; }
+      .mob-nav-item.ativo { color:#FF6D00; }
+      .mob-nav-item.ativo::after {
+        content:'';
+        position:absolute;
+        top:0; left:20%; right:20%;
+        height:2px;
+        background:#FF6D00;
+        border-radius:0 0 2px 2px;
+      }
+      .mob-nav-badge {
+        position:absolute;
+        top:6px; right:calc(50% - 18px);
+        background:#FF6D00;
+        color:#fff;
+        font-size:9px;
+        font-weight:900;
+        min-width:16px;
+        height:16px;
+        border-radius:8px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:0 4px;
+      }
+    }
+
+    /* Em desktop: esconde bottom nav */
+    #mobile-bottom-nav { display:none; }
   </style>
 </head>
 <body>
@@ -2146,6 +2294,32 @@ export function getPainelEmpresaHTML(): string {
 
     </div><!-- .page-content -->
   </main>
+
+  <!-- ── BOTTOM NAVIGATION (só visível em mobile ≤600px) ── -->
+  <nav id="mobile-bottom-nav">
+    <button class="mob-nav-item ativo" id="mbn-dashboard" onclick="irPara('dashboard')">
+      <i class="fas fa-chart-line"></i>
+      <span>Dashboard</span>
+    </button>
+    <button class="mob-nav-item" id="mbn-validar" onclick="irPara('validar')" style="position:relative">
+      <i class="fas fa-qrcode"></i>
+      <span>Validar</span>
+      <span class="mob-nav-badge" id="mbn-badge-cupons" style="display:none">0</span>
+    </button>
+    <button class="mob-nav-item" id="mbn-precos" onclick="irPara('precos')">
+      <i class="fas fa-gas-pump"></i>
+      <span>Preços</span>
+    </button>
+    <button class="mob-nav-item" id="mbn-cupons" onclick="irPara('cupons')">
+      <i class="fas fa-history"></i>
+      <span>Cupons</span>
+    </button>
+    <button class="mob-nav-item" id="mbn-mais" onclick="abrirSidebar()">
+      <i class="fas fa-bars"></i>
+      <span>Mais</span>
+    </button>
+  </nav>
+
 </div>
 </div><!-- #tela-painel -->
 
@@ -2228,6 +2402,13 @@ function irPara(pg) {
     n.classList.remove('ativo');
     if (n.getAttribute('data-page') === pg) n.classList.add('ativo');
   });
+  // ── Sincroniza bottom nav mobile ──
+  const mbnMap = { dashboard:'mbn-dashboard', validar:'mbn-validar', precos:'mbn-precos', cupons:'mbn-cupons' };
+  document.querySelectorAll('.mob-nav-item').forEach(b => b.classList.remove('ativo'));
+  if (mbnMap[pg]) {
+    const mbnEl = document.getElementById(mbnMap[pg]);
+    if (mbnEl) mbnEl.classList.add('ativo');
+  }
   document.getElementById('topbar-titulo').textContent = TITULOS[pg] || pg;
   fecharSidebar();
   if (pg === 'dashboard')   carregarDashboard();
@@ -2262,7 +2443,10 @@ async function carregarDashboard() {
       document.getElementById('kpi-cupons').textContent     = d.metricas.cupons   ?? '--';
       document.getElementById('kpi-impressoes').textContent = d.metricas.impressoes ?? '--';
       document.getElementById('kpi-rating').textContent     = d.metricas.rating   ?? '--';
-      document.getElementById('badge-cupons').textContent   = d.metricas.cuponsPendentes ?? 0;
+      const pendentes = d.metricas.cuponsPendentes ?? 0;
+      document.getElementById('badge-cupons').textContent = pendentes;
+      const mbnBadge = document.getElementById('mbn-badge-cupons');
+      if (mbnBadge) { mbnBadge.textContent = pendentes; mbnBadge.style.display = pendentes > 0 ? 'flex' : 'none'; }
     }
     if (d.graficoDias) renderGrafico(d.graficoDias);
     if (d.cuponRecentes) renderTabelaCuponsRecentes(d.cuponRecentes);
@@ -2275,6 +2459,8 @@ function renderDadosFake() {
   document.getElementById('kpi-impressoes').textContent = '2.840';
   document.getElementById('kpi-rating').textContent     = '4.7';
   document.getElementById('badge-cupons').textContent   = '3';
+  const mbnBadge = document.getElementById('mbn-badge-cupons');
+  if (mbnBadge) { mbnBadge.textContent = '3'; mbnBadge.style.display = 'flex'; }
   document.getElementById('kpi-cliques-delta').innerHTML = '<i class="fas fa-arrow-up"></i> +22% vs. mês passado';
   document.getElementById('kpi-cupons-delta').innerHTML  = '<i class="fas fa-arrow-up"></i> +14% vs. mês passado';
   document.getElementById('kpi-imp-delta').innerHTML     = '<i class="fas fa-arrow-up"></i> +31% vs. mês passado';
