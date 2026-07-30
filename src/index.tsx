@@ -5164,50 +5164,58 @@ function navegarCom(app){
   fecharSeletorNav();
   var destLat = DLAT, destLng = DLNG;
   var oriStr  = (_userLat && _userLng) ? _userLat + ',' + _userLng : '';
-  var url     = '';
+  var ua      = navigator.userAgent;
+  var isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
 
   if(app === 'google'){
-    // URL universal — abre o app nativo se instalado, senão web
-    url = 'https://www.google.com/maps/dir/?api=1'
+    // URL universal google.com/maps — abre app nativo no mobile, web no desktop
+    var gUrl = 'https://www.google.com/maps/dir/?api=1'
       + '&destination=' + destLat + ',' + destLng
       + '&travelmode=driving'
       + '&dir_action=navigate';
-    if(oriStr) url += '&origin=' + oriStr;
+    if(oriStr) gUrl += '&origin=' + oriStr;
+    window.open(gUrl, '_blank');
 
   } else if(app === 'waze'){
-    // Waze deep link (Android + iOS)
-    url = 'https://waze.com/ul?ll=' + destLat + '%2C' + destLng
-      + '&navigate=yes'
-      + '&zoom=17';
+    // URL web do Waze — funciona em qualquer plataforma
+    var wazeWeb = 'https://waze.com/ul?ll=' + destLat + '%2C' + destLng
+      + '&navigate=yes&zoom=17';
+
+    if(isMobile){
+      // Mobile: tenta scheme nativo primeiro; fallback web após 700ms
+      var wazeApp = 'waze://?ll=' + destLat + ',' + destLng + '&navigate=yes';
+      var launched = false;
+      var timer = setTimeout(function(){
+        if(!launched){ launched = true; window.open(wazeWeb, '_blank'); }
+      }, 700);
+      window.addEventListener('blur', function onBlur(){
+        launched = true; clearTimeout(timer);
+        window.removeEventListener('blur', onBlur);
+      }, {once: true});
+      window.location.href = wazeApp;
+    } else {
+      // Desktop: vai direto para web, sem scheme (evita erro no console)
+      window.open(wazeWeb, '_blank');
+    }
 
   } else if(app === 'apple'){
-    // Apple Maps scheme nativo
-    url = 'maps://?daddr=' + destLat + ',' + destLng + '&dirflg=d';
+    // Apple Maps — só iOS/iPadOS; sempre vai via scheme nativo
+    window.location.href = 'maps://?daddr=' + destLat + ',' + destLng + '&dirflg=d';
 
   } else {
-    // Mapas genérico — geo: URI (abre app padrão no Android, Safari no iOS)
-    url = 'geo:' + destLat + ',' + destLng + '?q=' + destLat + ',' + destLng
-      + '(' + encodeURIComponent(NOME) + ')';
-  }
-
-  // Tentar abrir esquema nativo; se falhar em 600ms abre web fallback
-  if(app === 'waze'){
-    // Tenta app scheme do Waze primeiro
-    var wazeApp = 'waze://?ll=' + destLat + ',' + destLng + '&navigate=yes';
-    var did = false;
-    var t = setTimeout(function(){
-      if(!did){ did = true; window.open(url, '_blank'); }
-    }, 600);
-    window.location.href = wazeApp;
-    // Se voltou rápido, o app abriu — cancela o fallback
-    window.addEventListener('blur', function onBlur(){
-      did = true; clearTimeout(t);
-      window.removeEventListener('blur', onBlur);
-    }, {once: true});
-  } else if(app === 'apple'){
-    window.location.href = url;
-  } else {
-    window.open(url, '_blank');
+    // Mapas genérico:
+    // • Mobile Android → geo: URI (abre app padrão)
+    // • Desktop        → Google Maps web (geo: não tem handler no desktop)
+    if(isMobile){
+      window.location.href = 'geo:' + destLat + ',' + destLng
+        + '?q=' + destLat + ',' + destLng
+        + '(' + encodeURIComponent(NOME) + ')';
+    } else {
+      var fallUrl = 'https://www.google.com/maps/dir/?api=1'
+        + '&destination=' + destLat + ',' + destLng
+        + '&travelmode=driving';
+      window.open(fallUrl, '_blank');
+    }
   }
 }
 
