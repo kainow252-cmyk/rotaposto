@@ -5320,50 +5320,54 @@ document.addEventListener('keydown', function(e){
   if(e.key === 'Escape' && _sheetOpen) fecharSeletorNav();
 });
 
-// ── Detecta TWA (Trusted Web Activity) Android ───────────────────────
-// No TWA, google.com/maps é bloqueado pelo App Links → intent:// → ERR.
-// No browser normal (Chrome/Safari/desktop), geo: não tem handler.
-// Detecta pelo referrer android-app:// OU display-mode standalone (PWA/TWA).
-function _isTWA(){
-  return document.referrer.indexOf('android-app://') === 0 ||
-         window.matchMedia('(display-mode: standalone)').matches;
+// ── Detecta Android WebView / TWA ────────────────────────────────────
+function _isAndroidWV(){
+  var ua = navigator.userAgent || '';
+  return /Android/.test(ua) && (
+    /wv\)/.test(ua) ||
+    /Version\/\d/.test(ua) ||
+    window.matchMedia('(display-mode: standalone)').matches ||
+    document.referrer.indexOf('android-app://') === 0
+  );
+}
+
+// ── Monta URL Google Maps ─────────────────────────────────────────────
+function _buildGoogleMapsUrl(lat, lng, oriLat, oriLng){
+  var url = 'https://www.google.com/maps/dir/?api=1'
+    + '&destination=' + lat + ',' + lng
+    + '&travelmode=driving&dir_action=navigate';
+  if(oriLat && oriLng) url += '&origin=' + oriLat + ',' + oriLng;
+  return url;
 }
 
 // ── Navegar com o app escolhido ───────────────────────────────────────
 function navegarCom(app){
   fecharSeletorNav();
   var destLat = DLAT, destLng = DLNG;
-  var isTwa = _isTWA();
 
-  if(app === 'google'){
-    if(isTwa){
-      // TWA/Android: geo: URI — SO abre app de mapas padrão direto, sem App Links
-      window.location.href = 'geo:' + destLat + ',' + destLng
-        + '?q=' + destLat + ',' + destLng + '(Posto+de+Combust%C3%ADvel)';
-    } else {
-      // Browser/iOS: Google Maps web normal
-      var gUrl = 'https://www.google.com/maps/dir/?api=1'
-        + '&destination=' + destLat + ',' + destLng
-        + '&travelmode=driving&dir_action=navigate';
-      if(_userLat && _userLng) gUrl += '&origin=' + _userLat + ',' + _userLng;
-      window.open(gUrl, '_blank');
-    }
-    return;
-
-  } else if(app === 'waze'){
+  if(app === 'waze'){
     window.open('https://waze.com/ul?ll=' + destLat + '%2C' + destLng + '&navigate=yes&zoom=17', '_blank');
     return;
-
-  } else if(app === 'apple'){
+  }
+  if(app === 'apple'){
     window.open('https://maps.apple.com/?daddr=' + destLat + ',' + destLng + '&dirflg=d', '_blank');
     return;
   }
 
-  // fallback: geo: no Android, Google Maps no resto
-  if(isTwa){
-    window.location.href = 'geo:' + destLat + ',' + destLng + '?q=' + destLat + ',' + destLng;
+  // Google Maps (padrão)
+  var mapsUrl = _buildGoogleMapsUrl(destLat, destLng, _userLat, _userLng);
+
+  if(_isAndroidWV()){
+    // Android TWA/WebView: intent:// formatado abre o Maps app nativo diretamente
+    window.location.href = 'intent://maps.google.com/maps/dir/?api=1'
+      + '&destination=' + destLat + ',' + destLng
+      + '&travelmode=driving&dir_action=navigate'
+      + '#Intent;scheme=https;package=com.google.android.apps.maps'
+      + ';S.browser_fallback_url=' + encodeURIComponent(mapsUrl)
+      + ';end';
   } else {
-    window.open('https://www.google.com/maps/dir/?api=1&destination=' + destLat + ',' + destLng + '&travelmode=driving', '_blank');
+    // Browser / iOS — abre normalmente
+    window.open(mapsUrl, '_blank');
   }
 }
 

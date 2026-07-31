@@ -4466,34 +4466,40 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // No TWA, google.com/maps é interceptado pelo App Links e vira intent://
   // que o WebView não consegue abrir → usa geo: URI que vai direto ao SO.
   // No browser normal (Chrome, Safari, desktop), geo: não tem handler → usa https://.
-  function _isTWA() {
-    return document.referrer.indexOf('android-app://') === 0 ||
-           window.matchMedia('(display-mode: standalone)').matches ||
-           !!(window.navigator && window.navigator.standalone);
+  // Detecta Android WebView / TWA pelo User Agent (mais confiável que referrer/standalone)
+  function _isAndroidWebView() {
+    var ua = navigator.userAgent || '';
+    return /Android/.test(ua) && (/wv\)/.test(ua) || /Version\/\d/.test(ua) || window.matchMedia('(display-mode: standalone)').matches || document.referrer.indexOf('android-app://') === 0);
   }
 
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
+    var mapsUrl;
 
     if (temCoords) {
-      if (_isTWA()) {
-        // TWA/Android: geo: URI vai direto ao SO, abre app de mapas padrão
-        // sem passar pelo App Links que bloqueia google.com/maps
-        window.location.href = 'geo:' + lat + ',' + lng
-          + '?q=' + lat + ',' + lng
-          + '(' + encodeURIComponent(nome || 'Posto de Combustível') + ')';
-      } else {
-        // Browser web / iOS: abre Google Maps normalmente
-        var mapsUrl = 'https://www.google.com/maps/dir/?api=1'
-          + '&destination=' + lat + ',' + lng
-          + '&travelmode=driving&dir_action=navigate';
-        if (userLat && userLng) mapsUrl += '&origin=' + userLat + ',' + userLng;
-        window.open(mapsUrl, '_blank');
-      }
+      mapsUrl = 'https://www.google.com/maps/dir/?api=1'
+        + '&destination=' + lat + ',' + lng
+        + '&travelmode=driving&dir_action=navigate';
+      if (userLat && userLng) mapsUrl += '&origin=' + userLat + ',' + userLng;
     } else {
-      // Sem coordenadas: busca por nome
-      window.open('https://www.google.com/maps/search/?api=1&query='
-        + encodeURIComponent(nome || 'posto de gasolina'), '_blank');
+      mapsUrl = 'https://www.google.com/maps/search/?api=1&query='
+        + encodeURIComponent(nome || 'posto de gasolina');
+    }
+
+    if (_isAndroidWebView() && temCoords) {
+      // Android TWA/WebView: abre Google Maps via intent:// formatado corretamente
+      // Isso bypassa o bloqueio do TWA e abre o app Maps nativo diretamente
+      var encodedUrl = encodeURIComponent(mapsUrl);
+      var intentUrl = 'intent://maps.google.com/maps/dir/?api=1'
+        + '&destination=' + lat + ',' + lng
+        + '&travelmode=driving&dir_action=navigate'
+        + '#Intent;scheme=https;package=com.google.android.apps.maps'
+        + ';S.browser_fallback_url=' + encodedUrl
+        + ';end';
+      window.location.href = intentUrl;
+    } else {
+      // Browser/iOS: Google Maps normalmente
+      window.open(mapsUrl, '_blank');
     }
   }
 
@@ -4786,22 +4792,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       showToast('Selecione um destino primeiro');
       return;
     }
-    if (lat && lng && lat !== 0 && lng !== 0) {
-      if (_isTWA()) {
-        window.location.href = 'geo:' + lat + ',' + lng
-          + '?q=' + lat + ',' + lng
-          + '(' + encodeURIComponent(nome || 'Posto de Combustível') + ')';
-      } else {
-        var mapsUrl = 'https://www.google.com/maps/dir/?api=1'
-          + '&destination=' + lat + ',' + lng
-          + '&travelmode=driving&dir_action=navigate';
-        if (userLat && userLng) mapsUrl += '&origin=' + userLat + ',' + userLng;
-        window.open(mapsUrl, '_blank');
-      }
-    } else {
-      window.open('https://www.google.com/maps/search/?api=1&query='
-        + encodeURIComponent(nome || 'posto de gasolina'), '_blank');
-    }
+    // Reutiliza a mesma lógica de _abrirNavegacaoExterna
+    _abrirNavegacaoExterna(lat, lng, nome);
   }
 
   let _searchTimer = null;
