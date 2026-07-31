@@ -3236,10 +3236,10 @@ function toggleServico(s, btn) {
 }
 
 // ── ANP CDP — Enriquecimento de dados oficiais ──────────────────────────────
-let _anpDados: any = null; // cache dos dados ANP consultados
+let _anpDados = null; // cache dos dados ANP consultados
 
 async function anpConsultar() {
-  const cnpjRaw = (document.getElementById('perf-cnpj') as HTMLInputElement)?.value || '';
+  const cnpjRaw = (document.getElementById('perf-cnpj'))?.value || '';
   const cnpj    = cnpjRaw.replace(/[^0-9]/g, '').slice(0, 14);
   const status  = document.getElementById('anp-status');
   const btn     = document.getElementById('anp-btn-consultar');
@@ -3254,7 +3254,7 @@ async function anpConsultar() {
   if (result) result.style.display = 'none';
   _anpDados = null;
 
-  if (btn) { (btn as HTMLButtonElement).disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando ANP...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando ANP...'; }
   if (status) { status.textContent = '⏳ Consultando base de dados pública da ANP...'; status.style.color = 'var(--sub)'; }
 
   try {
@@ -3275,11 +3275,11 @@ async function anpConsultar() {
   } catch(e) {
     if (status) { status.textContent = '❌ Erro de conexão ao consultar ANP.'; status.style.color = '#d32f2f'; }
   } finally {
-    if (btn) { (btn as HTMLButtonElement).disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> Consultar dados na ANP'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> Consultar dados na ANP'; }
   }
 }
 
-function _anpMontarResultado(dados: any) {
+function _anpMontarResultado(dados) {
   const wrap   = document.getElementById('anp-resultado');
   const lista  = document.getElementById('anp-campos-lista');
   const eqWrap = document.getElementById('anp-equipamentos-wrap');
@@ -3287,7 +3287,7 @@ function _anpMontarResultado(dados: any) {
   if (!wrap || !lista) return;
 
   // Montar campos com checkboxes
-  const campos: Array<{id: string, label: string, valor: string, checked: boolean}> = [];
+  const campos = [];
   if (dados.nome_fantasia) campos.push({ id:'anp-ck-nome',     label:'Nome do Posto',  valor: dados.nome_fantasia, checked: true });
   if (dados.bandeira)      campos.push({ id:'anp-ck-bandeira', label:'Bandeira',        valor: dados.bandeira,      checked: true });
   if (dados.autorizacao)   campos.push({ id:'anp-ck-aut',      label:'Autorização ANP', valor: dados.autorizacao,   checked: true });
@@ -3307,7 +3307,7 @@ function _anpMontarResultado(dados: any) {
 
   // Equipamentos
   if (dados.equipamentos && dados.equipamentos.length > 0 && eqWrap && eqList) {
-    eqList.innerHTML = dados.equipamentos.map(function(eq: any) {
+    eqList.innerHTML = dados.equipamentos.map(function(eq) {
       return '<div>⛽ <strong>' + eq.produto + '</strong> — Tancagem: ' + eq.tancagem + 'm³ · Bicos: ' + eq.bicos + '</div>';
     }).join('');
     eqWrap.style.display = 'block';
@@ -3331,18 +3331,18 @@ async function anpAplicar() {
   const btn = document.getElementById('anp-btn-aplicar');
   const msg = document.getElementById('anp-aplicar-msg');
 
-  if (btn) { (btn as HTMLButtonElement).disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...'; }
   if (msg) msg.style.display = 'none';
 
   // Montar campos selecionados
-  const campos: Record<string, any> = {};
-  if ((document.getElementById('anp-ck-nome')     as HTMLInputElement)?.checked && _anpDados.nome_fantasia)
+  const campos = {};
+  if (document.getElementById('anp-ck-nome')?.checked && _anpDados.nome_fantasia)
     campos.nome_fantasia = _anpDados.nome_fantasia;
-  if ((document.getElementById('anp-ck-bandeira') as HTMLInputElement)?.checked && _anpDados.bandeira)
+  if (document.getElementById('anp-ck-bandeira')?.checked && _anpDados.bandeira)
     campos.bandeira = _anpDados.bandeira;
-  if ((document.getElementById('anp-ck-aut')      as HTMLInputElement)?.checked && _anpDados.autorizacao)
+  if (document.getElementById('anp-ck-aut')?.checked && _anpDados.autorizacao)
     campos.autorizacao = _anpDados.autorizacao;
-  if ((document.getElementById('anp-ck-end')      as HTMLInputElement)?.checked && _anpDados.endereco)
+  if (document.getElementById('anp-ck-end')?.checked && _anpDados.endereco)
     campos.endereco = _anpDados.endereco;
 
   // Sempre incluir CNPJ e equipamentos sem checkbox
@@ -3351,7 +3351,7 @@ async function anpAplicar() {
 
   if (Object.keys(campos).length === 0) {
     if (msg) { msg.textContent = '⚠️ Selecione pelo menos um campo para importar.'; msg.style.color = '#d32f2f'; msg.style.display = 'block'; }
-    if (btn) { (btn as HTMLButtonElement).disabled = false; btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Importar dados selecionados'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Importar dados selecionados'; }
     return;
   }
 
@@ -3365,21 +3365,21 @@ async function anpAplicar() {
 
     if (r.ok && d.ok) {
       // Atualizar campos no formulário visualmente
-      if (campos.nome_fantasia) (document.getElementById('perf-nome') as HTMLInputElement).value = campos.nome_fantasia;
+      if (campos.nome_fantasia) document.getElementById('perf-nome').value = campos.nome_fantasia;
       if (campos.endereco) {
         const end = campos.endereco;
-        if (end.cep)        (document.getElementById('perf-cep') as HTMLInputElement).value    = _fmtCep(end.cep);
-        if (end.logradouro) (document.getElementById('perf-rua') as HTMLInputElement).value    = end.logradouro;
-        if (end.numero)     (document.getElementById('perf-num') as HTMLInputElement).value    = end.numero;
-        if (end.bairro)     (document.getElementById('perf-bairro') as HTMLInputElement).value = end.bairro;
-        if (end.municipio)  (document.getElementById('perf-cidade') as HTMLInputElement).value = end.municipio;
-        if (end.uf)         (document.getElementById('perf-estado') as HTMLInputElement).value = end.uf;
+        if (end.cep)        document.getElementById('perf-cep').value    = _fmtCep(end.cep);
+        if (end.logradouro) document.getElementById('perf-rua').value    = end.logradouro;
+        if (end.numero)     document.getElementById('perf-num').value    = end.numero;
+        if (end.bairro)     document.getElementById('perf-bairro').value = end.bairro;
+        if (end.municipio)  document.getElementById('perf-cidade').value = end.municipio;
+        if (end.uf)         document.getElementById('perf-estado').value = end.uf;
         // Mostrar badge endereço
         const badge = document.getElementById('perf-end-badge');
         if (badge) { badge.textContent = '✓ Preenchido via ANP'; badge.style.display = 'inline-flex'; }
       }
       if (campos.bandeira) {
-        const sel = document.getElementById('perf-bandeira') as HTMLSelectElement;
+        const sel = document.getElementById('perf-bandeira');
         if (sel) {
           for (let o of sel.options) {
             if (o.value === campos.bandeira || o.text === campos.bandeira) { o.selected = true; break; }
@@ -3387,8 +3387,8 @@ async function anpAplicar() {
         }
       }
       if (d.lat && d.lng) {
-        (document.getElementById('perf-lat') as HTMLInputElement).value = d.lat;
-        (document.getElementById('perf-lng') as HTMLInputElement).value = d.lng;
+        document.getElementById('perf-lat').value = d.lat;
+        document.getElementById('perf-lng').value = d.lng;
         _perfAtualizarMapa(d.lat, d.lng, [campos.endereco?.logradouro, campos.endereco?.numero, campos.endereco?.municipio].filter(Boolean).join(', '));
       }
       if (msg) { msg.textContent = '✅ Dados ANP importados! Clique em "Salvar perfil" para confirmar.'; msg.style.color = '#2e7d32'; msg.style.display = 'block'; }
@@ -3406,7 +3406,7 @@ async function anpAplicar() {
   } catch(e) {
     if (msg) { msg.textContent = '❌ Erro de conexão.'; msg.style.color = '#d32f2f'; msg.style.display = 'block'; }
   } finally {
-    if (btn) { (btn as HTMLButtonElement).disabled = false; btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Importar dados selecionados'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Importar dados selecionados'; }
   }
 }
 
