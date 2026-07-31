@@ -4462,45 +4462,54 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   //   3. TWA segue redirect → Android resolve App Link via PackageManager
   //   4. Google Maps app abre nativamente sem passar pelo Chrome/WebView
   // ─────────────────────────────────────────────────────────────────────────
-  // Detecta se está rodando dentro de TWA (Trusted Web Activity) Android.
-  // No TWA, google.com/maps é interceptado pelo App Links e vira intent://
-  // que o WebView não consegue abrir → usa geo: URI que vai direto ao SO.
-  // No browser normal (Chrome, Safari, desktop), geo: não tem handler → usa https://.
-  // Detecta Android WebView / TWA pelo User Agent (mais confiável que referrer/standalone)
-  function _isAndroidWebView() {
-    var ua = navigator.userAgent || '';
-    return /Android/.test(ua) && (ua.indexOf('wv)') >= 0 || ua.indexOf('; wv') >= 0 || ua.indexOf('Version/') >= 0 || window.matchMedia('(display-mode: standalone)').matches || document.referrer.indexOf('android-app://') === 0);
-  }
-
+  // Abre bottom sheet com <a href> real — único método que funciona no TWA Android.
+  // No TWA, QUALQUER navegação programática (window.location, window.open, intent://, geo:)
+  // é bloqueada pelo WebView. Apenas toque manual do usuário em <a href> abre app externo.
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
-    var mapsUrl;
-
-    if (temCoords) {
-      mapsUrl = 'https://www.google.com/maps/dir/?api=1'
-        + '&destination=' + lat + ',' + lng
-        + '&travelmode=driving&dir_action=navigate';
-      if (userLat && userLng) mapsUrl += '&origin=' + userLat + ',' + userLng;
-    } else {
-      mapsUrl = 'https://www.google.com/maps/search/?api=1&query='
-        + encodeURIComponent(nome || 'posto de gasolina');
-    }
-
-    if (_isAndroidWebView() && temCoords) {
-      // Android TWA/WebView: abre Google Maps via intent:// formatado corretamente
-      // Isso bypassa o bloqueio do TWA e abre o app Maps nativo diretamente
-      var encodedUrl = encodeURIComponent(mapsUrl);
-      var intentUrl = 'intent://maps.google.com/maps/dir/?api=1'
-        + '&destination=' + lat + ',' + lng
+    var mapsUrl = temCoords
+      ? 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng
         + '&travelmode=driving&dir_action=navigate'
-        + '#Intent;scheme=https;package=com.google.android.apps.maps'
-        + ';S.browser_fallback_url=' + encodedUrl
-        + ';end';
-      window.location.href = intentUrl;
-    } else {
-      // Browser/iOS: Google Maps normalmente
-      window.open(mapsUrl, '_blank');
-    }
+        + (userLat && userLng ? '&origin=' + userLat + ',' + userLng : '')
+      : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(nome || 'posto de gasolina');
+
+    var wazeUrl = temCoords
+      ? 'https://waze.com/ul?ll=' + lat + '%2C' + lng + '&navigate=yes&zoom=17'
+      : 'https://waze.com/ul?q=' + encodeURIComponent(nome || 'posto de gasolina');
+
+    // Remove sheet anterior se existir
+    var old = document.getElementById('_nav-sheet-ext');
+    if (old) old.parentNode.removeChild(old);
+
+    var sheet = document.createElement('div');
+    sheet.id = '_nav-sheet-ext';
+    sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#fff;border-radius:20px 20px 0 0;padding:20px 16px 32px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
+    sheet.innerHTML = ''
+      + '<div style="width:40px;height:4px;background:#ddd;border-radius:4px;margin:0 auto 20px;"></div>'
+      + '<p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#222;text-align:center;">Abrir navegação em</p>'
+      + '<a href="' + mapsUrl + '" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;">'
+      +   '<img src="https://maps.gstatic.com/mapfiles/maps_lite/images/2x/ic_logo_googlemaps.png" width="40" height="40" style="border-radius:10px;" onerror="this.style.display=\'none\'">'
+      +   '<span style="font-size:16px;font-weight:600;color:#222;">Google Maps</span>'
+      +   '<span style="margin-left:auto;font-size:20px;color:#aaa;">›</span>'
+      + '</a>'
+      + '<a href="' + wazeUrl + '" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;">'
+      +   '<img src="https://www.waze.com/favicon.ico" width="40" height="40" style="border-radius:10px;" onerror="this.style.display=\'none\'">'
+      +   '<span style="font-size:16px;font-weight:600;color:#222;">Waze</span>'
+      +   '<span style="margin-left:auto;font-size:20px;color:#aaa;">›</span>'
+      + '</a>'
+      + '<button onclick="var s=document.getElementById(\'_nav-sheet-ext\');if(s)s.parentNode.removeChild(s);var o=document.getElementById(\'_nav-sheet-overlay\');if(o)o.parentNode.removeChild(o);" style="width:100%;padding:14px;margin-top:4px;background:#f0f0f0;border:none;border-radius:14px;font-size:15px;font-weight:600;color:#666;cursor:pointer;">Cancelar</button>';
+
+    var overlay = document.createElement('div');
+    overlay.id = '_nav-sheet-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.4);';
+    overlay.onclick = function() {
+      var s = document.getElementById('_nav-sheet-ext');
+      if (s) s.parentNode.removeChild(s);
+      overlay.parentNode.removeChild(overlay);
+    };
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(sheet);
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado

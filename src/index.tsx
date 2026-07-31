@@ -5171,7 +5171,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
   <div id="nav-sheet-title">Abrir com</div>
 
   <!-- Google Maps -->
-  <button class="nav-app-btn" onclick="navegarCom('google')">
+  <a id="nav-link-google" href="#" class="nav-app-btn" style="text-decoration:none">
     <div class="nav-app-icon" style="background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15);border-radius:14px;overflow:hidden">
       <svg viewBox="0 0 48 48" width="50" height="50" xmlns="http://www.w3.org/2000/svg">
         <rect width="48" height="48" rx="12" fill="#fff"/>
@@ -5187,12 +5187,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
       <div class="nav-app-desc">Rota passo a passo</div>
     </div>
     <span class="nav-app-arrow">›</span>
-  </button>
+  </a>
 
   <div class="nav-divider"></div>
 
   <!-- Waze -->
-  <button class="nav-app-btn" onclick="navegarCom('waze')">
+  <a id="nav-link-waze" href="#" class="nav-app-btn" style="text-decoration:none">
     <div class="nav-app-icon" style="background:#06CCFF;border-radius:14px;overflow:hidden">
       <svg viewBox="0 0 48 48" width="50" height="50" xmlns="http://www.w3.org/2000/svg">
         <rect width="48" height="48" rx="12" fill="#06CCFF"/>
@@ -5213,12 +5213,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
       <div class="nav-app-desc">Alertas de trânsito em tempo real</div>
     </div>
     <span class="nav-app-arrow">›</span>
-  </button>
+  </a>
 
   <div class="nav-divider"></div>
 
   <!-- Apple Maps — visível só em iOS -->
-  <button class="nav-app-btn" id="btn-apple-maps" onclick="navegarCom('apple')" style="display:none">
+  <a id="btn-apple-maps" href="#" class="nav-app-btn" style="display:none;text-decoration:none">
     <div class="nav-app-icon" style="background:linear-gradient(145deg,#3478F6,#1a56db);border-radius:14px;overflow:hidden">
       <svg viewBox="0 0 48 48" width="50" height="50" xmlns="http://www.w3.org/2000/svg">
         <rect width="48" height="48" rx="12" fill="url(#amg)"/>
@@ -5241,11 +5241,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
       <div class="nav-app-desc">Nativo do iPhone / iPad</div>
     </div>
     <span class="nav-app-arrow">›</span>
-  </button>
+  </a>
   <div class="nav-divider" id="div-apple" style="display:none"></div>
 
   <!-- Maps genérico para outros sistemas -->
-  <button class="nav-app-btn" id="btn-maps-gen" onclick="navegarCom('gen')" style="display:none">
+  <a id="btn-maps-gen" href="#" class="nav-app-btn" style="display:none;text-decoration:none">
     <div class="nav-app-icon" style="background:#34A853">
       <svg viewBox="0 0 48 48" width="50" height="50">
         <rect width="48" height="48" rx="12" fill="#34A853"/>
@@ -5257,7 +5257,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
       <div class="nav-app-desc">Abre no app padrão do celular</div>
     </div>
     <span class="nav-app-arrow">›</span>
-  </button>
+  </a>
 
   <button id="nav-sheet-cancel" onclick="fecharSeletorNav()">Cancelar</button>
 </div>
@@ -5293,10 +5293,28 @@ function abrirSeletorNav(){
     alert('Sem coordenadas do posto para navegar.');
     return;
   }
+
+  // Monta URLs e injeta nos <a href> — toque do usuário ativa App Link direto
+  var gUrl = 'https://www.google.com/maps/dir/?api=1'
+    + '&destination=' + DLAT + ',' + DLNG
+    + '&travelmode=driving&dir_action=navigate';
+  if(_userLat && _userLng) gUrl += '&origin=' + _userLat + ',' + _userLng;
+
+  var wUrl = 'https://waze.com/ul?ll=' + DLAT + '%2C' + DLNG + '&navigate=yes&zoom=17';
+  var aUrl = 'https://maps.apple.com/?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
+
+  var lg = document.getElementById('nav-link-google');
+  var lw = document.getElementById('nav-link-waze');
+  var la = document.getElementById('btn-apple-maps');
+  var lm = document.getElementById('btn-maps-gen');
+  if(lg) lg.setAttribute('href', gUrl);
+  if(lw) lw.setAttribute('href', wUrl);
+  if(la) la.setAttribute('href', aUrl);
+  if(lm) lm.setAttribute('href', gUrl);
+
   var overlay = document.getElementById('nav-sheet-overlay');
   var sheet   = document.getElementById('nav-sheet');
   overlay.style.display = 'block';
-  // força reflow antes de adicionar .open (animação)
   requestAnimationFrame(function(){
     requestAnimationFrame(function(){
       overlay.classList.add('open');
@@ -5320,57 +5338,10 @@ document.addEventListener('keydown', function(e){
   if(e.key === 'Escape' && _sheetOpen) fecharSeletorNav();
 });
 
-// ── Detecta Android WebView / TWA ────────────────────────────────────
-function _isAndroidWV(){
-  var ua = navigator.userAgent || '';
-  return /Android/.test(ua) && (
-    ua.indexOf('wv)') >= 0 ||
-    ua.indexOf('; wv') >= 0 ||
-    /Version\/[0-9]/.test(ua) ||
-    window.matchMedia('(display-mode: standalone)').matches ||
-    document.referrer.indexOf('android-app://') === 0
-  );
-}
-
-// ── Monta URL Google Maps ─────────────────────────────────────────────
-function _buildGoogleMapsUrl(lat, lng, oriLat, oriLng){
-  var url = 'https://www.google.com/maps/dir/?api=1'
-    + '&destination=' + lat + ',' + lng
-    + '&travelmode=driving&dir_action=navigate';
-  if(oriLat && oriLng) url += '&origin=' + oriLat + ',' + oriLng;
-  return url;
-}
-
-// ── Navegar com o app escolhido ───────────────────────────────────────
-function navegarCom(app){
-  fecharSeletorNav();
-  var destLat = DLAT, destLng = DLNG;
-
-  if(app === 'waze'){
-    window.open('https://waze.com/ul?ll=' + destLat + '%2C' + destLng + '&navigate=yes&zoom=17', '_blank');
-    return;
-  }
-  if(app === 'apple'){
-    window.open('https://maps.apple.com/?daddr=' + destLat + ',' + destLng + '&dirflg=d', '_blank');
-    return;
-  }
-
-  // Google Maps (padrão)
-  var mapsUrl = _buildGoogleMapsUrl(destLat, destLng, _userLat, _userLng);
-
-  if(_isAndroidWV()){
-    // Android TWA/WebView: intent:// formatado abre o Maps app nativo diretamente
-    window.location.href = 'intent://maps.google.com/maps/dir/?api=1'
-      + '&destination=' + destLat + ',' + destLng
-      + '&travelmode=driving&dir_action=navigate'
-      + '#Intent;scheme=https;package=com.google.android.apps.maps'
-      + ';S.browser_fallback_url=' + encodeURIComponent(mapsUrl)
-      + ';end';
-  } else {
-    // Browser / iOS — abre normalmente
-    window.open(mapsUrl, '_blank');
-  }
-}
+// ── navegarCom — mantido para compatibilidade mas href já está no <a> ──
+// O toque do usuário no <a href> abre o App Link diretamente no Android TWA.
+// Esta função não é mais chamada pelos botões (virou <a href>).
+function navegarCom(app){ fecharSeletorNav(); }
 
 // ── Leaflet map ──────────────────────────────────────────────────────
 var _leafMap = null;
