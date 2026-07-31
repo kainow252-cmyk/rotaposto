@@ -1104,7 +1104,7 @@ export function getPainelEmpresaHTML(): string {
     .sidebar-posto-plano { font-size:11px; color:var(--amarelo); margin-top:3px; }
     .sidebar-posto-status { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:#69F0AE; margin-top:4px; }
     .sidebar-posto-status::before { content:''; width:6px; height:6px; background:#69F0AE; border-radius:50%; }
-    .sidebar-nav { flex:1; padding:12px 0; overflow-y:auto; }
+    .sidebar-nav { flex:1; padding:12px 0; overflow-y:auto; min-height:0; }
     .nav-group-label { padding:16px 20px 6px; font-size:10px; font-weight:700; color:rgba(255,255,255,.3); letter-spacing:1px; text-transform:uppercase; }
     .nav-item { display:flex; align-items:center; gap:12px; padding:11px 20px; cursor:pointer; border-radius:0; font-size:14px; color:rgba(255,255,255,.65); transition:all .2s; position:relative; }
     .nav-item:hover { color:#fff; background:rgba(255,255,255,.06); }
@@ -1112,9 +1112,10 @@ export function getPainelEmpresaHTML(): string {
     .nav-item.ativo::before { content:''; position:absolute; left:0; inset-block:0; width:3px; background:var(--laranja); border-radius:0 2px 2px 0; }
     .nav-item i { width:18px; text-align:center; font-size:15px; }
     .nav-badge { margin-left:auto; background:var(--laranja); color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:20px; }
-    .sidebar-footer { padding:16px 20px; border-top:1px solid rgba(255,255,255,.08); }
-    .btn-sair { width:100%; padding:10px; background:rgba(255,255,255,.07); color:rgba(255,255,255,.6); border:none; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all .2s; }
-    .btn-sair:hover { background:rgba(255,255,255,.12); color:#fff; }
+    .sidebar-footer { padding:14px 20px 20px; border-top:1px solid rgba(255,255,255,.1); flex-shrink:0; }
+    .btn-sair { width:100%; padding:11px 14px; background:rgba(220,53,69,.13); color:rgba(255,100,100,.85); border:1.5px solid rgba(220,53,69,.25); border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .2s; }
+    .btn-sair:hover { background:rgba(220,53,69,.28); color:#ff6b6b; border-color:rgba(220,53,69,.5); }
+    .btn-sair i { font-size:14px; }
 
     /* ── MAIN ── */
     .main { margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; min-height:100vh; }
@@ -1596,7 +1597,9 @@ export function getPainelEmpresaHTML(): string {
       <div class="nav-item nav-item-gerente" data-page="configuracoes" onclick="irPara('configuracoes')"><i class="fas fa-cog"></i> Configurações</div>
     </nav>
     <div class="sidebar-footer">
-      <button class="btn-sair" onclick="fazerLogout()"><i class="fas fa-sign-out-alt"></i> Sair do painel</button>
+      <button class="btn-sair" onclick="confirmarLogout()">
+        <i class="fas fa-sign-out-alt"></i> Sair
+      </button>
     </div>
   </aside>
 
@@ -2448,6 +2451,27 @@ function fazerLogout() {
   localStorage.removeItem('rp_empresa_sessao');
   _sessao = null;
   window.location.replace('/parcerias/login');
+}
+
+function confirmarLogout() {
+  // Modal de confirmação inline (sem usar TypeScript nem libs externas)
+  var overlay = document.createElement('div');
+  overlay.id = 'logout-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = '<div style="background:#1E1E1E;border-radius:16px;padding:28px 28px 24px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08)">'
+    + '<div style="width:52px;height:52px;background:rgba(220,53,69,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:22px">🚪</div>'
+    + '<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px">Sair do painel?</div>'
+    + '<div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:24px;line-height:1.5">Você será redirecionado para a tela de login.</div>'
+    + '<div style="display:flex;gap:10px">'
+    + '<button onclick="document.getElementById(\'logout-overlay\').remove()" style="flex:1;padding:11px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>'
+    + '<button onclick="fazerLogout()" style="flex:1;padding:11px;background:rgba(220,53,69,.85);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Sair</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  // Fechar clicando fora do card
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
 }
 
 function abrirRecuperarSenha() { alert('Em breve. Entre em contato pelo WhatsApp do RotaPosto.'); }
