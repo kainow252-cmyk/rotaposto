@@ -4484,20 +4484,53 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var sheet = document.createElement('div');
     sheet.id = '_nav-sheet-ext';
     sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#fff;border-radius:20px 20px 0 0;padding:20px 16px 32px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
-    sheet.innerHTML = ''
-      + '<div style="width:40px;height:4px;background:#ddd;border-radius:4px;margin:0 auto 20px;"></div>'
-      + '<p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#222;text-align:center;">Abrir navegação em</p>'
-      + '<a href="' + mapsUrl + '" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;">'
-      +   '<img src="https://maps.gstatic.com/mapfiles/maps_lite/images/2x/ic_logo_googlemaps.png" width="40" height="40" style="border-radius:10px;" onerror="this.style.display=\"none\"">'
-      +   '<span style="font-size:16px;font-weight:600;color:#222;">Google Maps</span>'
-      +   '<span style="margin-left:auto;font-size:20px;color:#aaa;">›</span>'
-      + '</a>'
-      + '<a href="' + wazeUrl + '" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;">'
-      +   '<img src="https://www.waze.com/favicon.ico" width="40" height="40" style="border-radius:10px;" onerror="this.style.display=\"none\"">'
-      +   '<span style="font-size:16px;font-weight:600;color:#222;">Waze</span>'
-      +   '<span style="margin-left:auto;font-size:20px;color:#aaa;">›</span>'
-      + '</a>'
-      + '<button onclick="var s=document.getElementById(\\x27_nav-sheet-ext\\x27);if(s)s.parentNode.removeChild(s);var o=document.getElementById(\\x27_nav-sheet-overlay\\x27);if(o)o.parentNode.removeChild(o);" style="width:100%;padding:14px;margin-top:4px;background:#f0f0f0;border:none;border-radius:14px;font-size:15px;font-weight:600;color:#666;cursor:pointer;">Cancelar</button>';
+    // SVG Google Maps pin (vermelho/branco) — inline, sem dependência externa
+    var svgGoogleMaps = '<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="border-radius:10px;flex-shrink:0;">'
+      + '<rect width="40" height="40" fill="#fff" rx="10"/>'
+      + '<path d="M20 6C15.03 6 11 10.03 11 15c0 7 9 19 9 19s9-12 9-19c0-4.97-4.03-9-9-9z" fill="#EA4335"/>'
+      + '<circle cx="20" cy="15" r="4" fill="#fff"/>'
+      + '</svg>';
+
+    // SVG Waze mascote (círculo azul com face sorridente) — inline, sem dependência externa
+    var svgWaze = '<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="border-radius:10px;flex-shrink:0;">'
+      + '<rect width="40" height="40" fill="#fff" rx="10"/>'
+      + '<circle cx="20" cy="20" r="14" fill="#33CCFF"/>'
+      + '<circle cx="16" cy="17" r="2.5" fill="#1a1a2e"/>'
+      + '<circle cx="24" cy="17" r="2.5" fill="#1a1a2e"/>'
+      + '<path d="M15 24 Q20 29 25 24" stroke="#1a1a2e" stroke-width="2" fill="none" stroke-linecap="round"/>'
+      + '<circle cx="27" cy="13" r="3" fill="#FFD700"/>'
+      + '</svg>';
+
+    // Monta o link Google Maps e Waze via createElement para evitar QUALQUER problema de escaping
+    var linkGmaps = document.createElement('a');
+    linkGmaps.href = mapsUrl;
+    linkGmaps.style.cssText = 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;';
+    linkGmaps.innerHTML = svgGoogleMaps
+      + '<span style="font-size:16px;font-weight:600;color:#222;">Google Maps</span>'
+      + '<span style="margin-left:auto;font-size:20px;color:#aaa;">&#8250;</span>';
+
+    var linkWaze = document.createElement('a');
+    linkWaze.href = wazeUrl;
+    linkWaze.style.cssText = 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;';
+    linkWaze.innerHTML = svgWaze
+      + '<span style="font-size:16px;font-weight:600;color:#222;">Waze</span>'
+      + '<span style="margin-left:auto;font-size:20px;color:#aaa;">&#8250;</span>';
+
+    var btnCancelar = document.createElement('button');
+    btnCancelar.style.cssText = 'width:100%;padding:14px;margin-top:4px;background:#f0f0f0;border:none;border-radius:14px;font-size:15px;font-weight:600;color:#666;cursor:pointer;';
+    btnCancelar.textContent = 'Cancelar';
+    btnCancelar.onclick = function() {
+      var s = document.getElementById('_nav-sheet-ext');
+      if (s) s.parentNode.removeChild(s);
+      var o = document.getElementById('_nav-sheet-overlay');
+      if (o) o.parentNode.removeChild(o);
+    };
+
+    sheet.innerHTML = '<div style="width:40px;height:4px;background:#ddd;border-radius:4px;margin:0 auto 20px;"></div>'
+      + '<p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#222;text-align:center;">Abrir navegação em</p>';
+    sheet.appendChild(linkGmaps);
+    sheet.appendChild(linkWaze);
+    sheet.appendChild(btnCancelar);
 
     var overlay = document.createElement('div');
     overlay.id = '_nav-sheet-overlay';
