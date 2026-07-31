@@ -3140,7 +3140,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
       const fotoUrl = p.fotoGoogle || p.fotoUrl || '';
       const fotoHtml = fotoUrl
-        ? '<img class="mp-foto" src="' + fotoUrl + '" alt="' + p.nome + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">'
+        ? '<img class="mp-foto" src="' + fotoUrl + '" alt="' + p.nome + '" onerror="this.style.display=&apos;none&apos;;this.nextSibling.style.display=&apos;flex&apos;">'
           + '<div class="mp-foto-placeholder" style="display:none">⛽</div>'
         : '<div class="mp-foto-placeholder">⛽</div>';
 
