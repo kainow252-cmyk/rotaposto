@@ -7928,9 +7928,29 @@ app.get('/app_old', (c) => {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ═══ STATE ════════════════════════════════════════════════════════════════════
+// Lê última posição ANTES de qualquer coisa — evita flash de localização padrão
+(function _preencherUltimaPosicao() {
+  try {
+    var _lastLat = parseFloat(localStorage.getItem('rp_last_lat') || '');
+    var _lastLng = parseFloat(localStorage.getItem('rp_last_lng') || '');
+    var _lastZoom = parseInt(localStorage.getItem('rp_last_zoom') || '14', 10);
+    if (!isNaN(_lastLat) && !isNaN(_lastLng)) {
+      window._RP_INIT_LAT  = _lastLat;
+      window._RP_INIT_LNG  = _lastLng;
+      window._RP_INIT_ZOOM = isNaN(_lastZoom) ? 14 : Math.min(Math.max(_lastZoom, 10), 18);
+      window._RP_TEM_ULTIMA = true;
+      return;
+    }
+  } catch {}
+  window._RP_INIT_LAT  = -23.5505;  // São Paulo — só usado se NUNCA abriu o app antes
+  window._RP_INIT_LNG  = -46.6333;
+  window._RP_INIT_ZOOM = 12;
+  window._RP_TEM_ULTIMA = false;
+})();
+
 const state = {
-  lat: -23.5505,
-  lng: -46.6333,
+  lat: window._RP_INIT_LAT,
+  lng: window._RP_INIT_LNG,
   combustivel: 'gasolina',
   postos: [],
   postosOrdenados: [], // lista ordenada atual — usada por abrirModalPostoIdx (evita bug de IDs duplicados)
@@ -8043,6 +8063,11 @@ function usarLocalizacao() {
                  || Math.abs(pos.coords.longitude - state.lng) > 0.001;
       state.lat = pos.coords.latitude;
       state.lng = pos.coords.longitude;
+      // Persiste imediatamente — próxima abertura do app abre aqui
+      try {
+        localStorage.setItem('rp_last_lat', String(state.lat));
+        localStorage.setItem('rp_last_lng', String(state.lng));
+      } catch {}
       if (state.map) state.map.setView([state.lat, state.lng], 14);
       if (mudou) {
         // Limpa nome salvo — agora é GPS, não busca manual
@@ -8356,15 +8381,23 @@ function gerarEmptyState() {
 // ═══ MAPA ════════════════════════════════════════════════════════════════════
 function iniciarMapa() {
   if (state.map) return;
+  // Usa última visualização salva (zoom + centro) — sem flash de localização padrão
+  var initZoom = window._RP_INIT_ZOOM || 14;
   state.map = L.map('map', {
     center: [state.lat, state.lng],
-    zoom: 13,
+    zoom: initZoom,
     zoomControl: true
   });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap',
     maxZoom: 19
   }).addTo(state.map);
+  // Persiste apenas o ZOOM a cada movimento — centro é salvo via GPS/busca
+  state.map.on('zoomend', function() {
+    try {
+      localStorage.setItem('rp_last_zoom', String(state.map.getZoom()));
+    } catch {}
+  });
 }
 
 function atualizarMapa() {
