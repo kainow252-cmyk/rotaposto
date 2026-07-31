@@ -1024,7 +1024,7 @@ export function getPainelEmpresaHTML(): string {
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
-  <meta name="painel-version" content="20260730-mobile-app"/>
+  <meta name="painel-version" content="20260731-anp-fix"/>
   <title>RotaPosto Empresas — Painel do Gerente</title>
   <script>
     // Força reload se versão do painel mudou (quebra cache do browser e SW)
