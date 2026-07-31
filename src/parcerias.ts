@@ -4337,7 +4337,7 @@ export function getPainelLoginHTML(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Login — RotaPosto Empresas</title>
   <link rel="manifest" href="/parcerias/manifest.json"/>
-  <meta name="theme-color" content="#FF6D00"/>
+  <meta name="theme-color" content="#E65100"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -4349,134 +4349,312 @@ export function getPainelLoginHTML(): string {
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    html,body{width:100%;height:100%;overflow:hidden}
-    body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#FF6D00 0%,#BF360C 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
-
-    /* ── LOGO TOPO ── */
-    .login-logo-area{text-align:center;margin-bottom:28px}
-    .login-logo-icon{
-      width:60px;height:60px;background:#fff;border-radius:16px;
-      display:inline-flex;align-items:center;justify-content:center;
-      font-size:28px;margin-bottom:10px;
-      box-shadow:0 8px 24px rgba(0,0,0,.2)
+    html{height:100%}
+    body{
+      font-family:'Inter',sans-serif;
+      min-height:100%;min-height:100dvh;
+      background:#E65100;
+      display:flex;flex-direction:column;
+      align-items:center;justify-content:flex-start;
+      overflow-x:hidden;overflow-y:auto;
+      padding:0;
     }
-    .login-logo-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.5px}
-    .login-logo-sub{font-size:13px;color:rgba(255,255,255,.75);margin-top:3px}
 
-    /* ── CARD ── */
+    /* ── FUNDO COM PADRÃO GEOMÉTRICO ── */
+    .login-bg{
+      position:fixed;inset:0;z-index:0;
+      background:linear-gradient(160deg,#FF6D00 0%,#E65100 45%,#BF360C 100%);
+      overflow:hidden;
+    }
+    .login-bg::before{
+      content:'';position:absolute;
+      width:320px;height:320px;border-radius:50%;
+      background:rgba(255,255,255,.07);
+      top:-80px;right:-80px;
+    }
+    .login-bg::after{
+      content:'';position:absolute;
+      width:220px;height:220px;border-radius:50%;
+      background:rgba(255,255,255,.05);
+      bottom:80px;left:-60px;
+    }
+    .bg-circle3{
+      position:absolute;width:140px;height:140px;border-radius:50%;
+      background:rgba(0,0,0,.08);
+      bottom:-40px;right:30px;
+    }
+    .bg-stripe{
+      position:absolute;
+      width:200%;height:2px;
+      background:rgba(255,255,255,.06);
+      transform:rotate(-18deg);
+      top:38%;left:-50%;
+    }
+
+    /* ── WRAPPER ── */
+    .login-wrapper{
+      position:relative;z-index:1;
+      width:100%;max-width:420px;
+      display:flex;flex-direction:column;
+      align-items:center;
+      padding:56px 20px 32px;
+      min-height:100dvh;
+    }
+
+    /* ── LOGO CENTRALIZADA ── */
+    .login-logo-area{
+      text-align:center;
+      display:flex;flex-direction:column;
+      align-items:center;
+      margin-bottom:32px;
+    }
+    .login-logo-img-wrap{
+      width:96px;height:96px;
+      border-radius:24px;
+      background:#fff;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 12px 40px rgba(0,0,0,.28),0 0 0 4px rgba(255,255,255,.18);
+      margin-bottom:16px;
+      overflow:hidden;
+      flex-shrink:0;
+    }
+    .login-logo-img-wrap img{
+      width:100%;height:100%;
+      object-fit:cover;
+      border-radius:24px;
+    }
+    .login-logo-title{
+      font-size:26px;font-weight:900;
+      color:#fff;letter-spacing:-.5px;
+      line-height:1.1;
+    }
+    .login-logo-title span{
+      color:rgba(255,255,255,.75);
+      font-weight:700;
+    }
+    .login-logo-badge{
+      margin-top:8px;
+      display:inline-flex;align-items:center;gap:5px;
+      background:rgba(255,255,255,.15);
+      border:1px solid rgba(255,255,255,.25);
+      border-radius:50px;
+      padding:4px 12px;
+      font-size:12px;font-weight:600;
+      color:rgba(255,255,255,.9);
+      backdrop-filter:blur(6px);
+    }
+
+    /* ── CARD PRINCIPAL ── */
     .login-card{
-      background:#fff;border-radius:20px;
-      padding:32px 28px;width:100%;max-width:380px;
-      box-shadow:0 20px 60px rgba(0,0,0,.25)
+      background:#fff;
+      border-radius:28px;
+      padding:32px 28px 28px;
+      width:100%;
+      box-shadow:0 24px 64px rgba(0,0,0,.22),0 8px 24px rgba(0,0,0,.12);
+      margin-bottom:0;
     }
-    .card-title{font-size:18px;font-weight:800;color:#1A1A1A;margin-bottom:4px}
-    .card-sub{font-size:13px;color:#616161;margin-bottom:24px}
-
-    /* ── INPUTS ── */
-    .fg{margin-bottom:16px}
-    .fl{display:block;font-size:11px;font-weight:700;color:#616161;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
-    .fi{
-      width:100%;padding:13px 14px;
-      border:1.5px solid #E0E0E0;border-radius:12px;
-      font-size:15px;font-family:'Inter',sans-serif;
-      color:#1A1A1A;outline:none;
-      transition:border-color .2s;background:#fff
+    .card-title{
+      font-size:20px;font-weight:800;
+      color:#1A1A1A;margin-bottom:4px;
+      letter-spacing:-.3px;
     }
-    .fi:focus{border-color:#FF6D00}
-    .fi::placeholder{color:#BDBDBD}
-
-    /* ── BOTÃO ── */
-    .btn-login{
-      width:100%;padding:15px;
-      background:#FF6D00;color:#fff;
-      border:none;border-radius:12px;
-      font-size:16px;font-weight:700;
-      cursor:pointer;font-family:'Inter',sans-serif;
-      transition:background .2s;display:flex;
-      align-items:center;justify-content:center;gap:8px
+    .card-sub{
+      font-size:13px;color:#757575;
+      margin-bottom:26px;line-height:1.5;
     }
-    .btn-login:hover{background:#E65100}
-    .btn-login:disabled{opacity:.7;cursor:not-allowed}
 
     /* ── ERRO ── */
     .login-erro{
       background:#FFEBEE;color:#C62828;
-      border-radius:10px;padding:10px 14px;
-      font-size:13px;margin-bottom:16px;
-      display:none;font-weight:600
+      border-radius:12px;padding:11px 14px;
+      font-size:13px;font-weight:600;
+      margin-bottom:16px;display:none;
+      border-left:3px solid #EF5350;
     }
 
-    /* ── LINKS ── */
-    .login-links{margin-top:20px;display:flex;flex-direction:column;gap:10px;text-align:center}
-    .login-links a{font-size:13px;color:#FF6D00;font-weight:600;text-decoration:none}
-    .login-links a:hover{text-decoration:underline}
-    .sep{font-size:12px;color:#BDBDBD}
+    /* ── INPUTS COM ÍCONE ── */
+    .fg{ margin-bottom:18px }
+    .fl{
+      display:block;font-size:11px;font-weight:700;
+      color:#9E9E9E;margin-bottom:7px;
+      text-transform:uppercase;letter-spacing:.6px;
+    }
+    .fi-wrap{
+      position:relative;display:flex;align-items:center;
+    }
+    .fi-ico{
+      position:absolute;left:14px;
+      color:#BDBDBD;font-size:15px;
+      pointer-events:none;
+      transition:color .2s;
+    }
+    .fi{
+      width:100%;
+      padding:14px 14px 14px 42px;
+      border:1.5px solid #EEEEEE;
+      border-radius:14px;
+      font-size:15px;font-family:'Inter',sans-serif;
+      color:#1A1A1A;outline:none;
+      background:#FAFAFA;
+      transition:border-color .2s,background .2s,box-shadow .2s;
+    }
+    .fi:focus{
+      border-color:#FF6D00;
+      background:#fff;
+      box-shadow:0 0 0 3px rgba(255,109,0,.1);
+    }
+    .fi:focus + .fi-ico-right,
+    .fi-wrap:focus-within .fi-ico{ color:#FF6D00 }
+    .fi::placeholder{ color:#C8C8C8 }
 
+    /* Toggle ver senha */
+    .fi-senha{ padding-right:44px }
+    .btn-toggle-senha{
+      position:absolute;right:12px;
+      background:none;border:none;
+      cursor:pointer;color:#BDBDBD;
+      font-size:15px;padding:4px;
+      transition:color .2s;
+    }
+    .btn-toggle-senha:hover{ color:#FF6D00 }
 
+    /* ── BOTÃO ENTRAR ── */
+    .btn-login{
+      width:100%;padding:16px;
+      background:linear-gradient(135deg,#FF6D00 0%,#E65100 100%);
+      color:#fff;border:none;border-radius:14px;
+      font-size:16px;font-weight:800;letter-spacing:.2px;
+      cursor:pointer;font-family:'Inter',sans-serif;
+      transition:opacity .2s,transform .1s,box-shadow .2s;
+      display:flex;align-items:center;justify-content:center;gap:9px;
+      box-shadow:0 6px 20px rgba(230,81,0,.4);
+      margin-top:4px;
+    }
+    .btn-login:hover{ opacity:.92;box-shadow:0 8px 28px rgba(230,81,0,.5) }
+    .btn-login:active{ transform:scale(.98) }
+    .btn-login:disabled{ opacity:.65;cursor:not-allowed;transform:none }
+
+    /* ── LINK ESQUECI SENHA ── */
+    .login-forgot{
+      text-align:center;margin-top:18px;
+    }
+    .login-forgot a{
+      font-size:13px;font-weight:600;
+      color:#FF6D00;text-decoration:none;
+    }
+    .login-forgot a:hover{ text-decoration:underline }
+
+    /* ── FOOTER FORA DO CARD ── */
+    .login-footer{
+      width:100%;text-align:center;
+      margin-top:24px;
+      padding-bottom:max(24px, env(safe-area-inset-bottom));
+    }
+    .login-footer-sep{
+      display:flex;align-items:center;gap:10px;
+      margin-bottom:16px;
+    }
+    .login-footer-sep::before,
+    .login-footer-sep::after{
+      content:'';flex:1;
+      height:1px;background:rgba(255,255,255,.2);
+    }
+    .login-footer-sep span{
+      font-size:11px;font-weight:600;
+      color:rgba(255,255,255,.5);
+      white-space:nowrap;
+    }
+    .login-footer a{
+      display:inline-flex;align-items:center;gap:6px;
+      font-size:13px;font-weight:700;
+      color:#fff;text-decoration:none;
+      background:rgba(255,255,255,.15);
+      border:1.5px solid rgba(255,255,255,.3);
+      border-radius:50px;
+      padding:10px 20px;
+      backdrop-filter:blur(4px);
+      transition:background .2s,border-color .2s;
+    }
+    .login-footer a:hover{
+      background:rgba(255,255,255,.22);
+      border-color:rgba(255,255,255,.5);
+    }
 
     /* ── BANNER INSTALAR APP ── */
     .install-banner{
       position:fixed;bottom:0;left:0;right:0;z-index:999;
       background:#1A1A1A;color:#fff;
       padding:14px 16px;
-      display:none;
-      align-items:center;gap:12px;
+      display:none;align-items:center;gap:12px;
       box-shadow:0 -4px 24px rgba(0,0,0,.35);
-      border-top:2px solid var(--laranja, #FF6D00);
+      border-top:2px solid #FF6D00;
+      padding-bottom:max(14px, env(safe-area-inset-bottom));
     }
-    .install-banner.visivel{display:flex}
+    .install-banner.visivel{ display:flex }
     .install-banner-logo{
       width:46px;height:46px;border-radius:12px;
       background:#FF6D00;display:flex;align-items:center;
-      justify-content:center;font-size:22px;flex-shrink:0;
-      overflow:hidden;
+      justify-content:center;font-size:22px;flex-shrink:0;overflow:hidden;
     }
-    .install-banner-logo img{width:100%;height:100%;object-fit:cover;border-radius:12px;}
-    .install-banner-info{flex:1;min-width:0}
-    .install-banner-titulo{font-size:14px;font-weight:800;margin-bottom:2px}
-    .install-banner-sub{font-size:11px;color:rgba(255,255,255,.6);line-height:1.4}
-    .install-banner-btns{display:flex;gap:8px;flex-shrink:0}
+    .install-banner-logo img{ width:100%;height:100%;object-fit:cover;border-radius:12px }
+    .install-banner-info{ flex:1;min-width:0 }
+    .install-banner-titulo{ font-size:14px;font-weight:800;margin-bottom:2px }
+    .install-banner-sub{ font-size:11px;color:rgba(255,255,255,.6);line-height:1.4 }
+    .install-banner-btns{ display:flex;gap:8px;flex-shrink:0 }
     .btn-instalar{
       padding:9px 16px;background:#FF6D00;color:#fff;
       border:none;border-radius:10px;font-size:13px;
-      font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;
-      white-space:nowrap;
+      font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;
     }
     .btn-instalar-fechar{
-      padding:9px 10px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);
-      border:none;border-radius:10px;font-size:13px;cursor:pointer;
+      padding:9px 10px;background:rgba(255,255,255,.1);
+      color:rgba(255,255,255,.7);border:none;border-radius:10px;
+      font-size:13px;cursor:pointer;
     }
 
-    /* iOS instruction overlay */
+    /* iOS overlay */
     .ios-install-overlay{
       display:none;position:fixed;inset:0;z-index:1000;
       background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;
-      padding-bottom:0;
     }
-    .ios-install-overlay.visivel{display:flex}
+    .ios-install-overlay.visivel{ display:flex }
     .ios-install-card{
       background:#1C1C2E;border-radius:20px 20px 0 0;
       padding:24px 20px 40px;width:100%;max-width:460px;
       color:#fff;text-align:center;
     }
-    .ios-install-card h3{font-size:17px;font-weight:800;margin-bottom:8px}
-    .ios-install-card p{font-size:13px;color:rgba(255,255,255,.7);line-height:1.6;margin-bottom:20px}
-    .ios-steps{display:flex;flex-direction:column;gap:14px;text-align:left;margin-bottom:20px}
-    .ios-step{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border-radius:12px;padding:12px 14px}
-    .ios-step-ico{font-size:22px;flex-shrink:0}
-    .ios-step-txt{font-size:13px;line-height:1.4}
-    .ios-step-txt strong{color:#FF6D00}
-    .ios-close{width:100%;padding:13px;background:rgba(255,255,255,.1);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer}
+    .ios-install-card h3{ font-size:17px;font-weight:800;margin-bottom:8px }
+    .ios-install-card p{ font-size:13px;color:rgba(255,255,255,.7);line-height:1.6;margin-bottom:20px }
+    .ios-steps{ display:flex;flex-direction:column;gap:14px;text-align:left;margin-bottom:20px }
+    .ios-step{ display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border-radius:12px;padding:12px 14px }
+    .ios-step-ico{ font-size:22px;flex-shrink:0 }
+    .ios-step-txt{ font-size:13px;line-height:1.4 }
+    .ios-step-txt strong{ color:#FF6D00 }
+    .ios-close{ width:100%;padding:13px;background:rgba(255,255,255,.1);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer }
 
-    @media(max-width:420px){
-      .login-card{padding:24px 20px;border-radius:16px}
-      .login-logo-icon{width:52px;height:52px;font-size:24px}
-      .login-logo-title{font-size:20px}
-      body{padding:12px;align-items:flex-start;padding-top:70px;overflow-y:auto;overflow-x:hidden;padding-bottom:90px}
+    /* ── RESPONSIVE ── */
+    @media(max-width:400px){
+      .login-wrapper{ padding:44px 16px 28px }
+      .login-logo-img-wrap{ width:82px;height:82px;border-radius:20px }
+      .login-logo-title{ font-size:22px }
+      .login-card{ padding:26px 20px 22px;border-radius:22px }
+    }
+    @media(max-height:680px){
+      .login-wrapper{ padding-top:28px }
+      .login-logo-area{ margin-bottom:20px }
+      .login-logo-img-wrap{ width:72px;height:72px }
+      .login-logo-title{ font-size:20px }
+      .login-logo-badge{ display:none }
     }
   </style>
 </head>
 <body>
+
+<!-- Fundo geométrico -->
+<div class="login-bg">
+  <div class="bg-circle3"></div>
+  <div class="bg-stripe"></div>
+</div>
 
 <!-- ── BANNER INSTALAR APP ── -->
 <div class="install-banner" id="install-banner">
@@ -4518,100 +4696,139 @@ export function getPainelLoginHTML(): string {
   </div>
 </div>
 
+<!-- ── CONTEÚDO PRINCIPAL ── -->
+<div class="login-wrapper">
 
-
-<div class="login-logo-area">
-  <div class="login-logo-icon" style="padding:0;overflow:hidden">
-    <img src="/icons-empresas/logo-empresas.png" alt="RotaPosto Empresas"
-      style="width:100%;height:100%;object-fit:cover;border-radius:16px"
-      onerror="this.style.display='none';this.parentNode.innerHTML='⛽'">
+  <!-- LOGO CENTRALIZADA GRANDE -->
+  <div class="login-logo-area">
+    <div class="login-logo-img-wrap">
+      <img src="/icons-empresas/logo-empresas.png" alt="RotaPosto Empresas"
+        onerror="this.style.display=&apos;none&apos;;this.parentNode.innerHTML=&apos;⛽&apos;">
+    </div>
+    <div class="login-logo-title">RotaPosto <span>Empresas</span></div>
+    <div class="login-logo-badge">
+      <i class="fas fa-gas-pump"></i> Painel do Gerente de Posto
+    </div>
+    <!-- Botão instalar visível se PWA disponível -->
+    <div id="btn-instalar-area" style="margin-top:14px;display:none">
+      <button onclick="instalarApp()" style="padding:9px 18px;background:rgba(255,255,255,0.18);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:50px;font-size:12px;font-weight:700;cursor:pointer;font-family:&apos;Inter&apos;,sans-serif;display:inline-flex;align-items:center;gap:7px;backdrop-filter:blur(4px)">
+        <i class="fas fa-download"></i> Instalar App Gratuito
+      </button>
+    </div>
   </div>
-  <div class="login-logo-title">RotaPosto <span style="color:rgba(255,255,255,.8)">Empresas</span></div>
-  <div class="login-logo-sub">Painel do Gerente de Posto</div>
-  <!-- Botão instalar app (visível antes do banner aparecer) -->
-  <div id="btn-instalar-area" style="margin-top:14px;display:none">
-    <button onclick="instalarApp()" style="padding:10px 20px;background:rgba(255,255,255,0.2);color:#fff;border:2px solid rgba(255,255,255,0.5);border-radius:50px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:8px;backdrop-filter:blur(4px)">
-      <i class="fas fa-download"></i> Instalar App Gratuito
+
+  <!-- CARD LOGIN -->
+  <div class="login-card">
+    <div class="card-title">Entrar no painel</div>
+    <div class="card-sub">Acesse com seu e-mail e senha cadastrados.</div>
+
+    <div class="login-erro" id="login-erro"></div>
+
+    <!-- E-mail -->
+    <div class="fg">
+      <label class="fl" for="login-email">E-mail</label>
+      <div class="fi-wrap">
+        <i class="fas fa-envelope fi-ico"></i>
+        <input id="login-email" class="fi" type="email"
+          placeholder="seu@email.com" autocomplete="email"/>
+      </div>
+    </div>
+
+    <!-- Senha com toggle -->
+    <div class="fg">
+      <label class="fl" for="login-senha">Senha</label>
+      <div class="fi-wrap">
+        <i class="fas fa-lock fi-ico"></i>
+        <input id="login-senha" class="fi fi-senha" type="password"
+          placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key===&apos;Enter&apos;)fazerLogin()"/>
+        <button class="btn-toggle-senha" type="button" id="btn-toggle-senha"
+          onclick="toggleSenha()" title="Ver senha">
+          <i class="fas fa-eye" id="ico-senha"></i>
+        </button>
+      </div>
+    </div>
+
+    <button class="btn-login" id="btn-login" onclick="fazerLogin()">
+      <i class="fas fa-sign-in-alt"></i> Entrar no painel
     </button>
-  </div>
-</div>
 
-<div class="login-card">
-  <div class="card-title">Entrar no painel</div>
-  <div class="card-sub">Acesse com seu e-mail e senha cadastrados.</div>
-
-  <div class="login-erro" id="login-erro"></div>
-
-  <div class="fg">
-    <label class="fl" for="login-email">E-mail</label>
-    <input id="login-email" class="fi" type="email"
-      placeholder="seu@email.com" autocomplete="email"/>
-  </div>
-  <div class="fg">
-    <label class="fl" for="login-senha">Senha</label>
-    <input id="login-senha" class="fi" type="password"
-      placeholder="••••••••" autocomplete="current-password"
-      onkeydown="if(event.key==='Enter')fazerLogin()"/>
+    <div class="login-forgot">
+      <a href="#" onclick="event.preventDefault();esqueceuSenha()">
+        Esqueci minha senha
+      </a>
+    </div>
   </div>
 
-  <button class="btn-login" id="btn-login" onclick="fazerLogin()">
-    <i class="fas fa-sign-in-alt"></i> Entrar no painel
-  </button>
-
-  <div class="login-links">
-    <a href="#" onclick="event.preventDefault();esqueceuSenha()">Esqueci minha senha</a>
-    <span class="sep">─────────────────</span>
-    <a href="/parcerias#cadastro" id="link-cadastro">Ainda não tem conta? Cadastrar meu posto →</a>
+  <!-- FOOTER FORA DO CARD -->
+  <div class="login-footer">
+    <div class="login-footer-sep">
+      <span>Não tem conta?</span>
+    </div>
+    <a href="/parcerias#cadastro" id="link-cadastro">
+      <i class="fas fa-store"></i> Cadastrar meu posto →
+    </a>
   </div>
-</div>
+
+</div><!-- /login-wrapper -->
 
 <script>
-// Detectar app Android/TWA e ajustar link de cadastro para /app/cadastrar-posto
+// ── TOGGLE SENHA ──
+function toggleSenha() {
+  var inp = document.getElementById('login-senha');
+  var ico = document.getElementById('ico-senha');
+  if (!inp) return;
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    ico.className = 'fas fa-eye-slash';
+  } else {
+    inp.type = 'password';
+    ico.className = 'fas fa-eye';
+  }
+}
+
+// ── DETECTAR TWA E AJUSTAR LINK CADASTRO ──
 (function(){
   var ua = navigator.userAgent || '';
   var ref = document.referrer || '';
-  // TWA: referrer começa com android-app:// ou userAgent tem wv (WebView)
   var isTWA = ref.indexOf('android-app://') === 0
     || ua.indexOf('wv') > -1
     || ua.indexOf('WebView') > -1;
-  // Standalone = instalado como PWA ou TWA (não browser normal)
   var isStandalone = window.matchMedia('(display-mode: standalone)').matches
     || window.navigator.standalone === true;
   var isAndroid = /Android/i.test(ua);
-
-  if(isTWA || (isAndroid && isStandalone)){
+  if (isTWA || (isAndroid && isStandalone)) {
     var el = document.getElementById('link-cadastro');
-    if(el){
+    if (el) {
       el.href = '/app/cadastrar-posto';
-      el.textContent = 'Ainda não tem conta? Cadastrar meu posto →';
     }
   }
 })();
 
-// Redirecionar direto ao painel se já está logado
-window.addEventListener('load', () => {
+// ── REDIRECIONAR SE JÁ LOGADO ──
+window.addEventListener('load', function() {
   try {
-    const s = localStorage.getItem('rp_empresa_sessao');
+    var s = localStorage.getItem('rp_empresa_sessao');
     if (s) {
-      const sessao = JSON.parse(s);
+      var sessao = JSON.parse(s);
       if (sessao && sessao.token) {
         window.location.replace('/parcerias/empresa');
         return;
       }
     }
   } catch(e) {}
-  // Focar no campo de e-mail
-  setTimeout(() => {
-    const el = document.getElementById('login-email');
+  setTimeout(function() {
+    var el = document.getElementById('login-email');
     if (el) el.focus();
-  }, 100);
+  }, 120);
 });
 
+// ── LOGIN ──
 async function fazerLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const senha = document.getElementById('login-senha').value;
-  const erro  = document.getElementById('login-erro');
-  const btn   = document.getElementById('btn-login');
+  var email = document.getElementById('login-email').value.trim();
+  var senha = document.getElementById('login-senha').value;
+  var erro  = document.getElementById('login-erro');
+  var btn   = document.getElementById('btn-login');
   erro.style.display = 'none';
 
   if (!email || !senha) {
@@ -4624,15 +4841,14 @@ async function fazerLogin() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
 
   try {
-    const r = await fetch('/api/parceiros/login', {
+    var r = await fetch('/api/parceiros/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, senha })
+      body: JSON.stringify({ email: email, senha: senha })
     });
-    const d = await r.json();
+    var d = await r.json();
     if (d.sucesso) {
       localStorage.setItem('rp_empresa_sessao', JSON.stringify(d.sessao));
-      // Redirecionar para o painel após login bem-sucedido
       window.location.replace('/parcerias/empresa');
     } else {
       erro.textContent = d.mensagem || 'E-mail ou senha incorretos.';
@@ -4652,7 +4868,7 @@ function esqueceuSenha() {
   alert('Em breve. Entre em contato pelo WhatsApp do RotaPosto.');
 }
 
-// ── PWA INSTALL ──────────────────────────────────────────────────
+// ── PWA INSTALL ──
 var _deferredPrompt = null;
 var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 var _isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -4660,47 +4876,38 @@ var _jaInstalado = window.matchMedia('(display-mode: standalone)').matches
   || window.navigator.standalone === true;
 
 function _mostrarBannerInstalar() {
-  if (_jaInstalado) return; // já está instalado
-  // Botão no logo — sempre mostra (independente de ter fechado o banner)
+  if (_jaInstalado) return;
   var btnArea = document.getElementById('btn-instalar-area');
   if (btnArea) btnArea.style.display = 'block';
-  // Banner inferior — respeita o "fechei"
   var k = 'rp_install_banner_fechado';
   try { if (localStorage.getItem(k)) return; } catch {}
   var banner = document.getElementById('install-banner');
   if (banner) banner.classList.add('visivel');
 }
 
-// Android/Chrome: captura o evento nativo
 window.addEventListener('beforeinstallprompt', function(e) {
   e.preventDefault();
   _deferredPrompt = e;
   _mostrarBannerInstalar();
 });
 
-// iOS Safari: mostra instruções
 if (_isIOS && _isSafari && !_jaInstalado) {
   setTimeout(_mostrarBannerInstalar, 1500);
 }
 
 function instalarApp() {
   if (_deferredPrompt) {
-    // Android/Chrome — prompt nativo
     _deferredPrompt.prompt();
     _deferredPrompt.userChoice.then(function(r) {
-      if (r.outcome === 'accepted') {
-        fecharBannerInstalar();
-      }
+      if (r.outcome === 'accepted') fecharBannerInstalar();
       _deferredPrompt = null;
     });
   } else if (_isIOS) {
-    // iOS — mostrar instruções
     var banner = document.getElementById('install-banner');
     if (banner) banner.classList.remove('visivel');
     var overlay = document.getElementById('ios-install-overlay');
     if (overlay) overlay.classList.add('visivel');
   } else {
-    // Fallback: abrir em nova aba como PWA
     window.open(window.location.href, '_blank');
   }
 }
@@ -4717,7 +4924,6 @@ function fecharIosOverlay() {
   try { localStorage.setItem('rp_install_banner_fechado', '1'); } catch {}
 }
 
-// Detectar quando foi instalado
 window.addEventListener('appinstalled', function() {
   fecharBannerInstalar();
   var overlay = document.getElementById('ios-install-overlay');
