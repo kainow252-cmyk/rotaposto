@@ -1092,6 +1092,7 @@ export function getPainelEmpresaHTML(): string {
       width:var(--sidebar-w); background:#1A1A1A; color:#fff;
       display:flex; flex-direction:column; position:fixed; inset:0 auto 0 0; z-index:200;
       transition:transform .3s;
+      height:100dvh; /* garante altura total no mobile com barra de nav */
     }
     .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,.1); }
     .sidebar-logo-row { display:flex; align-items:center; gap:10px; }
@@ -1112,7 +1113,7 @@ export function getPainelEmpresaHTML(): string {
     .nav-item.ativo::before { content:''; position:absolute; left:0; inset-block:0; width:3px; background:var(--laranja); border-radius:0 2px 2px 0; }
     .nav-item i { width:18px; text-align:center; font-size:15px; }
     .nav-badge { margin-left:auto; background:var(--laranja); color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:20px; }
-    .sidebar-footer { padding:14px 20px 20px; border-top:1px solid rgba(255,255,255,.1); flex-shrink:0; }
+    .sidebar-footer { padding:14px 20px 20px; border-top:1px solid rgba(255,255,255,.1); flex-shrink:0; padding-bottom:max(20px, env(safe-area-inset-bottom)); }
     .btn-sair { width:100%; padding:11px 14px; background:rgba(220,53,69,.13); color:rgba(255,100,100,.85); border:1.5px solid rgba(220,53,69,.25); border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .2s; }
     .btn-sair:hover { background:rgba(220,53,69,.28); color:#ff6b6b; border-color:rgba(220,53,69,.5); }
     .btn-sair i { font-size:14px; }
@@ -1562,23 +1563,37 @@ export function getPainelEmpresaHTML(): string {
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <div class="sidebar-logo-row">
-        <div class="sidebar-logo-icon">⛽</div>
-        <div>
-          <div class="sidebar-logo-nome">RotaPosto</div>
-          <div class="sidebar-logo-tag">EMPRESAS</div>
+        <img src="/icons-empresas/logo-empresas.png" alt="RotaPosto Empresas"
+          style="height:40px;width:auto;object-fit:contain"
+          onerror="this.style.display=&apos;none&apos;;this.nextSibling.style.display=&apos;flex&apos;"
+        />
+        <div style="display:none;align-items:center;gap:10px">
+          <div class="sidebar-logo-icon">⛽</div>
+          <div>
+            <div class="sidebar-logo-nome">RotaPosto</div>
+            <div class="sidebar-logo-tag">EMPRESAS</div>
+          </div>
         </div>
       </div>
     </div>
     <!-- Logo + info do posto -->
     <div class="sidebar-posto-card">
-      <div class="sidebar-posto-logo-wrap">
+      <!-- Logo clicável para ir ao upload -->
+      <div class="sidebar-posto-logo-wrap" onclick="irPara('perfil')" title="Clique para trocar a logo"
+        style="cursor:pointer;position:relative">
         <img id="sb-posto-logo" src="" alt="" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:8px;"/>
         <div id="sb-posto-logo-ph" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;">⛽</div>
+        <div style="position:absolute;bottom:2px;right:2px;background:var(--laranja);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff">
+          <i class="fas fa-camera"></i>
+        </div>
       </div>
       <div style="flex:1;min-width:0">
         <div class="sidebar-posto-nome" id="sb-posto-nome">Carregando...</div>
         <div class="sidebar-posto-plano" id="sb-posto-plano">⭐ Plano Premium</div>
         <div class="sidebar-posto-status">Ativo</div>
+        <div onclick="irPara('perfil')" style="font-size:10px;color:rgba(255,109,0,0.85);margin-top:3px;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <i class="fas fa-upload" style="font-size:9px"></i> Trocar logo
+        </div>
       </div>
     </div>
     <nav class="sidebar-nav">
@@ -1595,12 +1610,14 @@ export function getPainelEmpresaHTML(): string {
       <div class="nav-item nav-item-gerente" data-page="equipe" onclick="irPara('equipe')"><i class="fas fa-users-cog"></i> Equipe</div>
       <div class="nav-item nav-item-gerente" data-page="perfil" onclick="irPara('perfil')"><i class="fas fa-store"></i> Perfil do Posto</div>
       <div class="nav-item nav-item-gerente" data-page="configuracoes" onclick="irPara('configuracoes')"><i class="fas fa-cog"></i> Configurações</div>
+      <!-- Sair dentro do nav — sempre visível no mobile (não depende do footer) -->
+      <div style="padding:10px 16px 4px">
+        <button class="btn-sair" onclick="confirmarLogout()" style="width:100%">
+          <i class="fas fa-sign-out-alt"></i> Sair
+        </button>
+      </div>
     </nav>
-    <div class="sidebar-footer">
-      <button class="btn-sair" onclick="confirmarLogout()">
-        <i class="fas fa-sign-out-alt"></i> Sair
-      </button>
-    </div>
+    <div class="sidebar-footer" style="display:none"></div>
   </aside>
 
   <!-- MAIN -->
