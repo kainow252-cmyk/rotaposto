@@ -4750,35 +4750,108 @@ app.get('/manifest.json', (c) => {
 //    olng = longitude origem (opcional)
 // ══════════════════════════════════════════════════════════════════════════════
 app.get('/maps', (c) => {
-  const app  = c.req.query('app')  || 'google'
-  const lat  = c.req.query('lat')  || ''
-  const lng  = c.req.query('lng')  || ''
-  const olat = c.req.query('olat') || ''
-  const olng = c.req.query('olng') || ''
+  const appParam = c.req.query('app')  || 'google'
+  const lat      = c.req.query('lat')  || ''
+  const lng      = c.req.query('lng')  || ''
+  const olat     = c.req.query('olat') || ''
+  const olng     = c.req.query('olng') || ''
 
   if (!lat || !lng) {
     return c.text('Coordenadas ausentes', 400)
   }
 
-  let url = ''
+  // ── Monta URLs para cada app ──────────────────────────────────────────────
+  let googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving&dir_action=navigate`
+  if (olat && olng) googleUrl += `&origin=${olat},${olng}`
 
-  if (app === 'waze') {
-    // Waze universal link — abre app nativo se instalado, senão web
-    url = `https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes&zoom=17`
+  const wazeUrl  = `https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes&zoom=17`
+  const appleUrl = `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`
 
-  } else if (app === 'apple') {
-    // Apple Maps — só iOS
-    url = `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`
+  // URL principal escolhida pelo usuário
+  let mainUrl = googleUrl
+  let mainLabel = 'Google Maps'
+  let mainColor = '#4285F4'
+  if (appParam === 'waze')  { mainUrl = wazeUrl;  mainLabel = 'Waze';        mainColor = '#06CCFF' }
+  if (appParam === 'apple') { mainUrl = appleUrl; mainLabel = 'Apple Maps';  mainColor = '#3478F6' }
 
-  } else {
-    // Google Maps universal link
-    url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving&dir_action=navigate`
-    if (olat && olng) url += `&origin=${olat},${olng}`
-  }
+  // ── SOLUÇÃO DEFINITIVA PARA TWA/WebView Android ───────────────────────────
+  // O Android intercepta QUALQUER navegação programática para google.com/maps
+  // (window.location, 302 redirect, window.open, <a>.click()) e converte para
+  // intent:// que o WebView não consegue abrir → ERR_UNKNOWN_URL_SCHEME.
+  //
+  // A ÚNICA exceção: clique manual do usuário num <a href> visível na tela.
+  // O Android trata toques manuais como "user gesture" e processa via
+  // PackageManager → abre o app nativo sem passar pelo WebView.
+  //
+  // Solução: página HTML intermediária com botão grande para o usuário tocar.
+  // Auto-clique JS também é bloqueado — o toque precisa ser REAL do usuário.
+  // ─────────────────────────────────────────────────────────────────────────
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Abrir ${mainLabel}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#0f0f0f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center}
+.wrap{padding:24px;max-width:360px;width:100%;text-align:center}
+.icon{font-size:56px;margin-bottom:16px;display:block}
+h1{color:#fff;font-size:22px;font-weight:700;margin-bottom:8px;line-height:1.3}
+p{color:#aaa;font-size:14px;margin-bottom:32px;line-height:1.5}
+.btn-main{
+  display:block;width:100%;padding:18px 20px;
+  background:${mainColor};color:#fff;
+  border-radius:16px;font-size:17px;font-weight:700;
+  text-decoration:none;text-align:center;
+  box-shadow:0 4px 20px ${mainColor}55;
+  margin-bottom:12px;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn-main:active{opacity:0.85;transform:scale(0.98)}
+.btn-back{
+  display:block;width:100%;padding:14px 20px;
+  background:#1e1e1e;color:#aaa;
+  border:1.5px solid #333;border-radius:16px;
+  font-size:15px;font-weight:600;
+  text-decoration:none;text-align:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn-back:active{opacity:0.7}
+.divider{color:#555;font-size:13px;margin:20px 0 16px}
+.alts{display:flex;gap:10px;justify-content:center}
+.btn-alt{
+  flex:1;padding:12px 8px;
+  background:#1e1e1e;color:#ddd;
+  border:1.5px solid #333;border-radius:12px;
+  font-size:13px;font-weight:600;
+  text-decoration:none;text-align:center;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="icon">🗺️</span>
+  <h1>Abrir no ${mainLabel}</h1>
+  <p>Toque no botão abaixo para iniciar a navegação</p>
 
-  // HTTP 302 server-side: o Android PackageManager processa o redirect
-  // fora do WebView → abre o app nativo sem gerar intent://
-  return c.redirect(url, 302)
+  <a href="${mainUrl}" class="btn-main">
+    📍 Iniciar Navegação
+  </a>
+
+  <div class="divider">ou abrir em outro app</div>
+  <div class="alts">
+    <a href="${googleUrl}" class="btn-alt">Google Maps</a>
+    <a href="${wazeUrl}" class="btn-alt">Waze</a>
+  </div>
+
+  <br/>
+  <a href="javascript:history.back()" class="btn-back">← Voltar</a>
+</div>
+</body>
+</html>`
+
+  return c.html(html)
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
