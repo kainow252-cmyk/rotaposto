@@ -4009,7 +4009,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     const banner = '<div style="margin:0 0 10px;padding:9px 14px;background:'+bannerBg+';border-radius:12px;border-left:3px solid '+bannerBorda+';display:flex;align-items:center;gap:8px;">'
       + '<span style="font-size:14px;">'+bannerIcon+'</span>'
       + '<div style="font-size:12px;color:'+bannerCor+';line-height:1.4;">'
-      + '<b>Atualização via Agência Nacional do Petróleo, Gás Natural e Biocombustíveis</b>'
+      + '<b>Atualização via Agência Nacional do Petróleo / Gás Natural e Biocombustíveis — Em Tempo Real</b>'
       + '</div>'
       + '</div>';
 
