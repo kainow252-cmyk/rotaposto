@@ -4464,29 +4464,27 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // ─────────────────────────────────────────────────────────────────────────
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
-    var irUrl;
+    var url;
 
     if (temCoords) {
-      // Coordenadas disponíveis: redirect server-side para navegação direta
-      irUrl = '/ir?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng);
-      if (nome) irUrl += '&nome=' + encodeURIComponent(nome);
-    } else {
-      // Sem coordenadas: redirect server-side para busca por nome
-      irUrl = '/ir?nome=' + encodeURIComponent(nome || '');
-    }
-    // Passar bandeira e fotoUrl para exibir logo na tela de rota
-    var _posto = selectedPosto || null;
-    if (_posto) {
-      if (_posto.bandeira) irUrl += '&bandeira=' + encodeURIComponent(_posto.bandeira);
-      if (_posto.fotoUrl && (_posto.fotoUrl.startsWith('http') || _posto.fotoUrl.startsWith('/api'))) {
-        irUrl += '&foto=' + encodeURIComponent(_posto.fotoUrl);
+      // Abre Google Maps direto com coordenadas — window.open _blank sai do
+      // WebView TWA e vai para Custom Tab, onde o Android resolve o App Link
+      // e abre o Maps nativo sem ERR_UNKNOWN_URL_SCHEME
+      url = 'https://www.google.com/maps/dir/?api=1'
+        + '&destination=' + lat + ',' + lng
+        + '&travelmode=driving'
+        + '&dir_action=navigate';
+      // Adiciona origem GPS se disponível (userLat/userLng = escopo local da IIFE)
+      if (userLat && userLng) {
+        url += '&origin=' + userLat + ',' + userLng;
       }
+    } else {
+      // Sem coordenadas: busca por nome no Google Maps
+      url = 'https://www.google.com/maps/search/?api=1&query='
+        + encodeURIComponent(nome || 'posto de gasolina');
     }
 
-    // Navega para /ir (domínio próprio) → servidor faz 302 para maps.google.com
-    // O TWA permite navegação dentro de rotaposto.com.br (scope "/")
-    // O redirect HTTP é seguido pelo TWA → Android abre Maps via App Links do SO
-    window.location.href = irUrl;
+    window.open(url, '_blank');
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado
