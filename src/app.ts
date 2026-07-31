@@ -4497,7 +4497,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       +   '<span style="font-size:16px;font-weight:600;color:#222;">Waze</span>'
       +   '<span style="margin-left:auto;font-size:20px;color:#aaa;">›</span>'
       + '</a>'
-      + '<button onclick="var s=document.getElementById(\'_nav-sheet-ext\');if(s)s.parentNode.removeChild(s);var o=document.getElementById(\'_nav-sheet-overlay\');if(o)o.parentNode.removeChild(o);" style="width:100%;padding:14px;margin-top:4px;background:#f0f0f0;border:none;border-radius:14px;font-size:15px;font-weight:600;color:#666;cursor:pointer;">Cancelar</button>';
+      + '<button onclick="var s=document.getElementById(\\x27_nav-sheet-ext\\x27);if(s)s.parentNode.removeChild(s);var o=document.getElementById(\\x27_nav-sheet-overlay\\x27);if(o)o.parentNode.removeChild(o);" style="width:100%;padding:14px;margin-top:4px;background:#f0f0f0;border:none;border-radius:14px;font-size:15px;font-weight:600;color:#666;cursor:pointer;">Cancelar</button>';
 
     var overlay = document.createElement('div');
     overlay.id = '_nav-sheet-overlay';
