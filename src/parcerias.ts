@@ -2454,20 +2454,48 @@ function fazerLogout() {
 }
 
 function confirmarLogout() {
-  // Modal de confirmação inline (sem usar TypeScript nem libs externas)
+  // Modal de confirmação — construído via DOM para evitar conflito de aspas em onclick/innerHTML
   var overlay = document.createElement('div');
   overlay.id = 'logout-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-  overlay.innerHTML = '<div style="background:#1E1E1E;border-radius:16px;padding:28px 28px 24px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08)">'
-    + '<div style="width:52px;height:52px;background:rgba(220,53,69,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:22px">🚪</div>'
-    + '<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px">Sair do painel?</div>'
-    + '<div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:24px;line-height:1.5">Você será redirecionado para a tela de login.</div>'
-    + '<div style="display:flex;gap:10px">'
-    + '<button onclick="document.getElementById(\'logout-overlay\').remove()" style="flex:1;padding:11px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>'
-    + '<button onclick="fazerLogout()" style="flex:1;padding:11px;background:rgba(220,53,69,.85);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Sair</button>'
-    + '</div>'
-    + '</div>';
+
+  var card = document.createElement('div');
+  card.style.cssText = 'background:#1E1E1E;border-radius:16px;padding:28px 28px 24px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08)';
+
+  var icon = document.createElement('div');
+  icon.style.cssText = 'width:52px;height:52px;background:rgba(220,53,69,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:22px';
+  icon.textContent = '🚪';
+
+  var title = document.createElement('div');
+  title.style.cssText = 'font-size:16px;font-weight:800;color:#fff;margin-bottom:8px';
+  title.textContent = 'Sair do painel?';
+
+  var desc = document.createElement('div');
+  desc.style.cssText = 'font-size:13px;color:rgba(255,255,255,.5);margin-bottom:24px;line-height:1.5';
+  desc.textContent = 'Você será redirecionado para a tela de login.';
+
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:10px';
+
+  var btnCancelar = document.createElement('button');
+  btnCancelar.style.cssText = 'flex:1;padding:11px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer';
+  btnCancelar.textContent = 'Cancelar';
+  btnCancelar.addEventListener('click', function() { overlay.remove(); });
+
+  var btnSair = document.createElement('button');
+  btnSair.style.cssText = 'flex:1;padding:11px;background:rgba(220,53,69,.85);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer';
+  btnSair.textContent = 'Sair';
+  btnSair.addEventListener('click', function() { fazerLogout(); });
+
+  row.appendChild(btnCancelar);
+  row.appendChild(btnSair);
+  card.appendChild(icon);
+  card.appendChild(title);
+  card.appendChild(desc);
+  card.appendChild(row);
+  overlay.appendChild(card);
   document.body.appendChild(overlay);
+
   // Fechar clicando fora do card
   overlay.addEventListener('click', function(e) {
     if (e.target === overlay) overlay.remove();
