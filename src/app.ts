@@ -4467,9 +4467,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // que o WebView não consegue abrir → usa geo: URI que vai direto ao SO.
   // No browser normal (Chrome, Safari, desktop), geo: não tem handler → usa https://.
   function _isTWA() {
-    return document.referrer.includes('android-app://') ||
+    return document.referrer.indexOf('android-app://') === 0 ||
            window.matchMedia('(display-mode: standalone)').matches ||
-           (window.navigator as any).standalone === true;
+           !!(window.navigator && window.navigator.standalone);
   }
 
   function _abrirNavegacaoExterna(lat, lng, nome) {

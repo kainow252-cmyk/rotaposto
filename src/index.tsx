@@ -9965,7 +9965,7 @@ function _isTWAouWebView() {
   // Modo standalone: PWA instalada ou TWA (display: standalone no manifest)
   if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
   // iOS standalone (Safari)
-  if ((window.navigator as any).standalone === true) return true;
+  if (!!(window.navigator && window.navigator.standalone)) return true;
   // WebView Android com flag wv no UA
   var ua = navigator.userAgent || '';
   if (/wv/.test(ua) && /Android/.test(ua)) return true;
