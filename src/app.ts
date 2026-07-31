@@ -31,7 +31,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   ${firebaseScripts}
   <!-- Google One Tap: registrar callback ANTES do GSI carregar (async defer) -->
   <script>
@@ -42,9 +42,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       // Enfileira a chamada caso a função real ainda não esteja pronta
       window._pendingOneTapResponse = response;
     };
-  <\/script>
+  </script>
   <!-- Google Identity Services — One Tap (reconhece conta automaticamente no Android) -->
-  <script src="https://accounts.google.com/gsi/client" async defer><\/script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -1805,7 +1805,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 <body>
 <!-- Splash de carregamento — some quando o JS inicializa -->
 <div id="app-splash" style="position:fixed;inset:0;z-index:99999;background:#0B121E;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s;">
-  <img src="/icons/icon-192x192.png" style="width:80px;height:80px;border-radius:20px;margin-bottom:18px;" onerror="this.style.display='none'"/>
+  <img src="/icons/icon-192x192.png" style="width:80px;height:80px;border-radius:20px;margin-bottom:18px;" onerror="this.style.display=&quot;none&quot;"/>
   <div style="color:#fff;font-size:24px;font-weight:800;">Rota<span style="color:#FF6D00;">Posto</span></div>
   <div style="margin-top:24px;width:160px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
     <div style="height:100%;background:#FF6D00;border-radius:2px;animation:splashprog 1.8s ease-out forwards;"></div>
@@ -4488,12 +4488,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<div style="width:40px;height:4px;background:#ddd;border-radius:4px;margin:0 auto 20px;"></div>'
       + '<p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#222;text-align:center;">Abrir navegação em</p>'
       + '<a href="' + mapsUrl + '" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;">'
-      +   '<img src="https://maps.gstatic.com/mapfiles/maps_lite/images/2x/ic_logo_googlemaps.png" width="40" height="40" style="border-radius:10px;" onerror="this.style.display=\'none\'">'
+      +   '<img src="https://maps.gstatic.com/mapfiles/maps_lite/images/2x/ic_logo_googlemaps.png" width="40" height="40" style="border-radius:10px;" onerror="this.style.display=\"none\"">'
       +   '<span style="font-size:16px;font-weight:600;color:#222;">Google Maps</span>'
       +   '<span style="margin-left:auto;font-size:20px;color:#aaa;">›</span>'
       + '</a>'
       + '<a href="' + wazeUrl + '" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;">'
-      +   '<img src="https://www.waze.com/favicon.ico" width="40" height="40" style="border-radius:10px;" onerror="this.style.display=\'none\'">'
+      +   '<img src="https://www.waze.com/favicon.ico" width="40" height="40" style="border-radius:10px;" onerror="this.style.display=\"none\"">'
       +   '<span style="font-size:16px;font-weight:600;color:#222;">Waze</span>'
       +   '<span style="margin-left:auto;font-size:20px;color:#aaa;">›</span>'
       + '</a>'
