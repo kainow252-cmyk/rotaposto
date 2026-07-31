@@ -5237,21 +5237,16 @@ function navegarCom(app){
       + '&travelmode=driving';
   }
 
-  // Abre a URL sem sair da tela /ir:
-  // 1. Tenta <a target="_blank"> — funciona em browser e alguns WebViews
-  // 2. Se bloqueado pelo WebView, usa window.location.href como fallback
-  //    (o usuário pode voltar com o botão "Voltar" do Android)
-  try {
-    var a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } catch(e) {
-    window.location.href = url;
-  }
+  // REGRA FINAL (Round 7 — fix ERR_UNKNOWN_URL_SCHEME):
+  // target="_blank" no WebView Android faz o SO interceptar a URL
+  // https://www.google.com/maps/... e converter internamente para
+  // intent://... → ERR_UNKNOWN_URL_SCHEME no WebView.
+  //
+  // SOLUÇÃO: window.location.href = url (sem _blank)
+  // O Android App Links reconhece google.com/maps e waze.com como
+  // deep-links verificados → abre o app nativo direto, sem intent://.
+  // O usuário volta com o botão Voltar nativo do Android.
+  window.location.href = url;
 }
 
 // ── Leaflet map ──────────────────────────────────────────────────────
