@@ -4730,6 +4730,58 @@ app.get('/manifest.json', (c) => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+//  /maps — proxy de redirect server-side para apps de navegação externos
+//
+//  PROBLEMA RAIZ: Android TWA/WebView intercepta QUALQUER URL google.com/maps
+//  ou waze.com no nível do OS e converte para intent:// → ERR_UNKNOWN_URL_SCHEME.
+//  Isso acontece independentemente de window.location.href, <a>, window.open, etc.
+//
+//  SOLUÇÃO: o servidor emite HTTP 302 para a URL do app externo.
+//  O redirect HTTP 302 é processado pelo sistema Android FORA do WebView —
+//  o PackageManager do Android resolve o App Link e abre o app nativo diretamente,
+//  sem passar pelo WebView e sem gerar intent://.
+//
+//  Parâmetros:
+//    app  = 'google' | 'waze' | 'apple'
+//    lat  = latitude destino
+//    lng  = longitude destino
+//    olat = latitude origem (opcional)
+//    olng = longitude origem (opcional)
+// ══════════════════════════════════════════════════════════════════════════════
+app.get('/maps', (c) => {
+  const app  = c.req.query('app')  || 'google'
+  const lat  = c.req.query('lat')  || ''
+  const lng  = c.req.query('lng')  || ''
+  const olat = c.req.query('olat') || ''
+  const olng = c.req.query('olng') || ''
+
+  if (!lat || !lng) {
+    return c.text('Coordenadas ausentes', 400)
+  }
+
+  let url = ''
+
+  if (app === 'waze') {
+    // Waze universal link — abre app nativo se instalado, senão web
+    url = `https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes&zoom=17`
+
+  } else if (app === 'apple') {
+    // Apple Maps — só iOS
+    url = `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`
+
+  } else {
+    // Google Maps universal link
+    url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving&dir_action=navigate`
+    if (olat && olng) url += `&origin=${olat},${olng}`
+  }
+
+  // HTTP 302 server-side: o Android PackageManager processa o redirect
+  // fora do WebView → abre o app nativo sem gerar intent://
+  return c.redirect(url, 302)
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  /ir — Google Maps JavaScript API com DirectionsService embutido
 // ══════════════════════════════════════════════════════════════════════════════
 app.get('/ir', async (c) => {
@@ -5196,57 +5248,34 @@ document.addEventListener('keydown', function(e){
 });
 
 // ── Navegar com o app escolhido ───────────────────────────────────────
-// REGRA: usar APENAS URLs https:// — nunca waze://, intent://, geo: ou maps://
-// Motivo: WebView Android (TWA/PWA instalado) bloqueia todos os schemes
-// não-http com ERR_UNKNOWN_URL_SCHEME. URLs https universais funcionam em
-// browser, WebView, iOS Safari e Android Chrome sem nenhum erro.
+// SOLUÇÃO FINAL (Round 8 — proxy server-side /maps):
+//
+// PROBLEMA RAIZ: Android TWA/WebView intercepta QUALQUER URL externa
+// google.com/maps ou waze.com no nível do OS → converte para intent://
+// → ERR_UNKNOWN_URL_SCHEME. Isso ocorre com window.location.href,
+// <a>, window.open — não existe forma client-side de evitar.
+//
+// SOLUÇÃO: navegar para /maps (domínio próprio rotaposto.com.br).
+// O servidor emite HTTP 302 para a URL do app externo.
+// O Android processa o 302 FORA do WebView via PackageManager,
+// abrindo o app nativo diretamente, sem expor a URL externa ao WebView.
 function navegarCom(app){
   fecharSeletorNav();
   var destLat = DLAT, destLng = DLNG;
-  var url = '';
 
-  if(app === 'google'){
-    // https://google.com/maps/dir/ — link universal:
-    // abre app Google Maps nativo no Android/iOS se instalado,
-    // senão abre Google Maps web. Funciona em WebView também.
-    url = 'https://www.google.com/maps/dir/?api=1'
-      + '&destination=' + destLat + ',' + destLng
-      + '&travelmode=driving'
-      + '&dir_action=navigate';
-    if(_userLat && _userLng)
-      url += '&origin=' + _userLat + ',' + _userLng;
+  // Sempre usa o proxy /maps (domínio próprio — TWA não intercepta)
+  var proxyUrl = '/maps?app=' + encodeURIComponent(app)
+    + '&lat=' + encodeURIComponent(destLat)
+    + '&lng=' + encodeURIComponent(destLng);
 
-  } else if(app === 'waze'){
-    // https://waze.com/ul — link universal do Waze:
-    // abre app Waze nativo se instalado, senão abre Waze web.
-    // NÃO usar waze:// — bloqueado em WebView.
-    url = 'https://waze.com/ul?ll=' + destLat + '%2C' + destLng
-      + '&navigate=yes&zoom=17';
-
-  } else if(app === 'apple'){
-    // Apple Maps só existe em iOS — link universal via maps.apple.com
-    // funciona em Safari iOS e abre o app Maps nativo automaticamente.
-    // NÃO usar maps:// — bloqueado em WebView e Android.
-    url = 'https://maps.apple.com/?daddr=' + destLat + ',' + destLng
-      + '&dirflg=d';
-
-  } else {
-    // Mapas genérico → Google Maps web (fallback seguro universal)
-    url = 'https://www.google.com/maps/dir/?api=1'
-      + '&destination=' + destLat + ',' + destLng
-      + '&travelmode=driving';
+  // Adiciona origem GPS se disponível
+  if(_userLat && _userLng){
+    proxyUrl += '&olat=' + encodeURIComponent(_userLat)
+              + '&olng=' + encodeURIComponent(_userLng);
   }
 
-  // REGRA FINAL (Round 7 — fix ERR_UNKNOWN_URL_SCHEME):
-  // target="_blank" no WebView Android faz o SO interceptar a URL
-  // https://www.google.com/maps/... e converter internamente para
-  // intent://... → ERR_UNKNOWN_URL_SCHEME no WebView.
-  //
-  // SOLUÇÃO: window.location.href = url (sem _blank)
-  // O Android App Links reconhece google.com/maps e waze.com como
-  // deep-links verificados → abre o app nativo direto, sem intent://.
-  // O usuário volta com o botão Voltar nativo do Android.
-  window.location.href = url;
+  // Navega para /maps (URL própria) → servidor faz 302 → app externo
+  window.location.href = proxyUrl;
 }
 
 // ── Leaflet map ──────────────────────────────────────────────────────
