@@ -4464,27 +4464,20 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // ─────────────────────────────────────────────────────────────────────────
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
-    var url;
 
     if (temCoords) {
-      // Abre Google Maps direto com coordenadas — window.open _blank sai do
-      // WebView TWA e vai para Custom Tab, onde o Android resolve o App Link
-      // e abre o Maps nativo sem ERR_UNKNOWN_URL_SCHEME
-      url = 'https://www.google.com/maps/dir/?api=1'
-        + '&destination=' + lat + ',' + lng
-        + '&travelmode=driving'
-        + '&dir_action=navigate';
-      // Adiciona origem GPS se disponível (userLat/userLng = escopo local da IIFE)
-      if (userLat && userLng) {
-        url += '&origin=' + userLat + ',' + userLng;
-      }
+      // geo: URI é o padrão Android — o sistema abre o app de mapas padrão
+      // do usuário (Google Maps, Waze, etc.) diretamente, sem passar pelo
+      // App Links do Chrome/TWA que converte google.com/maps para intent://
+      var geoUrl = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng
+        + '(' + encodeURIComponent(nome || 'Posto de Combustível') + ')';
+      window.location.href = geoUrl;
     } else {
-      // Sem coordenadas: busca por nome no Google Maps
-      url = 'https://www.google.com/maps/search/?api=1&query='
+      // Sem coordenadas: busca por nome — abre Google Maps web
+      var searchUrl = 'https://www.google.com/maps/search/?api=1&query='
         + encodeURIComponent(nome || 'posto de gasolina');
+      window.open(searchUrl, '_blank');
     }
-
-    window.open(url, '_blank');
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado
@@ -4776,19 +4769,15 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       showToast('Selecione um destino primeiro');
       return;
     }
-    var url;
-    var temCoords = lat && lng && lat !== 0 && lng !== 0;
-    if (temCoords) {
-      url = 'https://www.google.com/maps/dir/?api=1'
-        + '&destination=' + lat + ',' + lng
-        + '&travelmode=driving'
-        + '&dir_action=navigate';
-      if (userLat && userLng) url += '&origin=' + userLat + ',' + userLng;
+    if (lat && lng && lat !== 0 && lng !== 0) {
+      var geoUrl = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng
+        + '(' + encodeURIComponent(nome || 'Posto de Combustível') + ')';
+      window.location.href = geoUrl;
     } else {
-      url = 'https://www.google.com/maps/search/?api=1&query='
+      var searchUrl = 'https://www.google.com/maps/search/?api=1&query='
         + encodeURIComponent(nome || 'posto de gasolina');
+      window.open(searchUrl, '_blank');
     }
-    window.open(url, '_blank');
   }
 
   let _searchTimer = null;

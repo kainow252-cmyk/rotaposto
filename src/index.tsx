@@ -5321,39 +5321,32 @@ document.addEventListener('keydown', function(e){
 });
 
 // ── Navegar com o app escolhido ───────────────────────────────────────
-// window.open(url, '_blank') é a única forma que funciona tanto em browser
-// quanto em TWA/WebView Android: abre em nova aba no Chrome, e no TWA o
-// Android processa o _blank como Custom Tab fora do WebView → PackageManager
-// resolve o App Link e abre o Maps/Waze nativo diretamente.
-// REGRA: usar APENAS URLs https:// — nunca waze://, intent://, geo: ou maps://
+// geo: URI é o padrão Android — abre o app de mapas padrão do usuário
+// (Google Maps, Waze, etc.) diretamente via sistema operacional,
+// sem passar pelo App Links do TWA/Chrome que bloqueia google.com/maps.
+// Waze e Apple Maps continuam usando https:// pois não têm o mesmo problema.
 function navegarCom(app){
   fecharSeletorNav();
   var destLat = DLAT, destLng = DLNG;
-  var url = '';
 
   if(app === 'google'){
-    url = 'https://www.google.com/maps/dir/?api=1'
-      + '&destination=' + destLat + ',' + destLng
-      + '&travelmode=driving'
-      + '&dir_action=navigate';
-    if(_userLat && _userLng)
-      url += '&origin=' + _userLat + ',' + _userLng;
+    // geo: URI — Android abre app de mapas padrão direto (sem ERR_UNKNOWN_URL_SCHEME)
+    var geoUrl = 'geo:' + destLat + ',' + destLng
+      + '?q=' + destLat + ',' + destLng + '(Posto+de+Combustível)';
+    window.location.href = geoUrl;
+    return;
 
   } else if(app === 'waze'){
-    url = 'https://waze.com/ul?ll=' + destLat + '%2C' + destLng
-      + '&navigate=yes&zoom=17';
+    window.open('https://waze.com/ul?ll=' + destLat + '%2C' + destLng + '&navigate=yes&zoom=17', '_blank');
+    return;
 
   } else if(app === 'apple'){
-    url = 'https://maps.apple.com/?daddr=' + destLat + ',' + destLng
-      + '&dirflg=d';
-
-  } else {
-    url = 'https://www.google.com/maps/dir/?api=1'
-      + '&destination=' + destLat + ',' + destLng
-      + '&travelmode=driving';
+    window.open('https://maps.apple.com/?daddr=' + destLat + ',' + destLng + '&dirflg=d', '_blank');
+    return;
   }
 
-  window.open(url, '_blank');
+  // fallback genérico — geo: URI
+  window.location.href = 'geo:' + destLat + ',' + destLng + '?q=' + destLat + ',' + destLng;
 }
 
 // ── Leaflet map ──────────────────────────────────────────────────────
