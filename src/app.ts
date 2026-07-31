@@ -4469,7 +4469,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // Detecta Android WebView / TWA pelo User Agent (mais confiável que referrer/standalone)
   function _isAndroidWebView() {
     var ua = navigator.userAgent || '';
-    return /Android/.test(ua) && (/wv\)/.test(ua) || /Version\/\d/.test(ua) || window.matchMedia('(display-mode: standalone)').matches || document.referrer.indexOf('android-app://') === 0);
+    return /Android/.test(ua) && (ua.indexOf('wv)') >= 0 || ua.indexOf('; wv') >= 0 || ua.indexOf('Version/') >= 0 || window.matchMedia('(display-mode: standalone)').matches || document.referrer.indexOf('android-app://') === 0);
   }
 
   function _abrirNavegacaoExterna(lat, lng, nome) {

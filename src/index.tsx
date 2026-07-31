@@ -5324,8 +5324,9 @@ document.addEventListener('keydown', function(e){
 function _isAndroidWV(){
   var ua = navigator.userAgent || '';
   return /Android/.test(ua) && (
-    /wv\)/.test(ua) ||
-    /Version\/\d/.test(ua) ||
+    ua.indexOf('wv)') >= 0 ||
+    ua.indexOf('; wv') >= 0 ||
+    /Version\/[0-9]/.test(ua) ||
     window.matchMedia('(display-mode: standalone)').matches ||
     document.referrer.indexOf('android-app://') === 0
   );
