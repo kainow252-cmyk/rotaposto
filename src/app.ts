@@ -321,50 +321,99 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     }
     .btn-ir-ata-la:active { opacity: 0.85; }
 
-    /* ── Balloon com bandeira no mapa (estilo 99Abastece) ── */
-    .map-balloon {
-      display: flex; align-items: center; gap: 0;
-      border-radius: 10px;
-      background: #fff;
-      box-shadow: 0 3px 14px rgba(0,0,0,0.22), 0 1px 4px rgba(0,0,0,0.1);
-      cursor: pointer; white-space: nowrap;
-      border: 1.5px solid rgba(0,0,0,0.07);
-      font-family: 'Inter', sans-serif;
-      transform-origin: center bottom;
+    /* ── MARCADOR PIN BOMBINHA ── */
+    .rp-pin {
+      width: 36px; height: 42px;
       position: relative;
-      overflow: hidden;
+      cursor: pointer;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+      transition: transform .15s;
     }
-    .map-balloon::after {
-      content: '';
-      position: absolute; bottom: -7px; left: 50%;
-      transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-top: 7px solid #fff;
-      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
-    }
-    .map-balloon.best {
-      border-color: #00A651;
-      box-shadow: 0 4px 18px rgba(0,166,81,0.38), 0 1px 4px rgba(0,0,0,0.1);
-      transform: scale(1.1);
-    }
-    /* Tira colorida da bandeira (esquerda) */
-    .map-balloon-strip {
-      width: 32px; height: 36px;
+    .rp-pin:hover { transform: scale(1.15); }
+    .rp-pin .pin-body {
+      width: 36px; height: 36px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
       display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
+      border: 2.5px solid rgba(255,255,255,0.9);
     }
-    .map-balloon-strip img {
-      width: 28px; height: 28px; object-fit: contain;
+    .rp-pin .pin-body svg {
+      transform: rotate(45deg);
+      width: 18px; height: 18px;
+      fill: white;
     }
-    /* Preço (direita) */
-    .map-balloon-preco {
+    .rp-pin .pin-tail {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.18);
+      margin: 1px auto 0;
+    }
+    /* PIN melhor posto = verde */
+    .rp-pin.melhor .pin-body { background: #00C853; }
+    /* PIN padrão = azul escuro */
+    .rp-pin.normal .pin-body { background: #1565C0; }
+
+    /* ── POPUP CARD ESTILO GOOGLE MAPS ── */
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px !important;
+      padding: 0 !important;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.22) !important;
+      border: none !important;
+      min-width: 220px;
+    }
+    .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+    .leaflet-popup-tip-container { display: none; }
+    .leaflet-popup-close-button {
+      color: white !important;
+      font-size: 18px !important;
+      top: 6px !important; right: 10px !important;
+      z-index: 10;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+    .mp-card { font-family: 'Inter', sans-serif; }
+    .mp-foto {
+      width: 100%; height: 110px;
+      object-fit: cover;
+      display: block;
+      background: #1A1A2E;
+    }
+    .mp-foto-placeholder {
+      width: 100%; height: 110px;
+      background: linear-gradient(135deg,#1565C0 0%,#0D47A1 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 38px;
+    }
+    .mp-body { padding: 12px 14px 10px; background: #1C1C2E; }
+    .mp-nome {
       font-size: 13px; font-weight: 800;
-      color: #1a1a1a; line-height: 1;
-      padding: 0 9px 0 4px;
+      color: #fff; margin-bottom: 6px;
+      line-height: 1.3;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 195px;
     }
-    .map-balloon.best .map-balloon-preco { color: #00A651; }
+    .mp-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .mp-preco {
+      font-size: 22px; font-weight: 900;
+      color: #FF6D00;
+      line-height: 1;
+    }
+    .mp-badge {
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px; padding: 2px 8px;
+      font-size: 10px; color: rgba(255,255,255,0.7);
+      font-weight: 700;
+    }
+    .mp-dist { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 10px; }
+    .mp-btn {
+      display: block; width: 100%;
+      background: #FF6D00; color: #fff;
+      border: none; border-radius: 10px;
+      padding: 9px; font-size: 12px; font-weight: 800;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer; letter-spacing: 0.3px;
+    }
+    .mp-btn:active { opacity: 0.85; }
 
     .price-balloon {
       padding: 5px 10px; border-radius: 8px;
@@ -2481,11 +2530,35 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   const _GKEY = '${googleApiKey || ''}';
 
   // ══════════════════════════════════════════════════════
+  //  ÚLTIMA POSIÇÃO — lida ANTES de tudo (sem flash de SP)
+  // ══════════════════════════════════════════════════════
+  (function _preencherUltimaPosicao() {
+    try {
+      var _lastLat  = parseFloat(localStorage.getItem('rp_last_lat') || '');
+      var _lastLng  = parseFloat(localStorage.getItem('rp_last_lng') || '');
+      var _lastZoom = parseInt(localStorage.getItem('rp_last_zoom') || '14', 10);
+      if (!isNaN(_lastLat) && !isNaN(_lastLng)) {
+        window._RP_INIT_LAT  = _lastLat;
+        window._RP_INIT_LNG  = _lastLng;
+        window._RP_INIT_ZOOM = isNaN(_lastZoom) ? 14 : Math.min(Math.max(_lastZoom, 10), 18);
+        window._RP_TEM_ULTIMA = true;
+        return;
+      }
+    } catch {}
+    window._RP_INIT_LAT  = -23.5505;
+    window._RP_INIT_LNG  = -46.6333;
+    window._RP_INIT_ZOOM = 12;
+    window._RP_TEM_ULTIMA = false;
+  })();
+
+  // ══════════════════════════════════════════════════════
   //  ESTADO
   // ══════════════════════════════════════════════════════
   let currentView = 'mapa';
   let mapMain = null, mapPlan = null;
-  let userLat = null, userLng = null; // null até GPS real chegar — nunca iniciar em SP
+  // Inicia na última posição conhecida (evita flash de SP ao abrir)
+  let userLat = window._RP_TEM_ULTIMA ? window._RP_INIT_LAT : null;
+  let userLng = window._RP_TEM_ULTIMA ? window._RP_INIT_LNG : null;
   let _geoJaObtida = false; // true após localização ser obtida (ou timeout)
   let _mapaLivre = false;   // true = usuário está explorando o mapa, GPS não move
   let postosData = [];
@@ -2848,10 +2921,19 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   //  MAPA PRINCIPAL (Tela 7)
   // ══════════════════════════════════════════════════════
   function initMapMain() {
+    // Usa última posição e zoom salvos — sem flash de SP ao abrir
+    var _initLat  = (userLat  !== null) ? userLat  : window._RP_INIT_LAT;
+    var _initLng  = (userLng  !== null) ? userLng  : window._RP_INIT_LNG;
+    var _initZoom = window._RP_INIT_ZOOM || 14;
     mapMain = L.map('map-leaflet', {
       zoomControl: false,
       attributionControl: false
-    }).setView([userLat, userLng], 14);
+    }).setView([_initLat, _initLng], _initZoom);
+
+    // Persiste zoom a cada mudança — próxima abertura restaura
+    mapMain.on('zoomend', function() {
+      try { localStorage.setItem('rp_last_zoom', String(mapMain.getZoom())); } catch {}
+    });
 
     // Tiles claros (padrão)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -3029,57 +3111,61 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       if (layer._isBalloon) mapMain.removeLayer(layer);
     });
 
+    // SVG bombinha de gasolina inline (compacto)
+    const svgBomba = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+      + '<path d="M18.92 6.01L18.01 5.1C17.62 4.71 17 4.71 16.61 5.1L15 6.71V4C15 2.9 14.1 2 13 2H5C3.9 2 3 2.9 3 4v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-7.59l3.71-3.71c.39-.39.39-1.02.01-1.39zM11 13H7v-2h4v2zm0-4H7V7h4v2zm4 9h-2v-2h2v2zm0-4h-2v-2h2v2z"/>'
+      + '</svg>';
+
     postosData.slice(0, 20).forEach((p, i) => {
       const preco = p.preco || p.precos?.[selectedFuel];
       if (!preco) return;
 
-      const precoFmt = 'R$ ' + preco.toFixed(2).replace('.', ',');
-      const isBest = i === 0;
-      const logoUrl = getBandeiraLogoUrl(p.bandeira || p.nome);
-      const bestClass = isBest ? ' best' : '';
+      const isMelhor = i === 0;
+      const cls = isMelhor ? 'melhor' : 'normal';
 
-      // Balloon: logo da bandeira (SVG ou foto) + preço
-      const bandInfo2 = getBandeiraCor(p.bandeira || p.nome);
-      // Logo balloon: APENAS logo parceiro (/api) ou SVG — NUNCA foto Google (http)
-      const logoUrlBalloon = (p.fotoUrl && p.fotoUrl.startsWith('/api'))
-        ? p.fotoUrl
-        : getBandeiraLogoUrl(p.bandeira || p.nome);
-      // stripContent: imagem com onerror simples (sem injeção de SVG) ou letra inicial
-      var stripContent, stripBg;
-      if (logoUrlBalloon) {
-        stripBg = '#fff';
-        // onerror usa &apos; para evitar quebra de string JS no HTML gerado
-        stripContent = '<img src="' + logoUrlBalloon + '" width="26" height="26"'
-          + ' style="object-fit:contain;border-radius:4px;display:block"'
-          + ' onerror="this.style.display=&apos;none&apos;">';
-      } else {
-        stripBg = bandInfo2.cor;
-        // Letra inicial da bandeira como fallback visual
-        var inicial = (p.bandeira || p.nome || '?').charAt(0).toUpperCase();
-        stripContent = '<span style="color:#fff;font-size:13px;font-weight:900">' + inicial + '</span>';
-      }
-      const balloonHtml =
-        '<div class="map-balloon'+bestClass+'">'
-        + '<div class="map-balloon-strip" style="background:'+stripBg+'">'+stripContent+'</div>'
-        + '<span class="map-balloon-preco">'+precoFmt+'</span>'
+      // Pin bombinha compacto — sem preço visível no mapa
+      const icon = L.divIcon({
+        html: '<div class="rp-pin ' + cls + '">'
+          + '<div class="pin-body">' + svgBomba + '</div>'
+          + '<div class="pin-tail"></div>'
+          + '</div>',
+        iconSize: [36, 42],
+        iconAnchor: [18, 42],
+        className: ''
+      });
+
+      const dist = p.distancia < 1
+        ? (p.distancia * 1000).toFixed(0) + 'm'
+        : p.distancia.toFixed(1) + 'km';
+
+      const fotoUrl = p.fotoGoogle || p.fotoUrl || '';
+      const fotoHtml = fotoUrl
+        ? '<img class="mp-foto" src="' + fotoUrl + '" alt="' + p.nome + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">'
+          + '<div class="mp-foto-placeholder" style="display:none">⛽</div>'
+        : '<div class="mp-foto-placeholder">⛽</div>';
+
+      const melhorBadge = isMelhor
+        ? '<span class="mp-badge" style="background:rgba(0,200,83,0.25);color:#00C853">🏆 Melhor preço</span>'
+        : '<span class="mp-badge">📍 ' + dist + '</span>';
+
+      const popupHtml = '<div class="mp-card">'
+        + fotoHtml
+        + '<div class="mp-body">'
+        + '<div class="mp-nome">' + p.nome + '</div>'
+        + '<div class="mp-row">'
+        + '<span class="mp-preco">R$ ' + preco.toFixed(2) + '</span>'
+        + melhorBadge
+        + '</div>'
+        + '<div class="mp-dist">📍 ' + dist + ' de você · ⛽ ' + selectedFuel + '</div>'
+        + '<button class="mp-btn" onclick="openDetalhes(' + i + ')">Ver detalhes &rarr;</button>'
+        + '</div>'
         + '</div>';
 
-      // w: strip(32) + preco(~72) = 104; com best: 110
-      const w = isBest ? 112 : 100;
-      const icon = L.divIcon({
-        className: '',
-        html: balloonHtml,
-        iconSize: [w, 43], iconAnchor: [w / 2, 43]
-      });
-
-      const marker = L.marker([p.lat, p.lng], { icon }).addTo(mapMain);
+      const marker = L.marker([p.lat, p.lng], { icon })
+        .addTo(mapMain)
+        .bindPopup(popupHtml, { minWidth: 230, maxWidth: 260 });
       marker._isBalloon = true;
       marker._postoIdx = i;
-      marker.on('click', () => {
-        _mapCardVisivel = true;
-        updateMapCard(p, i);
-        selectedPosto = p;
-      });
     });
   }
 
@@ -7046,6 +7132,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       localStorage.removeItem('rp_geoip_lat');
       localStorage.removeItem('rp_geoip_lng');
       localStorage.removeItem('rp_geoip_ts');
+      // Persiste também nas chaves de "última abertura" — próxima vez abre aqui sem flash
+      try {
+        localStorage.setItem('rp_last_lat', String(lat));
+        localStorage.setItem('rp_last_lng', String(lng));
+      } catch {}
     } else if (ehRegSP) {
       // Recebeu SP — apagar cache para não persistir
       console.warn('[GPS] Coord SP recebida — NÃO salvando cache: lat=' + lat + ' lng=' + lng);
