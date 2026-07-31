@@ -5320,20 +5320,34 @@ document.addEventListener('keydown', function(e){
   if(e.key === 'Escape' && _sheetOpen) fecharSeletorNav();
 });
 
+// ── Detecta TWA (Trusted Web Activity) Android ───────────────────────
+// No TWA, google.com/maps é bloqueado pelo App Links → intent:// → ERR.
+// No browser normal (Chrome/Safari/desktop), geo: não tem handler.
+// Detecta pelo referrer android-app:// OU display-mode standalone (PWA/TWA).
+function _isTWA(){
+  return document.referrer.indexOf('android-app://') === 0 ||
+         window.matchMedia('(display-mode: standalone)').matches;
+}
+
 // ── Navegar com o app escolhido ───────────────────────────────────────
-// geo: URI é o padrão Android — abre o app de mapas padrão do usuário
-// (Google Maps, Waze, etc.) diretamente via sistema operacional,
-// sem passar pelo App Links do TWA/Chrome que bloqueia google.com/maps.
-// Waze e Apple Maps continuam usando https:// pois não têm o mesmo problema.
 function navegarCom(app){
   fecharSeletorNav();
   var destLat = DLAT, destLng = DLNG;
+  var isTwa = _isTWA();
 
   if(app === 'google'){
-    // geo: URI — Android abre app de mapas padrão direto (sem ERR_UNKNOWN_URL_SCHEME)
-    var geoUrl = 'geo:' + destLat + ',' + destLng
-      + '?q=' + destLat + ',' + destLng + '(Posto+de+Combustível)';
-    window.location.href = geoUrl;
+    if(isTwa){
+      // TWA/Android: geo: URI — SO abre app de mapas padrão direto, sem App Links
+      window.location.href = 'geo:' + destLat + ',' + destLng
+        + '?q=' + destLat + ',' + destLng + '(Posto+de+Combust%C3%ADvel)';
+    } else {
+      // Browser/iOS: Google Maps web normal
+      var gUrl = 'https://www.google.com/maps/dir/?api=1'
+        + '&destination=' + destLat + ',' + destLng
+        + '&travelmode=driving&dir_action=navigate';
+      if(_userLat && _userLng) gUrl += '&origin=' + _userLat + ',' + _userLng;
+      window.open(gUrl, '_blank');
+    }
     return;
 
   } else if(app === 'waze'){
@@ -5345,8 +5359,12 @@ function navegarCom(app){
     return;
   }
 
-  // fallback genérico — geo: URI
-  window.location.href = 'geo:' + destLat + ',' + destLng + '?q=' + destLat + ',' + destLng;
+  // fallback: geo: no Android, Google Maps no resto
+  if(isTwa){
+    window.location.href = 'geo:' + destLat + ',' + destLng + '?q=' + destLat + ',' + destLng;
+  } else {
+    window.open('https://www.google.com/maps/dir/?api=1&destination=' + destLat + ',' + destLng + '&travelmode=driving', '_blank');
+  }
 }
 
 // ── Leaflet map ──────────────────────────────────────────────────────

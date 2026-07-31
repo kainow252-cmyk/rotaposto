@@ -4462,21 +4462,38 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   //   3. TWA segue redirect → Android resolve App Link via PackageManager
   //   4. Google Maps app abre nativamente sem passar pelo Chrome/WebView
   // ─────────────────────────────────────────────────────────────────────────
+  // Detecta se está rodando dentro de TWA (Trusted Web Activity) Android.
+  // No TWA, google.com/maps é interceptado pelo App Links e vira intent://
+  // que o WebView não consegue abrir → usa geo: URI que vai direto ao SO.
+  // No browser normal (Chrome, Safari, desktop), geo: não tem handler → usa https://.
+  function _isTWA() {
+    return document.referrer.includes('android-app://') ||
+           window.matchMedia('(display-mode: standalone)').matches ||
+           (window.navigator as any).standalone === true;
+  }
+
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
 
     if (temCoords) {
-      // geo: URI é o padrão Android — o sistema abre o app de mapas padrão
-      // do usuário (Google Maps, Waze, etc.) diretamente, sem passar pelo
-      // App Links do Chrome/TWA que converte google.com/maps para intent://
-      var geoUrl = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng
-        + '(' + encodeURIComponent(nome || 'Posto de Combustível') + ')';
-      window.location.href = geoUrl;
+      if (_isTWA()) {
+        // TWA/Android: geo: URI vai direto ao SO, abre app de mapas padrão
+        // sem passar pelo App Links que bloqueia google.com/maps
+        window.location.href = 'geo:' + lat + ',' + lng
+          + '?q=' + lat + ',' + lng
+          + '(' + encodeURIComponent(nome || 'Posto de Combustível') + ')';
+      } else {
+        // Browser web / iOS: abre Google Maps normalmente
+        var mapsUrl = 'https://www.google.com/maps/dir/?api=1'
+          + '&destination=' + lat + ',' + lng
+          + '&travelmode=driving&dir_action=navigate';
+        if (userLat && userLng) mapsUrl += '&origin=' + userLat + ',' + userLng;
+        window.open(mapsUrl, '_blank');
+      }
     } else {
-      // Sem coordenadas: busca por nome — abre Google Maps web
-      var searchUrl = 'https://www.google.com/maps/search/?api=1&query='
-        + encodeURIComponent(nome || 'posto de gasolina');
-      window.open(searchUrl, '_blank');
+      // Sem coordenadas: busca por nome
+      window.open('https://www.google.com/maps/search/?api=1&query='
+        + encodeURIComponent(nome || 'posto de gasolina'), '_blank');
     }
   }
 
@@ -4770,13 +4787,20 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       return;
     }
     if (lat && lng && lat !== 0 && lng !== 0) {
-      var geoUrl = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng
-        + '(' + encodeURIComponent(nome || 'Posto de Combustível') + ')';
-      window.location.href = geoUrl;
+      if (_isTWA()) {
+        window.location.href = 'geo:' + lat + ',' + lng
+          + '?q=' + lat + ',' + lng
+          + '(' + encodeURIComponent(nome || 'Posto de Combustível') + ')';
+      } else {
+        var mapsUrl = 'https://www.google.com/maps/dir/?api=1'
+          + '&destination=' + lat + ',' + lng
+          + '&travelmode=driving&dir_action=navigate';
+        if (userLat && userLng) mapsUrl += '&origin=' + userLat + ',' + userLng;
+        window.open(mapsUrl, '_blank');
+      }
     } else {
-      var searchUrl = 'https://www.google.com/maps/search/?api=1&query='
-        + encodeURIComponent(nome || 'posto de gasolina');
-      window.open(searchUrl, '_blank');
+      window.open('https://www.google.com/maps/search/?api=1&query='
+        + encodeURIComponent(nome || 'posto de gasolina'), '_blank');
     }
   }
 
