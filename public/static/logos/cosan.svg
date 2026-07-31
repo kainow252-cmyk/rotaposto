@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="200" height="100">
+  <rect x="0" y="0" width="160" height="80" rx="8" fill="white"/>
+  <!-- Símbolo C circular -->
+  <path d="M40 20 A24 24 0 1 0 40 60 L40 52 A16 16 0 1 1 40 28 Z"
+        fill="#00923F"/>
+  <!-- Texto COSAN -->
+  <text x="105" y="46"
+    font-family="'Arial','Helvetica',sans-serif"
+    font-weight="700" font-size="24"
+    fill="#00923F" text-anchor="middle">COSAN</text>
+</svg>

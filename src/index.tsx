@@ -4747,22 +4747,56 @@ app.get('/ir', async (c) => {
     : 'Posto'
 
   // Resolve URL do logo para exibir na tela de rota
+  // IMPORTANTE: só recebe o campo `bandeira` explícito — nunca o nome do posto
   function _irLogoUrl(band: string): string {
     if (!band) return '/static/logos/independente.svg'
-    const n = band.toUpperCase()
-    if (n.includes('SHELL'))                                          return '/static/logos/shell.svg'
-    if (n.includes('PETROBRAS') || n === 'BR' || n === 'PETROBRAS BR' || n.startsWith('BR ') || n.endsWith(' BR') || n.includes('PETRO BR')) return '/static/logos/br.svg'
-    if (n.includes('IPIRANGA'))                                       return '/static/logos/ipiranga.svg'
-    if (n.includes('RAIZEN') || n.includes('RAÍZEN') || n.includes('RAIZ')) return '/static/logos/raizen.svg'
-    if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') || n.startsWith('ALÉ ') || n.includes('ALEPOSTO') || /\bALE\b/.test(n)) return '/static/logos/ale.svg'
-    if (n.includes('TEXACO'))   return '/static/logos/texaco.svg'
-    if (n.includes('VIBRA'))    return '/static/logos/vibra.svg'
-    if (n.includes('ESSO'))     return '/static/logos/esso.svg'
-    if (n.includes('PITSTOP') || n.includes('PIT STOP') || n.includes('PIT-STOP')) return '/static/logos/pitstop.svg'
-    if (n.includes('BANDEIRANTE')) return '/static/logos/bandeirante.svg'
-    if (n.includes('COPAGAZ'))  return '/static/logos/copagaz.svg'
-    if (n.includes('ULTRAGAZ') || n.includes('ULTRA GAZ')) return '/static/logos/ultragaz.svg'
-    if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS')) return '/static/logos/supergasbras.svg'
+    const n = band.toUpperCase().trim()
+
+    // ── Grandes distribuidoras nacionais ──────────────────────────────────
+    if (n.includes('SHELL'))                                                   return '/static/logos/shell.svg'
+    if (n.includes('PETROBRAS') || n === 'BR' || n === 'PETROBRAS BR' ||
+        n.startsWith('BR ') || n.endsWith(' BR') || n.includes('PETRO BR'))   return '/static/logos/br.svg'
+    if (n.includes('IPIRANGA'))                                                return '/static/logos/ipiranga.svg'
+    if (n.includes('RAIZEN') || n.includes('RAÍZEN'))                         return '/static/logos/raizen.svg'
+    if (n === 'ALE' || n === 'ALÉ' || n.startsWith('ALE ') ||
+        n.startsWith('ALÉ ') || n.includes('ALEPOSTO'))                       return '/static/logos/ale.svg'
+    if (n.includes('TEXACO'))                                                  return '/static/logos/texaco.svg'
+    if (n.includes('VIBRA'))                                                   return '/static/logos/vibra.svg'
+    if (n.includes('ESSO'))                                                    return '/static/logos/esso.svg'
+
+    // ── Regionais / distribuidoras menores ────────────────────────────────
+    if (n.includes('COSAN'))                                                   return '/static/logos/cosan.svg'
+    if (n.includes('PETROSUL'))                                                return '/static/logos/petrosul.svg'
+    if (n.includes('DISLUB'))                                                  return '/static/logos/dislub.svg'
+    if (n.includes('REPSOL'))                                                  return '/static/logos/repsol.svg'
+    if (n.includes('DAYMON'))                                                  return '/static/logos/daymon.svg'
+    if (n.includes('NACIONAL GAS') || n.includes('NACIONAL GÁS') ||
+        n === 'NACIONAL')                                                      return '/static/logos/nacional.svg'
+    if (n.includes('NORDESTE'))                                                return '/static/logos/nordeste.svg'
+    if (n.includes('TERPASA'))                                                 return '/static/logos/terpasa.svg'
+    if (n.includes('TOTAL') && (n.includes('ENERGIES') ||
+        n.includes('ENERGY') || n === 'TOTAL'))                               return '/static/logos/total.svg'
+    if (n.includes('CBPI'))                                                    return '/static/logos/cbpi.svg'
+    if (n.includes('PETRONE'))                                                 return '/static/logos/petrone.svg'
+    if (n.includes('SULPETRO'))                                                return '/static/logos/sulpetro.svg'
+    if (n.includes('SABBÁ') || n.includes('SABBA'))                           return '/static/logos/sabbá.svg'
+    if (n.includes('CONVENIO') || n.includes('CONVÊNIO'))                     return '/static/logos/convenio.svg'
+
+    // ── GLP / gás engarrafado ─────────────────────────────────────────────
+    if (n.includes('SUPERGASBRAS') || n.includes('SUPER GAS') ||
+        n.includes('SUPERGÁS'))                                                return '/static/logos/supergasbras.svg'
+    if (n.includes('ULTRAGAZ') || n.includes('ULTRA GAZ') ||
+        n.includes('ULTRAGÁS'))                                                return '/static/logos/ultragaz.svg'
+    if (n.includes('COPAGAZ'))                                                 return '/static/logos/copagaz.svg'
+    if (n.includes('LIQUIGAS') || n.includes('LIQUIGÁS') ||
+        n.includes('LIQUI GAS'))                                               return '/static/logos/liquigas.svg'
+
+    // ── Redes próprias ────────────────────────────────────────────────────
+    if (n.includes('PITSTOP') || n.includes('PIT STOP') ||
+        n.includes('PIT-STOP'))                                                return '/static/logos/pitstop.svg'
+    if (n.includes('BANDEIRANTE'))                                             return '/static/logos/bandeirante.svg'
+
+    // ── Fallback: independente ────────────────────────────────────────────
     return '/static/logos/independente.svg'
   }
   // NUNCA usar o nome do posto para inferir logo — só a bandeira explícita

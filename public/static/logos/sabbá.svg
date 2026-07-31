@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="sabbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#007A33"/>
+      <stop offset="100%" stop-color="#004D1F"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="url(#sabbGrad)"/>
+  <!-- Folha amazônica -->
+  <path d="M60 20 C80 35 85 55 65 75 Q60 80 55 75 C35 55 40 35 60 20 Z"
+        fill="#00C853" opacity="0.7"/>
+  <path d="M60 20 L60 75" stroke="#FFD700" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <text x="60" y="100"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="18"
+    fill="#FFD700" text-anchor="middle" dominant-baseline="middle"
+    letter-spacing="2">SABBÁ</text>
+</svg>

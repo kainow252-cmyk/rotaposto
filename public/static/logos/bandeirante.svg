@@ -1,26 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <!-- Bandeirante — padrão xadrez clássico de bandeira de corrida -->
-  <rect width="200" height="200" fill="#212121"/>
-  <!-- Padrão xadrez 4x4 na metade superior -->
-  <rect x="0"   y="0"  width="50" height="50" fill="white"/>
-  <rect x="50"  y="0"  width="50" height="50" fill="#212121"/>
-  <rect x="100" y="0"  width="50" height="50" fill="white"/>
-  <rect x="150" y="0"  width="50" height="50" fill="#212121"/>
-  <rect x="0"   y="50" width="50" height="50" fill="#212121"/>
-  <rect x="50"  y="50" width="50" height="50" fill="white"/>
-  <rect x="100" y="50" width="50" height="50" fill="#212121"/>
-  <rect x="150" y="50" width="50" height="50" fill="white"/>
-  <rect x="0"   y="100" width="50" height="50" fill="white"/>
-  <rect x="50"  y="100" width="50" height="50" fill="#212121"/>
-  <rect x="100" y="100" width="50" height="50" fill="white"/>
-  <rect x="150" y="100" width="50" height="50" fill="#212121"/>
-  <!-- Metade inferior escura com texto -->
-  <rect x="0" y="150" width="200" height="50" fill="#212121"/>
-  <text x="100" y="186"
-    text-anchor="middle"
-    font-size="21"
-    font-weight="900"
-    font-family="Arial Black, Arial, sans-serif"
-    fill="white"
-    letter-spacing="0">BANDEIRANTE</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bdGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#009C41"/>
+      <stop offset="100%" stop-color="#006B2E"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="url(#bdGrad)"/>
+  <!-- Bandeira estilizada -->
+  <path d="M22 30 L22 90 M22 30 L72 30 L82 42 L72 54 L22 54" stroke="#FFD700"
+        stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M22 30 L72 30 L82 42 L72 54 L22 54 Z" fill="#FFD700" opacity="0.85"/>
+  <!-- Letra B na bandeira -->
+  <text x="47" y="47"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="20"
+    fill="#006B2E" text-anchor="middle" dominant-baseline="middle">B</text>
+  <text x="60" y="100"
+    font-family="'Arial','Helvetica',sans-serif"
+    font-weight="700" font-size="9"
+    fill="rgba(255,255,255,0.85)" text-anchor="middle" letter-spacing="1.5">BANDEIRANTE</text>
 </svg>
