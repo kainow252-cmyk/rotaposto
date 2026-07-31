@@ -5321,34 +5321,39 @@ document.addEventListener('keydown', function(e){
 });
 
 // ── Navegar com o app escolhido ───────────────────────────────────────
-// SOLUÇÃO FINAL (Round 8 — proxy server-side /maps):
-//
-// PROBLEMA RAIZ: Android TWA/WebView intercepta QUALQUER URL externa
-// google.com/maps ou waze.com no nível do OS → converte para intent://
-// → ERR_UNKNOWN_URL_SCHEME. Isso ocorre com window.location.href,
-// <a>, window.open — não existe forma client-side de evitar.
-//
-// SOLUÇÃO: navegar para /maps (domínio próprio rotaposto.com.br).
-// O servidor emite HTTP 302 para a URL do app externo.
-// O Android processa o 302 FORA do WebView via PackageManager,
-// abrindo o app nativo diretamente, sem expor a URL externa ao WebView.
+// window.open(url, '_blank') é a única forma que funciona tanto em browser
+// quanto em TWA/WebView Android: abre em nova aba no Chrome, e no TWA o
+// Android processa o _blank como Custom Tab fora do WebView → PackageManager
+// resolve o App Link e abre o Maps/Waze nativo diretamente.
+// REGRA: usar APENAS URLs https:// — nunca waze://, intent://, geo: ou maps://
 function navegarCom(app){
   fecharSeletorNav();
   var destLat = DLAT, destLng = DLNG;
+  var url = '';
 
-  // Sempre usa o proxy /maps (domínio próprio — TWA não intercepta)
-  var proxyUrl = '/maps?app=' + encodeURIComponent(app)
-    + '&lat=' + encodeURIComponent(destLat)
-    + '&lng=' + encodeURIComponent(destLng);
+  if(app === 'google'){
+    url = 'https://www.google.com/maps/dir/?api=1'
+      + '&destination=' + destLat + ',' + destLng
+      + '&travelmode=driving'
+      + '&dir_action=navigate';
+    if(_userLat && _userLng)
+      url += '&origin=' + _userLat + ',' + _userLng;
 
-  // Adiciona origem GPS se disponível
-  if(_userLat && _userLng){
-    proxyUrl += '&olat=' + encodeURIComponent(_userLat)
-              + '&olng=' + encodeURIComponent(_userLng);
+  } else if(app === 'waze'){
+    url = 'https://waze.com/ul?ll=' + destLat + '%2C' + destLng
+      + '&navigate=yes&zoom=17';
+
+  } else if(app === 'apple'){
+    url = 'https://maps.apple.com/?daddr=' + destLat + ',' + destLng
+      + '&dirflg=d';
+
+  } else {
+    url = 'https://www.google.com/maps/dir/?api=1'
+      + '&destination=' + destLat + ',' + destLng
+      + '&travelmode=driving';
   }
 
-  // Navega para /maps (URL própria) → servidor faz 302 → app externo
-  window.location.href = proxyUrl;
+  window.open(url, '_blank');
 }
 
 // ── Leaflet map ──────────────────────────────────────────────────────
