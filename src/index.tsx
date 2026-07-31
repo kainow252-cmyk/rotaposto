@@ -7288,19 +7288,100 @@ app.get('/app_old', (c) => {
 
     /* Leaflet override */
     .leaflet-container { font-family: 'Raleway', sans-serif !important; }
-    .popup-posto { min-width: 160px; }
-    .popup-posto strong { display: block; font-size: 12px; font-weight: 800; margin-bottom: 4px; }
-    .popup-posto .pop-preco { font-size: 20px; font-weight: 900; color: var(--azul-vivo); }
-    .popup-posto .pop-dist { font-size: 11px; color: var(--cinza-texto); }
-    .popup-posto .pop-btn {
-      display: block; width: 100%;
-      margin-top: 8px; padding: 7px;
-      background: var(--laranja); color: var(--branco);
-      border: none; border-radius: 8px;
-      font-family: 'Raleway', sans-serif;
-      font-size: 11px; font-weight: 800;
+
+    /* ── MARCADOR PIN BOMBINHA ── */
+    .rp-pin {
+      width: 36px; height: 42px;
+      position: relative;
       cursor: pointer;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+      transition: transform .15s;
     }
+    .rp-pin:hover { transform: scale(1.15); }
+    .rp-pin .pin-body {
+      width: 36px; height: 36px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex; align-items: center; justify-content: center;
+      border: 2.5px solid rgba(255,255,255,0.9);
+    }
+    .rp-pin .pin-body svg {
+      transform: rotate(45deg);
+      width: 18px; height: 18px;
+      fill: white;
+    }
+    .rp-pin .pin-tail {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.18);
+      margin: 1px auto 0;
+    }
+    /* PIN melhor posto = verde */
+    .rp-pin.melhor .pin-body { background: #00C853; }
+    /* PIN padrão = azul escuro */
+    .rp-pin.normal .pin-body { background: #1565C0; }
+
+    /* ── POPUP CARD ESTILO GOOGLE MAPS ── */
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px !important;
+      padding: 0 !important;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.22) !important;
+      border: none !important;
+      min-width: 220px;
+    }
+    .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+    .leaflet-popup-tip-container { display: none; }
+    .leaflet-popup-close-button {
+      color: white !important;
+      font-size: 18px !important;
+      top: 6px !important; right: 10px !important;
+      z-index: 10;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+    .mp-card { font-family: 'Raleway', sans-serif; }
+    .mp-foto {
+      width: 100%; height: 110px;
+      object-fit: cover;
+      display: block;
+      background: #1A1A2E;
+    }
+    .mp-foto-placeholder {
+      width: 100%; height: 110px;
+      background: linear-gradient(135deg,#1565C0 0%,#0D47A1 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 38px;
+    }
+    .mp-body { padding: 12px 14px 10px; background: #1C1C2E; }
+    .mp-nome {
+      font-size: 13px; font-weight: 800;
+      color: #fff; margin-bottom: 6px;
+      line-height: 1.3;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 195px;
+    }
+    .mp-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .mp-preco {
+      font-size: 22px; font-weight: 900;
+      color: #FF6D00;
+      line-height: 1;
+    }
+    .mp-badge {
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px; padding: 2px 8px;
+      font-size: 10px; color: rgba(255,255,255,0.7);
+      font-weight: 700;
+    }
+    .mp-dist { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 10px; }
+    .mp-btn {
+      display: block; width: 100%;
+      background: #FF6D00; color: #fff;
+      border: none; border-radius: 10px;
+      padding: 9px; font-size: 12px; font-weight: 800;
+      font-family: 'Raleway', sans-serif;
+      cursor: pointer; letter-spacing: 0.3px;
+    }
+    .mp-btn:active { opacity: 0.85; }
 
     /* ── MODAL LOGIN FIREBASE ── */
     .auth-modal-overlay {
@@ -8405,36 +8486,74 @@ function atualizarMapa() {
   state.marcadores.forEach(m => state.map.removeLayer(m));
   state.marcadores = [];
 
-  // Marcador do usuário
+  // ── Marcador do usuário — ponto azul compacto ──
   const userIcon = L.divIcon({
-    html: '<div style="width:18px;height:18px;background:#1565C0;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>',
-    iconSize: [18, 18], iconAnchor: [9, 9], className: ''
+    html: \`<div style="
+      width:16px;height:16px;
+      background:#1565C0;
+      border:3px solid white;
+      border-radius:50%;
+      box-shadow:0 2px 8px rgba(0,0,0,0.45);
+    "></div>\`,
+    iconSize: [16, 16], iconAnchor: [8, 8], className: ''
   });
   L.marker([state.lat, state.lng], { icon: userIcon })
     .addTo(state.map)
-    .bindPopup('<strong>📍 Você está aqui</strong>');
+    .bindPopup('<strong style="font-size:13px">📍 Você está aqui</strong>');
 
-  // Marcadores dos postos
+  // SVG bombinha de gasolina inline (compacto)
+  const svgBomba = \`<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M18.92 6.01L18.01 5.1C17.62 4.71 17 4.71 16.61 5.1L15 6.71V4C15 2.9 14.1 2 13 2H5C3.9 2 3 2.9 3 4v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-7.59l3.71-3.71c.39-.39.39-1.02.01-1.39zM11 13H7v-2h4v2zm0-4H7V7h4v2zm4 9h-2v-2h2v2zm0-4h-2v-2h2v2z"/>
+  </svg>\`;
+
+  // ── Marcadores dos postos — pin bombinha estilo Google Maps ──
   state.postos.forEach((p, i) => {
     const isMelhor = i === 0 && state.ordenacao === 'preco';
-    const cor = isMelhor ? '#00C853' : '#1565C0';
+    const cls = isMelhor ? 'melhor' : 'normal';
+
     const icon = L.divIcon({
-      html: \`<div style="background:\${cor};color:white;padding:4px 7px;border-radius:8px;font-size:11px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;border:2px solid white;">R$ \${p.preco.toFixed(2)}</div>\`,
-      className: '', iconAnchor: [20, 20]
+      html: \`<div class="rp-pin \${cls}">
+        <div class="pin-body">\${svgBomba}</div>
+        <div class="pin-tail"></div>
+      </div>\`,
+      iconSize: [36, 42],
+      iconAnchor: [18, 42],
+      className: ''
     });
 
     const dist = p.distancia < 1
       ? (p.distancia * 1000).toFixed(0) + 'm'
       : p.distancia.toFixed(1) + 'km';
 
+    const fotoUrl = p.fotoGoogle || p.fotoUrl || '';
+    const fotoHtml = fotoUrl
+      ? \`<img class="mp-foto" src="\${fotoUrl}" alt="\${p.nome}" onerror="this.style.display='none';this.nextSibling.style.display='flex'">\`
+        + \`<div class="mp-foto-placeholder" style="display:none">⛽</div>\`
+      : \`<div class="mp-foto-placeholder">⛽</div>\`;
+
+    const melhorBadge = isMelhor
+      ? \`<span class="mp-badge" style="background:rgba(0,200,83,0.25);color:#00C853">🏆 Melhor preço</span>\`
+      : \`<span class="mp-badge">📍 \${dist}</span>\`;
+
     const marcador = L.marker([p.lat, p.lng], { icon })
       .addTo(state.map)
-      .bindPopup(\`<div class="popup-posto">
-        <strong>\${p.nome}</strong>
-        <div class="pop-preco">R$ \${p.preco.toFixed(2)}</div>
-        <div class="pop-dist">📍 \${dist} de você</div>
-        <button class="pop-btn" onclick="abrirModalPostoBruto(\${i})">Ver detalhes</button>
-      </div>\`);
+      .bindPopup(
+        \`<div class="mp-card">
+          \${fotoHtml}
+          <div class="mp-body">
+            <div class="mp-nome">\${p.nome}</div>
+            <div class="mp-row">
+              <span class="mp-preco">R$ \${p.preco.toFixed(2)}</span>
+              \${melhorBadge}
+            </div>
+            <div class="mp-dist">📍 \${dist} de você · ⛽ \${state.combustivel}</div>
+            <button class="mp-btn" onclick="state.map.closePopup();abrirModalPostoBruto(\${i})">
+              Ver detalhes &rarr;
+            </button>
+          </div>
+        </div>\`,
+        { minWidth: 230, maxWidth: 260 }
+      );
     state.marcadores.push(marcador);
   });
 
