@@ -4414,22 +4414,126 @@ export function getPainelLoginHTML(): string {
 
 
 
+    /* ── BANNER INSTALAR APP ── */
+    .install-banner{
+      position:fixed;bottom:0;left:0;right:0;z-index:999;
+      background:#1A1A1A;color:#fff;
+      padding:14px 16px;
+      display:none;
+      align-items:center;gap:12px;
+      box-shadow:0 -4px 24px rgba(0,0,0,.35);
+      border-top:2px solid var(--laranja, #FF6D00);
+    }
+    .install-banner.visivel{display:flex}
+    .install-banner-logo{
+      width:46px;height:46px;border-radius:12px;
+      background:#FF6D00;display:flex;align-items:center;
+      justify-content:center;font-size:22px;flex-shrink:0;
+      overflow:hidden;
+    }
+    .install-banner-logo img{width:100%;height:100%;object-fit:cover;border-radius:12px;}
+    .install-banner-info{flex:1;min-width:0}
+    .install-banner-titulo{font-size:14px;font-weight:800;margin-bottom:2px}
+    .install-banner-sub{font-size:11px;color:rgba(255,255,255,.6);line-height:1.4}
+    .install-banner-btns{display:flex;gap:8px;flex-shrink:0}
+    .btn-instalar{
+      padding:9px 16px;background:#FF6D00;color:#fff;
+      border:none;border-radius:10px;font-size:13px;
+      font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;
+      white-space:nowrap;
+    }
+    .btn-instalar-fechar{
+      padding:9px 10px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);
+      border:none;border-radius:10px;font-size:13px;cursor:pointer;
+    }
+
+    /* iOS instruction overlay */
+    .ios-install-overlay{
+      display:none;position:fixed;inset:0;z-index:1000;
+      background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;
+      padding-bottom:0;
+    }
+    .ios-install-overlay.visivel{display:flex}
+    .ios-install-card{
+      background:#1C1C2E;border-radius:20px 20px 0 0;
+      padding:24px 20px 40px;width:100%;max-width:460px;
+      color:#fff;text-align:center;
+    }
+    .ios-install-card h3{font-size:17px;font-weight:800;margin-bottom:8px}
+    .ios-install-card p{font-size:13px;color:rgba(255,255,255,.7);line-height:1.6;margin-bottom:20px}
+    .ios-steps{display:flex;flex-direction:column;gap:14px;text-align:left;margin-bottom:20px}
+    .ios-step{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border-radius:12px;padding:12px 14px}
+    .ios-step-ico{font-size:22px;flex-shrink:0}
+    .ios-step-txt{font-size:13px;line-height:1.4}
+    .ios-step-txt strong{color:#FF6D00}
+    .ios-close{width:100%;padding:13px;background:rgba(255,255,255,.1);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer}
+
     @media(max-width:420px){
       .login-card{padding:24px 20px;border-radius:16px}
       .login-logo-icon{width:52px;height:52px;font-size:24px}
       .login-logo-title{font-size:20px}
-      body{padding:12px;align-items:flex-start;padding-top:70px;overflow-y:auto;overflow-x:hidden}
+      body{padding:12px;align-items:flex-start;padding-top:70px;overflow-y:auto;overflow-x:hidden;padding-bottom:90px}
     }
   </style>
 </head>
 <body>
 
+<!-- ── BANNER INSTALAR APP ── -->
+<div class="install-banner" id="install-banner">
+  <div class="install-banner-logo">
+    <img src="/icons-empresas/logo-empresas.png" alt="RP Empresas" onerror="this.parentNode.innerHTML='⛽'">
+  </div>
+  <div class="install-banner-info">
+    <div class="install-banner-titulo">RotaPosto Empresas</div>
+    <div class="install-banner-sub">Instale o app gratuito e acesse direto da tela inicial</div>
+  </div>
+  <div class="install-banner-btns">
+    <button class="btn-instalar" id="btn-instalar-pwa" onclick="instalarApp()">
+      <i class="fas fa-download"></i> Instalar
+    </button>
+    <button class="btn-instalar-fechar" onclick="fecharBannerInstalar()" title="Fechar">✕</button>
+  </div>
+</div>
+
+<!-- ── INSTRUÇÃO iOS ── -->
+<div class="ios-install-overlay" id="ios-install-overlay" onclick="if(event.target===this)fecharIosOverlay()">
+  <div class="ios-install-card">
+    <h3>📲 Instalar RotaPosto Empresas</h3>
+    <p>Para instalar no iPhone/iPad, siga os passos abaixo:</p>
+    <div class="ios-steps">
+      <div class="ios-step">
+        <div class="ios-step-ico">⬆️</div>
+        <div class="ios-step-txt">Toque no botão <strong>Compartilhar</strong> na barra do Safari</div>
+      </div>
+      <div class="ios-step">
+        <div class="ios-step-ico">➕</div>
+        <div class="ios-step-txt">Selecione <strong>"Adicionar à Tela de Início"</strong></div>
+      </div>
+      <div class="ios-step">
+        <div class="ios-step-ico">✅</div>
+        <div class="ios-step-txt">Toque em <strong>Adicionar</strong> — pronto!</div>
+      </div>
+    </div>
+    <button class="ios-close" onclick="fecharIosOverlay()">Entendi</button>
+  </div>
+</div>
+
 
 
 <div class="login-logo-area">
-  <div class="login-logo-icon">⛽</div>
+  <div class="login-logo-icon" style="padding:0;overflow:hidden">
+    <img src="/icons-empresas/logo-empresas.png" alt="RotaPosto Empresas"
+      style="width:100%;height:100%;object-fit:cover;border-radius:16px"
+      onerror="this.style.display='none';this.parentNode.innerHTML='⛽'">
+  </div>
   <div class="login-logo-title">RotaPosto <span style="color:rgba(255,255,255,.8)">Empresas</span></div>
   <div class="login-logo-sub">Painel do Gerente de Posto</div>
+  <!-- Botão instalar app (visível antes do banner aparecer) -->
+  <div id="btn-instalar-area" style="margin-top:14px;display:none">
+    <button onclick="instalarApp()" style="padding:10px 20px;background:rgba(255,255,255,0.2);color:#fff;border:2px solid rgba(255,255,255,0.5);border-radius:50px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:8px;backdrop-filter:blur(4px)">
+      <i class="fas fa-download"></i> Instalar App Gratuito
+    </button>
+  </div>
 </div>
 
 <div class="login-card">
@@ -4547,6 +4651,78 @@ async function fazerLogin() {
 function esqueceuSenha() {
   alert('Em breve. Entre em contato pelo WhatsApp do RotaPosto.');
 }
+
+// ── PWA INSTALL ──────────────────────────────────────────────────
+var _deferredPrompt = null;
+var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+var _isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+var _jaInstalado = window.matchMedia('(display-mode: standalone)').matches
+  || window.navigator.standalone === true;
+
+function _mostrarBannerInstalar() {
+  if (_jaInstalado) return; // já está instalado
+  // Botão no logo — sempre mostra (independente de ter fechado o banner)
+  var btnArea = document.getElementById('btn-instalar-area');
+  if (btnArea) btnArea.style.display = 'block';
+  // Banner inferior — respeita o "fechei"
+  var k = 'rp_install_banner_fechado';
+  try { if (localStorage.getItem(k)) return; } catch {}
+  var banner = document.getElementById('install-banner');
+  if (banner) banner.classList.add('visivel');
+}
+
+// Android/Chrome: captura o evento nativo
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _deferredPrompt = e;
+  _mostrarBannerInstalar();
+});
+
+// iOS Safari: mostra instruções
+if (_isIOS && _isSafari && !_jaInstalado) {
+  setTimeout(_mostrarBannerInstalar, 1500);
+}
+
+function instalarApp() {
+  if (_deferredPrompt) {
+    // Android/Chrome — prompt nativo
+    _deferredPrompt.prompt();
+    _deferredPrompt.userChoice.then(function(r) {
+      if (r.outcome === 'accepted') {
+        fecharBannerInstalar();
+      }
+      _deferredPrompt = null;
+    });
+  } else if (_isIOS) {
+    // iOS — mostrar instruções
+    var banner = document.getElementById('install-banner');
+    if (banner) banner.classList.remove('visivel');
+    var overlay = document.getElementById('ios-install-overlay');
+    if (overlay) overlay.classList.add('visivel');
+  } else {
+    // Fallback: abrir em nova aba como PWA
+    window.open(window.location.href, '_blank');
+  }
+}
+
+function fecharBannerInstalar() {
+  var banner = document.getElementById('install-banner');
+  if (banner) banner.classList.remove('visivel');
+  try { localStorage.setItem('rp_install_banner_fechado', '1'); } catch {}
+}
+
+function fecharIosOverlay() {
+  var overlay = document.getElementById('ios-install-overlay');
+  if (overlay) overlay.classList.remove('visivel');
+  try { localStorage.setItem('rp_install_banner_fechado', '1'); } catch {}
+}
+
+// Detectar quando foi instalado
+window.addEventListener('appinstalled', function() {
+  fecharBannerInstalar();
+  var overlay = document.getElementById('ios-install-overlay');
+  if (overlay) overlay.classList.remove('visivel');
+});
 </script>
 </body>
 </html>`;
