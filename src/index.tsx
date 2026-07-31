@@ -4660,7 +4660,7 @@ app.get('/reset', (c) => {
 app.get('/parcerias/manifest.json', (c) => {
   const manifest = {
     name: "RotaPosto Empresas",
-    short_name: "RP Empresas",
+    short_name: "RotaPosto",
     description: "Painel de gestão para postos parceiros RotaPosto. Valide cupons, gerencie preços e sua equipe.",
     start_url: "/parcerias/empresa",
     display: "standalone",
