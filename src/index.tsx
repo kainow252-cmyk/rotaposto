@@ -5294,23 +5294,43 @@ function abrirSeletorNav(){
     return;
   }
 
-  // Monta URLs e injeta nos <a href> — toque do usuário ativa App Link direto
-  var gUrl = 'https://www.google.com/maps/dir/?api=1'
-    + '&destination=' + DLAT + ',' + DLNG
-    + '&travelmode=driving&dir_action=navigate';
-  if(_userLat && _userLng) gUrl += '&origin=' + _userLat + ',' + _userLng;
+  // ── URI schemes nativos — não são interceptados pelo TWA como App Links ──
+  // comgooglemaps:// e waze:// → Android resolve direto via PackageManager
+  // Fallback data-fallback: usado se o app não estiver instalado (1.5s timeout)
+  var gUrl  = 'comgooglemaps://?daddr=' + DLAT + ',' + DLNG + '&directionsmode=driving';
+  if(_userLat && _userLng) gUrl += '&saddr=' + _userLat + ',' + _userLng;
+  var gFall = 'https://maps.google.com/maps?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
+  if(_userLat && _userLng) gFall += '&saddr=' + _userLat + ',' + _userLng;
 
-  var wUrl = 'https://waze.com/ul?ll=' + DLAT + '%2C' + DLNG + '&navigate=yes&zoom=17';
-  var aUrl = 'https://maps.apple.com/?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
+  var wUrl  = 'waze://?ll=' + DLAT + ',' + DLNG + '&navigate=yes';
+  var wFall = 'https://waze.com/ul?ll=' + DLAT + '%2C' + DLNG + '&navigate=yes&zoom=17';
+
+  var aUrl  = 'maps://?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';  // iOS Apple Maps scheme
+  var aFall = 'https://maps.apple.com/?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
 
   var lg = document.getElementById('nav-link-google');
   var lw = document.getElementById('nav-link-waze');
   var la = document.getElementById('btn-apple-maps');
   var lm = document.getElementById('btn-maps-gen');
-  if(lg) lg.setAttribute('href', gUrl);
-  if(lw) lw.setAttribute('href', wUrl);
-  if(la) la.setAttribute('href', aUrl);
-  if(lm) lm.setAttribute('href', gUrl);
+
+  function _setNavLink(el, scheme, fallback) {
+    if (!el) return;
+    el.setAttribute('href', scheme);
+    el.setAttribute('data-fallback', fallback);
+    el.onclick = function(e) {
+      e.preventDefault();
+      var fb = this.getAttribute('data-fallback');
+      window.location.href = this.getAttribute('href');
+      var t = setTimeout(function(){ window.location.href = fb; }, 1500);
+      document.addEventListener('visibilitychange', function h(){
+        clearTimeout(t); document.removeEventListener('visibilitychange', h);
+      });
+    };
+  }
+  _setNavLink(lg, gUrl, gFall);
+  _setNavLink(lw, wUrl, wFall);
+  _setNavLink(la, aUrl, aFall);
+  if(lm) { lm.setAttribute('href', gFall); }
 
   var overlay = document.getElementById('nav-sheet-overlay');
   var sheet   = document.getElementById('nav-sheet');
