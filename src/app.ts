@@ -4768,32 +4768,27 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   function iniciarNavegacao() {
     var lat, lng, nome;
-    var _navPosto = null;
     if (planDestLat && planDestLng) {
       lat = planDestLat; lng = planDestLng; nome = planDestNome || '';
-      _navPosto = selectedPosto || null;
     } else if (selectedPosto) {
       lat = selectedPosto.lat; lng = selectedPosto.lng; nome = selectedPosto.nome;
-      _navPosto = selectedPosto;
     } else {
       showToast('Selecione um destino primeiro');
       return;
     }
-    var irUrl;
+    var url;
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
     if (temCoords) {
-      irUrl = '/ir?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng);
-      if (nome) irUrl += '&nome=' + encodeURIComponent(nome);
+      url = 'https://www.google.com/maps/dir/?api=1'
+        + '&destination=' + lat + ',' + lng
+        + '&travelmode=driving'
+        + '&dir_action=navigate';
+      if (userLat && userLng) url += '&origin=' + userLat + ',' + userLng;
     } else {
-      irUrl = '/ir?nome=' + encodeURIComponent(nome || '');
+      url = 'https://www.google.com/maps/search/?api=1&query='
+        + encodeURIComponent(nome || 'posto de gasolina');
     }
-    if (_navPosto) {
-      if (_navPosto.bandeira) irUrl += '&bandeira=' + encodeURIComponent(_navPosto.bandeira);
-      if (_navPosto.fotoUrl && (_navPosto.fotoUrl.startsWith('http') || _navPosto.fotoUrl.startsWith('/api'))) {
-        irUrl += '&foto=' + encodeURIComponent(_navPosto.fotoUrl);
-      }
-    }
-    window.location.href = irUrl;
+    window.open(url, '_blank');
   }
 
   let _searchTimer = null;
