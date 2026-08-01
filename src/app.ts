@@ -4468,30 +4468,20 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
 
-    // ── Abre tela /ir com mapa Embed + botão para app externo ──
-    // A tela /ir usa Maps Embed API (iframe) para mostrar a rota dentro do app.
-    // O botão "Iniciar navegação" nessa tela usa <a href> que o TWA
-    // encaminha para o Google Maps nativo (App Link tratado pelo sistema).
-    var params = new URLSearchParams();
+    // ── rotaposto://maps — scheme capturado pela MapLaunchActivity no APK ──
+    // O TWA trata qualquer URL fora de rotaposto.com.br como intent externo.
+    // A MapLaunchActivity recebe, monta geo: URI e abre Google Maps nativo
+    // via startActivity — sem Custom Tab, sem intent://, sem bloqueio.
+    var url;
     if (temCoords) {
-      params.set('lat', String(lat));
-      params.set('lng', String(lng));
-    }
-    if (nome) params.set('nome', nome);
-    if (userLat && userLng) {
-      params.set('olat', String(userLat));
-      params.set('olng', String(userLng));
-    }
-    if (selectedPosto) {
-      if (selectedPosto.bandeira) params.set('bandeira', selectedPosto.bandeira);
-      if (selectedPosto.placeId)  params.set('placeId',  selectedPosto.placeId);
-      // Passa preço para exibir no card
-      var precoVals = selectedPosto.combustiveis || selectedPosto.precos;
-      if (precoVals && precoVals[0] && precoVals[0].preco) {
-        params.set('preco', String(precoVals[0].preco));
+      url = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=google';
+      if (userLat && userLng) {
+        url += '&olat=' + userLat + '&olng=' + userLng;
       }
+    } else {
+      url = 'rotaposto://maps?q=' + encodeURIComponent(nome || 'posto de combustível') + '&app=google';
     }
-    window.location.href = '/ir?' + params.toString();
+    window.location.href = url;
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado
