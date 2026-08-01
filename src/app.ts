@@ -2571,7 +2571,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         return;
       }
 
-      if (!isNaN(_lastLat) && !isNaN(_lastLng)) {
+      // rp_last: só usar se tiver timestamp válido (<24h) E não for SP
+      var _lastTs = parseInt(localStorage.getItem('rp_last_ts') || '0');
+      var _lastIdade = Date.now() - _lastTs;
+      var _lastOk = !isNaN(_lastLat) && !isNaN(_lastLng)
+                   && !_ehSP(_lastLat, _lastLng)
+                   && (_lastTs > 0) && (_lastIdade < 24 * 60 * 60 * 1000);
+      if (_lastOk) {
         window._RP_INIT_LAT  = _lastLat;
         window._RP_INIT_LNG  = _lastLng;
         window._RP_INIT_ZOOM = isNaN(_lastZoom) ? 14 : Math.min(Math.max(_lastZoom, 10), 18);
@@ -2995,11 +3001,29 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       _mapaLivre = true;
     });
 
-    // Carregar postos SOMENTE se tiver GPS real confirmado.
+    // Carregar postos SOMENTE se tiver GPS real confirmado OU cache local válido.
     // Se _geoGPSConfirmado=false, o GPS ainda está vindo — _aplicarLocalizacao
     // vai chamar loadPostos() quando tiver a posição real, evitando SP falso.
     if (_geoGPSConfirmado) {
       loadPostos();
+    } else {
+      // Sem GPS ainda: mostrar na lista a última posição real salva (não-SP, <24h)
+      // para o usuário não ver tela vazia enquanto aguarda GPS
+      var _salvLat = parseFloat(localStorage.getItem('rp_last_lat') || '');
+      var _salvLng = parseFloat(localStorage.getItem('rp_last_lng') || '');
+      var _salvTs  = parseInt(localStorage.getItem('rp_last_ts') || '0');
+      var _salvOk  = !isNaN(_salvLat) && !isNaN(_salvLng)
+                     && !_ehCoordSP(_salvLat, _salvLng)
+                     && _salvTs > 0
+                     && (Date.now() - _salvTs) < 24 * 60 * 60 * 1000;
+      if (_salvOk) {
+        // Usar última posição real como temp enquanto GPS confirma
+        userLat = _salvLat;
+        userLng = _salvLng;
+        loadPostos(); // carrega postos da última cidade conhecida
+        console.log('[GPS] Carregando postos da última posição salva enquanto aguarda GPS');
+      }
+      // Se não tem última posição válida: mostra spinner/overlay até GPS chegar
     }
   }
 
@@ -7145,13 +7169,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       localStorage.removeItem('rp_loc_ts');
     }
 
-    // ── Cache recente (<30min) fora de SP → abrir mapa já ──
+    // ── Cache recente (<2h) fora de SP → abrir mapa já ──
     var cLat = parseFloat(localStorage.getItem('rp_lat') || '');
     var cLng = parseFloat(localStorage.getItem('rp_lng') || '');
     var cTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
     var temCache = !isNaN(cLat) && !isNaN(cLng)
                    && !_ehCoordSP(cLat, cLng)
-                   && (Date.now() - cTs) < 30 * 60 * 1000;
+                   && (Date.now() - cTs) < 2 * 60 * 60 * 1000;
     if (temCache) {
       userLat = cLat; userLng = cLng;
       _geoJaObtida = true;
@@ -7344,6 +7368,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       try {
         localStorage.setItem('rp_last_lat', String(lat));
         localStorage.setItem('rp_last_lng', String(lng));
+        localStorage.setItem('rp_last_ts', String(Date.now()));
       } catch {}
     } else if (gpsReal && ehRegSP) {
       // GPS real em SP — limpar cache antigo de outras cidades
