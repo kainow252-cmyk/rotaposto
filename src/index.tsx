@@ -5294,18 +5294,19 @@ function abrirSeletorNav(){
     return;
   }
 
-  // ── URI schemes nativos — não são interceptados pelo TWA como App Links ──
-  // comgooglemaps:// e waze:// → Android resolve direto via PackageManager
-  // Fallback data-fallback: usado se o app não estiver instalado (1.5s timeout)
-  var gUrl  = 'comgooglemaps://?daddr=' + DLAT + ',' + DLNG + '&directionsmode=driving';
-  if(_userLat && _userLng) gUrl += '&saddr=' + _userLat + ',' + _userLng;
+  // ── rotaposto://maps — scheme próprio, capturado pela MapLaunchActivity no APK ──
+  // O TWA trata rotaposto:// como externo → intent Android → MapLaunchActivity
+  // abre google.navigation:// ou waze:// diretamente via startActivity.
+  // Fallback: browser desktop / iOS / APK antigo sem a Activity.
+  var gUrl  = 'rotaposto://maps?lat=' + DLAT + '&lng=' + DLNG + '&app=google';
+  if(_userLat && _userLng) gUrl += '&olat=' + _userLat + '&olng=' + _userLng;
   var gFall = 'https://maps.google.com/maps?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
   if(_userLat && _userLng) gFall += '&saddr=' + _userLat + ',' + _userLng;
 
-  var wUrl  = 'waze://?ll=' + DLAT + ',' + DLNG + '&navigate=yes';
+  var wUrl  = 'rotaposto://maps?lat=' + DLAT + '&lng=' + DLNG + '&app=waze';
   var wFall = 'https://waze.com/ul?ll=' + DLAT + '%2C' + DLNG + '&navigate=yes&zoom=17';
 
-  var aUrl  = 'maps://?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';  // iOS Apple Maps scheme
+  var aUrl  = 'rotaposto://maps?lat=' + DLAT + '&lng=' + DLNG + '&app=google';
   var aFall = 'https://maps.apple.com/?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
 
   var lg = document.getElementById('nav-link-google');
@@ -5319,8 +5320,9 @@ function abrirSeletorNav(){
     el.setAttribute('data-fallback', fallback);
     el.onclick = function(e) {
       e.preventDefault();
-      var fb = this.getAttribute('data-fallback');
-      window.location.href = this.getAttribute('href');
+      var href = this.getAttribute('href');
+      var fb   = this.getAttribute('data-fallback');
+      window.location.href = href;
       var t = setTimeout(function(){ window.location.href = fb; }, 1500);
       document.addEventListener('visibilitychange', function h(){
         clearTimeout(t); document.removeEventListener('visibilitychange', h);

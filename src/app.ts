@@ -4468,24 +4468,25 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
 
-    // ── URI schemes nativos — Custom Tab / TWA NÃO intercepta schemes customizados ──
-    // comgooglemaps:// e waze:// são resolvidos diretamente pelo Android PackageManager
-    // sem passar pelo bloqueio de App Links do chrome/WebView.
-    // Fallback https:// caso o app não esteja instalado (Android abre no browser).
+    // ── rotaposto://maps — scheme PRÓPRIO do app, capturado pela MapLaunchActivity ──
+    // O TWA trata qualquer scheme fora de "https://rotaposto.com.br" como externo
+    // e dispara um intent Android normal. A MapLaunchActivity recebe esse intent,
+    // monta a URL do Maps/Waze e chama startActivity → abre o app nativo sem WebView.
+    // Isso contorna TODOS os bloqueios do Custom Tab (App Links, ERR_UNKNOWN_URL_SCHEME).
     var mapsUrl = temCoords
-      ? 'comgooglemaps://?daddr=' + lat + ',' + lng
-        + '&directionsmode=driving'
-        + (userLat && userLng ? '&saddr=' + userLat + ',' + userLng : '')
-      : 'comgooglemaps://?q=' + encodeURIComponent(nome || 'posto de gasolina');
+      ? 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=google'
+        + (userLat && userLng ? '&olat=' + userLat + '&olng=' + userLng : '')
+      : 'rotaposto://maps?q=' + encodeURIComponent(nome || 'posto de gasolina') + '&app=google';
 
+    var wazeUrl = temCoords
+      ? 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze'
+      : 'rotaposto://maps?q=' + encodeURIComponent(nome || 'posto de gasolina') + '&app=waze';
+
+    // Fallback para browser (desktop / iOS / Android sem o app atualizado)
     var mapsFallbackUrl = temCoords
       ? 'https://maps.google.com/maps?daddr=' + lat + ',' + lng + '&dirflg=d'
         + (userLat && userLng ? '&saddr=' + userLat + ',' + userLng : '')
       : 'https://maps.google.com/maps?q=' + encodeURIComponent(nome || 'posto de gasolina');
-
-    var wazeUrl = temCoords
-      ? 'waze://?ll=' + lat + ',' + lng + '&navigate=yes'
-      : 'waze://?q=' + encodeURIComponent(nome || 'posto de gasolina');
 
     var wazeFallbackUrl = temCoords
       ? 'https://waze.com/ul?ll=' + lat + '%2C' + lng + '&navigate=yes&zoom=17'
@@ -4515,30 +4516,30 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<circle cx="27" cy="13" r="3" fill="#FFD700"/>'
       + '</svg>';
 
-    // Monta os links via createElement — sem escaping, href atribuído como propriedade JS
-    // comgooglemaps:// e waze:// → Android abre app nativo diretamente (não passa por App Links)
-    // Fallback: se o scheme não resolver (app não instalado), abre maps.google.com no browser
+    // Helper: navega para o scheme próprio (rotaposto://) que a MapLaunchActivity captura.
+    // Se o APK não tiver a Activity (versão antiga instalada), cai no fallback após 1.5s.
+    function _abrirScheme(scheme, fallback) {
+      window.location.href = scheme;
+      var t = setTimeout(function() { window.location.href = fallback; }, 1500);
+      document.addEventListener('visibilitychange', function h() {
+        clearTimeout(t); document.removeEventListener('visibilitychange', h);
+      });
+    }
+
     var linkGmaps = document.createElement('a');
-    linkGmaps.href = mapsUrl;                    // comgooglemaps://...
+    linkGmaps.href = mapsUrl;  // rotaposto://maps?lat=X&lng=Y&app=google
     linkGmaps.setAttribute('data-fallback', mapsFallbackUrl);
     linkGmaps.style.cssText = 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;-webkit-tap-highlight-color:transparent;';
     linkGmaps.innerHTML = svgGoogleMaps
       + '<span style="font-size:16px;font-weight:600;color:#222;">Google Maps</span>'
       + '<span style="margin-left:auto;font-size:20px;color:#aaa;">&#8250;</span>';
-    // Fallback: se comgooglemaps:// falhar (app não instalado), abre maps.google.com
     linkGmaps.addEventListener('click', function(e) {
       e.preventDefault();
-      var fb = this.getAttribute('data-fallback');
-      // Tenta abrir o scheme nativo; após 1.5s sem mudança de visibilidade, redireciona fallback
-      window.location.href = this.href;
-      var t = setTimeout(function() { window.location.href = fb; }, 1500);
-      document.addEventListener('visibilitychange', function h() {
-        clearTimeout(t); document.removeEventListener('visibilitychange', h);
-      });
+      _abrirScheme(this.href, this.getAttribute('data-fallback'));
     });
 
     var linkWaze = document.createElement('a');
-    linkWaze.href = wazeUrl;                     // waze://...
+    linkWaze.href = wazeUrl;   // rotaposto://maps?lat=X&lng=Y&app=waze
     linkWaze.setAttribute('data-fallback', wazeFallbackUrl);
     linkWaze.style.cssText = 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;-webkit-tap-highlight-color:transparent;';
     linkWaze.innerHTML = svgWaze
@@ -4546,12 +4547,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       + '<span style="margin-left:auto;font-size:20px;color:#aaa;">&#8250;</span>';
     linkWaze.addEventListener('click', function(e) {
       e.preventDefault();
-      var fb = this.getAttribute('data-fallback');
-      window.location.href = this.href;
-      var t = setTimeout(function() { window.location.href = fb; }, 1500);
-      document.addEventListener('visibilitychange', function h() {
-        clearTimeout(t); document.removeEventListener('visibilitychange', h);
-      });
+      _abrirScheme(this.href, this.getAttribute('data-fallback'));
     });
 
     var btnCancelar = document.createElement('button');

@@ -65,6 +65,27 @@
             </intent-filter>
         </activity>
 
+        <!--
+          MapLaunchActivity — captura rotaposto://maps?lat=X&lng=Y
+          O TWA trata rotaposto:// como "fora do escopo" e dispara um intent normal.
+          Esta Activity recebe o intent, monta a URL do app de navegação e abre
+          diretamente via startActivity — sem passar pelo Custom Tab / WebView.
+        -->
+        <activity
+            android:name=".MapLaunchActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:excludeFromRecents="true"
+            android:noHistory="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="rotaposto" android:host="maps" />
+            </intent-filter>
+        </activity>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="br.com.rotaposto.app.fileprovider"
