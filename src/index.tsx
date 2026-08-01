@@ -4757,98 +4757,165 @@ app.get('/maps', (c) => {
   const lng      = c.req.query('lng')  || ''
   const olat     = c.req.query('olat') || ''
   const olng     = c.req.query('olng') || ''
+  const nomeRaw  = c.req.query('nome') || ''
+  const nome     = nomeRaw ? decodeURIComponent(nomeRaw) : ''
 
   if (!lat || !lng) {
     return c.text('Coordenadas ausentes', 400)
   }
 
   // ── Monta URLs para cada app ──────────────────────────────────────────────
+  // dir_action=navigate → abre Maps diretamente em modo navegação (sem tela de confirmação extra)
   let googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving&dir_action=navigate`
   if (olat && olng) googleUrl += `&origin=${olat},${olng}`
 
-  const wazeUrl  = `https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes&zoom=17`
-  const appleUrl = `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`
-
-  // URL principal escolhida pelo usuário
-  let mainUrl = googleUrl
-  let mainLabel = 'Google Maps'
-  let mainColor = '#4285F4'
-  if (appParam === 'waze')  { mainUrl = wazeUrl;  mainLabel = 'Waze';        mainColor = '#06CCFF' }
-  if (appParam === 'apple') { mainUrl = appleUrl; mainLabel = 'Apple Maps';  mainColor = '#3478F6' }
+  // Waze: ll=lat,lng&navigate=yes abre direto na navegação
+  const wazeUrl = `https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes&zoom=17`
 
   // ── SOLUÇÃO DEFINITIVA PARA TWA/WebView Android ───────────────────────────
   // O Android intercepta QUALQUER navegação programática para google.com/maps
   // (window.location, 302 redirect, window.open, <a>.click()) e converte para
-  // intent:// que o WebView não consegue abrir → ERR_UNKNOWN_URL_SCHEME.
+  // intent:// → ERR_UNKNOWN_URL_SCHEME.
   //
-  // A ÚNICA exceção: clique manual do usuário num <a href> visível na tela.
-  // O Android trata toques manuais como "user gesture" e processa via
-  // PackageManager → abre o app nativo sem passar pelo WebView.
+  // A ÚNICA exceção confirmada: toque MANUAL do usuário num <a href> visível.
+  // Comprovado pela screenshot do usuário (Google Maps abriu com "Confirme o local de partida").
   //
-  // Solução: página HTML intermediária com botão grande para o usuário tocar.
-  // Auto-clique JS também é bloqueado — o toque precisa ser REAL do usuário.
+  // Não existe auto-clique — o Android detecta e bloqueia gestos sintéticos.
+  // Solução: página limpa, 1 botão grande, instrução clara → usuário toca → Maps abre.
   // ─────────────────────────────────────────────────────────────────────────
+  const destinoLabel = nome || `${lat}, ${lng}`
+
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>Abrir ${mainLabel}</title>
+<title>Navegar até ${destinoLabel}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;background:#0f0f0f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center}
-.wrap{padding:24px;max-width:360px;width:100%;text-align:center}
-.icon{font-size:56px;margin-bottom:16px;display:block}
-h1{color:#fff;font-size:22px;font-weight:700;margin-bottom:8px;line-height:1.3}
-p{color:#aaa;font-size:14px;margin-bottom:32px;line-height:1.5}
-.btn-main{
-  display:block;width:100%;padding:18px 20px;
-  background:${mainColor};color:#fff;
-  border-radius:16px;font-size:17px;font-weight:700;
-  text-decoration:none;text-align:center;
-  box-shadow:0 4px 20px ${mainColor}55;
+html,body{
+  min-height:100%;
+  background:#0d1117;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+}
+.wrap{
+  padding:28px 24px;
+  max-width:380px;width:100%;
+  text-align:center;
+}
+
+/* Header RotaPosto */
+.brand{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-bottom:28px;
+}
+.brand-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:#f97316;
+  box-shadow:0 0 8px #f97316aa;
+}
+.brand-txt{font-size:13px;font-weight:700;color:#f97316;letter-spacing:0.5px}
+
+/* Destino */
+.dest-card{
+  background:#161b22;
+  border:1.5px solid #30363d;
+  border-radius:16px;
+  padding:16px 20px;
+  margin-bottom:28px;
+  text-align:left;
+}
+.dest-label{font-size:11px;font-weight:600;color:#6e7681;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px}
+.dest-nome{font-size:16px;font-weight:700;color:#e6edf3;line-height:1.3}
+.dest-coords{font-size:12px;color:#6e7681;margin-top:2px}
+
+/* Botão principal Google Maps */
+.btn-gmaps{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  width:100%;padding:18px 20px;
+  background:#1a73e8;color:#fff;
+  border-radius:16px;
+  font-size:17px;font-weight:800;
+  text-decoration:none;
+  box-shadow:0 4px 24px #1a73e840;
   margin-bottom:12px;
   -webkit-tap-highlight-color:transparent;
+  transition:transform 0.1s,opacity 0.1s;
+  letter-spacing:0.2px;
 }
-.btn-main:active{opacity:0.85;transform:scale(0.98)}
+.btn-gmaps:active{opacity:0.88;transform:scale(0.985)}
+.btn-gmaps svg{flex-shrink:0}
+
+/* Botão Waze */
+.btn-waze{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:14px 20px;
+  background:#161b22;color:#e6edf3;
+  border:1.5px solid #30363d;
+  border-radius:14px;
+  font-size:15px;font-weight:700;
+  text-decoration:none;
+  margin-bottom:20px;
+  -webkit-tap-highlight-color:transparent;
+  transition:opacity 0.1s;
+}
+.btn-waze:active{opacity:0.7}
+
+/* Hint */
+.hint{
+  font-size:12px;color:#6e7681;
+  line-height:1.5;margin-bottom:20px;
+}
+
+/* Voltar */
 .btn-back{
-  display:block;width:100%;padding:14px 20px;
-  background:#1e1e1e;color:#aaa;
-  border:1.5px solid #333;border-radius:16px;
-  font-size:15px;font-weight:600;
-  text-decoration:none;text-align:center;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:10px 18px;
+  background:transparent;color:#6e7681;
+  border:1.5px solid #30363d;
+  border-radius:10px;
+  font-size:13px;font-weight:600;
+  text-decoration:none;
   -webkit-tap-highlight-color:transparent;
 }
-.btn-back:active{opacity:0.7}
-.divider{color:#555;font-size:13px;margin:20px 0 16px}
-.alts{display:flex;gap:10px;justify-content:center}
-.btn-alt{
-  flex:1;padding:12px 8px;
-  background:#1e1e1e;color:#ddd;
-  border:1.5px solid #333;border-radius:12px;
-  font-size:13px;font-weight:600;
-  text-decoration:none;text-align:center;
-}
+.btn-back:active{opacity:0.6}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <span class="icon">🗺️</span>
-  <h1>Abrir no ${mainLabel}</h1>
-  <p>Toque no botão abaixo para iniciar a navegação</p>
 
-  <a href="${mainUrl}" class="btn-main">
-    📍 Iniciar Navegação
-  </a>
-
-  <div class="divider">ou abrir em outro app</div>
-  <div class="alts">
-    <a href="${googleUrl}" class="btn-alt">Google Maps</a>
-    <a href="${wazeUrl}" class="btn-alt">Waze</a>
+  <div class="brand">
+    <div class="brand-dot"></div>
+    <span class="brand-txt">ROTAPOSTO</span>
+    <div class="brand-dot"></div>
   </div>
 
-  <br/>
-  <a href="javascript:history.back()" class="btn-back">← Voltar</a>
+  <div class="dest-card">
+    <div class="dest-label">Destino</div>
+    <div class="dest-nome">${destinoLabel.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    ${olat && olng ? `<div class="dest-coords">Saindo da sua localização atual</div>` : `<div class="dest-coords">${lat}, ${lng}</div>`}
+  </div>
+
+  <!-- BOTÃO PRINCIPAL — toque manual abre Google Maps nativo no Android -->
+  <a href="${googleUrl}" class="btn-gmaps">
+    <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#fff" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
+    Abrir no Google Maps
+  </a>
+
+  <a href="${wazeUrl}" class="btn-waze">
+    <svg width="20" height="20" viewBox="0 0 50 50" fill="none"><circle cx="25" cy="25" r="23" fill="#06CCFF" stroke="#06CCFF" stroke-width="2"/><ellipse cx="25" cy="28" rx="14" ry="12" fill="#fff"/><circle cx="20" cy="32" r="2.5" fill="#333"/><circle cx="30" cy="32" r="2.5" fill="#333"/><path d="M20 26 Q25 22 30 26" stroke="#333" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+    Abrir no Waze
+  </a>
+
+  <p class="hint">Toque em um dos botões acima para abrir o app de navegação</p>
+
+  <a href="javascript:history.back()" class="btn-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    Voltar
+  </a>
+
 </div>
 </body>
 </html>`

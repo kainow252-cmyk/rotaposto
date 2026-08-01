@@ -2020,7 +2020,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
             Como chegar
           </button>
-          <button class="btn-ir-la" onclick="goToView('planejar')">
+          <button class="btn-ir-la" onclick="_abrirPlanejadorInterno()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Planejar rota
           </button>
@@ -4465,24 +4465,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
 
-    // ── Abre tela /ir (domínio próprio) com Maps Embed API ──
-    // /ir carrega um iframe do Google Maps Embed que mostra a rota dentro do app.
-    // O botão nativo do Google no iframe abre o Maps app sem intent://.
+    // ── "Como Chegar" → /maps (página intermediária) → Google Maps nativo ──
+    // TWA bloqueia window.location programático para google.com/maps (intent://).
+    // A ÚNICA forma que funciona: usuário toca manualmente um <a href> na tela.
+    // /maps serve uma página com botão grande — usuário toca → Maps abre nativamente.
     var params = new URLSearchParams();
+    params.set('app', 'google');
     if (temCoords) {
       params.set('lat', String(lat));
       params.set('lng', String(lng));
     }
-    if (nome) params.set('nome', nome);
+    if (nome) params.set('nome', encodeURIComponent(nome));
     if (userLat && userLng) {
       params.set('olat', String(userLat));
       params.set('olng', String(userLng));
     }
-    if (selectedPosto) {
-      if (selectedPosto.bandeira) params.set('bandeira', selectedPosto.bandeira);
-      if (selectedPosto.placeId)  params.set('placeId',  selectedPosto.placeId);
-    }
-    window.location.href = '/ir?' + params.toString();
+    window.location.href = '/maps?' + params.toString();
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado
@@ -4580,10 +4578,25 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   function irAteLa() {
     if (!selectedPosto) { showToast('Selecione um posto primeiro'); return; }
+    // "Como Chegar" → /maps → Google Maps nativo (usuário toca botão grande)
     _abrirNavegacaoExterna(selectedPosto.lat, selectedPosto.lng, selectedPosto.nome);
   }
 
   function openMaps() { irAteLa(); }
+
+  // "Planejar rota" no card de detalhes → /ir (mapa embutido + custo estimado)
+  function _abrirPlanejadorInterno() {
+    if (!selectedPosto) { showToast('Selecione um posto primeiro'); return; }
+    var lat = selectedPosto.lat, lng = selectedPosto.lng;
+    var nome = selectedPosto.nome || '';
+    var params = new URLSearchParams();
+    if (lat && lng) { params.set('lat', String(lat)); params.set('lng', String(lng)); }
+    if (nome)       params.set('nome', nome);
+    if (selectedPosto.bandeira) params.set('bandeira', selectedPosto.bandeira);
+    if (selectedPosto.placeId)  params.set('placeId',  selectedPosto.placeId);
+    if (userLat && userLng)     { params.set('olat', String(userLat)); params.set('olng', String(userLng)); }
+    window.location.href = '/ir?' + params.toString();
+  }
 
   function shareStation() {
     if (!selectedPosto) return;
