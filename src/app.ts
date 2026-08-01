@@ -4790,21 +4790,52 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       return;
     }
 
-    // Abre tela /ir interna com Maps JS API + navegação turn-by-turn embutida
-    // NUNCA abre maps.google.com diretamente — TWA bloqueia com intent://
-    var params = new URLSearchParams();
-    if (lat && lng) {
-      params.set('lat', String(lat));
-      params.set('lng', String(lng));
+    // ── Monta e abre /ir (mapa embutido, NUNCA maps.google.com → TWA bloqueia) ──
+    function _abrirIr(oLat, oLng) {
+      var params = new URLSearchParams();
+      if (lat && lng) { params.set('lat', String(lat)); params.set('lng', String(lng)); }
+      if (nome)       params.set('nome',     nome);
+      if (bandeira)   params.set('bandeira', bandeira);
+      if (placeId)    params.set('placeId',  placeId);
+      // Só passa olat/olng se tiver coords reais (não o default de São Paulo)
+      if (oLat && oLng) {
+        params.set('olat', String(oLat));
+        params.set('olng', String(oLng));
+      }
+      window.location.href = '/ir?' + params.toString();
     }
-    if (nome)      params.set('nome',     nome);
-    if (bandeira)  params.set('bandeira', bandeira);
-    if (placeId)   params.set('placeId',  placeId);
-    if (userLat && userLng) {
-      params.set('olat', String(userLat));
-      params.set('olng', String(userLng));
+
+    // ── Tentar GPS fresco (timeout 5s) para garantir origem correta ──────────
+    // Se _geoJaObtida=true, userLat/userLng são GPS real — usar direto
+    if (_geoJaObtida && userLat && userLng) {
+      _abrirIr(userLat, userLng);
+      return;
     }
-    window.location.href = '/ir?' + params.toString();
+
+    // GPS ainda não foi obtido nessa sessão — capturar agora antes de navegar
+    showToast('Obtendo sua localização…');
+    var _gpsCaptured = false;
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        if (_gpsCaptured) return;
+        _gpsCaptured = true;
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        _geoJaObtida = true;
+        try { localStorage.setItem('rp_last_lat', String(userLat)); localStorage.setItem('rp_last_lng', String(userLng)); } catch(e) {}
+        _abrirIr(userLat, userLng);
+      },
+      function() {
+        if (_gpsCaptured) return;
+        _gpsCaptured = true;
+        // GPS falhou — verificar se userLat/userLng são válidos (não o default de SP
+        // quando o usuário nunca abriu o app antes)
+        var oLat = (window._RP_TEM_ULTIMA && userLat) ? userLat : null;
+        var oLng = (window._RP_TEM_ULTIMA && userLng) ? userLng : null;
+        _abrirIr(oLat, oLng);
+      },
+      { timeout: 5000, maximumAge: 10000, enableHighAccuracy: true }
+    );
   }
 
   let _searchTimer = null;
