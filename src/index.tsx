@@ -4974,56 +4974,139 @@ app.get('/ir', async (c) => {
   const oLng = olngParam && olngParam !== '0' ? olngParam : ''
   const temOrigem = !!(oLat && oLng)
 
-  // ── URL do Maps Embed API — iframe fullscreen, botão nativo do Google ─
-  // O iframe do Google exibe um botão "Abrir no Google Maps" gerado pelo
-  // próprio Google que abre o app nativo sem passar pelo Custom Tab TWA.
-  const embedUrl = temCoords
-    ? `https://www.google.com/maps/embed/v1/directions?key=${gKey}`
-        + `&origin=${temOrigem ? `${oLat},${oLng}` : encodeURIComponent('minha localização')}`
-        + `&destination=${lat},${lng}`
-        + `&mode=driving&language=pt-BR`
-    : `https://www.google.com/maps/embed/v1/place?key=${gKey}`
-        + `&q=${encodeURIComponent(nome + ' Brasil')}&language=pt-BR`
+  // ── Valores JS a injetar no HTML (server-side → sem expor gKey como variável global) ──
+  const DLAT  = temCoords ? lat  : ''
+  const DLNG  = temCoords ? lng  : ''
+  const OLAT  = oLat
+  const OLNG  = oLng
+  const NOME_JS = tituloSafe.replace(/'/g, "\\'")
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
-<title>Como chegar — \${tituloSafe}</title>
+<title>Como chegar — ${tituloSafe}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden;background:#1c2536;
+html,body{width:100%;height:100%;overflow:hidden;
+  background:#1c2536;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-/* ── Top bar azul escuro ── */
+
+/* ══ Top bar ══ */
 #top-bar{
-  position:fixed;top:0;left:0;right:0;z-index:10;
-  background:#1c2536;height:56px;
-  padding-top:calc(env(safe-area-inset-top,0px));
+  position:fixed;top:0;left:0;right:0;z-index:20;
+  background:#1c2536;
+  height:56px;
+  padding-top:env(safe-area-inset-top,0px);
   display:flex;align-items:center;gap:12px;
   padding-left:14px;padding-right:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
 }
 #btn-back{
   width:36px;height:36px;border-radius:50%;border:none;
   background:rgba(255,255,255,.15);cursor:pointer;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
 }
-#top-title{font-size:16px;font-weight:700;color:#fff;flex:1;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top-title{
+  font-size:15px;font-weight:700;color:#fff;flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
 
-/* ── Iframe ocupa tudo abaixo da top bar ── */
-#map-frame{
+/* ══ Barra de informações da rota (ETA) ══ */
+#info-bar{
+  position:fixed;
+  top:calc(56px + env(safe-area-inset-top,0px));
+  left:0;right:0;z-index:15;
+  background:#1c2536;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;gap:12px;
+  transition:opacity .3s;
+}
+#info-bar.hidden{opacity:0;pointer-events:none}
+.eta-item{display:flex;flex-direction:column;align-items:center;gap:2px}
+.eta-val{font-size:22px;font-weight:800;color:#f97316}
+.eta-lbl{font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.5px}
+#eta-divider{width:1px;height:36px;background:rgba(255,255,255,.15)}
+
+/* ══ Card inferior do posto ══ */
+#posto-card{
+  position:fixed;bottom:0;left:0;right:0;z-index:15;
+  background:#1c2536;
+  border-radius:20px 20px 0 0;
+  padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px));
+  box-shadow:0 -4px 20px rgba(0,0,0,.4);
+  display:flex;flex-direction:column;gap:10px;
+}
+#posto-row{display:flex;align-items:center;gap:12px}
+#posto-logo{
+  width:44px;height:44px;border-radius:10px;
+  object-fit:contain;background:#fff;padding:4px;flex-shrink:0;
+}
+#posto-info{flex:1;min-width:0}
+#posto-nome{font-size:14px;font-weight:700;color:#fff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#posto-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px}
+
+/* ══ Mapa ══ */
+#map{
   position:fixed;
   top:calc(56px + env(safe-area-inset-top,0px));
   left:0;right:0;
+  /* bottom dinâmico via JS — reserva espaço para info-bar + posto-card */
   bottom:0;
-  width:100%;border:none;
   background:#e8eaed;
+}
+
+/* ══ Spinner de carregamento ══ */
+#loading{
+  position:fixed;inset:0;z-index:50;
+  background:#1c2536;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+#loading.done{display:none}
+.spinner{
+  width:48px;height:48px;
+  border:4px solid rgba(249,115,22,.25);
+  border-top-color:#f97316;
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{color:rgba(255,255,255,.6);font-size:13px}
+
+/* ══ Erro (sem coords / API falhou) ══ */
+#erro{
+  position:fixed;inset:0;z-index:40;
+  background:#1c2536;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  padding:32px;text-align:center;
+}
+#erro.show{display:flex}
+#erro p{color:rgba(255,255,255,.7);font-size:14px;line-height:1.5}
+#erro button{
+  margin-top:8px;padding:12px 28px;border:none;border-radius:12px;
+  background:#f97316;color:#fff;font-size:15px;font-weight:700;cursor:pointer;
 }
 </style>
 </head>
 <body>
 
+<!-- Loading screen -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Calculando rota…</p>
+</div>
+
+<!-- Erro -->
+<div id="erro">
+  <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".5" fill="#f97316"/></svg>
+  <p id="erro-msg">Não foi possível calcular a rota.</p>
+  <button onclick="history.back()">← Voltar</button>
+</div>
+
+<!-- Top bar -->
 <div id="top-bar">
   <button id="btn-back" onclick="history.back()" aria-label="Voltar">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -5033,12 +5116,150 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1c2536;
   <span id="top-title">Como chegar — ${tituloSafe}</span>
 </div>
 
-<iframe id="map-frame"
-  src="${embedUrl}"
-  allowfullscreen
-  loading="eager"
-  referrerpolicy="no-referrer-when-downgrade">
-</iframe>
+<!-- Barra ETA -->
+<div id="info-bar" class="hidden">
+  <div class="eta-item">
+    <span class="eta-val" id="eta-tempo">--</span>
+    <span class="eta-lbl">Tempo</span>
+  </div>
+  <div id="eta-divider"></div>
+  <div class="eta-item">
+    <span class="eta-val" id="eta-dist">--</span>
+    <span class="eta-lbl">Distância</span>
+  </div>
+  <div id="eta-divider" style="margin-left:auto"></div>
+</div>
+
+<!-- Mapa -->
+<div id="map"></div>
+
+<!-- Card do posto -->
+<div id="posto-card">
+  <div id="posto-row">
+    <img id="posto-logo" src="${logoFinalUrl}" alt="${tituloSafe}" onerror="this.src='/static/logos/independente.svg'"/>
+    <div id="posto-info">
+      <div id="posto-nome">${tituloSafe}</div>
+      <div id="posto-sub" id="posto-sub-dist"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Google Maps JavaScript API -->
+<script>
+// ── Dados da rota (injetados server-side) ──────────────────────────────────
+var _DLAT  = '${DLAT}';
+var _DLNG  = '${DLNG}';
+var _OLAT  = '${OLAT}';
+var _OLNG  = '${OLNG}';
+var _NOME  = '${NOME_JS}';
+
+var _gmap, _dirRenderer, _dirService;
+
+// ── Ajuste dinâmico do mapa para não ficar atrás dos cards ─────────────────
+function _ajustarMapaBottom() {
+  var infoBar   = document.getElementById('info-bar');
+  var postoCard = document.getElementById('posto-card');
+  var mapEl     = document.getElementById('map');
+  var infoH     = infoBar  ? infoBar.offsetHeight  : 0;
+  var cardH     = postoCard ? postoCard.offsetHeight : 0;
+  mapEl.style.bottom = cardH + 'px';
+  // top = topbar + infobar
+  var topBarH = 56; // px fixo
+  mapEl.style.top = 'calc(' + (topBarH + infoH) + 'px + env(safe-area-inset-top,0px))';
+}
+
+// ── Callback chamado pelo Maps JS API após carga ───────────────────────────
+window._initMap = function() {
+  var mapEl = document.getElementById('map');
+
+  // Centro inicial: destino (posto) ou SP como fallback
+  var centerLat = _DLAT ? parseFloat(_DLAT) : -23.5505;
+  var centerLng = _DLNG ? parseFloat(_DLNG) : -46.6333;
+
+  _gmap = new google.maps.Map(mapEl, {
+    center: { lat: centerLat, lng: centerLng },
+    zoom: 14,
+    disableDefaultUI: true,
+    zoomControl: true,
+    gestureHandling: 'greedy',
+    styles: [
+      { featureType:'poi', elementType:'labels', stylers:[{visibility:'off'}] },
+      { featureType:'transit', elementType:'labels', stylers:[{visibility:'off'}] }
+    ]
+  });
+
+  _dirRenderer = new google.maps.DirectionsRenderer({
+    map: _gmap,
+    suppressMarkers: false,
+    polylineOptions: { strokeColor:'#f97316', strokeWeight:5, strokeOpacity:.9 }
+  });
+
+  _dirService = new google.maps.DirectionsService();
+
+  // Sem coordenadas de destino → mostra erro
+  if (!_DLAT || !_DLNG) {
+    document.getElementById('loading').classList.add('done');
+    var err = document.getElementById('erro');
+    document.getElementById('erro-msg').textContent = 'Coordenadas do posto não disponíveis.';
+    err.classList.add('show');
+    return;
+  }
+
+  // Origem: olat/olng passados como parâmetro (GPS do app principal)
+  //         ou GPS atual do dispositivo
+  if (_OLAT && _OLNG) {
+    _calcularRota(parseFloat(_OLAT), parseFloat(_OLNG));
+  } else {
+    navigator.geolocation.getCurrentPosition(
+      function(pos) { _calcularRota(pos.coords.latitude, pos.coords.longitude); },
+      function()    { _calcularRota(centerLat - 0.01, centerLng - 0.01); /* fallback suave */ },
+      { timeout: 8000, maximumAge: 30000, enableHighAccuracy: true }
+    );
+  }
+};
+
+// ── Calcular e renderizar a rota ───────────────────────────────────────────
+function _calcularRota(oriLat, oriLng) {
+  _dirService.route({
+    origin:      new google.maps.LatLng(oriLat, oriLng),
+    destination: new google.maps.LatLng(parseFloat(_DLAT), parseFloat(_DLNG)),
+    travelMode:  google.maps.TravelMode.DRIVING,
+    region: 'BR',
+    language: 'pt-BR'
+  }, function(result, status) {
+    document.getElementById('loading').classList.add('done');
+
+    if (status !== 'OK') {
+      document.getElementById('erro-msg').textContent =
+        'Não foi possível calcular a rota (' + status + ').';
+      document.getElementById('erro').classList.add('show');
+      return;
+    }
+
+    _dirRenderer.setDirections(result);
+
+    // ── Atualiza ETA ──────────────────────────────────────────────────────
+    var leg = result.routes[0] && result.routes[0].legs[0];
+    if (leg) {
+      document.getElementById('eta-tempo').textContent = leg.duration.text;
+      document.getElementById('eta-dist').textContent  = leg.distance.text;
+      document.getElementById('info-bar').classList.remove('hidden');
+      var subEl = document.getElementById('posto-sub-dist') || document.getElementById('posto-sub');
+      if (subEl) subEl.textContent = leg.distance.text + ' · ' + leg.duration.text;
+    }
+
+    // Ajusta posição do mapa após mostrar info-bar
+    setTimeout(_ajustarMapaBottom, 100);
+  });
+}
+
+// Ajuste inicial e ao redimensionar
+window.addEventListener('resize', _ajustarMapaBottom);
+_ajustarMapaBottom();
+</script>
+
+<!-- Carga assíncrona da API (callback=_initMap) — NUNCA usa window.location para maps.google.com -->
+<script src="https://maps.googleapis.com/maps/api/js?key=${gKey}&callback=_initMap&language=pt&region=BR&loading=async" async defer></script>
 
 </body>
 </html>`

@@ -1,7 +1,7 @@
-// RotaPosto — Service Worker PWA v4.0 (+ Push Notifications)
+// RotaPosto — Service Worker PWA v5.0 (+ Push Notifications)
 // REGRA: O SW NUNCA intercepta páginas HTML — apenas assets estáticos (/icons/, /static/)
 // Motivo: páginas são geradas server-side no Cloudflare Worker; cacheá-las quebra navegação
-const CACHE_NAME = 'rotaposto-v4.0';
+const CACHE_NAME = 'rotaposto-v5.0';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icons/icon-192x192.png',
