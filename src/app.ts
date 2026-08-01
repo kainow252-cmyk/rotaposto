@@ -2533,10 +2533,44 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   //  ÚLTIMA POSIÇÃO — lida ANTES de tudo (sem flash de SP)
   // ══════════════════════════════════════════════════════
   (function _preencherUltimaPosicao() {
+    // Helper local: detecta se coord é região de SP (~111km de raio)
+    function _ehSP(lat, lng) {
+      return !isNaN(lat) && !isNaN(lng)
+        && Math.abs(lat - (-23.5505)) < 1.0
+        && Math.abs(lng - (-46.6333)) < 1.0;
+    }
     try {
       var _lastLat  = parseFloat(localStorage.getItem('rp_last_lat') || '');
       var _lastLng  = parseFloat(localStorage.getItem('rp_last_lng') || '');
       var _lastZoom = parseInt(localStorage.getItem('rp_last_zoom') || '14', 10);
+
+      // Se rp_last_lat/lng estiver em SP → limpar agora, não usar como posição inicial
+      // Isso evita o app abrir mostrando postos de SP quando usuário está em outra cidade
+      if (_ehSP(_lastLat, _lastLng)) {
+        localStorage.removeItem('rp_last_lat');
+        localStorage.removeItem('rp_last_lng');
+        localStorage.removeItem('rp_last_zoom');
+        _lastLat = NaN; _lastLng = NaN;
+      }
+
+      // Verificar também rp_lat (cache de sessão anterior)
+      var _cachedLat = parseFloat(localStorage.getItem('rp_lat') || '');
+      var _cachedLng = parseFloat(localStorage.getItem('rp_lng') || '');
+      var _cachedTs  = parseInt(localStorage.getItem('rp_loc_ts') || '0');
+      // Cache válido: fora de SP e menos de 2 horas (usuário pode ter mudado de cidade)
+      var _cacheValido = !isNaN(_cachedLat) && !isNaN(_cachedLng)
+                         && !_ehSP(_cachedLat, _cachedLng)
+                         && (Date.now() - _cachedTs) < 2 * 60 * 60 * 1000;
+
+      if (_cacheValido) {
+        // Usar cache recente válido como posição inicial
+        window._RP_INIT_LAT  = _cachedLat;
+        window._RP_INIT_LNG  = _cachedLng;
+        window._RP_INIT_ZOOM = isNaN(_lastZoom) ? 14 : Math.min(Math.max(_lastZoom, 10), 18);
+        window._RP_TEM_ULTIMA = true;
+        return;
+      }
+
       if (!isNaN(_lastLat) && !isNaN(_lastLng)) {
         window._RP_INIT_LAT  = _lastLat;
         window._RP_INIT_LNG  = _lastLng;
@@ -2545,7 +2579,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         return;
       }
     } catch {}
-    window._RP_INIT_LAT  = -23.5505;
+    // Sem nenhuma posição válida → não usar SP como default
+    // O GPS vai fornecer a posição real em seguida
+    window._RP_INIT_LAT  = -23.5505;  // SP só como fallback final (nunca deve chegar aqui)
     window._RP_INIT_LNG  = -46.6333;
     window._RP_INIT_ZOOM = 12;
     window._RP_TEM_ULTIMA = false;
@@ -2959,8 +2995,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       _mapaLivre = true;
     });
 
-    // Carregar postos
-    loadPostos();
+    // Carregar postos SOMENTE se tiver GPS real confirmado.
+    // Se _geoGPSConfirmado=false, o GPS ainda está vindo — _aplicarLocalizacao
+    // vai chamar loadPostos() quando tiver a posição real, evitando SP falso.
+    if (_geoGPSConfirmado) {
+      loadPostos();
+    }
   }
 
   // Controla se o card "Melhor posto" deve estar visível
@@ -6609,23 +6649,31 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     fetch('/api/geoip')
       .then(function(r) { return r.json(); })
       .then(function(d) {
-        if (d && d.lat && d.lng && !d.fallback) {
-          // Salvar cache GeoIP por 10 min (menos preciso que GPS, mas melhor que SP fixo)
+        if (d && d.lat && d.lng && !d.fallback && !_ehCoordSP(d.lat, d.lng)) {
+          // GeoIP retornou cidade real (não SP) — usar como localização
           localStorage.setItem('rp_geoip_lat', String(d.lat));
           localStorage.setItem('rp_geoip_lng', String(d.lng));
           localStorage.setItem('rp_geoip_ts', String(Date.now()));
+          _geoGPSConfirmado = true;
           _aplicarLocalizacao(d.lat, d.lng, true, false);
-          // Mostrar toast informando qual cidade foi detectada
           var nomeLoc = d.cidade ? (d.cidade + (d.estado ? ' — ' + d.estado : '')) : 'sua região';
-          showToast('📡 Localização aproximada: ' + nomeLoc, 4000);
+          showToast('📡 Localização por IP: ' + nomeLoc, 4000);
         } else {
-          console.warn('[GPS] GeoIP retornou fallback → usando SP padrão');
-          _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+          // GeoIP retornou SP ou falhou — NÃO carregar postos de SP
+          // Mostrar aviso para o usuário ativar GPS manualmente
+          console.warn('[GPS] GeoIP retornou SP/fallback — aguardando GPS do aparelho');
+          showToast('📍 Não foi possível detectar sua localização. Ative o GPS.', 5000);
+          _mostrarBotaoGPS('Toque para ativar GPS');
+          // Mover mapa para ES (placeholder) sem carregar postos de SP
+          if (mapMain && !_mapaLivre) {
+            mapMain.setView([-20.3155, -40.3128], 12, { animate: true });
+          }
         }
       })
       .catch(function(e) {
-        console.warn('[GPS] GeoIP falhou:', e, '→ usando SP padrão');
-        _aplicarLocalizacao(-23.5505, -46.6333, true, false);
+        console.warn('[GPS] GeoIP falhou:', e, '— aguardando GPS do aparelho');
+        showToast('📍 Ative o GPS para ver postos próximos.', 5000);
+        _mostrarBotaoGPS('Toque para ativar GPS');
       });
   }
 
@@ -7004,17 +7052,23 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (temCache) {
       userLat = cLat; userLng = cLng;
       _geoJaObtida = true;
+      _geoGPSConfirmado = true; // cache válido (ES/não-SP) = pode carregar postos
       initMapMain();
       _gpsNativo(true);
       return;
     }
 
-    // ── Sem cache: ABRIR MAPA IMEDIATAMENTE + GPS em background ──
-    // Não espera GPS — abre o mapa na posição que tiver e atualiza quando GPS chegar
-    userLat = -20.3155; userLng = -40.3128; // ES como placeholder (Vitória)
+    // ── Sem cache: ABRIR MAPA + aguardar GPS antes de buscar postos ──
+    // Abre o mapa na última posição conhecida (ou placeholder ES),
+    // mas NÃO chama loadPostos() ainda — espera GPS real para buscar postos corretos.
+    // Quando GPS responder, _aplicarLocalizacao(lat, lng, recarregarPostos=true) carrega os postos.
+    var _placeholderLat = (userLat && !_ehCoordSP(userLat, userLng)) ? userLat : -20.3155;
+    var _placeholderLng = (userLng && !_ehCoordSP(userLat, userLng)) ? userLng : -40.3128;
+    userLat = _placeholderLat;
+    userLng = _placeholderLng;
     _geoJaObtida = true;
-    initMapMain();
-    _gpsNativo(false);
+    initMapMain();     // abre mapa na posição placeholder (NÃO chama loadPostos aqui)
+    _gpsNativo(false); // inicia GPS → quando chegar, _aplicarLocalizacao chama loadPostos
   }
 
   // ── GPS robusto para PWA Android ────────────────────────────────────────────
@@ -7155,16 +7209,28 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   // lat, lng = coordenadas | recarregarPostos = buscar postos novamente | gpsReal = veio do GPS (não cache)
   function _aplicarLocalizacao(lat, lng, recarregarPostos, gpsReal) {
     _geoJaObtida = true;
+    var ehRegSP = _ehCoordSP(lat, lng);
+
+    // NÃO aplicar coords de SP como localização definitiva — é fallback genérico
+    // Aceitar SP apenas se GPS real (usuário está fisicamente em SP)
+    if (ehRegSP && !gpsReal) {
+      console.warn('[GPS] _aplicarLocalizacao bloqueou coords SP (gpsReal=false) — ignorando');
+      // Mover mapa visualmente mas NÃO recarregar postos com SP falso
+      if (mapMain && !_mapaLivre) {
+        mapMain.setView([lat, lng], 12, { animate: false });
+      }
+      return;
+    }
+
     if (gpsReal) _geoGPSConfirmado = true;
     userLat = lat;
     userLng = lng;
 
-    // Remover botão "Toque para ativar GPS" se localização foi obtida
+    // Remover botão "Toque para ativar GPS" se localização real foi obtida
     var gpsBtnEl = document.getElementById('rp-gps-btn');
     if (gpsBtnEl) gpsBtnEl.remove();
 
-    // Salvar cache só se GPS real E fora da região de SP
-    var ehRegSP = _ehCoordSP(lat, lng);
+    // Salvar cache só se GPS real E fora de SP
     if (gpsReal && !ehRegSP) {
       localStorage.setItem('rp_lat', String(lat));
       localStorage.setItem('rp_lng', String(lng));
@@ -7172,14 +7238,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       localStorage.removeItem('rp_geoip_lat');
       localStorage.removeItem('rp_geoip_lng');
       localStorage.removeItem('rp_geoip_ts');
-      // Persiste também nas chaves de "última abertura" — próxima vez abre aqui sem flash
       try {
         localStorage.setItem('rp_last_lat', String(lat));
         localStorage.setItem('rp_last_lng', String(lng));
       } catch {}
-    } else if (ehRegSP) {
-      // Recebeu SP — apagar cache para não persistir
-      console.warn('[GPS] Coord SP recebida — NÃO salvando cache: lat=' + lat + ' lng=' + lng);
+    } else if (gpsReal && ehRegSP) {
+      // GPS real em SP — limpar cache antigo de outras cidades
       localStorage.removeItem('rp_lat');
       localStorage.removeItem('rp_lng');
       localStorage.removeItem('rp_loc_ts');
@@ -7192,11 +7256,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (!mapMain) {
       initMapMain();
     } else {
-      // Só move o mapa se usuário não está explorando
       if (!_mapaLivre) {
         mapMain.setView([lat, lng], 14, { animate: true });
       }
-      // Atualizar marcador do usuário (sempre, independente do mapa livre)
+      // Atualizar marcador do usuário
       mapMain.eachLayer(function(l) {
         if (l._isUserMarker) { mapMain.removeLayer(l); }
       });
@@ -7207,7 +7270,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       });
       var m = L.marker([lat, lng], { icon: userIcon }).addTo(mapMain);
       m._isUserMarker = true;
-      if (recarregarPostos) loadPostos();
+      // Carregar postos apenas se GPS/localização confirmada (não placeholder)
+      if (recarregarPostos && _geoGPSConfirmado) loadPostos();
     }
   }
 </script>
