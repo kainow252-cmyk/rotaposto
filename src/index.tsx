@@ -4963,10 +4963,9 @@ app.get('/ir', async (c) => {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>Navegar — \${tituloSafe}</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
+html,body{width:100%;height:100%;overflow:hidden;background:#e8eaed;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 
 /* ── Top bar ── */
@@ -4995,24 +4994,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
   object-fit:contain;background:#f5f5f5;padding:3px;flex-shrink:0;
   border:1.5px solid #eee}
 
-/* ── Mapa Leaflet ── */
+/* ── Mapa Google ── */
 #map{
   position:fixed;
-  top:60px;
-  left:0;right:0;
-  bottom:120px;
-  background:#e8eaed;
-  z-index:1;
+  top:60px;left:0;right:0;bottom:110px;
+  background:#e8eaed;z-index:1;
 }
-
-/* ── Loading placeholder ── */
 #map-loading{
-  position:absolute;inset:0;
-  background:#e8eaed;
+  position:absolute;inset:0;background:#e8eaed;
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  gap:12px;color:#666;font-size:14px;
-  z-index:10;
+  gap:12px;color:#666;font-size:14px;z-index:10;
 }
 .spin{width:36px;height:36px;border:3px solid rgba(66,133,244,.2);
   border-top-color:#4285f4;border-radius:50%;
@@ -5026,99 +5018,27 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
   padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 10px);
   box-shadow:0 -2px 10px rgba(0,0,0,.1);
 }
-#eta-row{
-  display:flex;align-items:center;gap:10px;
-  margin-bottom:10px;
-}
+#eta-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 #eta-dist{font-size:21px;font-weight:800;color:#1a1a1a}
 #eta-dur{font-size:15px;color:#444;font-weight:600}
 #eta-sep{width:1px;height:18px;background:#ddd}
 #eta-chegada{font-size:12px;color:#888;margin-left:auto;font-weight:500}
 #msg-nogps{
-  display:none;
-  background:#fff3cd;color:#856404;
+  display:none;background:#fff3cd;color:#856404;
   font-size:12px;padding:6px 10px;border-radius:8px;
   margin-bottom:8px;text-align:center;
 }
 #btn-navegar{
   width:100%;padding:15px;border:none;border-radius:14px;
-  background:#FF6D00;color:#fff;
+  background:#4285F4;color:#fff;
   font-size:16px;font-weight:700;cursor:pointer;
   display:flex;align-items:center;justify-content:center;gap:9px;
   transition:background .15s,transform .1s;
-  box-shadow:0 3px 10px rgba(255,109,0,.4);
+  box-shadow:0 3px 10px rgba(66,133,244,.4);
   -webkit-tap-highlight-color:transparent;
 }
-#btn-navegar:active{background:#e65100;transform:scale(.98)}
+#btn-navegar:active{background:#1a56db;transform:scale(.98)}
 #btn-navegar svg{flex-shrink:0}
-
-/* ══════════════════════════════════════
-   BOTTOM SHEET — seletor de app de nav
-   ══════════════════════════════════════ */
-#nav-sheet-overlay{
-  position:fixed;inset:0;z-index:300;
-  background:rgba(0,0,0,0);
-  display:none;
-  transition:background .25s;
-}
-#nav-sheet-overlay.open{
-  background:rgba(0,0,0,.45);
-  display:block;
-}
-#nav-sheet{
-  position:fixed;
-  left:0;right:0;bottom:0;
-  z-index:301;
-  background:#fff;
-  border-radius:22px 22px 0 0;
-  padding:0 0 calc(env(safe-area-inset-bottom,0px) + 20px);
-  transform:translateY(100%);
-  transition:transform .32s cubic-bezier(.32,1,.5,1);
-  box-shadow:0 -4px 32px rgba(0,0,0,.18);
-  will-change:transform;
-}
-#nav-sheet.open{transform:translateY(0)}
-
-/* handle drag */
-#nav-sheet-handle{
-  width:40px;height:4px;background:#e0e0e0;border-radius:4px;
-  margin:12px auto 18px;
-}
-#nav-sheet-title{
-  font-size:13px;font-weight:700;color:#888;
-  text-transform:uppercase;letter-spacing:.8px;
-  text-align:center;margin-bottom:18px;
-}
-.nav-app-btn{
-  display:flex;align-items:center;gap:16px;
-  padding:16px 22px;
-  border:none;background:transparent;
-  width:100%;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  transition:background .12s;
-}
-.nav-app-btn:active{background:#f5f5f5}
-.nav-app-icon{
-  width:50px;height:50px;border-radius:14px;
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;overflow:hidden;
-}
-.nav-app-icon img{width:100%;height:100%;object-fit:cover;border-radius:14px}
-.nav-app-info{flex:1;text-align:left}
-.nav-app-name{font-size:16px;font-weight:700;color:#1a1a1a}
-.nav-app-desc{font-size:12px;color:#888;margin-top:2px}
-.nav-app-arrow{color:#ccc;font-size:18px}
-.nav-divider{height:1px;background:#f0f0f0;margin:0 22px}
-
-/* Botão cancelar */
-#nav-sheet-cancel{
-  display:block;width:calc(100% - 44px);margin:14px 22px 0;
-  padding:14px;border:none;border-radius:14px;
-  background:#f5f5f5;color:#555;
-  font-size:15px;font-weight:700;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-#nav-sheet-cancel:active{background:#ebebeb}
 </style>
 </head>
 <body>
@@ -5138,7 +5058,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
   </div>
 </div>
 
-<!-- MAPA LEAFLET -->
+<!-- MAPA GOOGLE MAPS JS API -->
 <div id="map">
   <div id="map-loading">
     <div class="spin"></div>
@@ -5155,367 +5075,167 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f5f5;
     <span id="eta-dur">—</span>
     <span id="eta-chegada"></span>
   </div>
-  <button id="btn-navegar" onclick="abrirSeletorNav()">
+  <button id="btn-navegar" onclick="iniciarNavGoogleMaps()">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <polygon points="3 11 22 2 13 21 11 13 3 11" fill="#fff" stroke="none"/>
     </svg>
-    Iniciar navegação
+    Iniciar no Google Maps
   </button>
 </div>
 
-<!-- ═══ BOTTOM SHEET — escolha o app de navegação ═══ -->
-<div id="nav-sheet-overlay" onclick="fecharSeletorNav()"></div>
-
-<div id="nav-sheet" role="dialog" aria-label="Escolha o app de navegação">
-  <div id="nav-sheet-handle"></div>
-  <div id="nav-sheet-title">Abrir com</div>
-
-  <!-- Google Maps -->
-  <a id="nav-link-google" href="#" class="nav-app-btn" style="text-decoration:none">
-    <div class="nav-app-icon" style="background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15);border-radius:14px;overflow:hidden">
-      <svg viewBox="0 0 48 48" width="50" height="50" xmlns="http://www.w3.org/2000/svg">
-        <rect width="48" height="48" rx="12" fill="#fff"/>
-        <!-- Pin Google Maps colorido -->
-        <ellipse cx="24" cy="36" rx="7" ry="3" fill="rgba(0,0,0,.15)"/>
-        <path d="M24 6C18.477 6 14 10.477 14 16c0 7.5 10 22 10 22S34 23.5 34 16c0-5.523-4.477-10-10-10z" fill="#EA4335"/>
-        <circle cx="24" cy="16" r="4.5" fill="#fff"/>
-        <!-- Letras G coloridas embaixo -->
-      </svg>
-    </div>
-    <div class="nav-app-info">
-      <div class="nav-app-name">Google Maps</div>
-      <div class="nav-app-desc">Rota passo a passo</div>
-    </div>
-    <span class="nav-app-arrow">›</span>
-  </a>
-
-  <div class="nav-divider"></div>
-
-  <!-- Waze -->
-  <a id="nav-link-waze" href="#" class="nav-app-btn" style="text-decoration:none">
-    <div class="nav-app-icon" style="background:#06CCFF;border-radius:14px;overflow:hidden">
-      <svg viewBox="0 0 48 48" width="50" height="50" xmlns="http://www.w3.org/2000/svg">
-        <rect width="48" height="48" rx="12" fill="#06CCFF"/>
-        <!-- Corpo do Waze -->
-        <ellipse cx="24" cy="26" rx="13" ry="11" fill="#fff"/>
-        <!-- Olhos -->
-        <circle cx="20" cy="24" r="2.5" fill="#1a1a1a"/>
-        <circle cx="28" cy="24" r="2.5" fill="#1a1a1a"/>
-        <!-- Sorriso -->
-        <path d="M20 29 Q24 33 28 29" stroke="#1a1a1a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-        <!-- Antena -->
-        <path d="M30 17 Q33 12 35 14" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <circle cx="35" cy="13.5" r="2" fill="#fff"/>
-      </svg>
-    </div>
-    <div class="nav-app-info">
-      <div class="nav-app-name">Waze</div>
-      <div class="nav-app-desc">Alertas de trânsito em tempo real</div>
-    </div>
-    <span class="nav-app-arrow">›</span>
-  </a>
-
-  <div class="nav-divider"></div>
-
-  <!-- Apple Maps — visível só em iOS -->
-  <a id="btn-apple-maps" href="#" class="nav-app-btn" style="display:none;text-decoration:none">
-    <div class="nav-app-icon" style="background:linear-gradient(145deg,#3478F6,#1a56db);border-radius:14px;overflow:hidden">
-      <svg viewBox="0 0 48 48" width="50" height="50" xmlns="http://www.w3.org/2000/svg">
-        <rect width="48" height="48" rx="12" fill="url(#amg)"/>
-        <defs>
-          <linearGradient id="amg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#3478F6"/>
-            <stop offset="100%" stop-color="#1a56db"/>
-          </linearGradient>
-        </defs>
-        <!-- Mapa simplificado -->
-        <path d="M10 14 L24 10 L38 14 L38 38 L24 34 L10 38 Z" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/>
-        <path d="M24 10 L24 34" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
-        <!-- Pin branco -->
-        <path d="M24 16c-3.314 0-6 2.686-6 6 0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6z" fill="#fff"/>
-        <circle cx="24" cy="22" r="2.5" fill="#3478F6"/>
-      </svg>
-    </div>
-    <div class="nav-app-info">
-      <div class="nav-app-name">Apple Maps</div>
-      <div class="nav-app-desc">Nativo do iPhone / iPad</div>
-    </div>
-    <span class="nav-app-arrow">›</span>
-  </a>
-  <div class="nav-divider" id="div-apple" style="display:none"></div>
-
-  <!-- Maps genérico para outros sistemas -->
-  <a id="btn-maps-gen" href="#" class="nav-app-btn" style="display:none;text-decoration:none">
-    <div class="nav-app-icon" style="background:#34A853">
-      <svg viewBox="0 0 48 48" width="50" height="50">
-        <rect width="48" height="48" rx="12" fill="#34A853"/>
-        <text x="50%" y="64%" text-anchor="middle" font-size="26" fill="#fff">📍</text>
-      </svg>
-    </div>
-    <div class="nav-app-info">
-      <div class="nav-app-name">Mapas do sistema</div>
-      <div class="nav-app-desc">Abre no app padrão do celular</div>
-    </div>
-    <span class="nav-app-arrow">›</span>
-  </a>
-
-  <button id="nav-sheet-cancel" onclick="fecharSeletorNav()">Cancelar</button>
-</div>
+<!-- bottom sheet removido — navegação agora é via Google Maps JS API interno -->
 
 <script>
+// ── Variáveis injetadas pelo servidor ────────────────────────────────
 var DLAT = ${temCoords ? lat : 'null'};
 var DLNG = ${temCoords ? lng : 'null'};
 var NOME = ${JSON.stringify(tituloSafe)};
 var GKEY = ${JSON.stringify(gKey)};
 
 var _userLat = null, _userLng = null;
-var _sheetOpen = false;
+var _gmap    = null;
+var _dirRenderer = null;
 
-// ── Detectar plataforma e mostrar opções corretas ─────────────────────
-(function detectPlataforma(){
-  var ua = navigator.userAgent;
-  var isIOS     = /iPhone|iPad|iPod/.test(ua);
-  var isAndroid = /Android/.test(ua);
-  // iOS → mostrar Apple Maps
-  if(isIOS){
-    document.getElementById('btn-apple-maps').style.display = 'flex';
-    document.getElementById('div-apple').style.display = 'block';
-  }
-  // Nem iOS nem Android (desktop) → mostrar "Mapas do sistema" como extra
-  if(!isIOS && !isAndroid){
-    document.getElementById('btn-maps-gen').style.display = 'flex';
-  }
-})();
-
-// ── Abrir seletor de app de navegação ────────────────────────────────
-function abrirSeletorNav(){
-  if(!DLAT || !DLNG){
-    alert('Sem coordenadas do posto para navegar.');
-    return;
-  }
-
-  // ── URLs https:// diretas — únicas que funcionam no TWA sem ERR_UNKNOWN_URL_SCHEME ──
-  // Dentro da tela /ir (domínio próprio), o <a href="https://..."> com toque manual
-  // do usuário é processado pelo Android como App Link → abre o app nativo.
-  // O TWA só bloqueia navegação PROGRAMÁTICA — toque real em <a> funciona.
-  var gUrl = 'https://www.google.com/maps/dir/?api=1'
-    + '&destination=' + DLAT + ',' + DLNG
-    + '&travelmode=driving&dir_action=navigate';
-  if(_userLat && _userLng) gUrl += '&origin=' + _userLat + ',' + _userLng;
-
-  var wUrl = 'https://waze.com/ul?ll=' + DLAT + '%2C' + DLNG + '&navigate=yes&zoom=17';
-  var aUrl = 'https://maps.apple.com/?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
-
-  var lg = document.getElementById('nav-link-google');
-  var lw = document.getElementById('nav-link-waze');
-  var la = document.getElementById('btn-apple-maps');
-  var lm = document.getElementById('btn-maps-gen');
-
-  // Atribui href diretamente — sem onclick, sem preventDefault.
-  // O toque nativo em <a href> é a única forma de abrir apps externos no TWA.
-  if(lg) lg.setAttribute('href', gUrl);
-  if(lw) lw.setAttribute('href', wUrl);
-  if(la) la.setAttribute('href', aUrl);
-  if(lm) lm.setAttribute('href', gUrl);
-
-  var overlay = document.getElementById('nav-sheet-overlay');
-  var sheet   = document.getElementById('nav-sheet');
-  overlay.style.display = 'block';
-  requestAnimationFrame(function(){
-    requestAnimationFrame(function(){
-      overlay.classList.add('open');
-      sheet.classList.add('open');
-      _sheetOpen = true;
-    });
-  });
-}
-
-function fecharSeletorNav(){
-  var overlay = document.getElementById('nav-sheet-overlay');
-  var sheet   = document.getElementById('nav-sheet');
-  overlay.classList.remove('open');
-  sheet.classList.remove('open');
-  _sheetOpen = false;
-  setTimeout(function(){ overlay.style.display = 'none'; }, 320);
-}
-
-// Fechar com tecla ESC
-document.addEventListener('keydown', function(e){
-  if(e.key === 'Escape' && _sheetOpen) fecharSeletorNav();
-});
-
-// ── navegarCom — mantido para compatibilidade mas href já está no <a> ──
-// O toque do usuário no <a href> abre o App Link diretamente no Android TWA.
-// Esta função não é mais chamada pelos botões (virou <a href>).
-function navegarCom(app){ fecharSeletorNav(); }
-
-// ── Leaflet map ──────────────────────────────────────────────────────
-var _leafMap = null;
-var _routeLine = null;
-
-function iniciarMapa(oriLat, oriLng){
-  // Remover loading overlay
+// ── Inicializa Google Maps JS API + DirectionsService ────────────────
+// Chamada via callback= na tag <script> abaixo.
+// Renderiza mapa + rota dentro do app — SEM abrir nenhum app externo.
+function _initMap() {
   var loading = document.getElementById('map-loading');
-  if(loading) loading.style.display = 'none';
+  if (loading) loading.style.display = 'none';
 
-  if(!_leafMap){
-    _leafMap = L.map('map', {
-      zoomControl: true,
-      attributionControl: false,
-      // Desabilita qualquer comportamento de clique que gere intent://
-      tap: false
-    });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '' // sem attribution = sem links clicáveis
-    }).addTo(_leafMap);
-
-    // Bloquear QUALQUER link dentro do mapa que não seja https://
-    // Evita intent:// e outros schemes que quebram no WebView Android
-    document.getElementById('map').addEventListener('click', function(e){
-      var a = e.target;
-      while(a && a.tagName !== 'A') a = a.parentElement;
-      if(a && a.href && !a.href.startsWith('https://') && !a.href.startsWith('http://')){
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, true);
-  }
-
-  if(!DLAT || !DLNG) return;
-
-  // Ícone destino — pin laranja RotaPosto
-  var iconDest = L.divIcon({
-    html: '<svg viewBox="0 0 36 48" width="36" height="48" xmlns="http://www.w3.org/2000/svg">'
-        + '<path d="M18 0C8.059 0 0 8.059 0 18c0 12 18 30 18 30S36 30 36 18C36 8.059 27.941 0 18 0z" fill="#FF6D00"/>'
-        + '<circle cx="18" cy="18" r="8" fill="#fff"/>'
-        + '</svg>',
-    className: '',
-    iconSize: [36, 48],
-    iconAnchor: [18, 48],
-    popupAnchor: [0, -48]
-  });
-
-  var destMark = L.marker([DLAT, DLNG], {icon: iconDest}).addTo(_leafMap);
-  destMark.bindPopup('<b>' + NOME + '</b>').openPopup();
-
-  if(oriLat && oriLng){
-    // Ícone origem — ponto azul usuário
-    var iconOri = L.divIcon({
-      html: '<svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">'
-          + '<circle cx="12" cy="12" r="10" fill="#4285F4" stroke="#fff" stroke-width="3"/>'
-          + '</svg>',
-      className: '',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
-    });
-    L.marker([oriLat, oriLng], {icon: iconOri}).addTo(_leafMap);
-
-    // Fit bounds para mostrar origem + destino
-    var bounds = L.latLngBounds([[oriLat, oriLng], [DLAT, DLNG]]);
-    _leafMap.fitBounds(bounds, {padding: [50, 50]});
-
-    // Rota via OSRM
-    desenharRota(oriLat, oriLng);
-  } else {
-    // Sem GPS — zoom 14 mostra bairro inteiro ao redor do posto
-    _leafMap.setView([DLAT, DLNG], 14);
-  }
-}
-
-// ── Desenhar rota + calcular ETA via OSRM ────────────────────────────
-function desenharRota(oriLat, oriLng){
-  if(!DLAT) return;
-  var url = 'https://router.project-osrm.org/route/v1/driving/'
-    + oriLng + ',' + oriLat + ';' + DLNG + ',' + DLAT
-    + '?overview=full&geometries=geojson&steps=false';
-  var ctrl = new AbortController();
-  setTimeout(function(){ ctrl.abort(); }, 9000);
-  fetch(url, {signal: ctrl.signal})
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if(!d.routes || !d.routes.length) return;
-      var r = d.routes[0];
-      var distKm = (r.distance / 1000).toFixed(1);
-      var minutos = Math.round(r.duration / 60);
-      var chegada = new Date(Date.now() + r.duration * 1000);
-      var hh = String(chegada.getHours()).padStart(2,'0');
-      var mm = String(chegada.getMinutes()).padStart(2,'0');
-      document.getElementById('eta-dist').textContent = distKm + ' km';
-      document.getElementById('eta-dur').textContent  = minutos + ' min';
-      document.getElementById('eta-chegada').textContent = 'Chegada ' + hh + ':' + mm;
-      document.getElementById('posto-end').textContent = distKm + ' km · ' + minutos + ' min';
-
-      // Desenhar polyline da rota no mapa
-      if(_leafMap && r.geometry && r.geometry.coordinates){
-        var coords = r.geometry.coordinates.map(function(c){ return [c[1], c[0]]; });
-        if(_routeLine) _leafMap.removeLayer(_routeLine);
-        _routeLine = L.polyline(coords, {
-          color: '#4285F4',
-          weight: 5,
-          opacity: 0.85,
-          lineJoin: 'round'
-        }).addTo(_leafMap);
-      }
-    })
-    .catch(function(){
-      // Fallback haversine
-      if(_userLat && DLAT){
-        var dLat2 = (DLAT - _userLat) * Math.PI/180;
-        var dLng2 = (DLNG - _userLng) * Math.PI/180;
-        var a2 = Math.sin(dLat2/2)*Math.sin(dLat2/2)
-               + Math.cos(_userLat*Math.PI/180)*Math.cos(DLAT*Math.PI/180)
-               * Math.sin(dLng2/2)*Math.sin(dLng2/2);
-        var dist = 6371000 * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2));
-        document.getElementById('eta-dist').textContent = (dist/1000).toFixed(1) + ' km';
-        document.getElementById('eta-dur').textContent  = '~' + Math.round(dist/400) + ' min';
-        document.getElementById('eta-chegada').textContent = '';
-        document.getElementById('posto-end').textContent = (dist/1000).toFixed(1) + ' km (aprox.)';
-      }
-    });
-}
-
-// ── Inicialização — aguarda Leaflet carregar ────────────────────────
-function _iniciarApp(){
-  if(!DLAT || !DLNG){
-    var loading2 = document.getElementById('map-loading');
-    if(loading2) loading2.innerHTML =
-      '<div style="font-size:32px">⚠️</div><span>Endereço do posto não disponível</span>';
-    document.getElementById('eta-dist').textContent = '—';
-    var btn = document.getElementById('btn-navegar');
-    btn.disabled = true; btn.style.opacity = '0.5';
+  if (!DLAT || !DLNG) {
+    if (loading) loading.innerHTML = '<div style="font-size:32px">⚠️</div><span>Coordenadas não disponíveis</span>';
+    document.getElementById('btn-navegar').disabled = true;
+    document.getElementById('btn-navegar').style.opacity = '0.5';
     return;
   }
 
-  // autonav=1 → abrir o seletor de navegação automaticamente após carregar o mapa
-  var _autoNav = new URLSearchParams(window.location.search).get('autonav') === '1';
+  var destino = {lat: parseFloat(DLAT), lng: parseFloat(DLNG)};
 
-  if(navigator.geolocation){
+  // Cria o mapa centrado no destino inicialmente
+  _gmap = new google.maps.Map(document.getElementById('map'), {
+    center: destino,
+    zoom: 14,
+    disableDefaultUI: false,
+    zoomControl: true,
+    streetViewControl: false,
+    mapTypeControl: false,
+    fullscreenControl: false,
+    gestureHandling: 'greedy'
+  });
+
+  // Marcador do posto (destino)
+  new google.maps.Marker({
+    position: destino,
+    map: _gmap,
+    title: NOME,
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      fillColor: '#FF6D00',
+      fillOpacity: 1,
+      strokeColor: '#fff',
+      strokeWeight: 3,
+      scale: 10
+    }
+  });
+
+  _dirRenderer = new google.maps.DirectionsRenderer({
+    map: _gmap,
+    suppressMarkers: false,
+    polylineOptions: { strokeColor: '#4285F4', strokeWeight: 5 }
+  });
+
+  // Solicita localização do usuário e desenha rota
+  if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
-      function(pos){
+      function(pos) {
         _userLat = pos.coords.latitude;
         _userLng = pos.coords.longitude;
-        iniciarMapa(_userLat, _userLng);
-        if(_autoNav) setTimeout(abrirSeletorNav, 600);
+        _calcularRota(_userLat, _userLng);
       },
-      function(err){
+      function() {
         document.getElementById('msg-nogps').style.display = 'block';
-        iniciarMapa(null, null);
-        document.getElementById('eta-dist').textContent = '—';
-        document.getElementById('eta-dur').textContent  = 'GPS indisponível';
+        document.getElementById('eta-dur').textContent = 'GPS indisponível';
         document.getElementById('posto-end').textContent = 'Ative o GPS para ver a rota';
-        if(_autoNav) setTimeout(abrirSeletorNav, 600);
       },
-      {enableHighAccuracy:false, timeout:8000, maximumAge:60000}
+      {enableHighAccuracy: false, timeout: 8000, maximumAge: 60000}
     );
-  } else {
-    iniciarMapa(null, null);
-    if(_autoNav) setTimeout(abrirSeletorNav, 600);
   }
 }
+
+// ── Calcula e renderiza a rota via DirectionsService ─────────────────
+function _calcularRota(oriLat, oriLng) {
+  if (!_gmap || !DLAT || !DLNG) return;
+  var svc = new google.maps.DirectionsService();
+  svc.route({
+    origin:      new google.maps.LatLng(oriLat, oriLng),
+    destination: new google.maps.LatLng(parseFloat(DLAT), parseFloat(DLNG)),
+    travelMode:  google.maps.TravelMode.DRIVING,
+    region: 'BR'
+  }, function(result, status) {
+    if (status === 'OK') {
+      _dirRenderer.setDirections(result);
+      var leg = result.routes[0].legs[0];
+      document.getElementById('eta-dist').textContent = leg.distance.text;
+      document.getElementById('eta-dur').textContent  = leg.duration.text;
+      document.getElementById('posto-end').textContent =
+        leg.distance.text + ' · ' + leg.duration.text;
+      // Calcular horário de chegada estimado
+      var chegada = new Date(Date.now() + leg.duration.value * 1000);
+      var hh = String(chegada.getHours()).padStart(2,'0');
+      var mm = String(chegada.getMinutes()).padStart(2,'0');
+      document.getElementById('eta-chegada').textContent = 'Chegada ' + hh + ':' + mm;
+    } else {
+      document.getElementById('posto-end').textContent = 'Rota não encontrada';
+    }
+  });
+}
+
+// ── Botão "Iniciar no Google Maps" ───────────────────────────────────
+// Abre o painel de navegação turn-by-turn DENTRO do próprio mapa Google
+// usando a API nativa — sem sair do app, sem intent://, sem bloqueio TWA.
+function iniciarNavGoogleMaps() {
+  if (!_gmap || !DLAT || !DLNG) return;
+  // Abre a navegação turn-by-turn dentro do maps usando DirectionsRenderer
+  // com travelMode DRIVING — o Google Maps mostra as instruções na tela
+  var destino = new google.maps.LatLng(parseFloat(DLAT), parseFloat(DLNG));
+  if (_userLat && _userLng) {
+    var origem = new google.maps.LatLng(_userLat, _userLng);
+    var svc = new google.maps.DirectionsService();
+    svc.route({
+      origin: origem,
+      destination: destino,
+      travelMode: google.maps.TravelMode.DRIVING,
+      region: 'BR'
+    }, function(result, status) {
+      if (status === 'OK') {
+        _dirRenderer.setDirections(result);
+        // Exibe painel de instruções turn-by-turn
+        _dirRenderer.setPanel(document.getElementById('dir-panel'));
+        document.getElementById('dir-panel-wrap').style.display = 'block';
+        document.getElementById('bottom-bar').style.display = 'none';
+      }
+    });
+  }
+}
+
+function fecharPainelRota() {
+  document.getElementById('dir-panel-wrap').style.display = 'none';
+  document.getElementById('bottom-bar').style.display = 'block';
+}
 </script>
-<!-- Leaflet carregado DEPOIS das variáveis, inicialização via onload -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onload="_iniciarApp()"></script>
+
+<!-- Painel turn-by-turn (oculto até "Iniciar") -->
+<div id="dir-panel-wrap" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:#fff;max-height:50vh;overflow-y:auto;box-shadow:0 -4px 20px rgba(0,0,0,.2);border-radius:20px 20px 0 0;">
+  <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #eee;">
+    <span style="font-size:14px;font-weight:700;color:#222;flex:1;">Rota passo a passo</span>
+    <button onclick="fecharPainelRota()" style="background:none;border:none;font-size:22px;color:#888;cursor:pointer;padding:0 4px;">✕</button>
+  </div>
+  <div id="dir-panel" style="padding:8px 0;"></div>
+</div>
+
+<!-- Google Maps JS API — callback=_initMap carrega o mapa após a key ser validada -->
+<script src="https://maps.googleapis.com/maps/api/js?key=${gKey}&callback=_initMap&language=pt-BR&region=BR" async defer></script>
 </body>
 </html>`
 
