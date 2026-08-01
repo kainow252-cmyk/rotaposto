@@ -5120,17 +5120,16 @@ html,body{width:100%;height:100%;overflow:hidden;
 </div>
 
 <!-- Barra ETA -->
-<div id="info-bar" class="hidden">
+<div id="info-bar" style="display:none">
   <div class="eta-item">
     <span class="eta-val" id="eta-tempo">--</span>
     <span class="eta-lbl">Tempo</span>
   </div>
-  <div id="eta-divider"></div>
+  <div class="eta-div"></div>
   <div class="eta-item">
     <span class="eta-val" id="eta-dist">--</span>
     <span class="eta-lbl">Distância</span>
   </div>
-  <div id="eta-divider" style="margin-left:auto"></div>
 </div>
 
 <!-- Mapa -->
@@ -5149,148 +5148,121 @@ html,body{width:100%;height:100%;overflow:hidden;
 
 <!-- Google Maps JavaScript API -->
 <script>
-// ── Dados da rota (injetados server-side) ──────────────────────────────────
-var _DLAT  = '${DLAT}';
-var _DLNG  = '${DLNG}';
-var _OLAT  = '${OLAT}';
-var _OLNG  = '${OLNG}';
-var _NOME  = '${NOME_JS}';
-
+// ── Dados da rota injetados server-side ────────────────────────────────────
+var _DLAT = '${DLAT}';
+var _DLNG = '${DLNG}';
+var _OLAT = '${OLAT}';
+var _OLNG = '${OLNG}';
 var _gmap, _dirRenderer, _dirService;
 
-// ── Ajuste dinâmico do mapa: altura em px reais para o Google Maps ──────────
-function _ajustarMapaBottom() {
-  var infoBar   = document.getElementById('info-bar');
-  var postoCard = document.getElementById('posto-card');
-  var mapEl     = document.getElementById('map');
-  var infoH     = (infoBar && !infoBar.classList.contains('hidden')) ? infoBar.offsetHeight : 0;
-  var cardH     = postoCard ? postoCard.offsetHeight : 0;
-  var safeTop   = parseInt(getComputedStyle(document.documentElement)
-                    .getPropertyValue('--sat') || '0') || 0;
-  var topH      = 56 + safeTop + infoH;
-  var totalH    = window.innerHeight;
-  var mapH      = totalH - topH - cardH;
-  if (mapH < 100) mapH = 100;
-  mapEl.style.top    = topH + 'px';
-  mapEl.style.height = mapH + 'px';
-  mapEl.style.bottom = 'auto';
-  // Notifica o Google Maps para redimensionar
-  if (window._gmap) {
-    google.maps.event.trigger(window._gmap, 'resize');
+// ── Calcula posição do mapa usando getBoundingClientRect dos elementos reais ─
+// CRÍTICO: não usa safe-area-inset nem vars CSS — usa posição visual real
+function _fitMap() {
+  var topBar  = document.getElementById('top-bar');
+  var infoBar = document.getElementById('info-bar');
+  var card    = document.getElementById('posto-card');
+  var mapEl   = document.getElementById('map');
+  if (!mapEl) return;
+
+  // Bottom do topbar no viewport (inclui safe-area-inset automaticamente)
+  var topEdge = topBar ? topBar.getBoundingClientRect().bottom : 56;
+
+  // Se info-bar estiver visível, adiciona sua altura
+  if (infoBar && infoBar.style.display !== 'none') {
+    topEdge += infoBar.offsetHeight;
   }
+
+  // Altura do card inferior
+  var bottomH = card ? card.offsetHeight : 80;
+
+  mapEl.style.position = 'fixed';
+  mapEl.style.left     = '0';
+  mapEl.style.right    = '0';
+  mapEl.style.top      = topEdge + 'px';
+  mapEl.style.bottom   = bottomH + 'px';
+  mapEl.style.height   = '';  // remove height inline, usa top+bottom
+
+  if (_gmap) google.maps.event.trigger(_gmap, 'resize');
 }
 
-// ── Callback chamado pelo Maps JS API após carga ───────────────────────────
+// ── Callback do Maps JS API ────────────────────────────────────────────────
 window._initMap = function() {
-  // Garante altura em px antes de criar o mapa (rAF = após paint)
-  requestAnimationFrame(function() { _ajustarMapaBottom(); });
+  _fitMap(); // dimensiona antes de criar o mapa
 
-  var mapEl = document.getElementById('map');
-
-  // Centro inicial: destino (posto) ou SP como fallback
+  var mapEl     = document.getElementById('map');
   var centerLat = _DLAT ? parseFloat(_DLAT) : -23.5505;
   var centerLng = _DLNG ? parseFloat(_DLNG) : -46.6333;
 
   _gmap = new google.maps.Map(mapEl, {
-    center: { lat: centerLat, lng: centerLng },
+    center: {lat: centerLat, lng: centerLng},
     zoom: 14,
     disableDefaultUI: true,
     zoomControl: true,
-    gestureHandling: 'greedy',
-    styles: [
-      { featureType:'poi', elementType:'labels', stylers:[{visibility:'off'}] },
-      { featureType:'transit', elementType:'labels', stylers:[{visibility:'off'}] }
-    ]
+    gestureHandling: 'greedy'
   });
 
   _dirRenderer = new google.maps.DirectionsRenderer({
     map: _gmap,
-    suppressMarkers: false,
-    polylineOptions: { strokeColor:'#f97316', strokeWeight:5, strokeOpacity:.9 }
+    polylineOptions: {strokeColor:'#f97316', strokeWeight:5, strokeOpacity:.9}
   });
 
   _dirService = new google.maps.DirectionsService();
 
-  // Sem coordenadas de destino → mostra erro
   if (!_DLAT || !_DLNG) {
     document.getElementById('loading').classList.add('done');
-    var err = document.getElementById('erro');
     document.getElementById('erro-msg').textContent = 'Coordenadas do posto não disponíveis.';
-    err.classList.add('show');
+    document.getElementById('erro').classList.add('show');
     return;
   }
 
-  // Origem: olat/olng passados como parâmetro (GPS do app principal)
-  //         ou GPS atual do dispositivo
   if (_OLAT && _OLNG) {
-    _calcularRota(parseFloat(_OLAT), parseFloat(_OLNG));
+    _calcRota(parseFloat(_OLAT), parseFloat(_OLNG));
   } else {
     navigator.geolocation.getCurrentPosition(
-      function(pos) { _calcularRota(pos.coords.latitude, pos.coords.longitude); },
-      function()    { _calcularRota(centerLat - 0.01, centerLng - 0.01); /* fallback suave */ },
-      { timeout: 8000, maximumAge: 30000, enableHighAccuracy: true }
+      function(p){ _calcRota(p.coords.latitude, p.coords.longitude); },
+      function()  { _calcRota(centerLat - 0.01, centerLng - 0.01); },
+      {timeout:8000, maximumAge:30000, enableHighAccuracy:true}
     );
   }
 };
 
-// ── Calcular e renderizar a rota ───────────────────────────────────────────
-function _calcularRota(oriLat, oriLng) {
+// ── Calcular rota e atualizar ETA ──────────────────────────────────────────
+function _calcRota(oriLat, oriLng) {
   _dirService.route({
     origin:      new google.maps.LatLng(oriLat, oriLng),
     destination: new google.maps.LatLng(parseFloat(_DLAT), parseFloat(_DLNG)),
     travelMode:  google.maps.TravelMode.DRIVING,
-    region: 'BR',
-    language: 'pt-BR'
+    region: 'BR'
   }, function(result, status) {
     document.getElementById('loading').classList.add('done');
 
     if (status !== 'OK') {
       document.getElementById('erro-msg').textContent =
-        'Não foi possível calcular a rota (' + status + ').';
+        'Rota indisponível (' + status + '). Tente novamente.';
       document.getElementById('erro').classList.add('show');
       return;
     }
 
     _dirRenderer.setDirections(result);
 
-    // ── Atualiza ETA ──────────────────────────────────────────────────────
     var leg = result.routes[0] && result.routes[0].legs[0];
     if (leg) {
       document.getElementById('eta-tempo').textContent = leg.duration.text;
       document.getElementById('eta-dist').textContent  = leg.distance.text;
-      document.getElementById('info-bar').classList.remove('hidden');
-      var subEl = document.getElementById('posto-sub-dist') || document.getElementById('posto-sub');
-      if (subEl) subEl.textContent = leg.distance.text + ' · ' + leg.duration.text;
-
-      // Reajusta mapa agora que info-bar apareceu
-      setTimeout(function() {
-        _ajustarMapaBottom();
-        google.maps.event.trigger(_gmap, 'resize');
-      }, 150);
+      var ib = document.getElementById('info-bar');
+      ib.style.display = 'flex';
+      var sub = document.getElementById('posto-sub');
+      if (sub) sub.textContent = leg.distance.text + ' · ' + leg.duration.text;
+      // Reajusta mapa agora que info-bar tem altura real
+      setTimeout(function(){ _fitMap(); }, 80);
     }
   });
 }
 
-// ── Inicialização após DOM pronto ─────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
-  // Safe-area-inset-top via CSS var trick
-  var sat = document.createElement('div');
-  sat.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);height:0;pointer-events:none;visibility:hidden';
-  document.body.appendChild(sat);
-  document.documentElement.style.setProperty('--sat', sat.getBoundingClientRect().top + 'px');
-  document.body.removeChild(sat);
-
-  // Ajuste inicial (DOM já renderizou, heights são reais)
-  _ajustarMapaBottom();
-
-  // Reajusta ao redimensionar / rotacionar
-  window.addEventListener('resize', function() {
-    _ajustarMapaBottom();
-  });
-});
+window.addEventListener('resize', _fitMap);
 </script>
 
-<!-- Carga assíncrona da API (callback=_initMap) — NUNCA usa window.location para maps.google.com -->
+<!-- Maps JS API — sem window.location para maps.google.com -->
 <script src="https://maps.googleapis.com/maps/api/js?key=${gKey}&callback=_initMap&language=pt&region=BR&loading=async" async defer></script>
 
 </body>
