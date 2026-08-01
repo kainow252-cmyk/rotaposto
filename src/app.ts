@@ -4468,115 +4468,105 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
 
-    // ── rotaposto://maps — scheme PRÓPRIO do app, capturado pela MapLaunchActivity ──
-    // O TWA trata qualquer scheme fora de "https://rotaposto.com.br" como externo
-    // e dispara um intent Android normal. A MapLaunchActivity recebe esse intent,
-    // monta a URL do Maps/Waze e chama startActivity → abre o app nativo sem WebView.
-    // Isso contorna TODOS os bloqueios do Custom Tab (App Links, ERR_UNKNOWN_URL_SCHEME).
-    var mapsUrl = temCoords
-      ? 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=google'
-        + (userLat && userLng ? '&olat=' + userLat + '&olng=' + userLng : '')
-      : 'rotaposto://maps?q=' + encodeURIComponent(nome || 'posto de gasolina') + '&app=google';
-
-    var wazeUrl = temCoords
-      ? 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze'
-      : 'rotaposto://maps?q=' + encodeURIComponent(nome || 'posto de gasolina') + '&app=waze';
-
-    // Fallback para browser (desktop / iOS / Android sem o app atualizado)
-    var mapsFallbackUrl = temCoords
-      ? 'https://maps.google.com/maps?daddr=' + lat + ',' + lng + '&dirflg=d'
-        + (userLat && userLng ? '&saddr=' + userLat + ',' + userLng : '')
-      : 'https://maps.google.com/maps?q=' + encodeURIComponent(nome || 'posto de gasolina');
-
-    var wazeFallbackUrl = temCoords
-      ? 'https://waze.com/ul?ll=' + lat + '%2C' + lng + '&navigate=yes&zoom=17'
-      : 'https://waze.com/ul?q=' + encodeURIComponent(nome || 'posto de gasolina');
-
-    // Remove sheet anterior se existir
-    var old = document.getElementById('_nav-sheet-ext');
-    if (old) old.parentNode.removeChild(old);
-
-    var sheet = document.createElement('div');
-    sheet.id = '_nav-sheet-ext';
-    sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#fff;border-radius:20px 20px 0 0;padding:20px 16px 32px;box-shadow:0 -4px 32px rgba(0,0,0,0.18);font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
-    // SVG Google Maps pin (vermelho/branco) — inline, sem dependência externa
-    var svgGoogleMaps = '<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="border-radius:10px;flex-shrink:0;">'
-      + '<rect width="40" height="40" fill="#fff" rx="10"/>'
-      + '<path d="M20 6C15.03 6 11 10.03 11 15c0 7 9 19 9 19s9-12 9-19c0-4.97-4.03-9-9-9z" fill="#EA4335"/>'
-      + '<circle cx="20" cy="15" r="4" fill="#fff"/>'
-      + '</svg>';
-
-    // SVG Waze mascote (círculo azul com face sorridente) — inline, sem dependência externa
-    var svgWaze = '<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="border-radius:10px;flex-shrink:0;">'
-      + '<rect width="40" height="40" fill="#fff" rx="10"/>'
-      + '<circle cx="20" cy="20" r="14" fill="#33CCFF"/>'
-      + '<circle cx="16" cy="17" r="2.5" fill="#1a1a2e"/>'
-      + '<circle cx="24" cy="17" r="2.5" fill="#1a1a2e"/>'
-      + '<path d="M15 24 Q20 29 25 24" stroke="#1a1a2e" stroke-width="2" fill="none" stroke-linecap="round"/>'
-      + '<circle cx="27" cy="13" r="3" fill="#FFD700"/>'
-      + '</svg>';
-
-    // Helper: navega para o scheme próprio (rotaposto://) que a MapLaunchActivity captura.
-    // Se o APK não tiver a Activity (versão antiga instalada), cai no fallback após 1.5s.
-    function _abrirScheme(scheme, fallback) {
-      window.location.href = scheme;
-      var t = setTimeout(function() { window.location.href = fallback; }, 1500);
-      document.addEventListener('visibilitychange', function h() {
-        clearTimeout(t); document.removeEventListener('visibilitychange', h);
-      });
+    // ── Google Maps Embed API com key — solução que funcionava ──────────────
+    // O iframe do Google Maps Embed renderiza o mapa/rota DENTRO do app.
+    // O botão "Abrir no Google Maps" que aparece no próprio iframe é gerado
+    // pelo Google e abre o app nativo via mecanismo interno do Google —
+    // não passa pelo bloqueio do Custom Tab / TWA.
+    // Referência: commit 04a72f2 — funcionava antes da migração para /ir
+    var embedUrl;
+    if (temCoords && userLat && userLng) {
+      embedUrl = 'https://www.google.com/maps/embed/v1/directions'
+        + '?key=' + _GKEY
+        + '&origin='      + userLat + ',' + userLng
+        + '&destination=' + lat     + ',' + lng
+        + '&mode=driving'
+        + '&language=pt-BR';
+    } else if (temCoords) {
+      embedUrl = 'https://www.google.com/maps/embed/v1/place'
+        + '?key=' + _GKEY
+        + '&q='   + lat + ',' + lng
+        + '&language=pt-BR';
+    } else {
+      embedUrl = 'https://www.google.com/maps/embed/v1/search'
+        + '?key=' + _GKEY
+        + '&q='   + encodeURIComponent(nome || 'posto de gasolina')
+        + '&language=pt-BR';
     }
 
-    var linkGmaps = document.createElement('a');
-    linkGmaps.href = mapsUrl;  // rotaposto://maps?lat=X&lng=Y&app=google
-    linkGmaps.setAttribute('data-fallback', mapsFallbackUrl);
-    linkGmaps.style.cssText = 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;-webkit-tap-highlight-color:transparent;';
-    linkGmaps.innerHTML = svgGoogleMaps
-      + '<span style="font-size:16px;font-weight:600;color:#222;">Google Maps</span>'
-      + '<span style="margin-left:auto;font-size:20px;color:#aaa;">&#8250;</span>';
-    linkGmaps.addEventListener('click', function(e) {
-      e.preventDefault();
-      _abrirScheme(this.href, this.getAttribute('data-fallback'));
-    });
+    // URL direta do Waze (funciona em browser normal, fallback do Embed)
+    var wazeUrl = temCoords
+      ? 'https://waze.com/ul?ll=' + lat + '%2C' + lng + '&navigate=yes&zoom=17'
+      : 'https://waze.com/ul?q='  + encodeURIComponent(nome || 'posto de gasolina');
+
+    // Remove modal anterior se existir
+    var old = document.getElementById('_nav-sheet-ext');
+    if (old) old.parentNode.removeChild(old);
+    var oldOv = document.getElementById('_nav-sheet-overlay');
+    if (oldOv) oldOv.parentNode.removeChild(oldOv);
+
+    // ── Monta modal fullscreen com iframe do Maps Embed ─────────────────────
+    var modal = document.createElement('div');
+    modal.id = '_nav-sheet-ext';
+    modal.style.cssText = [
+      'position:fixed','top:0','left:0','right:0','bottom:0',
+      'z-index:99999','background:#fff',
+      'display:flex','flex-direction:column',
+      'font-family:-apple-system,BlinkMacSystemFont,sans-serif'
+    ].join(';');
+
+    // Header com título e botão fechar
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #eee;flex-shrink:0;';
+    var titulo = document.createElement('span');
+    titulo.textContent = nome || 'Como Chegar';
+    titulo.style.cssText = 'font-size:16px;font-weight:700;color:#222;';
+    var btnFechar = document.createElement('button');
+    btnFechar.textContent = '✕';
+    btnFechar.style.cssText = 'background:none;border:none;font-size:20px;color:#666;cursor:pointer;padding:4px 8px;';
+    btnFechar.onclick = function() {
+      var m = document.getElementById('_nav-sheet-ext');
+      if (m) m.parentNode.removeChild(m);
+    };
+    header.appendChild(titulo);
+    header.appendChild(btnFechar);
+
+    // iframe do Google Maps Embed
+    var iframe = document.createElement('iframe');
+    iframe.src = embedUrl;
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+    iframe.style.cssText = 'flex:1;border:none;width:100%;';
+
+    // Barra inferior com botão Waze
+    var footer = document.createElement('div');
+    footer.style.cssText = 'padding:12px 16px 20px;flex-shrink:0;background:#fff;border-top:1px solid #eee;';
+
+    var svgWaze = '<svg width="22" height="22" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">'
+      + '<circle cx="20" cy="20" r="18" fill="#06CCFF"/>'
+      + '<circle cx="16" cy="19" r="3" fill="#1a1a1a"/>'
+      + '<circle cx="24" cy="19" r="3" fill="#1a1a1a"/>'
+      + '<path d="M15 26 Q20 31 25 26" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round"/>'
+      + '</svg>';
 
     var linkWaze = document.createElement('a');
-    linkWaze.href = wazeUrl;   // rotaposto://maps?lat=X&lng=Y&app=waze
-    linkWaze.setAttribute('data-fallback', wazeFallbackUrl);
-    linkWaze.style.cssText = 'display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f5f5f5;border-radius:14px;text-decoration:none;margin-bottom:10px;-webkit-tap-highlight-color:transparent;';
-    linkWaze.innerHTML = svgWaze
-      + '<span style="font-size:16px;font-weight:600;color:#222;">Waze</span>'
-      + '<span style="margin-left:auto;font-size:20px;color:#aaa;">&#8250;</span>';
-    linkWaze.addEventListener('click', function(e) {
-      e.preventDefault();
-      _abrirScheme(this.href, this.getAttribute('data-fallback'));
-    });
+    linkWaze.href = wazeUrl;
+    linkWaze.target = '_blank';
+    linkWaze.rel = 'noopener';
+    linkWaze.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;background:#06CCFF;border-radius:14px;text-decoration:none;';
+    linkWaze.innerHTML = svgWaze + '<span style="font-size:15px;font-weight:700;color:#1a1a1a;">Abrir no Waze</span>';
+    footer.appendChild(linkWaze);
 
-    var btnCancelar = document.createElement('button');
-    btnCancelar.style.cssText = 'width:100%;padding:14px;margin-top:4px;background:#f0f0f0;border:none;border-radius:14px;font-size:15px;font-weight:600;color:#666;cursor:pointer;';
-    btnCancelar.textContent = 'Cancelar';
-    btnCancelar.onclick = function() {
-      var s = document.getElementById('_nav-sheet-ext');
-      if (s) s.parentNode.removeChild(s);
-      var o = document.getElementById('_nav-sheet-overlay');
-      if (o) o.parentNode.removeChild(o);
-    };
+    modal.appendChild(header);
+    modal.appendChild(iframe);
+    modal.appendChild(footer);
+    document.body.appendChild(modal);
 
-    sheet.innerHTML = '<div style="width:40px;height:4px;background:#ddd;border-radius:4px;margin:0 auto 20px;"></div>'
-      + '<p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#222;text-align:center;">Abrir navegação em</p>';
-    sheet.appendChild(linkGmaps);
-    sheet.appendChild(linkWaze);
-    sheet.appendChild(btnCancelar);
+    // Sem overlay separado — o modal é fullscreen
+    var sheet = modal; // alias para compatibilidade com código abaixo
 
-    var overlay = document.createElement('div');
-    overlay.id = '_nav-sheet-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.4);';
-    overlay.onclick = function() {
-      var s = document.getElementById('_nav-sheet-ext');
-      if (s) s.parentNode.removeChild(s);
-      overlay.parentNode.removeChild(overlay);
-    };
-
-    document.body.appendChild(overlay);
-    document.body.appendChild(sheet);
+    // Modal fullscreen já foi appendado dentro do bloco acima (document.body.appendChild(modal))
+    void sheet; // evita warning de variável não usada
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado
