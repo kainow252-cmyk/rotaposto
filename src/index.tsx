@@ -4864,7 +4864,12 @@ app.get('/ir', async (c) => {
   const bandeira = c.req.query('bandeira') || ''
   const fotoParam = c.req.query('foto')   || ''
   const placeId   = c.req.query('placeId') || ''
-  const gKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+  // GOOGLE_MAPS_JS_KEY = chave com Maps JavaScript API habilitada (SafeRouteGo)
+  // Fallback: GOOGLE_PLACES_KEY → GOOGLE_API_KEY (Places/Geocoding apenas)
+  const gKey = (c.env as any)?.GOOGLE_MAPS_JS_KEY as string
+           || (c.env as any)?.GOOGLE_PLACES_KEY as string
+           || GOOGLE_API_KEY
+           || ''
 
   const temCoords  = lat && lng && lat !== '0' && lng !== '0'
   const tituloSafe = nome
