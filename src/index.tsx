@@ -5228,6 +5228,9 @@ html,body{width:100%;height:100%;overflow:hidden;
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       Iniciar Navegação
     </button>
+    <button id="btn-voz" onclick="_toggleVoz()" title="Voz" style="width:50px;height:50px;border:none;border-radius:14px;background:#f1f3f4;color:#555;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;">
+      🔊
+    </button>
   </div>
 </div>
 
@@ -5243,6 +5246,38 @@ var _map, _rotaLayer, _userMarker, _destMarker;
 var _passos = [], _passoIdx = 0;
 var _navegando = false, _watchId = null;
 var _oriLat, _oriLng;
+var _vozAtiva = true;   // voz ligada por padrão
+var _ultimoPassoFalado = -1;
+var _avisado50m = false; // flag para aviso em 50m
+
+// ── Síntese de voz (Web Speech API — funciona no Android WebView) ────
+function _falar(texto) {
+  if (!_vozAtiva) return;
+  if (!window.speechSynthesis) return;
+  try {
+    window.speechSynthesis.cancel(); // cancela fala anterior
+    var u = new SpeechSynthesisUtterance(texto);
+    u.lang  = 'pt-BR';
+    u.rate  = 1.05;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+    // Tenta usar voz pt-BR se disponível
+    var vozes = window.speechSynthesis.getVoices();
+    var voz = vozes.find(function(v){
+      return v.lang === 'pt-BR' || v.lang === 'pt_BR' || v.lang.startsWith('pt');
+    });
+    if (voz) u.voice = voz;
+    window.speechSynthesis.speak(u);
+  } catch(e) { console.warn('[VOZ]', e); }
+}
+
+// Pré-carrega vozes (Android exige chamada prévia)
+if (window.speechSynthesis) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.addEventListener('voiceschanged', function(){
+    window.speechSynthesis.getVoices(); // força cache
+  });
+}
 
 // ── Helpers ──────────────────────────────────────────────────────
 function _fmtT(s){var m=Math.round(s/60);if(m<60)return m+' min';var h=Math.floor(m/60),r=m%60;return r?h+'h '+r+' min':h+'h';}
@@ -5452,6 +5487,13 @@ function _mostrarPasso(idx){
     document.getElementById('instr-prox').classList.remove('show');
   }
   _fitMap();
+  // Fala a instrução se ainda não foi falada para este passo
+  if (_ultimoPassoFalado !== idx) {
+    _ultimoPassoFalado = idx;
+    _avisado50m = false; // reseta aviso de 50m para novo passo
+    var distTxt = p.dist > 0 ? ' em ' + _fmtD(p.dist) : '';
+    _falar(p.texto + distTxt);
+  }
 }
 
 // ── Toggle navegação ──────────────────────────────────────────────
@@ -5461,7 +5503,7 @@ function _toggleNav(){
 
 function _iniciarNav(){
   if(!_passos.length) return;
-  _navegando=true; _passoIdx=0;
+  _navegando=true; _passoIdx=0; _ultimoPassoFalado=-1; _avisado50m=false;
   _mostrarPasso(0);
   var btn=document.getElementById('btn-nav');
   btn.classList.add('stop');
@@ -5475,7 +5517,14 @@ function _iniciarNav(){
 
       if(_passoIdx<_passos.length-1){
         var s=_passos[_passoIdx];
-        if(_dist(lat,lng,s.lat,s.lng)<30){_passoIdx++;_mostrarPasso(_passoIdx);}
+        var dPasso = _dist(lat,lng,s.lat,s.lng);
+        // Aviso antecipado em ~100m do ponto de manobra
+        if (!_avisado50m && dPasso < 100 && dPasso > 30) {
+          _avisado50m = true;
+          _falar('Em ' + _fmtD(dPasso) + ', ' + s.texto);
+        }
+        // Avança passo ao chegar a 30m
+        if(dPasso < 30){_passoIdx++; _mostrarPasso(_passoIdx);}
       } else {
         var dest=_passos[_passos.length-1];
         if(_dist(lat,lng,dest.lat,dest.lng)<50){
@@ -5483,6 +5532,7 @@ function _iniciarNav(){
           document.getElementById('instr-txt').textContent='Você chegou ao destino!';
           document.getElementById('instr-dist').textContent='';
           document.getElementById('instr-prox').classList.remove('show');
+          _falar('Você chegou ao destino!');
           _pararNav();
         }
       }
@@ -5499,7 +5549,16 @@ function _pararNav(){
   btn.classList.remove('stop');
   btn.innerHTML='<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Iniciar Navegação';
   document.getElementById('instr-bar').classList.remove('show');
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
   _fitMap();
+}
+
+function _toggleVoz(){
+  _vozAtiva = !_vozAtiva;
+  document.getElementById('btn-voz').textContent = _vozAtiva ? '🔊' : '🔇';
+  document.getElementById('btn-voz').style.background = _vozAtiva ? '#f1f3f4' : '#ffebee';
+  if (!_vozAtiva && window.speechSynthesis) window.speechSynthesis.cancel();
+  else if (_vozAtiva) _falar('Voz ativada');
 }
 
 function _voltar(){
