@@ -4774,8 +4774,28 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       showToast('Selecione um destino primeiro');
       return;
     }
-    // Reutiliza a mesma lógica de _abrirNavegacaoExterna
-    _abrirNavegacaoExterna(lat, lng, nome);
+
+    var temCoords = lat && lng && lat !== 0 && lng !== 0;
+    if (!temCoords) {
+      showToast('Coordenadas do destino não disponíveis');
+      return;
+    }
+
+    // Monta URL do Google Maps dir/ com origem = posição atual do usuário
+    // e destino = coordenadas do posto.
+    // No Android TWA, window.location.href para maps.google.com é interceptado
+    // pelo OS como App Link e abre o Google Maps nativo direto na navegação.
+    var origin = (userLat && userLng)
+      ? userLat + ',' + userLng
+      : '';
+
+    var mapsUrl = 'https://www.google.com/maps/dir/?api=1'
+      + '&destination=' + lat + ',' + lng
+      + (origin ? '&origin=' + origin : '')
+      + '&travelmode=driving'
+      + '&dir_action=navigate';   // abre já na navegação turn-by-turn
+
+    window.location.href = mapsUrl;
   }
 
   let _searchTimer = null;
