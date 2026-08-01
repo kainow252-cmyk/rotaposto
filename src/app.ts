@@ -3081,10 +3081,18 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       const coords = userLng.toFixed(6) + ',' + userLat.toFixed(6)
         + ';' + alvo.map(p => p.lng.toFixed(6) + ',' + p.lat.toFixed(6)).join(';');
 
-      const url = 'https://router.project-osrm.org/table/v1/driving/' + coords
+      // Usa VPS OSRM (grátis) com fallback automático para OSRM público
+      const tableBase = _getOsrmBase();
+      const tableUrl = tableBase + '/table/v1/driving/' + coords
         + '?sources=0&annotations=duration,distance';
 
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      let res = await fetch(tableUrl, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok && tableBase === VPS_OSRM) {
+        // VPS indisponível → fallback para OSRM público
+        _vpsOsrmOk = false; _vpsOsrmLastFail = Date.now();
+        const fallbackUrl = PUB_OSRM + '/table/v1/driving/' + coords + '?sources=0&annotations=duration,distance';
+        res = await fetch(fallbackUrl, { signal: AbortSignal.timeout(8000) });
+      }
       if (!res.ok) return;
       const json = await res.json();
 
@@ -3517,7 +3525,26 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     return result;
   }
 
+  // ── URLs do servidor VPS próprio (São Paulo) ── 
+  // VPS Hostinger KVM2 com OSRM + tiles OSM próprios → custo zero por requisição
+  // Fallback automático para servidores públicos caso VPS esteja indisponível
+  var VPS_OSRM = 'http://145.223.92.30/osrm';   // OSRM auto-hospedado
+  var VPS_TILES = 'http://145.223.92.30/tiles';   // Tile server próprio (futuro)
+  var PUB_OSRM = 'https://router.project-osrm.org'; // Fallback público
+  var PUB_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'; // Fallback OSM
+
   var _osrmCache = {};  // cache simples por chave "lat,lng→lat,lng"
+  var _vpsOsrmOk = true; // assume VPS online até falha confirmada
+  var _vpsOsrmLastFail = 0; // timestamp da última falha (ms)
+  var VPS_RETRY_MS = 5 * 60 * 1000; // retentar VPS após 5 min
+
+  // Retorna URL base do OSRM ativa (VPS ou público)
+  function _getOsrmBase() {
+    if (_vpsOsrmOk || (Date.now() - _vpsOsrmLastFail > VPS_RETRY_MS)) {
+      return VPS_OSRM;
+    }
+    return PUB_OSRM;
+  }
 
   function _buscarRotaOSRM(mapObj, oriLat, oriLng, dstLat, dstLng, onResult) {
     // onResult(distKm, durationMin, latlngs)
@@ -3527,11 +3554,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       onResult(c.distKm, c.durationMin, c.latlngs);
       return;
     }
-    var url = 'https://router.project-osrm.org/route/v1/driving/'
+    var osrmBase = _getOsrmBase();
+    var suffix = '/route/v1/driving/'
       + oriLng.toFixed(6) + ',' + oriLat.toFixed(6)
       + ';' + dstLng.toFixed(6) + ',' + dstLat.toFixed(6)
       + '?overview=full&geometries=polyline&steps=false';
-    fetch(url)
+    var url = osrmBase + suffix;
+    fetch(url, { signal: AbortSignal.timeout(8000) })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data || !data.routes || !data.routes[0]) throw new Error('sem rota');
@@ -3542,11 +3571,42 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         _osrmCache[cacheKey] = { distKm: distKm, durationMin: durationMin, latlngs: latlngs };
         onResult(distKm, durationMin, latlngs);
       })
+      .then(function(data) {
+        if (!data || !data.routes || !data.routes[0]) throw new Error('sem rota');
+        var route = data.routes[0];
+        var distKm = route.distance / 1000;
+        var durationMin = Math.round(route.duration / 60);
+        var latlngs = _decodificarPolyline(route.geometry, 5);
+        _osrmCache[cacheKey] = { distKm: distKm, durationMin: durationMin, latlngs: latlngs };
+        _vpsOsrmOk = (osrmBase === VPS_OSRM); // marca VPS como OK se veio do VPS
+        onResult(distKm, durationMin, latlngs);
+      })
       .catch(function() {
-        // Fallback: linha reta haversine
-        var distKm = calcHaversinePlan(oriLat, oriLng, dstLat, dstLng);
-        var latlngs = [[oriLat, oriLng], [dstLat, dstLng]];
-        onResult(distKm, null, latlngs);
+        // Se falhou com VPS, tentar OSRM público como fallback
+        if (osrmBase === VPS_OSRM) {
+          _vpsOsrmOk = false;
+          _vpsOsrmLastFail = Date.now();
+          var urlFallback = PUB_OSRM + suffix;
+          fetch(urlFallback, { signal: AbortSignal.timeout(8000) })
+            .then(function(r) { return r.json(); })
+            .then(function(data2) {
+              if (!data2 || !data2.routes || !data2.routes[0]) throw new Error('sem rota');
+              var route2 = data2.routes[0];
+              var distKm2 = route2.distance / 1000;
+              var durationMin2 = Math.round(route2.duration / 60);
+              var latlngs2 = _decodificarPolyline(route2.geometry, 5);
+              _osrmCache[cacheKey] = { distKm: distKm2, durationMin: durationMin2, latlngs: latlngs2 };
+              onResult(distKm2, durationMin2, latlngs2);
+            })
+            .catch(function() {
+              var distKm3 = calcHaversinePlan(oriLat, oriLng, dstLat, dstLng);
+              onResult(distKm3, null, [[oriLat, oriLng], [dstLat, dstLng]]);
+            });
+        } else {
+          // Fallback final: linha reta haversine
+          var distKm = calcHaversinePlan(oriLat, oriLng, dstLat, dstLng);
+          onResult(distKm, null, [[oriLat, oriLng], [dstLat, dstLng]]);
+        }
       });
   }
 

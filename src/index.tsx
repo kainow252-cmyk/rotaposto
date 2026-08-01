@@ -1026,18 +1026,48 @@ app.get('/api/geocode/reverso', async (c) => {
   return c.json(geo)
 })
 
-// ─── API: Geolocate Device — Google Geolocation API com dados do dispositivo ──
+// ─── API: Geolocate Device — WiFi/Cell towers → Google ÚLTIMO RECURSO ────────
 // Recebe wifiAccessPoints e cellTowers do browser (via Network Information API)
-// e repassa para Google Geolocation API usando a chave segura do servidor.
-// Isso dá precisão similar ao Uber (torres + WiFi) sem expor a chave no frontend.
+// Estratégia: se tiver dados de WiFi/Cell → tenta Google (mais preciso)
+//             se não tiver dados → usa ipapi.co/ip-api.com (zero custo)
+// Google custa ~R$0,005/req — usar somente quando há dados reais de WiFi/Cell
 app.post('/api/geolocate-device', async (c) => {
   try {
+    const body = await c.req.json() as Record<string, unknown>
+    const hasNetworkData = (
+      (Array.isArray(body.wifiAccessPoints) && body.wifiAccessPoints.length > 0) ||
+      (Array.isArray(body.cellTowers) && body.cellTowers.length > 0)
+    )
+    const ip = c.req.header('CF-Connecting-IP')
+      || c.req.header('X-Forwarded-For')?.split(',')[0]?.trim()
+      || ''
+
+    // Se não tiver dados de rede, redirecionar para geoip (zero custo)
+    if (!hasNetworkData) {
+      // Tentar ipapi.co primeiro
+      if (ip && !ip.startsWith('127.') && !ip.startsWith('192.168.')) {
+        try {
+          const res = await fetch(`https://ipapi.co/${ip}/json/`, {
+            headers: { 'User-Agent': 'RotaPosto/1.0' },
+            signal: AbortSignal.timeout(4000)
+          })
+          if (res.ok) {
+            const d = await res.json() as any
+            if (d.latitude && d.longitude && !d.error) {
+              return c.json({ lat: parseFloat(d.latitude), lng: parseFloat(d.longitude), cidade: d.city || '', estado: d.region_code || '', fonte: 'ipapi.co-device' })
+            }
+          }
+        } catch (_) {}
+      }
+      return c.json({ erro: 'Sem dados de rede para geolocalização precisa' }, 400)
+    }
+
+    // Tem dados WiFi/Cell → Google Geolocation API (ÚLTIMO RECURSO com dados reais)
     const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
     if (!googleKey) return c.json({ erro: 'Chave não configurada' }, 500)
 
-    const body = await c.req.json() as Record<string, unknown>
     // Montar payload Google Geolocation API
-    const payload: Record<string, unknown> = { considerIpAddress: true }
+    const payload: Record<string, unknown> = { considerIpAddress: false }
     if (Array.isArray(body.wifiAccessPoints) && body.wifiAccessPoints.length > 0)
       payload.wifiAccessPoints = body.wifiAccessPoints
     if (Array.isArray(body.cellTowers) && body.cellTowers.length > 0)
@@ -1074,7 +1104,6 @@ app.post('/api/geolocate-device', async (c) => {
         cidade = nom.address?.city || nom.address?.town || nom.address?.municipality || ''
         estado = nom.address?.state_code || nom.address?.state || ''
         if (estado.length > 2) {
-          // Mapear nome do estado para sigla
           const siglas: Record<string,string> = { 'Espírito Santo':'ES','São Paulo':'SP','Rio de Janeiro':'RJ','Minas Gerais':'MG','Bahia':'BA','Paraná':'PR','Rio Grande do Sul':'RS','Santa Catarina':'SC','Goiás':'GO','Pernambuco':'PE','Ceará':'CE','Pará':'PA','Maranhão':'MA','Amazonas':'AM','Mato Grosso':'MT','Mato Grosso do Sul':'MS','Rio Grande do Norte':'RN','Alagoas':'AL','Piauí':'PI','Paraíba':'PB','Sergipe':'SE','Rondônia':'RO','Tocantins':'TO','Acre':'AC','Amapá':'AP','Roraima':'RR','Distrito Federal':'DF' }
           estado = siglas[estado] || estado.slice(0,2).toUpperCase()
         }
@@ -1087,9 +1116,10 @@ app.post('/api/geolocate-device', async (c) => {
   }
 })
 
-// ─── API: GeoIP — localização pelo IP + Google Geolocation API ───────────────
+// ─── API: GeoIP — localização pelo IP ────────────────────────────────────────
 // Fallback quando GPS do celular não disponível
-// Ordem: Google Geolocation API (IP-only) → ipapi.co → ip-api.com → SP padrão
+// Ordem: ipapi.co → ip-api.com → Google (último recurso) → SP padrão
+// Estratégia: Google custa R$0,005/req — usar apenas como emergência
 app.get('/api/geoip', async (c) => {
   const ip = c.req.header('CF-Connecting-IP')
     || c.req.header('X-Forwarded-For')?.split(',')[0]?.trim()
@@ -1103,59 +1133,11 @@ app.get('/api/geoip', async (c) => {
     return c.json({ lat: -23.5505, lng: -46.6333, cidade: 'São Paulo', estado: 'SP', fallback: true })
   }
 
-  const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
-
-  // 1. Google Geolocation API (considerConsideraIP do cliente — mais preciso que outros serviços)
-  if (googleKey) {
-    try {
-      const geoRes = await fetch(
-        `https://www.googleapis.com/geolocation/v1/geolocate?key=${googleKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          // considerIpAddress:true usa o IP do request para inferir localização
-          body: JSON.stringify({ considerIpAddress: true })
-        }
-      )
-      if (geoRes.ok) {
-        const gd = await geoRes.json() as any
-        if (gd.location?.lat && gd.location?.lng) {
-          // Fazer geocode reverso para obter nome da cidade
-          let cidade = '', estado = ''
-          try {
-            const revRes = await fetch(
-              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${gd.location.lat},${gd.location.lng}&result_type=locality|administrative_area_level_2&language=pt-BR&key=${googleKey}`
-            )
-            if (revRes.ok) {
-              const revData = await revRes.json() as any
-              const comp = revData.results?.[0]?.address_components || []
-              for (const c2 of comp) {
-                if (c2.types.includes('administrative_area_level_2') || c2.types.includes('locality')) {
-                  if (!cidade) cidade = c2.long_name
-                }
-                if (c2.types.includes('administrative_area_level_1')) {
-                  estado = c2.short_name
-                }
-              }
-            }
-          } catch (_) {}
-          return c.json({
-            lat: gd.location.lat,
-            lng: gd.location.lng,
-            accuracy: gd.accuracy,
-            cidade,
-            estado,
-            fonte: 'google'
-          })
-        }
-      }
-    } catch (_) {}
-  }
-
-  // 2. ipapi.co — gratuito, 1000 req/dia
+  // 1. ipapi.co — gratuito, sem quota diária com conta (1000 req/dia sem conta)
   try {
     const res = await fetch(`https://ipapi.co/${ip}/json/`, {
-      headers: { 'User-Agent': 'RotaPosto/1.0' }
+      headers: { 'User-Agent': 'RotaPosto/1.0' },
+      signal: AbortSignal.timeout(4000)
     })
     if (res.ok) {
       const d = await res.json() as any
@@ -1171,9 +1153,12 @@ app.get('/api/geoip', async (c) => {
     }
   } catch (_) {}
 
-  // 3. ip-api.com — 45 req/min
+  // 2. ip-api.com — 45 req/min grátis, sem chave
   try {
-    const res2 = await fetch(`http://ip-api.com/json/${ip}?fields=status,lat,lon,city,regionCode&lang=pt-BR`)
+    const res2 = await fetch(
+      `http://ip-api.com/json/${ip}?fields=status,lat,lon,city,regionCode&lang=pt-BR`,
+      { signal: AbortSignal.timeout(4000) }
+    )
     if (res2.ok) {
       const d2 = await res2.json() as any
       if (d2.status === 'success' && d2.lat && d2.lon) {
@@ -1187,6 +1172,52 @@ app.get('/api/geoip', async (c) => {
       }
     }
   } catch (_) {}
+
+  // 3. Google Geolocation API — ÚLTIMO RECURSO (custo: ~R$0,005/req)
+  const googleKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+  if (googleKey) {
+    try {
+      const geoRes = await fetch(
+        `https://www.googleapis.com/geolocation/v1/geolocate?key=${googleKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ considerIpAddress: true }),
+          signal: AbortSignal.timeout(5000)
+        }
+      )
+      if (geoRes.ok) {
+        const gd = await geoRes.json() as any
+        if (gd.location?.lat && gd.location?.lng) {
+          // Geocode reverso via Nominatim (gratuito) ao invés de Google
+          let cidade = '', estado = ''
+          try {
+            const nomRes = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${gd.location.lat}&lon=${gd.location.lng}&accept-language=pt-BR`,
+              { headers: { 'User-Agent': 'RotaPosto/1.0' }, signal: AbortSignal.timeout(3000) }
+            )
+            if (nomRes.ok) {
+              const nom = await nomRes.json() as any
+              cidade = nom.address?.city || nom.address?.town || nom.address?.municipality || ''
+              estado = nom.address?.state_code || nom.address?.state || ''
+              if (estado.length > 2) {
+                const siglas: Record<string,string> = { 'Espírito Santo':'ES','São Paulo':'SP','Rio de Janeiro':'RJ','Minas Gerais':'MG','Bahia':'BA','Paraná':'PR','Rio Grande do Sul':'RS','Santa Catarina':'SC','Goiás':'GO','Pernambuco':'PE','Ceará':'CE','Pará':'PA','Maranhão':'MA','Amazonas':'AM','Mato Grosso':'MT','Mato Grosso do Sul':'MS','Rio Grande do Norte':'RN','Alagoas':'AL','Piauí':'PI','Paraíba':'PB','Sergipe':'SE','Rondônia':'RO','Tocantins':'TO','Acre':'AC','Amapá':'AP','Roraima':'RR','Distrito Federal':'DF' }
+                estado = siglas[estado] || estado.slice(0,2).toUpperCase()
+              }
+            }
+          } catch (_) {}
+          return c.json({
+            lat: gd.location.lat,
+            lng: gd.location.lng,
+            accuracy: gd.accuracy,
+            cidade,
+            estado,
+            fonte: 'google-fallback'
+          })
+        }
+      }
+    } catch (_) {}
+  }
 
   return c.json({ lat: -23.5505, lng: -46.6333, cidade: 'São Paulo', estado: 'SP', fallback: true })
 })
