@@ -5294,45 +5294,29 @@ function abrirSeletorNav(){
     return;
   }
 
-  // ── rotaposto://maps — scheme próprio, capturado pela MapLaunchActivity no APK ──
-  // O TWA trata rotaposto:// como externo → intent Android → MapLaunchActivity
-  // abre google.navigation:// ou waze:// diretamente via startActivity.
-  // Fallback: browser desktop / iOS / APK antigo sem a Activity.
-  var gUrl  = 'rotaposto://maps?lat=' + DLAT + '&lng=' + DLNG + '&app=google';
-  if(_userLat && _userLng) gUrl += '&olat=' + _userLat + '&olng=' + _userLng;
-  var gFall = 'https://maps.google.com/maps?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
-  if(_userLat && _userLng) gFall += '&saddr=' + _userLat + ',' + _userLng;
+  // ── URLs https:// diretas — únicas que funcionam no TWA sem ERR_UNKNOWN_URL_SCHEME ──
+  // Dentro da tela /ir (domínio próprio), o <a href="https://..."> com toque manual
+  // do usuário é processado pelo Android como App Link → abre o app nativo.
+  // O TWA só bloqueia navegação PROGRAMÁTICA — toque real em <a> funciona.
+  var gUrl = 'https://www.google.com/maps/dir/?api=1'
+    + '&destination=' + DLAT + ',' + DLNG
+    + '&travelmode=driving&dir_action=navigate';
+  if(_userLat && _userLng) gUrl += '&origin=' + _userLat + ',' + _userLng;
 
-  var wUrl  = 'rotaposto://maps?lat=' + DLAT + '&lng=' + DLNG + '&app=waze';
-  var wFall = 'https://waze.com/ul?ll=' + DLAT + '%2C' + DLNG + '&navigate=yes&zoom=17';
-
-  var aUrl  = 'rotaposto://maps?lat=' + DLAT + '&lng=' + DLNG + '&app=google';
-  var aFall = 'https://maps.apple.com/?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
+  var wUrl = 'https://waze.com/ul?ll=' + DLAT + '%2C' + DLNG + '&navigate=yes&zoom=17';
+  var aUrl = 'https://maps.apple.com/?daddr=' + DLAT + ',' + DLNG + '&dirflg=d';
 
   var lg = document.getElementById('nav-link-google');
   var lw = document.getElementById('nav-link-waze');
   var la = document.getElementById('btn-apple-maps');
   var lm = document.getElementById('btn-maps-gen');
 
-  function _setNavLink(el, scheme, fallback) {
-    if (!el) return;
-    el.setAttribute('href', scheme);
-    el.setAttribute('data-fallback', fallback);
-    el.onclick = function(e) {
-      e.preventDefault();
-      var href = this.getAttribute('href');
-      var fb   = this.getAttribute('data-fallback');
-      window.location.href = href;
-      var t = setTimeout(function(){ window.location.href = fb; }, 1500);
-      document.addEventListener('visibilitychange', function h(){
-        clearTimeout(t); document.removeEventListener('visibilitychange', h);
-      });
-    };
-  }
-  _setNavLink(lg, gUrl, gFall);
-  _setNavLink(lw, wUrl, wFall);
-  _setNavLink(la, aUrl, aFall);
-  if(lm) { lm.setAttribute('href', gFall); }
+  // Atribui href diretamente — sem onclick, sem preventDefault.
+  // O toque nativo em <a href> é a única forma de abrir apps externos no TWA.
+  if(lg) lg.setAttribute('href', gUrl);
+  if(lw) lw.setAttribute('href', wUrl);
+  if(la) la.setAttribute('href', aUrl);
+  if(lm) lm.setAttribute('href', gUrl);
 
   var overlay = document.getElementById('nav-sheet-overlay');
   var sheet   = document.getElementById('nav-sheet');
@@ -5502,27 +5486,31 @@ function _iniciarApp(){
     btn.disabled = true; btn.style.opacity = '0.5';
     return;
   }
+
+  // autonav=1 → abrir o seletor de navegação automaticamente após carregar o mapa
+  var _autoNav = new URLSearchParams(window.location.search).get('autonav') === '1';
+
   if(navigator.geolocation){
-    // Timeout menor (5s) + maximumAge alto para aceitar posição cacheada
-    // enableHighAccuracy:false é mais rápido e confiável em WebView
     navigator.geolocation.getCurrentPosition(
       function(pos){
         _userLat = pos.coords.latitude;
         _userLng = pos.coords.longitude;
         iniciarMapa(_userLat, _userLng);
+        if(_autoNav) setTimeout(abrirSeletorNav, 600);
       },
       function(err){
-        // GPS falhou ou negado — carrega mapa centrado no destino
         document.getElementById('msg-nogps').style.display = 'block';
         iniciarMapa(null, null);
         document.getElementById('eta-dist').textContent = '—';
         document.getElementById('eta-dur').textContent  = 'GPS indisponível';
         document.getElementById('posto-end').textContent = 'Ative o GPS para ver a rota';
+        if(_autoNav) setTimeout(abrirSeletorNav, 600);
       },
       {enableHighAccuracy:false, timeout:8000, maximumAge:60000}
     );
   } else {
     iniciarMapa(null, null);
+    if(_autoNav) setTimeout(abrirSeletorNav, 600);
   }
 }
 </script>

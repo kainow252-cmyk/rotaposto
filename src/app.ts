@@ -4468,105 +4468,28 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
 
-    // ── Google Maps Embed API com key — solução que funcionava ──────────────
-    // O iframe do Google Maps Embed renderiza o mapa/rota DENTRO do app.
-    // O botão "Abrir no Google Maps" que aparece no próprio iframe é gerado
-    // pelo Google e abre o app nativo via mecanismo interno do Google —
-    // não passa pelo bloqueio do Custom Tab / TWA.
-    // Referência: commit 04a72f2 — funcionava antes da migração para /ir
-    var embedUrl;
-    if (temCoords && userLat && userLng) {
-      embedUrl = 'https://www.google.com/maps/embed/v1/directions'
-        + '?key=' + _GKEY
-        + '&origin='      + userLat + ',' + userLng
-        + '&destination=' + lat     + ',' + lng
-        + '&mode=driving'
-        + '&language=pt-BR';
-    } else if (temCoords) {
-      embedUrl = 'https://www.google.com/maps/embed/v1/place'
-        + '?key=' + _GKEY
-        + '&q='   + lat + ',' + lng
-        + '&language=pt-BR';
-    } else {
-      embedUrl = 'https://www.google.com/maps/embed/v1/search'
-        + '?key=' + _GKEY
-        + '&q='   + encodeURIComponent(nome || 'posto de gasolina')
-        + '&language=pt-BR';
+    // ── Solução definitiva: navegar para /ir (domínio próprio, TWA aceita) ──
+    // /ir é uma rota do próprio rotaposto.com.br — o TWA navega normalmente.
+    // Dentro de /ir já existe o bottom sheet com <a href> para Google Maps e Waze,
+    // e o Leaflet/OSRM mostra a rota. O botão "Iniciar Navegação" no /ir abre
+    // o seletor de app que já funcionava antes.
+    var params = new URLSearchParams();
+    if (temCoords) {
+      params.set('lat', String(lat));
+      params.set('lng', String(lng));
     }
-
-    // URL direta do Waze (funciona em browser normal, fallback do Embed)
-    var wazeUrl = temCoords
-      ? 'https://waze.com/ul?ll=' + lat + '%2C' + lng + '&navigate=yes&zoom=17'
-      : 'https://waze.com/ul?q='  + encodeURIComponent(nome || 'posto de gasolina');
-
-    // Remove modal anterior se existir
-    var old = document.getElementById('_nav-sheet-ext');
-    if (old) old.parentNode.removeChild(old);
-    var oldOv = document.getElementById('_nav-sheet-overlay');
-    if (oldOv) oldOv.parentNode.removeChild(oldOv);
-
-    // ── Monta modal fullscreen com iframe do Maps Embed ─────────────────────
-    var modal = document.createElement('div');
-    modal.id = '_nav-sheet-ext';
-    modal.style.cssText = [
-      'position:fixed','top:0','left:0','right:0','bottom:0',
-      'z-index:99999','background:#fff',
-      'display:flex','flex-direction:column',
-      'font-family:-apple-system,BlinkMacSystemFont,sans-serif'
-    ].join(';');
-
-    // Header com título e botão fechar
-    var header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #eee;flex-shrink:0;';
-    var titulo = document.createElement('span');
-    titulo.textContent = nome || 'Como Chegar';
-    titulo.style.cssText = 'font-size:16px;font-weight:700;color:#222;';
-    var btnFechar = document.createElement('button');
-    btnFechar.textContent = '✕';
-    btnFechar.style.cssText = 'background:none;border:none;font-size:20px;color:#666;cursor:pointer;padding:4px 8px;';
-    btnFechar.onclick = function() {
-      var m = document.getElementById('_nav-sheet-ext');
-      if (m) m.parentNode.removeChild(m);
-    };
-    header.appendChild(titulo);
-    header.appendChild(btnFechar);
-
-    // iframe do Google Maps Embed
-    var iframe = document.createElement('iframe');
-    iframe.src = embedUrl;
-    iframe.setAttribute('allowfullscreen', '');
-    iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
-    iframe.style.cssText = 'flex:1;border:none;width:100%;';
-
-    // Barra inferior com botão Waze
-    var footer = document.createElement('div');
-    footer.style.cssText = 'padding:12px 16px 20px;flex-shrink:0;background:#fff;border-top:1px solid #eee;';
-
-    var svgWaze = '<svg width="22" height="22" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">'
-      + '<circle cx="20" cy="20" r="18" fill="#06CCFF"/>'
-      + '<circle cx="16" cy="19" r="3" fill="#1a1a1a"/>'
-      + '<circle cx="24" cy="19" r="3" fill="#1a1a1a"/>'
-      + '<path d="M15 26 Q20 31 25 26" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round"/>'
-      + '</svg>';
-
-    var linkWaze = document.createElement('a');
-    linkWaze.href = wazeUrl;
-    linkWaze.target = '_blank';
-    linkWaze.rel = 'noopener';
-    linkWaze.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;background:#06CCFF;border-radius:14px;text-decoration:none;';
-    linkWaze.innerHTML = svgWaze + '<span style="font-size:15px;font-weight:700;color:#1a1a1a;">Abrir no Waze</span>';
-    footer.appendChild(linkWaze);
-
-    modal.appendChild(header);
-    modal.appendChild(iframe);
-    modal.appendChild(footer);
-    document.body.appendChild(modal);
-
-    // Sem overlay separado — o modal é fullscreen
-    var sheet = modal; // alias para compatibilidade com código abaixo
-
-    // Modal fullscreen já foi appendado dentro do bloco acima (document.body.appendChild(modal))
-    void sheet; // evita warning de variável não usada
+    if (nome) params.set('nome', nome);
+    if (userLat && userLng) {
+      params.set('olat', String(userLat));
+      params.set('olng', String(userLng));
+    }
+    if (selectedPosto) {
+      if (selectedPosto.bandeira) params.set('bandeira', selectedPosto.bandeira);
+      if (selectedPosto.placeId)  params.set('placeId',  selectedPosto.placeId);
+    }
+    // autonav=1 → /ir abre o seletor de app (Google Maps / Waze) automaticamente
+    params.set('autonav', '1');
+    window.location.href = '/ir?' + params.toString();
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado
