@@ -4462,26 +4462,27 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   //   3. TWA segue redirect → Android resolve App Link via PackageManager
   //   4. Google Maps app abre nativamente sem passar pelo Chrome/WebView
   // ─────────────────────────────────────────────────────────────────────────
-  // Abre bottom sheet com <a href> real — único método que funciona no TWA Android.
-  // No TWA, QUALQUER navegação programática (window.location, window.open, intent://, geo:)
-  // é bloqueada pelo WebView. Apenas toque manual do usuário em <a href> abre app externo.
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
 
-    // ── rotaposto://maps — scheme capturado pela MapLaunchActivity no APK ──
-    // O TWA trata qualquer URL fora de rotaposto.com.br como intent externo.
-    // A MapLaunchActivity recebe, monta geo: URI e abre Google Maps nativo
-    // via startActivity — sem Custom Tab, sem intent://, sem bloqueio.
-    var url;
+    // ── Abre tela /ir (domínio próprio) com Maps Embed API ──
+    // /ir carrega um iframe do Google Maps Embed que mostra a rota dentro do app.
+    // O botão nativo do Google no iframe abre o Maps app sem intent://.
+    var params = new URLSearchParams();
     if (temCoords) {
-      url = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=google';
-      if (userLat && userLng) {
-        url += '&olat=' + userLat + '&olng=' + userLng;
-      }
-    } else {
-      url = 'rotaposto://maps?q=' + encodeURIComponent(nome || 'posto de combustível') + '&app=google';
+      params.set('lat', String(lat));
+      params.set('lng', String(lng));
     }
-    window.location.href = url;
+    if (nome) params.set('nome', nome);
+    if (userLat && userLng) {
+      params.set('olat', String(userLat));
+      params.set('olng', String(userLng));
+    }
+    if (selectedPosto) {
+      if (selectedPosto.bandeira) params.set('bandeira', selectedPosto.bandeira);
+      if (selectedPosto.placeId)  params.set('placeId',  selectedPosto.placeId);
+    }
+    window.location.href = '/ir?' + params.toString();
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado
