@@ -4594,7 +4594,9 @@ app.get('/app', (c) => {
     return c.redirect(dest, 301)
   }
   const firebaseScripts = getFirebaseAuthScripts()
-  const gKey = (c.env as any)?.GOOGLE_PLACES_KEY as string || GOOGLE_API_KEY || ''
+  const gKey = (c.env as any)?.GOOGLE_MAPS_JS_KEY as string
+           || (c.env as any)?.GOOGLE_PLACES_KEY as string
+           || GOOGLE_API_KEY || ''
   return c.html(getAppHTML(firebaseScripts, gKey))
 })
 
@@ -4967,348 +4969,73 @@ app.get('/ir', async (c) => {
   const olatParam   = c.req.query('olat')   || ''
   const olngParam   = c.req.query('olng')   || ''
 
-  // ── Monta URLs para o mapa e para o botão de navegação ──────────────
-  // Origem: parâmetro olat/olng passado pelo app (GPS já obtido na tela principal)
+  // ── Origem (GPS do app principal passado como olat/olng) ─────────────
   const oLat = olatParam && olatParam !== '0' ? olatParam : ''
   const oLng = olngParam && olngParam !== '0' ? olngParam : ''
   const temOrigem = !!(oLat && oLng)
 
-  // URL do Maps Embed API — renderiza dentro do iframe sem sair do app
-  const embedOrigin = temOrigem ? `${oLat},${oLng}` : ''
-  const embedDest   = temCoords ? `${lat},${lng}` : encodeURIComponent(nome)
+  // ── URL do Maps Embed API — iframe fullscreen, botão nativo do Google ─
+  // O iframe do Google exibe um botão "Abrir no Google Maps" gerado pelo
+  // próprio Google que abre o app nativo sem passar pelo Custom Tab TWA.
   const embedUrl = temCoords
     ? `https://www.google.com/maps/embed/v1/directions?key=${gKey}`
-        + `&origin=${embedOrigin || encodeURIComponent(nome + ' Brasil')}`
+        + `&origin=${temOrigem ? `${oLat},${oLng}` : encodeURIComponent('minha localização')}`
         + `&destination=${lat},${lng}`
         + `&mode=driving&language=pt-BR`
     : `https://www.google.com/maps/embed/v1/place?key=${gKey}`
         + `&q=${encodeURIComponent(nome + ' Brasil')}&language=pt-BR`
-
-  // URL para o botão "Iniciar navegação" — abre Google Maps nativo via <a href>
-  // O Android trata cliques em <a href> em App Links diferente de window.location:
-  // o sistema operacional mostra o seletor de app ou abre o Maps diretamente.
-  const navUrl = temCoords
-    ? `https://www.google.com/maps/dir/?api=1`
-        + (temOrigem ? `&origin=${oLat},${oLng}` : '')
-        + `&destination=${lat},${lng}`
-        + `&travelmode=driving&dir_action=navigate`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome)}`
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
-<title>Planejar rota — \${tituloSafe}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;overflow:hidden;background:#1c2536;
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-
-/* ── Top bar — azul escuro igual ao screenshot ── */
+<title>Como chegar — \${tituloSafe}</title>
+/* ── Top bar azul escuro ── */
 #top-bar{
-  position:fixed;top:0;left:0;right:0;z-index:100;
-  background:#1c2536;
+  position:fixed;top:0;left:0;right:0;z-index:10;
+  background:#1c2536;height:56px;
+  padding-top:calc(env(safe-area-inset-top,0px));
   display:flex;align-items:center;gap:12px;
-  padding-top:calc(env(safe-area-inset-top,0px) + 14px);
-  padding-bottom:14px;
   padding-left:14px;padding-right:14px;
-  min-height:60px;
 }
 #btn-back{
   width:36px;height:36px;border-radius:50%;border:none;
-  background:rgba(255,255,255,.12);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
+  background:rgba(255,255,255,.15);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
-#top-title{
-  font-size:17px;font-weight:700;color:#fff;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
+#top-title{font-size:16px;font-weight:700;color:#fff;flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* ── Scroll container abaixo do top bar ── */
-#scroll-body{
+/* ── Iframe ocupa tudo abaixo da top bar ── */
+#map-frame{
   position:fixed;
-  top:60px;left:0;right:0;bottom:0;
-  overflow-y:auto;
-  background:#f5f6fa;
-  padding-bottom:calc(env(safe-area-inset-bottom,0px) + 90px);
+  top:calc(56px + env(safe-area-inset-top,0px));
+  left:0;right:0;
+  bottom:0;
+  width:100%;border:none;
+  background:#e8eaed;
 }
-
-/* ── Campos origem / destino ── */
-.route-fields{
-  background:#fff;margin:12px 12px 0;border-radius:14px;
-  padding:10px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08);
-}
-.route-row{display:flex;align-items:center;gap:10px;padding:8px 0;}
-.route-row+.route-row{border-top:1px solid #f0f0f0}
-.dot-origin{width:12px;height:12px;border-radius:50%;background:#4285F4;flex-shrink:0}
-.dot-dest  {width:12px;height:12px;border-radius:50%;background:#FF6D00;flex-shrink:0}
-.route-label{font-size:10px;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
-.route-val  {font-size:14px;font-weight:600;color:#1a1a1a;margin-top:1px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* ── Estimativa de viagem — bloco laranja ── */
-#custo-panel{
-  margin:10px 12px 0;border-radius:14px;
-  background:#FF6D00;padding:14px 16px;
-  box-shadow:0 2px 8px rgba(255,109,0,.3);
-}
-.custo-titulo{
-  font-size:11px;font-weight:700;color:rgba(255,255,255,.85);
-  letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;
-  display:flex;align-items:center;gap:6px;
-}
-.custo-grid{display:flex;gap:0;}
-.custo-item{flex:1;text-align:center}
-.custo-item+.custo-item{border-left:1px solid rgba(255,255,255,.25)}
-.custo-val  {font-size:20px;font-weight:800;color:#fff;}
-.custo-sub  {font-size:11px;color:rgba(255,255,255,.75);margin-top:2px}
-
-/* ── Badge melhor rota ── */
-#rota-badge{
-  display:flex;align-items:center;justify-content:space-between;
-  margin:10px 12px 0;padding:10px 14px;
-  background:#fff;border-radius:12px;
-  box-shadow:0 1px 4px rgba(0,0,0,.08);
-}
-#rota-label{font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.4px}
-#rota-vals {display:flex;align-items:center;gap:10px}
-#rota-dist {font-size:15px;font-weight:800;color:#1a1a1a}
-#rota-sep  {width:1px;height:14px;background:#ddd}
-#rota-time {font-size:15px;font-weight:700;color:#1a1a1a}
-
-/* ── Mapa (iframe Embed API) ── */
-#map-wrap{
-  margin:10px 12px 0;border-radius:14px;overflow:hidden;
-  box-shadow:0 1px 6px rgba(0,0,0,.1);
-  height:220px;background:#e8eaed;position:relative;
-}
-#map-wrap iframe{width:100%;height:100%;border:none;display:block}
-.map-spin-wrap{
-  position:absolute;inset:0;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:8px;
-  background:#e8eaed;color:#666;font-size:13px;z-index:2;
-}
-.spin{width:30px;height:30px;border:3px solid rgba(66,133,244,.2);
-  border-top-color:#4285f4;border-radius:50%;
-  animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* ── Card posto ── */
-#posto-card{
-  display:flex;align-items:center;gap:12px;
-  margin:10px 12px 0;padding:12px 14px;
-  background:#fff;border-radius:14px;
-  box-shadow:0 1px 4px rgba(0,0,0,.08);
-}
-#posto-logo{width:44px;height:44px;border-radius:10px;
-  object-fit:contain;background:#f5f5f5;padding:4px;
-  border:1.5px solid #eee;flex-shrink:0}
-#posto-info{flex:1;overflow:hidden}
-#posto-nome{font-size:14px;font-weight:700;color:#1a1a1a;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#posto-end-txt{font-size:12px;color:#888;margin-top:2px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#posto-preco{font-size:14px;font-weight:800;color:#FF6D00;white-space:nowrap}
-#posto-preco-unit{font-size:11px;font-weight:500;color:#aaa}
-
-/* ── Botão iniciar navegação — laranja fixo no rodapé ── */
-#btn-wrap{
-  position:fixed;bottom:0;left:0;right:0;z-index:200;
-  padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);
-  background:#f5f6fa;
-}
-#btn-nav{
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  width:100%;padding:17px;border:none;border-radius:16px;
-  background:#FF6D00;color:#fff;
-  font-size:16px;font-weight:700;
-  text-decoration:none;
-  box-shadow:0 4px 14px rgba(255,109,0,.4);
-  -webkit-tap-highlight-color:transparent;
-  cursor:pointer;
-  transition:opacity .15s,transform .1s;
-}
-#btn-nav:active{opacity:.85;transform:scale(.98)}
 </style>
 </head>
 <body>
 
-<!-- TOP BAR azul escuro -->
 <div id="top-bar">
   <button id="btn-back" onclick="history.back()" aria-label="Voltar">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="15 18 9 12 15 6"/>
     </svg>
   </button>
-  <span id="top-title">Planejar rota</span>
+  <span id="top-title">Como chegar — ${tituloSafe}</span>
 </div>
 
-<!-- CORPO SCROLLÁVEL -->
-<div id="scroll-body">
+<iframe id="map-frame"
+  src="${embedUrl}"
+  allowfullscreen
+  loading="eager"
+  referrerpolicy="no-referrer-when-downgrade">
+</iframe>
 
-  <!-- Campos De / Para -->
-  <div class="route-fields">
-    <div class="route-row">
-      <div class="dot-origin"></div>
-      <div style="flex:1;overflow:hidden">
-        <div class="route-label">De</div>
-        <div class="route-val">${temOrigem ? 'Minha localização' : 'Localização atual'}</div>
-      </div>
-    </div>
-    <div class="route-row">
-      <div class="dot-dest"></div>
-      <div style="flex:1;overflow:hidden">
-        <div class="route-label">Para</div>
-        <div class="route-val">${tituloSafe}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Estimativa de viagem (laranja) -->
-  <div id="custo-panel">
-    <div class="custo-titulo">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2.5"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 5M17 13l2.3 5M9 21a1 1 0 100-2 1 1 0 000 2zm10 0a1 1 0 100-2 1 1 0 000 2z"/></svg>
-      Estimativa de viagem
-    </div>
-    <div class="custo-grid">
-      <div class="custo-item">
-        <div class="custo-val" id="cv-dist">—</div>
-        <div class="custo-sub">Distância</div>
-      </div>
-      <div class="custo-item">
-        <div class="custo-val" id="cv-litros">—</div>
-        <div class="custo-sub">Litros usados</div>
-      </div>
-      <div class="custo-item">
-        <div class="custo-val" id="cv-custo">—</div>
-        <div class="custo-sub">Custo estimado</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Badge melhor rota -->
-  <div id="rota-badge">
-    <span id="rota-label">Melhor rota</span>
-    <div id="rota-vals">
-      <span id="rota-dist">—</span>
-      <div id="rota-sep"></div>
-      <span id="rota-time">—</span>
-    </div>
-  </div>
-
-  <!-- Mapa Embed (iframe) -->
-  <div id="map-wrap">
-    <div class="map-spin-wrap" id="map-spin">
-      <div class="spin"></div>
-      <span>Carregando mapa…</span>
-    </div>
-    <iframe
-      id="map-iframe"
-      src="${embedUrl}"
-      allowfullscreen
-      loading="lazy"
-      referrerpolicy="no-referrer-when-downgrade"
-      onload="document.getElementById('map-spin').style.display='none'"
-      style="opacity:0;transition:opacity .3s"
-      onload="this.style.opacity='1';document.getElementById('map-spin').style.display='none'">
-    </iframe>
-  </div>
-
-  <!-- Card do posto -->
-  <div id="posto-card">
-    <img id="posto-logo" src="${logoFinalUrl}" alt=""
-      onerror="if(this.src!==this.dataset.fb){this.dataset.fb=this.src;this.src='${logoSvgUrl}'}">
-    <div id="posto-info">
-      <div id="posto-nome">${tituloSafe}</div>
-      <div id="posto-end-txt" id="posto-end">Calculando…</div>
-    </div>
-    <div>
-      <div id="posto-preco">${precoParam ? 'R$&nbsp;' + precoParam : '—'}<span id="posto-preco-unit">/L est.</span></div>
-    </div>
-  </div>
-
-</div><!-- /scroll-body -->
-
-<!-- BOTÃO FIXO RODAPÉ -->
-<div id="btn-wrap">
-  <a id="btn-nav" href="${navUrl}">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polygon points="3 11 22 2 13 21 11 13 3 11" fill="#fff" stroke="none"/>
-    </svg>
-    Iniciar navegação no Google Maps
-  </a>
-</div>
-
-<script>
-// ── Variáveis injetadas pelo servidor ─────────────────────────────────
-var DLAT  = ${temCoords  ? JSON.stringify(lat)  : 'null'};
-var DLNG  = ${temCoords  ? JSON.stringify(lng)  : 'null'};
-var OLAT  = ${temOrigem  ? JSON.stringify(oLat) : 'null'};
-var OLNG  = ${temOrigem  ? JSON.stringify(oLng) : 'null'};
-var PRECO = ${JSON.stringify(precoParam)};
-
-// ── Calcula estimativas via DirectionsService ─────────────────────────
-// Roda somente se tiver a Maps JS API + coordenadas disponíveis
-function _calcularEtaJS() {
-  if (!window.google || !DLAT || !OLAT) return;
-  var svc = new google.maps.DirectionsService();
-  svc.route({
-    origin:      new google.maps.LatLng(parseFloat(OLAT), parseFloat(OLNG)),
-    destination: new google.maps.LatLng(parseFloat(DLAT), parseFloat(DLNG)),
-    travelMode:  google.maps.TravelMode.DRIVING,
-    region: 'BR'
-  }, function(result, status) {
-    if (status !== 'OK') return;
-    var leg = result.routes[0].legs[0];
-    var distM = leg.distance.value; // metros
-    var durS  = leg.duration.value; // segundos
-    var distKm = (distM / 1000).toFixed(1);
-    var durMin = Math.round(durS / 60);
-    var durTxt = durMin >= 60
-      ? Math.floor(durMin/60) + 'h ' + (durMin%60) + 'min'
-      : durMin + ' min';
-
-    document.getElementById('cv-dist').textContent   = distKm + ' km';
-    document.getElementById('rota-dist').textContent = distKm + ' km';
-    document.getElementById('rota-time').textContent = durTxt;
-    document.getElementById('posto-end').textContent = distKm + ' km · ' + durTxt;
-
-    // Litros e custo — consumo médio 10 km/L, preço do posto se disponível
-    var consumoKml = 10;
-    var litros = distM / 1000 / consumoKml;
-    document.getElementById('cv-litros').textContent = litros.toFixed(2) + ' L';
-    if (PRECO && parseFloat(PRECO) > 0) {
-      var custo = litros * parseFloat(PRECO);
-      document.getElementById('cv-custo').textContent = 'R$\\u00a0' + custo.toFixed(2);
-    }
-  });
-}
-
-// Aguarda Maps JS API carregar (já incluída no script abaixo)
-function _initMap() { _calcularEtaJS(); }
-
-// Se não tiver GPS do usuário, busca via geolocalização e recalcula
-if (!OLAT && navigator.geolocation) {
-  navigator.geolocation.getCurrentPosition(function(pos) {
-    OLAT = String(pos.coords.latitude);
-    OLNG = String(pos.coords.longitude);
-    // Atualiza botão de navegação com origem real
-    if (DLAT) {
-      var btn = document.getElementById('btn-nav');
-      btn.href = 'https://www.google.com/maps/dir/?api=1'
-        + '&origin=' + OLAT + ',' + OLNG
-        + '&destination=' + DLAT + ',' + DLNG
-        + '&travelmode=driving&dir_action=navigate';
-    }
-    _calcularEtaJS();
-  }, null, {enableHighAccuracy:false, timeout:8000, maximumAge:60000});
-}
-</script>
-
-<!-- Maps JS API para calcular ETA — mesma chave com Directions API habilitada -->
-<script src="https://maps.googleapis.com/maps/api/js?key=${gKey}&callback=_initMap&language=pt-BR&region=BR" async defer></script>
 </body>
 </html>`
 
