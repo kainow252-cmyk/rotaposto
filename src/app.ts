@@ -3028,10 +3028,79 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         addMapMarkers();
         // Enriquecer bandeiras via Google em background (não bloqueia UI)
         _enriquecerBandeirasBackground(postosData);
+        // Calcular ETAs reais via OSRM Table em background — atualiza lista quando chegar
+        _calcularETAsReaisOSRM(postosData);
       }
     } catch(e) {
       postosData = getDemoPostos();
       addMapMarkers();
+    }
+  }
+
+  // ── OSRM Table API — ETA real para todos os postos (equivalente ao Distance Matrix da Uber) ──
+  // Envia 1 origem (usuário) + N destinos (postos) em UMA única requisição.
+  // OSRM retorna matrix de durações (segundos) e distâncias (metros) gratuitamente.
+  // Após receber, atualiza p.tempoReal e p.distanciaReal e re-renderiza a lista.
+  var _etaOsrmCacheKey = ''; // evita re-calcular se posição/postos não mudaram
+  async function _calcularETAsReaisOSRM(postos) {
+    if (!userLat || !userLng || !postos || postos.length === 0) return;
+
+    // Máx 15 postos por chamada (OSRM público tem limite de payload)
+    const alvo = postos.slice(0, 15);
+    const cacheKey = userLat.toFixed(4) + ',' + userLng.toFixed(4) + ':' + alvo.map(p => p.lat + ',' + p.lng).join(';');
+    if (_etaOsrmCacheKey === cacheKey) return; // já calculado para essa posição+postos
+    _etaOsrmCacheKey = cacheKey;
+
+    try {
+      // Formato OSRM Table: /table/v1/driving/lng,lat;lng,lat;...?sources=0&annotations=duration,distance
+      // Índice 0 = origem (usuário), índices 1..N = destinos (postos)
+      const coords = userLng.toFixed(6) + ',' + userLat.toFixed(6)
+        + ';' + alvo.map(p => p.lng.toFixed(6) + ',' + p.lat.toFixed(6)).join(';');
+
+      const url = 'https://router.project-osrm.org/table/v1/driving/' + coords
+        + '?sources=0&annotations=duration,distance';
+
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return;
+      const json = await res.json();
+
+      if (json.code !== 'Ok' || !json.durations || !json.durations[0]) return;
+
+      const durations  = json.durations[0];   // segundos, índice 0 = origem→si mesmo (0)
+      const distances  = json.distances ? json.distances[0] : null;
+
+      let algumAtualizado = false;
+      alvo.forEach(function(p, i) {
+        const duracaoSeg  = durations[i + 1];  // +1 pula a origem (índice 0 = usuário)
+        const distMetros  = distances ? distances[i + 1] : null;
+        if (duracaoSeg == null || duracaoSeg <= 0) return;
+
+        const mins = Math.round(duracaoSeg / 60);
+        p.tempoReal = mins <= 0 ? 1 : mins;
+
+        if (distMetros != null && distMetros > 0) {
+          p.distanciaReal = distMetros / 1000; // km
+        }
+        algumAtualizado = true;
+      });
+
+      if (!algumAtualizado) return;
+
+      // Re-renderizar lista e card do mapa com ETAs reais
+      var listaView = document.getElementById('view-lista');
+      if (listaView && listaView.classList.contains('active')) renderLista();
+
+      // Atualizar card do mapa se estiver visível
+      if (_mapCardVisivel && postosData.length > 0 && selectedPosto) {
+        const idx = postosData.indexOf(selectedPosto);
+        if (idx >= 0) updateMapCard(selectedPosto, idx);
+      } else if (_mapCardVisivel && postosData.length > 0) {
+        updateMapCard(postosData[0], 0);
+      }
+
+    } catch(e) {
+      // OSRM falhou — silencioso, fica com Haversine
+      console.warn('[OSRM Table] falhou:', e);
     }
   }
 
@@ -3209,6 +3278,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     });
   }
 
+  // Formata minutos em string legível
   function calcTempo(distKm) {
     if (!distKm) return '-';
     const mins = Math.round((distKm / 30) * 60);
@@ -3220,13 +3290,37 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     return mins + ' min';
   }
 
+  // Retorna ETA real (OSRM) se disponível, ou estimado por Haversine
+  // tempoReal = minutos reais de rota | distanciaReal = km reais de rota
+  function _tempoStr(p) {
+    if (p.tempoReal) {
+      const mins = p.tempoReal;
+      if (mins >= 60) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return m > 0 ? h + 'h ' + m + 'min' : h + 'h';
+      }
+      return mins + ' min';
+    }
+    return calcTempo(p.distancia);
+  }
+
+  function _distStr(p) {
+    const km = p.distanciaReal || p.distancia;
+    if (!km) return '-';
+    return km < 1
+      ? (km * 1000).toFixed(0) + ' m'
+      : km.toFixed(1).replace('.', ',') + ' km';
+  }
+
   function updateMapCard(p, idx) {
     selectedPosto = p;
     const _idx = (idx !== undefined && idx !== null) ? idx : postosData.indexOf(p);
     const preco = p.preco || p.precos?.[selectedFuel];
     const precoFmt = preco ? 'R$ ' + preco.toFixed(2).replace('.', ',') + ' /L' : '-';
-    const dist = p.distancia ? p.distancia.toFixed(1).replace('.', ',') + ' km' : '-';
-    const tempo = calcTempo(p.distancia);
+    const dist  = _distStr(p);
+    const tempo = _tempoStr(p);
+    const isEtaReal = !!p.tempoReal;
 
     var logoEl = document.getElementById('map-card-logo');
     var bandInfo = getBandeiraCor(p.bandeira || p.nome);
@@ -3277,7 +3371,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     nomeEl.style.textDecorationColor = 'rgba(255,109,0,0.4)';
     nomeEl.onclick = () => { if (_idx >= 0) openDetalhes(_idx); };
     document.getElementById('map-card-preco').textContent = precoFmt;
-    document.getElementById('map-card-dist').textContent = dist + ' • ' + tempo;
+    var _distEl = document.getElementById('map-card-dist');
+    _distEl.textContent = dist + ' • ' + tempo;
+    _distEl.style.color = isEtaReal ? '#1565C0' : '';
+    _distEl.style.fontWeight = isEtaReal ? '800' : '';
     // Só mostrar o card se o usuário clicou em "Melhor" ou clicou num marcador
     if (typeof _mapCardVisivel !== 'undefined' && _mapCardVisivel) {
       document.getElementById('map-card').style.display = 'block';
@@ -4060,8 +4157,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     const cards = postosListaAtual.map((p, i) => {
       const preco = p.preco || p.precos?.[selectedFuel];
       const precoFmt = preco ? 'R$&nbsp;' + preco.toFixed(2).replace('.', ',') : '-';
-      const dist = p.distancia ? p.distancia.toFixed(1).replace('.',',') + ' km' : '-';
-      const tempo = calcTempo(p.distancia);
+      const dist  = _distStr(p);
+      const tempo = _tempoStr(p);
+      const isEtaReal = !!p.tempoReal; // true = ETA veio do OSRM (rota real)
       const bandInfo = getBandeiraCor(p.bandeira || p.nome);
       const emoji = bandInfo.emoji;
       const isBest = i === 0;
@@ -4103,8 +4201,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
           + ' onerror="this.src=&apos;'+logoSvg+'&apos;">'
         : '<div class="posto-brand-logo-txt" style="color:'+bandInfo.corTxt+'">'+bandInfo.sigla+'</div>';
 
-      // Distância com ícone de pin (estilo 99Abastece)
-      const distPin = p.distancia
+      // Distância com ícone de pin — usa distância REAL de rota se disponível
+      const distPin = (p.distancia || p.distanciaReal)
         ? '<span class="posto-distancia-badge">📍 ' + dist + '</span>'
         : '';
 
@@ -4113,11 +4211,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         ? '<span style="font-size:12px;color:#F59E0B;font-weight:700;flex-shrink:0;">★ '+p.rating.toFixed(1)+'</span>'
         : '';
 
+      // Tempo: ETA real (OSRM) mostra em azul com bolinha, estimado em cinza
+      const tempoHtml = isEtaReal
+        ? '<div class="dist-txt" style="color:#1565C0;font-weight:800;">' + tempo + '</div>'
+        : '<div class="dist-txt">' + tempo + '</div>';
+
       // Preço com "R$" menor em superscript
       const precoHtml = preco
         ? '<div class="preco-val" style="color:'+corPreco+'"><span class="preco-rs">R$</span>'+preco.toFixed(2).replace('.',',')+'</div>'
           + '<div class="preco-unit">/Litro</div>'
-          + '<div class="dist-txt">' + tempo + '</div>'
+          + tempoHtml
         : '<div style="font-size:11px;color:#bbb;font-weight:600;text-align:right;line-height:1.4;">Sem<br>preço</div>';
 
       return '<div class="posto-item" onclick="openDetalhes(' + i + ')">'
