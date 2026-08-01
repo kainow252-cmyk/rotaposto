@@ -4991,6 +4991,10 @@ app.get('/ir', async (c) => {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>Como chegar — \${tituloSafe}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1c2536;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 /* ── Top bar azul escuro ── */
 #top-bar{
   position:fixed;top:0;left:0;right:0;z-index:10;
