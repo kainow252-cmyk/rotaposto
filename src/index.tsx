@@ -5054,6 +5054,7 @@ app.get('/ir', async (c) => {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>Como chegar — ${tituloSafe}</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#e8eaed;
@@ -5290,20 +5291,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:#e8eaed;
 <!-- Debug (oculto) -->
 <div id="debug-bar"></div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// ═══════════════════════════════════════════════════════════════════
+//  RotaPosto /ir — Navegação com Leaflet + OpenStreetMap + OSRM
+//  Engine 100% gratuito, sem API key, sem billing, sem restrição de domínio
+// ═══════════════════════════════════════════════════════════════════
 var _DLAT = '${DLAT}';
 var _DLNG = '${DLNG}';
 var _OLAT = '${OLAT}';
 var _OLNG = '${OLNG}';
-var _gmap, _dirRenderer, _dirService;
-var _steps = [];
+
+var _map = null;
+var _steps = [];       // passos da rota OSRM
 var _stepIdx = 0;
 var _watchId = null;
 var _navegando = false;
 var _userMarker = null;
+var _destMarker = null;
+var _routeLayer = null;
 var _oriLat, _oriLng;
 
-// ── Debug (toque 3x no painel para ativar) ────────────────────────────────
+// ── Debug (toque 3x no painel para ativar) ────────────────────────
 var _dbgTaps = 0;
 document.getElementById('bottom-panel').addEventListener('click', function() {
   _dbgTaps++;
@@ -5319,219 +5328,251 @@ function _dbg(msg) {
   console.log('[RotaPosto/ir]', msg);
 }
 
-// ── Posicionamento do mapa (tela cheia menos painel inferior) ─────────────
+// ── Posicionamento do mapa (tela cheia menos painel inferior) ─────
 function _fitMap() {
-  var panel  = document.getElementById('bottom-panel');
-  var instr  = document.getElementById('instr-bar');
-  var mapEl  = document.getElementById('map');
+  var panel = document.getElementById('bottom-panel');
+  var instr = document.getElementById('instr-bar');
+  var mapEl = document.getElementById('map');
   if (!mapEl) return;
-
   var topEdge = instr && instr.classList.contains('show')
-    ? instr.getBoundingClientRect().bottom
-    : 0;
+    ? instr.getBoundingClientRect().bottom : 0;
   var bottomH = panel ? panel.offsetHeight : 140;
-
   mapEl.style.top    = topEdge + 'px';
   mapEl.style.bottom = bottomH + 'px';
-  if (_gmap) google.maps.event.trigger(_gmap, 'resize');
+  if (_map) setTimeout(function(){ _map.invalidateSize(); }, 50);
 }
 
-// ── ETA: calcula hora de chegada ──────────────────────────────────────────
+// ── ETA: hora de chegada ───────────────────────────────────────────
 function _horaChegada(segundos) {
   var d = new Date(Date.now() + segundos * 1000);
   return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
 }
 
-// ── Callback Maps JS API ──────────────────────────────────────────────────
-window._initMap = function() {
+// ── Formatar duração (segundos → "5 min" ou "1h 20 min") ──────────
+function _fmtTempo(seg) {
+  var m = Math.round(seg / 60);
+  if (m < 60) return m + ' min';
+  var h = Math.floor(m / 60); var r = m % 60;
+  return r > 0 ? h + 'h ' + r + ' min' : h + 'h';
+}
+
+// ── Formatar distância (metros → "350 m" ou "1,9 km") ─────────────
+function _fmtDist(metros) {
+  if (metros < 1000) return Math.round(metros) + ' m';
+  return (metros / 1000).toFixed(1).replace('.', ',') + ' km';
+}
+
+// ── Ícone SVG do marcador de destino ──────────────────────────────
+function _iconDestino() {
+  return L.divIcon({
+    className: '',
+    html: '<div style="width:36px;height:36px;background:#d93025;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>',
+    iconSize: [36, 36],
+    iconAnchor: [18, 36],
+    popupAnchor: [0, -36]
+  });
+}
+
+// ── Ícone azul do usuário ─────────────────────────────────────────
+function _iconUser() {
+  return L.divIcon({
+    className: '',
+    html: '<div style="width:20px;height:20px;background:#4285f4;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(66,133,244,.6)"></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+  });
+}
+
+// ── Seta de manobra ───────────────────────────────────────────────
+function _setaManobra(tipo) {
+  var t = (tipo || '').toLowerCase();
+  if (t.includes('right') || t.includes('direita'))     return '↪';
+  if (t.includes('left')  || t.includes('esquerda'))    return '↩';
+  if (t.includes('uturn') || t.includes('retorno'))     return '🔄';
+  if (t.includes('roundabout') || t.includes('rotat'))  return '↻';
+  if (t.includes('arrive') || t.includes('destino'))    return '🏁';
+  return '⬆';
+}
+
+// ── Distância haversine (metros) ──────────────────────────────────
+function _dist(lat1, lng1, lat2, lng2) {
+  var R=6371000, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ── Inicializar mapa Leaflet ──────────────────────────────────────
+function _initLeaflet() {
   _fitMap();
-  var mapEl     = document.getElementById('map');
-  var centerLat = _DLAT ? parseFloat(_DLAT) : -23.5505;
-  var centerLng = _DLNG ? parseFloat(_DLNG) : -46.6333;
+  var centerLat = _DLAT ? parseFloat(_DLAT) : -20.3155;
+  var centerLng = _DLNG ? parseFloat(_DLNG) : -40.3128;
 
-  _dbg('DLAT=' + _DLAT + ' DLNG=' + _DLNG + ' OLAT=' + _OLAT + ' OLNG=' + _OLNG);
-
-  _gmap = new google.maps.Map(mapEl, {
-    center: {lat: centerLat, lng: centerLng},
+  _map = L.map('map', {
+    center: [centerLat, centerLng],
     zoom: 15,
-    disableDefaultUI: true,
     zoomControl: false,
-    gestureHandling: 'greedy',
-    mapTypeId: 'roadmap'
+    attributionControl: false
   });
 
-  _dirRenderer = new google.maps.DirectionsRenderer({
-    map: _gmap,
-    suppressMarkers: false,
-    polylineOptions: {strokeColor:'#1a73e8', strokeWeight:6, strokeOpacity:.9}
-  });
-  _dirService = new google.maps.DirectionsService();
+  // Tiles OpenStreetMap — sem API key, sem billing
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(_map);
+
+  // Atribuição discreta no canto
+  L.control.attribution({ position: 'bottomright', prefix: false }).addTo(_map);
+
+  // Marcador do destino
+  if (_DLAT && _DLNG) {
+    _destMarker = L.marker([parseFloat(_DLAT), parseFloat(_DLNG)], { icon: _iconDestino() })
+      .addTo(_map)
+      .bindPopup('${NOME_JS}');
+  }
 
   if (!_DLAT || !_DLNG) {
     document.getElementById('loading').classList.add('done');
     document.getElementById('erro-msg').textContent = 'Coordenadas do posto não disponíveis.';
-    document.getElementById('erro-debug').textContent = 'DLAT=' + _DLAT + ' DLNG=' + _DLNG;
     document.getElementById('erro').classList.add('show');
     return;
   }
 
-  // Origem: usa OLAT/OLNG se disponível, caso contrário captura GPS fresco
+  // Origem: parâmetros olat/olng ou GPS fresco
   if (_OLAT && _OLNG) {
     _oriLat = parseFloat(_OLAT); _oriLng = parseFloat(_OLNG);
-    _dbg('Origem via param: ' + _oriLat.toFixed(5) + ',' + _oriLng.toFixed(5));
     document.getElementById('loading-sub').textContent = 'Traçando rota…';
-    _calcRota(_oriLat, _oriLng);
+    _dbg('Origem param: ' + _oriLat.toFixed(5) + ',' + _oriLng.toFixed(5));
+    _calcRotaOSRM(_oriLat, _oriLng);
   } else {
-    // GPS fresco — maximumAge:0 garante posição atual (não cacheada)
     document.getElementById('loading-sub').textContent = 'Obtendo GPS…';
     navigator.geolocation.getCurrentPosition(
       function(p) {
-        _oriLat = p.coords.latitude;
-        _oriLng = p.coords.longitude;
-        _dbg('Origem via GPS: ' + _oriLat.toFixed(5) + ',' + _oriLng.toFixed(5) + ' acc=' + Math.round(p.coords.accuracy) + 'm');
+        _oriLat = p.coords.latitude; _oriLng = p.coords.longitude;
         document.getElementById('loading-sub').textContent = 'Traçando rota…';
-        _calcRota(_oriLat, _oriLng);
+        _dbg('GPS: ' + _oriLat.toFixed(5) + ',' + _oriLng.toFixed(5) + ' acc=' + Math.round(p.coords.accuracy) + 'm');
+        _calcRotaOSRM(_oriLat, _oriLng);
       },
       function(err) {
-        // GPS falhou: usa posição próxima ao destino (melhor que SP default)
-        _oriLat = centerLat + 0.002;
-        _oriLng = centerLng + 0.002;
-        _dbg('GPS falhou (err ' + err.code + '), usando coords próx ao destino');
-        document.getElementById('loading-sub').textContent = 'GPS indisponível, usando localização aproximada…';
-        _calcRota(_oriLat, _oriLng);
+        _oriLat = centerLat + 0.002; _oriLng = centerLng + 0.002;
+        _dbg('GPS falhou (err ' + err.code + '), usando aprox ao destino');
+        _calcRotaOSRM(_oriLat, _oriLng);
       },
       { timeout: 8000, maximumAge: 0, enableHighAccuracy: true }
     );
   }
-};
+}
 
-// ── Calcular rota ─────────────────────────────────────────────────────────
-function _calcRota(oriLat, oriLng) {
-  var dLat = parseFloat(_DLAT);
-  var dLng = parseFloat(_DLNG);
-  _dbg('Rota: [' + oriLat.toFixed(5) + ',' + oriLng.toFixed(5) + '] → [' + dLat.toFixed(5) + ',' + dLng.toFixed(5) + ']');
+// ── Calcular rota via OSRM (gratuito, sem key) ────────────────────
+function _calcRotaOSRM(oriLat, oriLng) {
+  var dLat = parseFloat(_DLAT), dLng = parseFloat(_DLNG);
+  var url = 'https://router.project-osrm.org/route/v1/driving/'
+    + oriLng.toFixed(6) + ',' + oriLat.toFixed(6) + ';'
+    + dLng.toFixed(6) + ',' + dLat.toFixed(6)
+    + '?overview=full&geometries=geojson&steps=true&annotations=false&language=pt';
 
-  _dirService.route({
-    origin:      new google.maps.LatLng(oriLat, oriLng),
-    destination: new google.maps.LatLng(dLat, dLng),
-    travelMode:  google.maps.TravelMode.DRIVING,
-    region: 'BR'
-  }, function(result, status) {
-    document.getElementById('loading').classList.add('done');
-    if (status !== 'OK') {
-      document.getElementById('erro-msg').textContent = 'Rota indisponível (' + status + ').';
-      document.getElementById('erro-debug').textContent =
-        'Status: ' + status + '\\nOrigem: ' + oriLat.toFixed(5) + ',' + oriLng.toFixed(5) +
-        '\\nDestino: ' + dLat.toFixed(5) + ',' + dLng.toFixed(5);
-      document.getElementById('erro').classList.add('show');
-      return;
-    }
+  _dbg('OSRM: ' + oriLat.toFixed(5) + ',' + oriLng.toFixed(5) + ' → ' + dLat.toFixed(5) + ',' + dLng.toFixed(5));
 
-    _dirRenderer.setDirections(result);
+  fetch(url, { signal: AbortSignal.timeout(12000) })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      document.getElementById('loading').classList.add('done');
 
-    var leg = result.routes[0] && result.routes[0].legs[0];
-    if (leg) {
-      _steps = leg.steps || [];
+      if (data.code !== 'Ok' || !data.routes || !data.routes[0]) {
+        document.getElementById('erro-msg').textContent = 'Rota indisponível. Verifique sua conexão.';
+        document.getElementById('erro-debug').textContent = 'OSRM: ' + data.code;
+        document.getElementById('erro').classList.add('show');
+        return;
+      }
 
-      // ETA
-      var tempoTxt = leg.duration.text;
-      var distTxt  = leg.distance.text;
-      var chegada  = _horaChegada(leg.duration.value);
-      document.getElementById('eta-tempo').textContent = tempoTxt;
+      var route = data.routes[0];
+      var leg   = route.legs[0];
+
+      // Extrai passos da rota
+      _steps = [];
+      if (leg && leg.steps) {
+        leg.steps.forEach(function(s) {
+          _steps.push({
+            instrucao: s.maneuver && s.maneuver.instruction ? s.maneuver.instruction : (s.name || 'Siga em frente'),
+            tipo:      s.maneuver ? s.maneuver.type : '',
+            modificador: s.maneuver ? (s.maneuver.modifier || '') : '',
+            distancia: s.distance || 0,
+            duracao:   s.duration || 0,
+            lat: s.maneuver ? s.maneuver.location[1] : oriLat,
+            lng: s.maneuver ? s.maneuver.location[0] : oriLng
+          });
+        });
+      }
+
+      // ETA no painel inferior
+      var tempoSeg = route.duration;
+      var distMet  = route.distance;
+      document.getElementById('eta-tempo').textContent = _fmtTempo(tempoSeg);
       document.getElementById('eta-unidade').textContent = '';
-      document.getElementById('eta-dist').textContent = distTxt;
-      document.getElementById('eta-hora').textContent = chegada;
+      document.getElementById('eta-dist').textContent = _fmtDist(distMet);
+      document.getElementById('eta-hora').textContent = _horaChegada(tempoSeg);
 
-      _dbg('Rota OK: ' + distTxt + ' / ' + tempoTxt);
-      setTimeout(function(){ _fitMap(); }, 80);
-    }
+      // Desenha rota azul no mapa
+      if (_routeLayer) _map.removeLayer(_routeLayer);
+      var coords = route.geometry.coordinates.map(function(c){ return [c[1], c[0]]; });
+      _routeLayer = L.polyline(coords, {
+        color: '#1a73e8', weight: 6, opacity: 0.92,
+        lineJoin: 'round', lineCap: 'round'
+      }).addTo(_map);
 
-    // Marcador azul (posição do usuário)
-    _userMarker = new google.maps.Marker({
-      position: {lat: oriLat, lng: oriLng},
-      map: _gmap,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#4285f4',
-        fillOpacity: 1,
-        strokeColor: '#fff',
-        strokeWeight: 3
-      },
-      zIndex: 999,
-      title: 'Você'
+      // Marcador azul do usuário
+      if (!_userMarker) {
+        _userMarker = L.marker([oriLat, oriLng], { icon: _iconUser(), zIndexOffset: 1000 }).addTo(_map);
+      }
+
+      // Ajusta zoom para mostrar rota inteira
+      var bounds = _routeLayer.getBounds();
+      _map.fitBounds(bounds, { paddingTopLeft: [20, 20], paddingBottomRight: [20, 20] });
+
+      _dbg('Rota OK: ' + _fmtDist(distMet) + ' / ' + _fmtTempo(tempoSeg) + ' | ' + _steps.length + ' passos');
+      setTimeout(_fitMap, 100);
+    })
+    .catch(function(e) {
+      document.getElementById('loading').classList.add('done');
+      document.getElementById('erro-msg').textContent = 'Erro ao calcular rota. Verifique sua conexão.';
+      document.getElementById('erro-debug').textContent = String(e);
+      document.getElementById('erro').classList.add('show');
+      _dbg('OSRM erro: ' + e);
     });
-  });
 }
 
-// ── Converte HTML de instrução para texto limpo ───────────────────────────
-function _htmlParaTexto(html) {
-  var d = document.createElement('div');
-  d.innerHTML = html;
-  return d.textContent || d.innerText || '';
-}
-
-// ── Seta de manobra (SVG embutido, estilo Maps) ───────────────────────────
-function _setaManobra(texto) {
-  var t = (texto || '').toLowerCase();
-  if (t.includes('direita'))              return '↪';
-  if (t.includes('esquerda'))             return '↩';
-  if (t.includes('retorno') || t.includes('rotat')) return '🔄';
-  if (t.includes('chegou') || t.includes('destino') || t.includes('chegada')) return '🏁';
-  if (t.includes('rodovia') || t.includes('autoestrada')) return '⬆';
-  return '⬆';
-}
-
-// ── Distância haversine (metros) ──────────────────────────────────────────
-function _distancia(lat1, lng1, lat2, lng2) {
-  var R = 6371000;
-  var dLat = (lat2-lat1)*Math.PI/180;
-  var dLng = (lng2-lng1)*Math.PI/180;
-  var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
-          Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
-          Math.sin(dLng/2)*Math.sin(dLng/2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-// ── Mostrar passo na barra superior ──────────────────────────────────────
+// ── Mostrar passo na barra superior ──────────────────────────────
 function _mostrarPasso(idx) {
   if (!_steps || idx >= _steps.length) return;
-  var step  = _steps[idx];
-  var texto = _htmlParaTexto(step.instructions);
-  var seta  = _setaManobra(texto);
-  var distTxt = step.distance ? step.distance.text : '';
+  var step = _steps[idx];
+  var seta = _setaManobra(step.tipo + ' ' + step.modificador);
+  var dist = step.distancia > 0 ? _fmtDist(step.distancia) : '';
 
   document.getElementById('instr-arrow').textContent = seta;
-  document.getElementById('instr-texto').textContent = texto;
-  document.getElementById('instr-dist').textContent  = distTxt;
+  document.getElementById('instr-texto').textContent = step.instrucao;
+  document.getElementById('instr-dist').textContent  = dist;
+  document.getElementById('instr-bar').classList.add('show');
 
-  var ib = document.getElementById('instr-bar');
-  ib.classList.add('show');
-
-  // Próxima instrução
   if (idx + 1 < _steps.length) {
-    var prox = _htmlParaTexto(_steps[idx+1].instructions);
-    document.getElementById('instr-next-arrow').textContent = _setaManobra(prox);
-    document.getElementById('instr-next-texto').textContent = prox;
+    var prox = _steps[idx + 1];
+    document.getElementById('instr-next-arrow').textContent = _setaManobra(prox.tipo + ' ' + prox.modificador);
+    document.getElementById('instr-next-texto').textContent = prox.instrucao;
     document.getElementById('instr-next').classList.add('show');
   } else {
     document.getElementById('instr-next').classList.remove('show');
   }
-
   _fitMap();
 }
 
-// ── Toggle navegação ──────────────────────────────────────────────────────
+// ── Toggle navegação ──────────────────────────────────────────────
 function _toggleNavegacao() {
-  if (_navegando) { _pararNavegacao(); } else { _iniciarNavegacao(); }
+  if (_navegando) _pararNavegacao(); else _iniciarNavegacao();
 }
 
 function _iniciarNavegacao() {
-  if (!_steps.length) { return; }
+  if (!_steps.length) return;
   _navegando = true;
-  _stepIdx = 0;
+  _stepIdx   = 0;
   _mostrarPasso(0);
-
   var btn = document.getElementById('btn-nav');
   btn.classList.add('parar');
   btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Parar';
@@ -5539,49 +5580,40 @@ function _iniciarNavegacao() {
   if (navigator.geolocation) {
     _watchId = navigator.geolocation.watchPosition(
       function(pos) {
-        var lat = pos.coords.latitude;
-        var lng = pos.coords.longitude;
+        var lat = pos.coords.latitude, lng = pos.coords.longitude;
+        if (_userMarker) _userMarker.setLatLng([lat, lng]);
+        _map.panTo([lat, lng], { animate: true, duration: 0.5 });
 
-        if (_userMarker) {
-          _userMarker.setPosition({lat: lat, lng: lng});
-          _gmap.panTo({lat: lat, lng: lng});
-        }
-
+        // Avança passo quando dentro de 30m do ponto de manobra
         if (_stepIdx < _steps.length - 1) {
-          var step   = _steps[_stepIdx];
-          var endLat = step.end_location.lat();
-          var endLng = step.end_location.lng();
-          if (_distancia(lat, lng, endLat, endLng) < 30) {
+          var s = _steps[_stepIdx];
+          if (_dist(lat, lng, s.lat, s.lng) < 30) {
             _stepIdx++;
             _mostrarPasso(_stepIdx);
           }
         } else if (_stepIdx === _steps.length - 1) {
-          var dest = _steps[_steps.length-1].end_location;
-          if (_distancia(lat, lng, dest.lat(), dest.lng()) < 50) {
+          var dest = _steps[_steps.length - 1];
+          if (_dist(lat, lng, dest.lat, dest.lng) < 50) {
             document.getElementById('instr-arrow').textContent = '🏁';
             document.getElementById('instr-texto').textContent = 'Você chegou ao destino!';
-            document.getElementById('instr-dist').textContent = '';
+            document.getElementById('instr-dist').textContent  = '';
             document.getElementById('instr-next').classList.remove('show');
             _pararNavegacao();
           }
         }
       },
       function() {},
-      {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000}
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
     );
   }
 }
 
 function _pararNavegacao() {
   _navegando = false;
-  if (_watchId !== null) {
-    navigator.geolocation.clearWatch(_watchId);
-    _watchId = null;
-  }
+  if (_watchId !== null) { navigator.geolocation.clearWatch(_watchId); _watchId = null; }
   var btn = document.getElementById('btn-nav');
   btn.classList.remove('parar');
   btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Iniciar Navegação';
-
   document.getElementById('instr-bar').classList.remove('show');
   _fitMap();
 }
@@ -5592,9 +5624,14 @@ function _voltarOuPausar() {
 }
 
 window.addEventListener('resize', _fitMap);
-</script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=${gKey}&callback=_initMap&language=pt&region=BR&loading=async" async defer></script>
+// ── Iniciar quando DOM estiver pronto ─────────────────────────────
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initLeaflet);
+} else {
+  _initLeaflet();
+}
+</script>
 
 </body>
 </html>`
