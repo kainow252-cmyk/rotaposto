@@ -5018,17 +5018,18 @@ html,body{width:100%;height:100%;overflow:hidden;
 #info-bar{
   position:fixed;
   top:calc(56px + env(safe-area-inset-top,0px));
-  left:0;right:0;z-index:15;
+  left:0;right:0;z-index:16;
   background:#1c2536;
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 16px;gap:12px;
+  height:56px;
   transition:opacity .3s;
 }
-#info-bar.hidden{opacity:0;pointer-events:none}
+#info-bar.hidden{display:none}
 .eta-item{display:flex;flex-direction:column;align-items:center;gap:2px}
 .eta-val{font-size:22px;font-weight:800;color:#f97316}
 .eta-lbl{font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.5px}
-#eta-divider{width:1px;height:36px;background:rgba(255,255,255,.15)}
+.eta-div{width:1px;height:36px;background:rgba(255,255,255,.15)}
 
 /* ══ Card inferior do posto ══ */
 #posto-card{
@@ -5049,14 +5050,16 @@ html,body{width:100%;height:100%;overflow:hidden;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #posto-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px}
 
-/* ══ Mapa ══ */
+/* ══ Mapa — dimensões definidas 100% via JS após layout ══ */
 #map{
   position:fixed;
+  /* JS seta top/bottom corretos após calcular alturas reais */
   top:calc(56px + env(safe-area-inset-top,0px));
   left:0;right:0;
-  /* bottom dinâmico via JS — reserva espaço para info-bar + posto-card */
-  bottom:0;
+  bottom:80px;
   background:#e8eaed;
+  /* garantia mínima para Maps API inicializar */
+  min-height:150px;
 }
 
 /* ══ Spinner de carregamento ══ */
@@ -5155,21 +5158,33 @@ var _NOME  = '${NOME_JS}';
 
 var _gmap, _dirRenderer, _dirService;
 
-// ── Ajuste dinâmico do mapa para não ficar atrás dos cards ─────────────────
+// ── Ajuste dinâmico do mapa: altura em px reais para o Google Maps ──────────
 function _ajustarMapaBottom() {
   var infoBar   = document.getElementById('info-bar');
   var postoCard = document.getElementById('posto-card');
   var mapEl     = document.getElementById('map');
-  var infoH     = infoBar  ? infoBar.offsetHeight  : 0;
+  var infoH     = (infoBar && !infoBar.classList.contains('hidden')) ? infoBar.offsetHeight : 0;
   var cardH     = postoCard ? postoCard.offsetHeight : 0;
-  mapEl.style.bottom = cardH + 'px';
-  // top = topbar + infobar
-  var topBarH = 56; // px fixo
-  mapEl.style.top = 'calc(' + (topBarH + infoH) + 'px + env(safe-area-inset-top,0px))';
+  var safeTop   = parseInt(getComputedStyle(document.documentElement)
+                    .getPropertyValue('--sat') || '0') || 0;
+  var topH      = 56 + safeTop + infoH;
+  var totalH    = window.innerHeight;
+  var mapH      = totalH - topH - cardH;
+  if (mapH < 100) mapH = 100;
+  mapEl.style.top    = topH + 'px';
+  mapEl.style.height = mapH + 'px';
+  mapEl.style.bottom = 'auto';
+  // Notifica o Google Maps para redimensionar
+  if (window._gmap) {
+    google.maps.event.trigger(window._gmap, 'resize');
+  }
 }
 
 // ── Callback chamado pelo Maps JS API após carga ───────────────────────────
 window._initMap = function() {
+  // Garante altura em px antes de criar o mapa (rAF = após paint)
+  requestAnimationFrame(function() { _ajustarMapaBottom(); });
+
   var mapEl = document.getElementById('map');
 
   // Centro inicial: destino (posto) ou SP como fallback
@@ -5246,16 +5261,33 @@ function _calcularRota(oriLat, oriLng) {
       document.getElementById('info-bar').classList.remove('hidden');
       var subEl = document.getElementById('posto-sub-dist') || document.getElementById('posto-sub');
       if (subEl) subEl.textContent = leg.distance.text + ' · ' + leg.duration.text;
-    }
 
-    // Ajusta posição do mapa após mostrar info-bar
-    setTimeout(_ajustarMapaBottom, 100);
+      // Reajusta mapa agora que info-bar apareceu
+      setTimeout(function() {
+        _ajustarMapaBottom();
+        google.maps.event.trigger(_gmap, 'resize');
+      }, 150);
+    }
   });
 }
 
-// Ajuste inicial e ao redimensionar
-window.addEventListener('resize', _ajustarMapaBottom);
-_ajustarMapaBottom();
+// ── Inicialização após DOM pronto ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // Safe-area-inset-top via CSS var trick
+  var sat = document.createElement('div');
+  sat.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);height:0;pointer-events:none;visibility:hidden';
+  document.body.appendChild(sat);
+  document.documentElement.style.setProperty('--sat', sat.getBoundingClientRect().top + 'px');
+  document.body.removeChild(sat);
+
+  // Ajuste inicial (DOM já renderizou, heights são reais)
+  _ajustarMapaBottom();
+
+  // Reajusta ao redimensionar / rotacionar
+  window.addEventListener('resize', function() {
+    _ajustarMapaBottom();
+  });
+});
 </script>
 
 <!-- Carga assíncrona da API (callback=_initMap) — NUNCA usa window.location para maps.google.com -->
