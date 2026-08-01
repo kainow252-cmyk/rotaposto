@@ -5036,7 +5036,7 @@ html,body{width:100%;height:100%;overflow:hidden;
   position:fixed;bottom:0;left:0;right:0;z-index:15;
   background:#1c2536;
   border-radius:20px 20px 0 0;
-  padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px));
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
   box-shadow:0 -4px 20px rgba(0,0,0,.4);
   display:flex;flex-direction:column;gap:10px;
 }
@@ -5050,19 +5050,58 @@ html,body{width:100%;height:100%;overflow:hidden;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #posto-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px}
 
-/* ══ Mapa — dimensões definidas 100% via JS após layout ══ */
+/* ══ Botão navegação ══ */
+#btn-nav{
+  width:100%;padding:14px;border:none;border-radius:14px;
+  background:#f97316;color:#fff;
+  font-size:16px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  letter-spacing:.3px;
+}
+#btn-nav:active{opacity:.85}
+#btn-nav.navegando{background:#16a34a}
+
+/* ══ Painel turn-by-turn ══ */
+#nav-panel{
+  position:fixed;top:calc(56px + env(safe-area-inset-top,0px));
+  left:0;right:0;z-index:18;
+  background:#1e293b;
+  max-height:45vh;overflow-y:auto;
+  display:none;
+  border-bottom:2px solid rgba(249,115,22,.4);
+}
+#nav-panel.show{display:block}
+#nav-panel .adp-directions{padding:8px 0}
+#nav-panel table{width:100%;border-collapse:collapse}
+#nav-panel td{padding:8px 14px;font-size:13px;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,.06)}
+#nav-panel td:first-child{width:36px;text-align:center;color:#f97316;font-weight:700}
+
+/* ══ Passo atual (turn-by-turn) ══ */
+#passo-atual{
+  position:fixed;z-index:17;
+  left:0;right:0;
+  background:#f97316;
+  padding:10px 14px;
+  display:none;
+  align-items:center;gap:12px;
+}
+#passo-atual.show{display:flex}
+#passo-icone{font-size:22px;flex-shrink:0}
+#passo-texto{font-size:14px;font-weight:700;color:#fff;flex:1;line-height:1.3}
+#passo-dist{font-size:12px;color:rgba(255,255,255,.8);white-space:nowrap}
+
+/* ══ Mapa ══ */
 #map{
   position:fixed;
-  /* JS seta top/bottom corretos após calcular alturas reais */
   top:calc(56px + env(safe-area-inset-top,0px));
   left:0;right:0;
   bottom:80px;
   background:#e8eaed;
-  /* garantia mínima para Maps API inicializar */
   min-height:150px;
 }
 
-/* ══ Spinner de carregamento ══ */
+/* ══ Spinner ══ */
 #loading{
   position:fixed;inset:0;z-index:50;
   background:#1c2536;
@@ -5079,7 +5118,7 @@ html,body{width:100%;height:100%;overflow:hidden;
 @keyframes spin{to{transform:rotate(360deg)}}
 #loading p{color:rgba(255,255,255,.6);font-size:13px}
 
-/* ══ Erro (sem coords / API falhou) ══ */
+/* ══ Erro ══ */
 #erro{
   position:fixed;inset:0;z-index:40;
   background:#1c2536;
@@ -5096,7 +5135,7 @@ html,body{width:100%;height:100%;overflow:hidden;
 </head>
 <body>
 
-<!-- Loading screen -->
+<!-- Loading -->
 <div id="loading">
   <div class="spinner"></div>
   <p>Calculando rota…</p>
@@ -5111,13 +5150,23 @@ html,body{width:100%;height:100%;overflow:hidden;
 
 <!-- Top bar -->
 <div id="top-bar">
-  <button id="btn-back" onclick="history.back()" aria-label="Voltar">
+  <button id="btn-back" onclick="_voltarOuPausar()" aria-label="Voltar">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="15 18 9 12 15 6"/>
     </svg>
   </button>
   <span id="top-title">Como chegar — ${tituloSafe}</span>
 </div>
+
+<!-- Passo atual da navegação (turn-by-turn) -->
+<div id="passo-atual">
+  <span id="passo-icone">➡️</span>
+  <span id="passo-texto">Aguardando GPS…</span>
+  <span id="passo-dist"></span>
+</div>
+
+<!-- Painel de instruções (oculto, expansível) -->
+<div id="nav-panel"></div>
 
 <!-- Barra ETA -->
 <div id="info-bar" style="display:none">
@@ -5141,54 +5190,55 @@ html,body{width:100%;height:100%;overflow:hidden;
     <img id="posto-logo" src="${logoFinalUrl}" alt="${tituloSafe}" onerror="this.src='/static/logos/independente.svg'"/>
     <div id="posto-info">
       <div id="posto-nome">${tituloSafe}</div>
-      <div id="posto-sub" id="posto-sub-dist"></div>
+      <div id="posto-sub"></div>
     </div>
   </div>
+  <button id="btn-nav" onclick="_toggleNavegacao()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    Iniciar Navegação
+  </button>
 </div>
 
-<!-- Google Maps JavaScript API -->
 <script>
-// ── Dados da rota injetados server-side ────────────────────────────────────
 var _DLAT = '${DLAT}';
 var _DLNG = '${DLNG}';
 var _OLAT = '${OLAT}';
 var _OLNG = '${OLNG}';
 var _gmap, _dirRenderer, _dirService;
+var _steps = [];          // passos da rota
+var _stepIdx = 0;         // passo atual
+var _watchId = null;      // geolocation.watchPosition ID
+var _navegando = false;
+var _userMarker = null;   // marcador azul do usuário
+var _oriLat, _oriLng;
 
-// ── Calcula posição do mapa usando getBoundingClientRect dos elementos reais ─
-// CRÍTICO: não usa safe-area-inset nem vars CSS — usa posição visual real
+// ── Posicionamento do mapa ────────────────────────────────────────────────
 function _fitMap() {
-  var topBar  = document.getElementById('top-bar');
-  var infoBar = document.getElementById('info-bar');
-  var card    = document.getElementById('posto-card');
-  var mapEl   = document.getElementById('map');
+  var topBar   = document.getElementById('top-bar');
+  var infoBar  = document.getElementById('info-bar');
+  var passo    = document.getElementById('passo-atual');
+  var card     = document.getElementById('posto-card');
+  var mapEl    = document.getElementById('map');
   if (!mapEl) return;
 
-  // Bottom do topbar no viewport (inclui safe-area-inset automaticamente)
   var topEdge = topBar ? topBar.getBoundingClientRect().bottom : 56;
-
-  // Se info-bar estiver visível, adiciona sua altura
-  if (infoBar && infoBar.style.display !== 'none') {
+  if (passo && passo.style.display !== 'none' && passo.classList.contains('show'))
+    topEdge += passo.offsetHeight;
+  if (infoBar && infoBar.style.display !== 'none')
     topEdge += infoBar.offsetHeight;
-  }
 
-  // Altura do card inferior
-  var bottomH = card ? card.offsetHeight : 80;
-
+  var bottomH = card ? card.offsetHeight : 120;
   mapEl.style.position = 'fixed';
-  mapEl.style.left     = '0';
-  mapEl.style.right    = '0';
-  mapEl.style.top      = topEdge + 'px';
-  mapEl.style.bottom   = bottomH + 'px';
-  mapEl.style.height   = '';  // remove height inline, usa top+bottom
-
+  mapEl.style.left   = '0'; mapEl.style.right = '0';
+  mapEl.style.top    = topEdge + 'px';
+  mapEl.style.bottom = bottomH + 'px';
+  mapEl.style.height = '';
   if (_gmap) google.maps.event.trigger(_gmap, 'resize');
 }
 
-// ── Callback do Maps JS API ────────────────────────────────────────────────
+// ── Callback Maps JS API ──────────────────────────────────────────────────
 window._initMap = function() {
-  _fitMap(); // dimensiona antes de criar o mapa
-
+  _fitMap();
   var mapEl     = document.getElementById('map');
   var centerLat = _DLAT ? parseFloat(_DLAT) : -23.5505;
   var centerLng = _DLNG ? parseFloat(_DLNG) : -46.6333;
@@ -5205,7 +5255,6 @@ window._initMap = function() {
     map: _gmap,
     polylineOptions: {strokeColor:'#f97316', strokeWeight:5, strokeOpacity:.9}
   });
-
   _dirService = new google.maps.DirectionsService();
 
   if (!_DLAT || !_DLNG) {
@@ -5216,17 +5265,18 @@ window._initMap = function() {
   }
 
   if (_OLAT && _OLNG) {
-    _calcRota(parseFloat(_OLAT), parseFloat(_OLNG));
+    _oriLat = parseFloat(_OLAT); _oriLng = parseFloat(_OLNG);
+    _calcRota(_oriLat, _oriLng);
   } else {
     navigator.geolocation.getCurrentPosition(
-      function(p){ _calcRota(p.coords.latitude, p.coords.longitude); },
-      function()  { _calcRota(centerLat - 0.01, centerLng - 0.01); },
+      function(p){ _oriLat=p.coords.latitude; _oriLng=p.coords.longitude; _calcRota(_oriLat,_oriLng); },
+      function()  { _oriLat=centerLat-0.01;   _oriLng=centerLng-0.01;    _calcRota(_oriLat,_oriLng); },
       {timeout:8000, maximumAge:30000, enableHighAccuracy:true}
     );
   }
 };
 
-// ── Calcular rota e atualizar ETA ──────────────────────────────────────────
+// ── Calcular rota ─────────────────────────────────────────────────────────
 function _calcRota(oriLat, oriLng) {
   _dirService.route({
     origin:      new google.maps.LatLng(oriLat, oriLng),
@@ -5235,34 +5285,168 @@ function _calcRota(oriLat, oriLng) {
     region: 'BR'
   }, function(result, status) {
     document.getElementById('loading').classList.add('done');
-
     if (status !== 'OK') {
-      document.getElementById('erro-msg').textContent =
-        'Rota indisponível (' + status + '). Tente novamente.';
+      document.getElementById('erro-msg').textContent = 'Rota indisponível (' + status + ').';
       document.getElementById('erro').classList.add('show');
       return;
     }
 
     _dirRenderer.setDirections(result);
 
+    // Salva passos para turn-by-turn
     var leg = result.routes[0] && result.routes[0].legs[0];
     if (leg) {
+      _steps = leg.steps || [];
       document.getElementById('eta-tempo').textContent = leg.duration.text;
       document.getElementById('eta-dist').textContent  = leg.distance.text;
       var ib = document.getElementById('info-bar');
       ib.style.display = 'flex';
       var sub = document.getElementById('posto-sub');
       if (sub) sub.textContent = leg.distance.text + ' · ' + leg.duration.text;
-      // Reajusta mapa agora que info-bar tem altura real
       setTimeout(function(){ _fitMap(); }, 80);
     }
+
+    // Cria marcador azul da posição do usuário
+    _userMarker = new google.maps.Marker({
+      position: {lat: oriLat, lng: oriLng},
+      map: _gmap,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: '#3b82f6',
+        fillOpacity: 1,
+        strokeColor: '#fff',
+        strokeWeight: 2
+      },
+      zIndex: 999,
+      title: 'Você está aqui'
+    });
   });
+}
+
+// ── Converte HTML de instrução para texto limpo ───────────────────────────
+function _htmlParaTexto(html) {
+  var d = document.createElement('div');
+  d.innerHTML = html;
+  return d.textContent || d.innerText || '';
+}
+
+// ── Ícone de manobra baseado no texto da instrução ────────────────────────
+function _iconeManobra(texto) {
+  var t = texto.toLowerCase();
+  if (t.includes('direita'))  return '↪️';
+  if (t.includes('esquerda')) return '↩️';
+  if (t.includes('retorno') || t.includes('rotat')) return '🔄';
+  if (t.includes('chegou') || t.includes('destino')) return '🏁';
+  if (t.includes('rodovia') || t.includes('autoestrada')) return '🛣️';
+  return '⬆️';
+}
+
+// ── Distância entre dois pontos (metros) ─────────────────────────────────
+function _distancia(lat1, lng1, lat2, lng2) {
+  var R = 6371000;
+  var dLat = (lat2-lat1)*Math.PI/180;
+  var dLng = (lng2-lng1)*Math.PI/180;
+  var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+          Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+          Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── Mostra o passo atual na barra laranja ─────────────────────────────────
+function _mostrarPasso(idx) {
+  if (!_steps || idx >= _steps.length) return;
+  var step  = _steps[idx];
+  var texto = _htmlParaTexto(step.instructions);
+  var icone = _iconeManobra(texto);
+  document.getElementById('passo-icone').textContent = icone;
+  document.getElementById('passo-texto').textContent = texto;
+  document.getElementById('passo-dist').textContent  = step.distance ? step.distance.text : '';
+  var pa = document.getElementById('passo-atual');
+  pa.classList.add('show');
+  pa.style.display = 'flex';
+  _fitMap();
+}
+
+// ── Iniciar / parar navegação turn-by-turn ────────────────────────────────
+function _toggleNavegacao() {
+  if (_navegando) {
+    _pararNavegacao();
+  } else {
+    _iniciarNavegacao();
+  }
+}
+
+function _iniciarNavegacao() {
+  if (!_steps.length) { return; }
+  _navegando = true;
+  _stepIdx = 0;
+  _mostrarPasso(0);
+
+  var btn = document.getElementById('btn-nav');
+  btn.classList.add('navegando');
+  btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Parar Navegação';
+
+  // Rastreia posição do usuário em tempo real
+  if (navigator.geolocation) {
+    _watchId = navigator.geolocation.watchPosition(
+      function(pos) {
+        var lat = pos.coords.latitude;
+        var lng = pos.coords.longitude;
+
+        // Atualiza marcador azul no mapa
+        if (_userMarker) {
+          _userMarker.setPosition({lat: lat, lng: lng});
+          _gmap.panTo({lat: lat, lng: lng});
+        }
+
+        // Avança passo quando usuário se aproxima do fim do passo atual
+        if (_stepIdx < _steps.length - 1) {
+          var step = _steps[_stepIdx];
+          var endLat = step.end_location.lat();
+          var endLng = step.end_location.lng();
+          var dist   = _distancia(lat, lng, endLat, endLng);
+          if (dist < 30) {   // menos de 30 metros do fim do passo → próximo
+            _stepIdx++;
+            _mostrarPasso(_stepIdx);
+          }
+        } else if (_stepIdx === _steps.length - 1) {
+          // Chegou ao destino
+          var dest = _steps[_steps.length-1].end_location;
+          var distFinal = _distancia(lat, lng, dest.lat(), dest.lng());
+          if (distFinal < 50) {
+            document.getElementById('passo-icone').textContent = '🏁';
+            document.getElementById('passo-texto').textContent = 'Você chegou ao destino!';
+            document.getElementById('passo-dist').textContent = '';
+            _pararNavegacao();
+          }
+        }
+      },
+      function(err) { /* GPS indisponível — navegação continua no mapa */ },
+      {enableHighAccuracy: true, maximumAge: 2000, timeout: 10000}
+    );
+  }
+}
+
+function _pararNavegacao() {
+  _navegando = false;
+  if (_watchId !== null) {
+    navigator.geolocation.clearWatch(_watchId);
+    _watchId = null;
+  }
+  var btn = document.getElementById('btn-nav');
+  btn.classList.remove('navegando');
+  btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Iniciar Navegação';
+}
+
+function _voltarOuPausar() {
+  if (_navegando) _pararNavegacao();
+  history.back();
 }
 
 window.addEventListener('resize', _fitMap);
 </script>
 
-<!-- Maps JS API — sem window.location para maps.google.com -->
 <script src="https://maps.googleapis.com/maps/api/js?key=${gKey}&callback=_initMap&language=pt&region=BR&loading=async" async defer></script>
 
 </body>
