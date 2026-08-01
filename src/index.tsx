@@ -4997,7 +4997,7 @@ html,body{width:100%;height:100%;overflow:hidden;
 #top-bar{
   position:fixed;top:0;left:0;right:0;z-index:20;
   background:#1c2536;
-  height:56px;
+  height:calc(56px + env(safe-area-inset-top,0px));
   padding-top:env(safe-area-inset-top,0px);
   display:flex;align-items:center;gap:12px;
   padding-left:14px;padding-right:14px;
@@ -5017,13 +5017,13 @@ html,body{width:100%;height:100%;overflow:hidden;
 /* ══ Barra de informações da rota (ETA) ══ */
 #info-bar{
   position:fixed;
-  top:calc(56px + env(safe-area-inset-top,0px));
+  top:calc(56px + env(safe-area-inset-top,0px)); /* JS sobrescreve quando passo-atual visível */
   left:0;right:0;z-index:16;
   background:#1c2536;
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 16px;gap:12px;
   height:56px;
-  transition:opacity .3s;
+  transition:top .15s;
 }
 #info-bar.hidden{display:none}
 .eta-item{display:flex;flex-direction:column;align-items:center;gap:2px}
@@ -5080,11 +5080,13 @@ html,body{width:100%;height:100%;overflow:hidden;
 /* ══ Passo atual (turn-by-turn) ══ */
 #passo-atual{
   position:fixed;z-index:17;
+  top:calc(56px + env(safe-area-inset-top,0px));
   left:0;right:0;
   background:#f97316;
-  padding:10px 14px;
+  padding:12px 14px;
   display:none;
   align-items:center;gap:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);
 }
 #passo-atual.show{display:flex}
 #passo-icone{font-size:22px;flex-shrink:0}
@@ -5221,11 +5223,20 @@ function _fitMap() {
   var mapEl    = document.getElementById('map');
   if (!mapEl) return;
 
+  // Usa getBoundingClientRect para pegar posição real após paint
   var topEdge = topBar ? topBar.getBoundingClientRect().bottom : 56;
-  if (passo && passo.style.display !== 'none' && passo.classList.contains('show'))
-    topEdge += passo.offsetHeight;
-  if (infoBar && infoBar.style.display !== 'none')
-    topEdge += infoBar.offsetHeight;
+
+  // passo-atual fica fixo logo abaixo da topbar (o CSS já garante o top)
+  // aqui só somamos se ele estiver visível
+  var passoH = (passo && passo.classList.contains('show')) ? passo.getBoundingClientRect().height : 0;
+  topEdge += passoH;
+
+  // info-bar fica abaixo do passo (ou da topbar se não houver passo)
+  if (infoBar && infoBar.style.display !== 'none') {
+    // Atualiza top do info-bar para ficar logo abaixo do passo-atual
+    infoBar.style.top = (topBar ? topBar.getBoundingClientRect().bottom : 56) + passoH + 'px';
+    topEdge += infoBar.getBoundingClientRect().height;
+  }
 
   var bottomH = card ? card.offsetHeight : 120;
   mapEl.style.position = 'fixed';
