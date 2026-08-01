@@ -4468,41 +4468,30 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _abrirNavegacaoExterna(lat, lng, nome) {
     var temCoords = lat && lng && lat !== 0 && lng !== 0;
 
-    // ── Abre Google Maps externo diretamente, sem tela intermediária ──
-    // URL google.com/maps/dir/ com tl=pt-BR e dir_action=navigate
-    // faz o Google Maps já iniciar a navegação turn-by-turn imediatamente.
-    // O TWA intercepta google.com como App Link e abre o Google Maps nativo.
-    var mapsUrl;
+    // ── Abre tela /ir com mapa Embed + botão para app externo ──
+    // A tela /ir usa Maps Embed API (iframe) para mostrar a rota dentro do app.
+    // O botão "Iniciar navegação" nessa tela usa <a href> que o TWA
+    // encaminha para o Google Maps nativo (App Link tratado pelo sistema).
+    var params = new URLSearchParams();
     if (temCoords) {
-      // Com coordenadas: origem = posição atual, destino = lat,lng do posto
-      var origem = (userLat && userLng)
-        ? encodeURIComponent(userLat + ',' + userLng)
-        : '';
-      var destino = encodeURIComponent(lat + ',' + lng);
-      if (origem) {
-        mapsUrl = 'https://www.google.com/maps/dir/?api=1'
-          + '&origin=' + origem
-          + '&destination=' + destino
-          + '&travelmode=driving'
-          + '&dir_action=navigate';
-      } else {
-        mapsUrl = 'https://www.google.com/maps/dir/?api=1'
-          + '&destination=' + destino
-          + '&travelmode=driving'
-          + '&dir_action=navigate';
-      }
-    } else if (nome) {
-      // Sem coordenadas: busca pelo nome do posto
-      mapsUrl = 'https://www.google.com/maps/dir/?api=1'
-        + '&destination=' + encodeURIComponent(nome)
-        + '&travelmode=driving'
-        + '&dir_action=navigate';
-    } else {
-      showToast('Localização do posto não disponível');
-      return;
+      params.set('lat', String(lat));
+      params.set('lng', String(lng));
     }
-
-    window.location.href = mapsUrl;
+    if (nome) params.set('nome', nome);
+    if (userLat && userLng) {
+      params.set('olat', String(userLat));
+      params.set('olng', String(userLng));
+    }
+    if (selectedPosto) {
+      if (selectedPosto.bandeira) params.set('bandeira', selectedPosto.bandeira);
+      if (selectedPosto.placeId)  params.set('placeId',  selectedPosto.placeId);
+      // Passa preço para exibir no card
+      var precoVals = selectedPosto.combustiveis || selectedPosto.precos;
+      if (precoVals && precoVals[0] && precoVals[0].preco) {
+        params.set('preco', String(precoVals[0].preco));
+      }
+    }
+    window.location.href = '/ir?' + params.toString();
   }
 
   // Fallback: exibe modal com link copiável quando window.open é bloqueado
