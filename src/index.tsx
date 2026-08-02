@@ -5098,18 +5098,51 @@ html,body{width:100%;height:100%;overflow:hidden;
   will-change:transform;
 }
 /* ── Cone do usuário — SEMPRE no centro geométrico da tela ── */
-/* ARQUITETURA GOOGLE MAPS: cone CSS-fixo, mapa se move por baixo via setView  */
-/* Leaflet centra o tile exatamente em 50%/50% — cone fica no mesmo ponto      */
+/* Google Maps style: ponto azul + feixe direcional + halo pulsante            */
 #user-cone{
   position:fixed;
   left:50%;
   top:50%;
-  width:52px;height:52px;
+  /* container maior para acomodar halo (80px) */
+  width:80px;height:80px;
   z-index:45;
   pointer-events:none;
   display:none;
-  /* pivô no centro do círculo — coincide com o ponto que Leaflet centra */
   transform:translate(-50%, -50%);
+}
+/* Halo pulsante de acurácia GPS */
+#cone-halo{
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  background:rgba(26,115,232,0.15);
+  border:1.5px solid rgba(26,115,232,0.30);
+  animation:halo-pulse 2.4s ease-in-out infinite;
+}
+@keyframes halo-pulse{
+  0%,100%{transform:scale(1);opacity:1}
+  50%{transform:scale(1.18);opacity:.6}
+}
+/* Feixe direcional (setor circular — igual Google Maps) */
+#cone-beam{
+  position:absolute;
+  /* posicionado no centro do container */
+  left:50%;top:50%;
+  width:0;height:0;
+  transform-origin:0 0;
+  /* CSS clip-path para criar setor de ~50°, 40px de raio */
+  /* Será rotacionado via JS junto com o heading */
+}
+/* Ponto central azul Google Maps — círculo branco + ponto azul */
+#cone-dot{
+  position:absolute;
+  left:50%;top:50%;
+  width:22px;height:22px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:#1a73e8;
+  border:3px solid #fff;
+  box-shadow:0 2px 8px rgba(26,115,232,.55), 0 1px 3px rgba(0,0,0,.3);
 }
 
 /* ── Spinner de carregamento ── */
@@ -5297,13 +5330,26 @@ html,body{width:100%;height:100%;overflow:hidden;
 
 <!-- Cone do usuário (fora do mapa, não gira) -->
 <div id="user-cone">
-  <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
-    <!-- Halo de acurácia GPS -->
-    <circle cx="26" cy="26" r="25" fill="rgba(26,115,232,0.13)" stroke="rgba(26,115,232,0.28)" stroke-width="1.5"/>
-    <!-- Cone azul apontando pra cima -->
-    <path d="M26 8 L42 44 L26 37 L10 44 Z" fill="#1a73e8" stroke="white" stroke-width="2.5" stroke-linejoin="round"/>
-    <path d="M26 8 L42 44 L26 37 Z" fill="#0d52b5" opacity="0.55"/>
+  <!-- Halo pulsante de acurácia -->
+  <div id="cone-halo"></div>
+  <!-- Feixe direcional SVG (rotacionado via JS com o heading) -->
+  <svg id="cone-beam-svg" width="80" height="80" viewBox="0 0 80 80" fill="none"
+       style="position:absolute;inset:0;">
+    <!-- Setor circular ~50° apontando para cima: Google Maps direcional -->
+    <defs>
+      <radialGradient id="beamGrad" cx="50%" cy="100%" r="100%">
+        <stop offset="0%"  stop-color="#1a73e8" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="#1a73e8" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <!-- Setor 50° centrado em cima (de -25° a +25° a partir do norte) -->
+    <!-- Centro do círculo: (40,40). Raio: 36px. Arco de 320° a 40° (50° total) -->
+    <path id="cone-sector"
+      d="M40,40 L18,7 A36,36 0 0,1 62,7 Z"
+      fill="url(#beamGrad)"/>
   </svg>
+  <!-- Ponto central — Google Maps style -->
+  <div id="cone-dot"></div>
 </div>
 
 <!-- Loading -->
