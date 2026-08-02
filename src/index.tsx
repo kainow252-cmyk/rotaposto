@@ -5103,35 +5103,28 @@ html,body{width:100%;height:100%;overflow:hidden;
   position:fixed;
   left:50%;
   top:50%;
-  /* container maior para acomodar halo (80px) */
-  width:80px;height:80px;
+  /* 120px para acomodar feixe + halo sem cortar */
+  width:120px;height:120px;
   z-index:45;
   pointer-events:none;
   display:none;
   transform:translate(-50%, -50%);
 }
-/* Halo pulsante de acurácia GPS */
+/* Halo de acurácia GPS — círculo discreto, não gigante */
 #cone-halo{
   position:absolute;
-  inset:0;
+  /* halo ocupa 60px centrado — não a div inteira */
+  left:50%;top:50%;
+  width:56px;height:56px;
+  transform:translate(-50%,-50%);
   border-radius:50%;
-  background:rgba(26,115,232,0.15);
-  border:1.5px solid rgba(26,115,232,0.30);
+  background:rgba(26,115,232,0.18);
+  border:1.5px solid rgba(26,115,232,0.35);
   animation:halo-pulse 2.4s ease-in-out infinite;
 }
 @keyframes halo-pulse{
-  0%,100%{transform:scale(1);opacity:1}
-  50%{transform:scale(1.18);opacity:.6}
-}
-/* Feixe direcional (setor circular — igual Google Maps) */
-#cone-beam{
-  position:absolute;
-  /* posicionado no centro do container */
-  left:50%;top:50%;
-  width:0;height:0;
-  transform-origin:0 0;
-  /* CSS clip-path para criar setor de ~50°, 40px de raio */
-  /* Será rotacionado via JS junto com o heading */
+  0%,100%{transform:translate(-50%,-50%) scale(1);opacity:1}
+  50%{transform:translate(-50%,-50%) scale(1.15);opacity:.55}
 }
 /* Ponto central azul Google Maps — círculo branco + ponto azul */
 #cone-dot{
@@ -5332,20 +5325,22 @@ html,body{width:100%;height:100%;overflow:hidden;
 <div id="user-cone">
   <!-- Halo pulsante de acurácia -->
   <div id="cone-halo"></div>
-  <!-- Feixe direcional SVG (rotacionado via JS com o heading) -->
-  <svg id="cone-beam-svg" width="80" height="80" viewBox="0 0 80 80" fill="none"
+  <!-- Feixe direcional SVG — centralizado no container 120×120 -->
+  <!-- viewBox 0 0 120 120, centro em (60,60), raio do feixe 52px -->
+  <svg id="cone-beam-svg" width="120" height="120" viewBox="0 0 120 120" fill="none"
        style="position:absolute;inset:0;">
-    <!-- Setor circular ~50° apontando para cima: Google Maps direcional -->
     <defs>
-      <radialGradient id="beamGrad" cx="50%" cy="100%" r="100%">
-        <stop offset="0%"  stop-color="#1a73e8" stop-opacity="0.55"/>
+      <!-- Gradiente: opaco no centro, transparente nas bordas — igual Google Maps -->
+      <radialGradient id="beamGrad" cx="50%" cy="66%" r="60%">
+        <stop offset="0%"  stop-color="#1a73e8" stop-opacity="0.5"/>
         <stop offset="100%" stop-color="#1a73e8" stop-opacity="0"/>
       </radialGradient>
     </defs>
-    <!-- Setor 50° centrado em cima (de -25° a +25° a partir do norte) -->
-    <!-- Centro do círculo: (40,40). Raio: 36px. Arco de 320° a 40° (50° total) -->
+    <!-- Setor 50° apontando pra cima, centro (60,60), raio 52px       -->
+    <!-- Ponto esq: 60 + 52*sin(-25°) = 60-21.97 ≈ 38, y = 60-52*cos(25°)=60-47.1≈13 -->
+    <!-- Ponto dir: 60 + 52*sin(+25°) = 60+21.97 ≈ 82, y = 13                          -->
     <path id="cone-sector"
-      d="M40,40 L18,7 A36,36 0 0,1 62,7 Z"
+      d="M60,60 L38,13 A52,52 0 0,1 82,13 Z"
       fill="url(#beamGrad)"/>
   </svg>
   <!-- Ponto central — Google Maps style -->
@@ -6370,6 +6365,17 @@ function _iniciarNav(){
   var p0 = _passos[0];
   var distTxt = p0.dist > 0 ? '. Em seguida, ' + _fmtDVoz(p0.dist) : '';
   _falar('Iniciando navegação. ' + p0.texto + distTxt, true);
+
+  // ── Centraliza imediatamente na origem (sem esperar GPS) ─────────
+  // O primeiro GPS update pode demorar 1-3s. Enquanto isso o mapa
+  // ficaria no fitBounds da rota (visão geral). Centralizamos já na
+  // _oriLat/_oriLng com zoom 17 e mostramos o cone.
+  if(_oriLat !== undefined && _oriLng !== undefined && _map){
+    _map.setView([_oriLat, _oriLng], 17, {animate: false});
+    _rotacionarMapa(0); // começa norte-up; rotação real vem com o GPS
+    var coneEl = document.getElementById('user-cone');
+    if(coneEl) coneEl.style.display = 'block';
+  }
 
   // watchPosition com alta precisão — callback real de GPS
   _watchId = navigator.geolocation.watchPosition(
