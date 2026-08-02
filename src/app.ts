@@ -4754,26 +4754,41 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   // ── Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome ──
+  // ── Abre Google Maps NATIVO do aparelho (Intent URL Android / Apple Maps iOS) ──
+  function _abrirGoogleMapsNativo(lat, lng, nome) {
+    var destino = lat + ',' + lng;
+    var isAndroid = /android/i.test(navigator.userAgent);
+    var isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var url;
+    if (isAndroid) {
+      url = 'intent://maps.google.com/maps?daddr=' + destino
+          + (nome ? '&q=' + encodeURIComponent(nome) : '')
+          + '#Intent;scheme=https;package=com.google.android.apps.maps;action=android.intent.action.VIEW;end';
+    } else if (isIOS) {
+      url = 'maps://maps.apple.com/?daddr=' + destino
+          + (nome ? '&q=' + encodeURIComponent(nome) : '');
+    } else {
+      url = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
+          + (nome ? '&destination_place_name=' + encodeURIComponent(nome) : '');
+    }
+    window.location.href = url;
+  }
+
   function _irParaNavegacaoInterna(posto) {
     if (!posto) { showToast('Selecione um posto primeiro'); return; }
     var lat = posto.lat, lng = posto.lng;
     if (!lat || !lng) { showToast('Coordenadas não disponíveis'); return; }
-    var url = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng;
-    if (posto.nome) url += '&destination_place_name=' + encodeURIComponent(posto.nome);
-    window.location.href = url;
+    _abrirGoogleMapsNativo(lat, lng, posto.nome || '');
   }
 
-  // ── SOS: "Ir até lá" para borracheiro/mecânica — Google Maps na mesma janela ──
+  // ── SOS: "Ir até lá" para borracheiro/mecânica ──
   function _abrirNavegacaoExterna(lat, lng, nome) {
-    var url;
     if (lat && lng && lat !== 0 && lng !== 0) {
-      url = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng;
-      if (nome) url += '&destination_place_name=' + encodeURIComponent(decodeURIComponent(String(nome)));
+      _abrirGoogleMapsNativo(lat, lng, nome ? decodeURIComponent(String(nome)) : '');
     } else if (nome) {
-      // Sem coords — busca por nome/endereço
-      url = 'https://www.google.com/maps/search/' + encodeURIComponent(decodeURIComponent(String(nome)));
-    } else { return; }
-    window.location.href = url;
+      // Sem coords — busca por nome no Google Maps
+      window.location.href = 'https://www.google.com/maps/search/' + encodeURIComponent(decodeURIComponent(String(nome)));
+    }
   }
 
   function irAteLa() {

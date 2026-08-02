@@ -7273,12 +7273,35 @@ function abrirWpp() {
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
 function abrirMapa() {
-  // Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome
   if (_posto && _posto.lat && _posto.lng) {
-    var url = 'https://www.google.com/maps/dir/?api=1&destination=' + _posto.lat + ',' + _posto.lng;
-    if (_posto.nomePosto) url += '&destination_place_name=' + encodeURIComponent(_posto.nomePosto);
-    window.location.href = url;
+    _abrirGoogleMapsNativo(_posto.lat, _posto.lng, _posto.nomePosto || '');
   }
+}
+
+// ── Abre Google Maps NATIVO do aparelho (Android/iOS) ──────────────────────
+// Android: intent URL → abre o app Google Maps instalado
+// iOS:     maps.apple.com → abre Apple Maps
+// Fallback: google.com/maps no browser
+function _abrirGoogleMapsNativo(lat, lng, nome) {
+  var destino = lat + ',' + lng;
+  var isAndroid = /android/i.test(navigator.userAgent);
+  var isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var url;
+  if (isAndroid) {
+    // Intent URL — abre Google Maps app instalado no Android
+    url = 'intent://maps.google.com/maps?daddr=' + destino
+        + (nome ? '&q=' + encodeURIComponent(nome) : '')
+        + '#Intent;scheme=https;package=com.google.android.apps.maps;action=android.intent.action.VIEW;end';
+  } else if (isIOS) {
+    // Apple Maps no iOS
+    url = 'maps://maps.apple.com/?daddr=' + destino
+        + (nome ? '&q=' + encodeURIComponent(nome) : '');
+  } else {
+    // Desktop — abre Google Maps no browser
+    url = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
+        + (nome ? '&destination_place_name=' + encodeURIComponent(nome) : '');
+  }
+  window.location.href = url;
 }
 function compartilhar() {
   var url = window.location.href;
@@ -9867,13 +9890,8 @@ function fecharModal(e) {
 function irAtePosto() {
   if (!state.postoSelecionado) return;
   const p = state.postoSelecionado;
-
-  // Monta URL da tela /ir com todos os dados do posto
-  // Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome
-  var gmUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng;
-  if (p.nome) gmUrl += '&destination_place_name=' + encodeURIComponent(p.nome);
   document.getElementById('modal-overlay').classList.remove('visible');
-  window.location.href = gmUrl;
+  _abrirGoogleMapsNativo(p.lat, p.lng, p.nome || '');
 }
 
 function irAoMelhorPosto() {
@@ -9905,12 +9923,9 @@ async function calcularRotaPosto() {
 }
 
 function abrirRotaOSM() {
-  // Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome
   const p = state.postoSelecionado;
   if (!p || !p.lat || !p.lng) return;
-  var url = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng;
-  if (p.nome) url += '&destination_place_name=' + encodeURIComponent(p.nome);
-  window.location.href = url;
+  _abrirGoogleMapsNativo(p.lat, p.lng, p.nome || '');
 }
 
 // ═══ CALCULADORA ══════════════════════════════════════════════════════════════
