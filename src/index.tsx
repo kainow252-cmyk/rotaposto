@@ -1098,6 +1098,48 @@ app.get('/api/rota', async (c) => {
   })
 })
 
+// ─── API: Proxy OSRM — resolve Mixed Content (browser não pode chamar http://) ─
+// O Worker roda server-side e pode fazer fetch HTTP sem restrição.
+// Frontend chama /api/osrm?regiao=sudeste&coords=lng1,lat1;lng2,lat2
+app.get('/api/osrm', async (c) => {
+  const regiao  = c.req.query('regiao') || 'sudeste'
+  const coords  = c.req.query('coords')  || ''
+  if (!coords) return c.json({ error: 'coords obrigatório' }, 400)
+
+  // Mapa de regiões → URL interna do VPS (HTTP — seguro do lado do Worker)
+  const VPS_BASE = '145.223.92.30'
+  const SUFIXO: Record<string, string> = {
+    sudeste:      '/osrm',
+    sul:          '/osrm-sul',
+    nordeste:     '/osrm-nordeste',
+    'centro-oeste': '/osrm-co',
+    norte:        '/osrm-norte'
+  }
+  const sufixo  = SUFIXO[regiao] ?? '/osrm'
+  const vpsUrl  = `http://${VPS_BASE}${sufixo}/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`
+
+  try {
+    const resp = await fetch(vpsUrl, { signal: AbortSignal.timeout(8000) })
+    if (!resp.ok) throw new Error('VPS HTTP ' + resp.status)
+    const data = await resp.json() as any
+    return c.json(data)
+  } catch (e) {
+    // Fallback: OSRM público (já é HTTPS — poderia ser chamado do browser, mas
+    // centralizar aqui evita expor a lógica de fallback no JS do cliente)
+    const pubUrl = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`
+    try {
+      const resp2 = await fetch(pubUrl, { signal: AbortSignal.timeout(14000) })
+      if (!resp2.ok) throw new Error('Pub HTTP ' + resp2.status)
+      const data2 = await resp2.json() as any
+      // Sinaliza ao frontend que veio do fallback público
+      data2._fonte = 'publico'
+      return c.json(data2)
+    } catch (e2) {
+      return c.json({ error: 'Rota indisponível', detail: String(e2) }, 502)
+    }
+  }
+})
+
 // ─── API: Calcular Economia ───────────────────────────────────────────────────
 app.get('/api/economia', (c) => {
   const precoAtual = parseFloat(c.req.query('precoAtual') || '0')
@@ -5695,48 +5737,41 @@ function _initMapa(){
   }
 }
 
-// ── Detectar instância OSRM correta pelo VPS (por região) ────────
-var _REGIOES_VPS = [
-  ['sudeste',      -25.0, -14.0, -53.5, -39.0, 'http://145.223.92.30/osrm'],
-  ['sul',          -34.0, -22.5, -58.0, -48.0, 'http://145.223.92.30/osrm-sul'],
-  ['nordeste',     -18.0,  -1.0, -50.0, -34.0, 'http://145.223.92.30/osrm-nordeste'],
-  ['centro-oeste', -24.0,  -7.0, -63.0, -45.0, 'http://145.223.92.30/osrm-co'],
-  ['norte',        -14.0,   6.0, -74.0, -44.0, 'http://145.223.92.30/osrm-norte']
+// ── Detectar região para o proxy OSRM ────────────────────────────
+// Retorna o nome da região para passar ao /api/osrm?regiao=X
+var _REGIOES_PROXY = [
+  ['sudeste',       -25.0, -14.0, -53.5, -39.0],
+  ['sul',           -34.0, -22.5, -58.0, -48.0],
+  ['nordeste',      -18.0,  -1.0, -50.0, -34.0],
+  ['centro-oeste',  -24.0,  -7.0, -63.0, -45.0],
+  ['norte',         -14.0,   6.0, -74.0, -44.0]
 ];
-function _getVpsOsrm(lat,lng){
-  for(var i=0;i<_REGIOES_VPS.length;i++){
-    var r=_REGIOES_VPS[i];
-    if(lat>=r[1]&&lat<=r[2]&&lng>=r[3]&&lng<=r[4]) return r[5];
+function _getRegiao(lat,lng){
+  for(var i=0;i<_REGIOES_PROXY.length;i++){
+    var r=_REGIOES_PROXY[i];
+    if(lat>=r[1]&&lat<=r[2]&&lng>=r[3]&&lng<=r[4]) return r[0];
   }
-  return 'http://145.223.92.30/osrm'; // fallback sudeste
+  return 'sudeste'; // fallback
 }
 
-// ── Calcular rota: VPS primeiro, fallback OSRM público ───────────
+// ── Calcular rota: proxy /api/osrm (Worker faz HTTP→VPS server-side) ──────────
+// Antes: browser chamava http://145.223.92.30/osrm → BLOQUEADO por Mixed Content
+// Agora: browser chama /api/osrm (HTTPS) → Worker chama VPS em HTTP por dentro
 function _calcRota(oLat,oLng){
   var dLat=parseFloat(_DLAT), dLng=parseFloat(_DLNG);
   var coords = oLng.toFixed(6)+','+oLat.toFixed(6)+';'+dLng.toFixed(6)+','+dLat.toFixed(6);
-  var qs = '?overview=full&geometries=geojson&steps=true';
-  var vpsBase = _getVpsOsrm(oLat,oLng);
-  var urlVps  = vpsBase+'/route/v1/driving/'+coords+qs;
-  var urlPub  = 'https://router.project-osrm.org/route/v1/driving/'+coords+qs;
+  var regiao = _getRegiao(oLat,oLng);
+  var urlProxy = '/api/osrm?regiao='+encodeURIComponent(regiao)+'&coords='+encodeURIComponent(coords);
 
   document.getElementById('loading-sub').textContent = 'Conectando ao servidor de rotas…';
 
-  function _tentarUrl(url, isVps){
-    return fetch(url,{signal:AbortSignal.timeout(isVps?8000:14000)})
-      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-      .then(function(data){
-        if(data.code!=='Ok'||!data.routes||!data.routes[0]) throw new Error('sem rota: '+data.code);
-        return data.routes[0];
-      });
-  }
-
-  _tentarUrl(urlVps, true)
-    .then(function(route){ _fonteRota='vps'; _exibirRota(route, oLat, oLng); })
-    .catch(function(){
-      document.getElementById('loading-sub').textContent = 'Usando servidor público…';
-      return _tentarUrl(urlPub, false)
-        .then(function(route){ _fonteRota='publico'; _exibirRota(route, oLat, oLng); });
+  fetch(urlProxy, {signal: AbortSignal.timeout(15000)})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(data){
+      if(data.error) throw new Error(data.error);
+      if(data.code!=='Ok'||!data.routes||!data.routes[0]) throw new Error('sem rota: '+data.code);
+      _fonteRota = data._fonte === 'publico' ? 'publico' : 'vps';
+      _exibirRota(data.routes[0], oLat, oLng);
     })
     .catch(function(e){ _mostrarErro('Não foi possível calcular a rota.',String(e)); });
 }
