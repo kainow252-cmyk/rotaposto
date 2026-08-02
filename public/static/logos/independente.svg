@@ -1,21 +1,49 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
   <defs>
-    <linearGradient id="indGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#607D8B"/>
-      <stop offset="100%" stop-color="#37474F"/>
+    <!-- Gradiente principal — laranja premium para cinza escuro -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="50%" stop-color="#E8450A"/>
+      <stop offset="100%" stop-color="#C13200"/>
     </linearGradient>
+    <!-- Sombra interna para profundidade -->
+    <radialGradient id="shine" cx="38%" cy="30%" r="55%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.28)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+    </radialGradient>
+    <!-- Filtro de sombra externa -->
+    <filter id="shadow" x="-8%" y="-8%" width="116%" height="116%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.35)"/>
+    </filter>
   </defs>
-  <circle cx="60" cy="60" r="57" fill="url(#indGrad)"/>
-  <!-- Ícone bomba de gasolina simplificada (profissional) -->
-  <rect x="32" y="32" width="36" height="48" rx="5" fill="white" opacity="0.9"/>
-  <rect x="68" y="40" width="14" height="26" rx="4" fill="white" opacity="0.75"/>
-  <rect x="32" y="32" width="36" height="10" rx="4" fill="#546E7A"/>
-  <rect x="44" y="18" width="12" height="14" rx="3" fill="white" opacity="0.75"/>
-  <!-- Visor digital -->
-  <rect x="38" y="48" width="24" height="12" rx="2" fill="#263238"/>
-  <line x1="44" y1="54" x2="56" y2="54" stroke="#00E5FF" stroke-width="2"/>
-  <text x="60" y="100"
-    font-family="'Arial','Helvetica',sans-serif"
-    font-weight="700" font-size="9"
-    fill="rgba(255,255,255,0.8)" text-anchor="middle" letter-spacing="1">INDEPENDENTE</text>
+
+  <!-- Fundo circular com gradiente laranja -->
+  <circle cx="60" cy="60" r="56" fill="url(#bgGrad)" filter="url(#shadow)"/>
+  <!-- Brilho suave -->
+  <circle cx="60" cy="60" r="56" fill="url(#shine)"/>
+  <!-- Borda sutil -->
+  <circle cx="60" cy="60" r="55" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+
+  <!-- Ícone: gota de combustível estilizada (minimalista e moderno) -->
+  <!-- Gota principal -->
+  <path d="M60 22
+           C60 22 36 50 36 65
+           C36 78.8 46.7 90 60 90
+           C73.3 90 84 78.8 84 65
+           C84 50 60 22 60 22 Z"
+        fill="white" opacity="0.95"/>
+
+  <!-- Reflexo interno na gota — dá volume 3D -->
+  <path d="M54 38
+           C54 38 43 56 43 66
+           C43 70 45 73.5 48 76"
+        fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="3.5"
+        stroke-linecap="round"/>
+
+  <!-- Letra P pequena na base — "Posto" — branca dentro da gota -->
+  <text x="60" y="73"
+        font-family="'Arial Black','Arial',sans-serif"
+        font-weight="900" font-size="22"
+        fill="#E8450A" text-anchor="middle"
+        dominant-baseline="middle">P</text>
 </svg>
