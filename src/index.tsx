@@ -102,6 +102,7 @@ const PRECOS_MEDIOS_UF = Object.fromEntries(
 type Bindings = {
   ROTAPOSTO_KV: KVNamespace
   ROTAPOSTO_R2: R2Bucket
+  TRAFFIC_DB: D1Database
   [key: string]: unknown
 }
 
@@ -373,6 +374,123 @@ app.use('/__/auth/*', async (c) => {
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
   return c.json({ version: 'v17', build: '20260710e' })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TRAFFIC INTELLIGENCE — Coleta silenciosa de velocidade GPS dos usuários
+//  Alimenta banco D1 em background durante navegação no /ir
+// ══════════════════════════════════════════════════════════════════════════════
+
+// POST /api/traffic — recebe lote de pontos GPS do usuário (fire-and-forget)
+app.post('/api/traffic', async (c) => {
+  const db = c.env.TRAFFIC_DB as D1Database | undefined
+  if (!db) return c.json({ ok: false, e: 'no_db' }, 200) // silencioso — não quebra o app
+
+  try {
+    const body = await c.req.json() as {
+      pts: Array<{ lat: number; lng: number; spd: number }>
+    }
+    if (!body?.pts?.length) return c.json({ ok: true })
+
+    const now   = Math.floor(Date.now() / 1000)
+    const d     = new Date()
+    const hour  = d.getUTCHours()
+    const wday  = d.getUTCDay()
+
+    // Arredonda coordenadas a 4 casas decimais (~11m de precisão)
+    // Agrupa múltiplos usuários no mesmo "segmento" de via
+    const ROUND = 10000
+
+    // Filtra pontos inválidos: velocidade entre 2 e 200 km/h
+    const valid = body.pts.filter(p =>
+      p.spd >= 2 && p.spd <= 200 &&
+      p.lat >= -35 && p.lat <= 6 &&   // bounding box Brasil
+      p.lng >= -74 && p.lng <= -28
+    )
+    if (!valid.length) return c.json({ ok: true })
+
+    // Insere em lote usando D1 batch
+    const stmts = valid.map(p =>
+      db.prepare(
+        'INSERT INTO traffic_segments (lat_grid, lng_grid, speed_kmh, hour, weekday, recorded_at) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(
+        Math.round(p.lat * ROUND) / ROUND,
+        Math.round(p.lng * ROUND) / ROUND,
+        Math.round(p.spd * 10) / 10,
+        hour,
+        wday,
+        now
+      )
+    )
+
+    await db.batch(stmts)
+
+    // Limpa dados > 2 horas a cada ~50 requisições (limpeza probabilística)
+    if (Math.random() < 0.02) {
+      await db.prepare(
+        'DELETE FROM traffic_segments WHERE recorded_at < ?'
+      ).bind(now - 7200).run()
+    }
+
+    return c.json({ ok: true, saved: valid.length })
+  } catch (e: unknown) {
+    // Silencioso — nunca retorna erro 5xx para não impactar o app
+    console.error('[TRAFFIC]', e)
+    return c.json({ ok: false }, 200)
+  }
+})
+
+// GET /api/traffic/status?lat=&lng=&r=300
+// Retorna condição de trânsito num raio (metros) ao redor de um ponto
+// r padrão = 300m — cobre uma via urbana típica
+app.get('/api/traffic/status', async (c) => {
+  const db = c.env.TRAFFIC_DB as D1Database | undefined
+  if (!db) return c.json({ status: 'unknown' })
+
+  const lat = parseFloat(c.req.query('lat') || '')
+  const lng = parseFloat(c.req.query('lng') || '')
+  const r   = Math.min(parseInt(c.req.query('r') || '300'), 1000) // max 1km
+
+  if (isNaN(lat) || isNaN(lng)) return c.json({ status: 'unknown' })
+
+  try {
+    // Grade: 1 casa decimal = ~11km → 4 casas = ~11m
+    // Para raio de 300m: ±0.003 graus (~333m)
+    const delta = (r / 111000) // graus por metro
+    const latMin = Math.round((lat - delta) * 10000) / 10000
+    const latMax = Math.round((lat + delta) * 10000) / 10000
+    const lngMin = Math.round((lng - delta) * 10000) / 10000
+    const lngMax = Math.round((lng + delta) * 10000) / 10000
+
+    const res = await db.prepare(`
+      SELECT AVG(avg_speed) as speed, SUM(sample_count) as samples
+      FROM traffic_current
+      WHERE lat_grid BETWEEN ? AND ?
+        AND lng_grid BETWEEN ? AND ?
+    `).bind(latMin, latMax, lngMin, lngMax).first() as
+      { speed: number | null; samples: number | null } | null
+
+    const speed   = res?.speed   ?? null
+    const samples = res?.samples ?? 0
+
+    // Sem dados suficientes
+    if (!speed || samples < 3) return c.json({ status: 'unknown', samples })
+
+    // Classifica por velocidade absoluta
+    // Via urbana: livre > 40 km/h, lento < 15 km/h
+    let status: string
+    let label: string
+    let color: string
+
+    if (speed >= 40)      { status = 'free';     label = 'Trânsito livre';     color = '#2e7d32' }
+    else if (speed >= 20) { status = 'moderate'; label = 'Trânsito moderado';  color = '#f57f17' }
+    else                  { status = 'heavy';    label = 'Trânsito intenso';   color = '#c62828' }
+
+    return c.json({ status, label, color, speed: Math.round(speed), samples })
+  } catch (e: unknown) {
+    console.error('[TRAFFIC STATUS]', e)
+    return c.json({ status: 'unknown' })
+  }
 })
 
 app.get('/api/debug/env', async (c) => {
@@ -5084,6 +5202,7 @@ html,body{width:100%;height:100%;overflow:hidden;
     <img id="posto-logo" src="${logoFinalUrl}" alt="" onerror="this.src='/static/logos/independente.svg'"/>
     <span id="posto-nome-el">${tituloSafe}</span>
     <span id="fonte-badge" style="font-size:10px;color:#aaa;background:#f5f5f5;border-radius:6px;padding:2px 7px;flex-shrink:0;display:none"></span>
+    <span id="traf-indicator" style="font-size:11px;font-weight:700;margin-left:6px;display:none"></span>
   </div>
   <div id="btn-row">
     <button id="btn-back" onclick="_voltar()">
@@ -5124,6 +5243,12 @@ var _distRestante = 0, _tempoRestante = 0;
 var _recalcPendente = false, _recalcTs = 0;
 var _offRouteCount = 0;       // contador GPS fora da rota → recalculo auto
 var _rotaCoords = [];         // [[lat,lng]…] da polyline para snap-to-road
+
+// ── Traffic Intelligence — coleta silenciosa ─────────────────────
+var _trafBuffer   = [];       // buffer de pontos GPS {lat,lng,spd}
+var _trafFlushTs  = 0;        // timestamp do último envio
+var _trafStatus   = 'unknown';// estado atual do trânsito na rota
+var _trafStatusTs = 0;        // timestamp da última consulta de status
 
 // ══════════════════════════════════════════════════════════════
 //  VOZ PROFISSIONAL — escolhe a melhor voz pt-BR disponível
@@ -5546,6 +5671,12 @@ function _onGpsUpdate(pos){
     _userArrow.setIcon(_iconUser(_curHeading));
   }
 
+  // ── Traffic Intelligence — coleta silenciosa ──────────────────
+  // Sempre coleta velocidade, mesmo sem navegação ativa
+  _trafColetar(lat, lng, pos.coords.speed);
+  // Consulta status do trânsito na posição atual (throttle 60s)
+  if(_navegando) _trafConsultarStatus(lat, lng);
+
   // Centraliza mapa no usuário com zoom de navegação (17)
   if(_navegando){
     _map.setView([lat,lng], 17, {animate:true, duration:0.6, noMoveStart:true});
@@ -5626,6 +5757,66 @@ function _chegou(){
   }
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  TRAFFIC INTELLIGENCE — funções de coleta e consulta silenciosa
+// ══════════════════════════════════════════════════════════════════
+
+// Adiciona ponto GPS ao buffer — chamado dentro de _onGpsUpdate
+function _trafColetar(lat, lng, speedMs){
+  if(speedMs == null || isNaN(speedMs)) return;
+  var spd = speedMs * 3.6; // m/s → km/h
+  if(spd < 2 || spd > 200) return; // filtra parado ou dado inválido
+  _trafBuffer.push({ lat: lat, lng: lng, spd: spd });
+
+  var agora = Date.now();
+  // Envia lote a cada 10s ou quando buffer > 5 pontos
+  if(_trafBuffer.length >= 5 || (agora - _trafFlushTs) > 10000){
+    _trafFlush();
+  }
+}
+
+// Envia lote silenciosamente — fire and forget
+function _trafFlush(){
+  if(!_trafBuffer.length) return;
+  var pts = _trafBuffer.splice(0); // esvazia buffer
+  _trafFlushTs = Date.now();
+  fetch('/api/traffic', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pts: pts }),
+    keepalive: true  // envia mesmo se a página fechar
+  }).catch(function(){}); // silêncio total — nunca mostra erro
+}
+
+// Consulta status do trânsito na posição atual — a cada 60s
+function _trafConsultarStatus(lat, lng){
+  var agora = Date.now();
+  if(agora - _trafStatusTs < 60000) return; // throttle 60s
+  _trafStatusTs = agora;
+
+  fetch('/api/traffic/status?lat='+lat.toFixed(5)+'&lng='+lng.toFixed(5)+'&r=400')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _trafStatus = d.status || 'unknown';
+      _trafAtualizarIndicador(d);
+    })
+    .catch(function(){}); // silêncio total
+}
+
+// Atualiza o indicador visual no painel de ETA
+function _trafAtualizarIndicador(d){
+  var el = document.getElementById('traf-indicator');
+  if(!el) return;
+  if(d.status === 'unknown' || !d.label){
+    el.style.display = 'none';
+    return;
+  }
+  var emoji = d.status === 'free' ? '🟢' : d.status === 'moderate' ? '🟡' : '🔴';
+  el.textContent = emoji + ' ' + d.label;
+  el.style.color   = d.color || '#555';
+  el.style.display = 'inline-block';
+}
+
 // ── Recalcular a partir de uma posição (auto-recalculo) ──────────
 function _recalcularDe(lat, lng){
   _falar('Recalculando rota', true);
@@ -5700,6 +5891,8 @@ function _pararNav(){
     navigator.geolocation.clearWatch(_watchId);
     _watchId = null;
   }
+  // Envia qualquer ponto GPS restante no buffer
+  _trafFlush();
   var btn = document.getElementById('btn-nav');
   btn.classList.remove('stop');
   btn.innerHTML = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Iniciar Navegação';

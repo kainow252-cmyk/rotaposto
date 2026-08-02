@@ -14,5 +14,12 @@
       "binding": "ROTAPOSTO_R2",
       "bucket_name": "rotaposto-kv"
     }
+  ],
+  "d1_databases": [
+    {
+      "binding": "TRAFFIC_DB",
+      "database_name": "rotaposto-traffic",
+      "database_id": "c16d501c-7107-4511-8038-522c2e64f09c"
+    }
   ]
 }
