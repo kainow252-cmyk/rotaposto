@@ -5055,19 +5055,19 @@ html,body{width:100%;height:100%;overflow:hidden;
   transform-origin:center center;
   will-change:transform;
 }
-/* ── Cone do usuário — SEMPRE no centro da tela (abaixo do instr-bar) ── */
-/* ARQUITETURA GOOGLE MAPS: cone é CSS puro, mapa se move por baixo via setView */
+/* ── Cone do usuário — SEMPRE no centro geométrico da tela ── */
+/* ARQUITETURA GOOGLE MAPS: cone CSS-fixo, mapa se move por baixo via setView  */
+/* Leaflet centra o tile exatamente em 50%/50% — cone fica no mesmo ponto      */
 #user-cone{
   position:fixed;
   left:50%;
-  /* acima do painel (~160px) + offset visual para ficar no centro útil do mapa */
-  bottom:calc(160px + env(safe-area-inset-bottom,0px) + 60px);
+  top:50%;
   width:52px;height:52px;
   z-index:45;
   pointer-events:none;
   display:none;
-  /* centraliza horizontalmente, pivô no bico do cone (topo do triângulo ~25% da altura) */
-  transform:translate(-50%, 25%);
+  /* pivô no centro do círculo — coincide com o ponto que Leaflet centra */
+  transform:translate(-50%, -50%);
 }
 
 /* ── Spinner de carregamento ── */
