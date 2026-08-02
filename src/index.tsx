@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v21', build: '20260802e' })
+  return c.json({ version: 'v22', build: '20260802f' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -7322,43 +7322,40 @@ function abrirMapa() {
 }
 
 // ── Abre Google Maps NATIVO do aparelho ──────────────────────────────────────
-// Estratégia multicamada: WebView in-app (Instagram/FB) → intent://
-// Android Chrome/PWA → window.open; iOS → comgooglemaps:// + fallback Apple Maps
+// 3 caminhos: iOS → comgooglemaps://+fallback | Android WebView → intent://scheme=http | Chrome/PWA → window.open
 function _isInWebView() {
   var ua = navigator.userAgent || '';
-  if (/wv\b/.test(ua)) return true;
-  if (/Instagram|FBAN|FBAV|FB_IAB|Twitter|Line\/|Musical|TikTok|Snapchat|Pinterest|LinkedIn/.test(ua)) return true;
-  if (/iphone|ipad|ipod/i.test(ua) && !/Safari\//.test(ua) && /AppleWebKit/.test(ua)) return true;
+  if (/\bwv\b/.test(ua)) return true;
+  if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Twitter|Line\/|TikTok|Snapchat|Pinterest|LinkedIn|MicroMessenger/.test(ua)) return true;
+  if (/iphone|ipad|ipod/i.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true;
   return false;
 }
 function _abrirGoogleMapsNativo(lat, lng, nome) {
-  var destino = lat + ',' + lng;
-  var nomeEnc = nome ? encodeURIComponent(nome) : '';
-  var ua = navigator.userAgent || '';
-  var isIOS = /iphone|ipad|ipod/i.test(ua);
+  var destino  = lat + ',' + lng;
+  var nomeEnc  = nome ? encodeURIComponent(nome) : '';
+  var ua       = navigator.userAgent || '';
+  var isIOS    = /iphone|ipad|ipod/i.test(ua);
   var inWebView = _isInWebView();
 
   if (isIOS) {
-    var gmapsIOS = 'comgooglemaps://?daddr=' + destino + '&directionsmode=driving';
-    var appleIOS = 'https://maps.apple.com/?daddr=' + destino + (nome ? '&q=' + nomeEnc : '');
-    var fallbackTimer = setTimeout(function() { window.open(appleIOS, '_blank'); }, 500);
-    document.addEventListener('visibilitychange', function cancelFallback() {
-      if (document.hidden) { clearTimeout(fallbackTimer); document.removeEventListener('visibilitychange', cancelFallback); }
-    });
-    window.location.href = gmapsIOS;
+    // comgooglemaps:// → se Maps não abrir em 600ms, cai para Apple Maps
+    var mapsAppIOS   = 'comgooglemaps://?daddr=' + destino + '&directionsmode=driving';
+    var mapsAppleIOS = 'https://maps.apple.com/?daddr=' + destino + (nome ? '&q=' + nomeEnc : '');
+    var _t = setTimeout(function() { window.location.href = mapsAppleIOS; }, 600);
+    var _l = function() { if (document.hidden) { clearTimeout(_t); document.removeEventListener('visibilitychange', _l); } };
+    document.addEventListener('visibilitychange', _l);
+    window.location.href = mapsAppIOS;
 
   } else if (inWebView) {
-    // Android WebView in-app → intent:// força o app Maps nativo
-    var intentUrl = 'intent://maps.google.com/maps?daddr=' + destino
-      + '&directionsmode=driving'
-      + (nome ? '&q=' + nomeEnc : '')
-      + '#Intent;scheme=https;package=com.google.android.apps.maps;'
-      + 'S.browser_fallback_url=' + encodeURIComponent(
-          'https://www.google.com/maps/dir/?api=1&destination=' + destino
-          + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '')
-        )
-      + ';end';
-    window.location.href = intentUrl;
+    // Android WebView in-app → intent:// scheme=http OBRIGATÓRIO (Maps ignora https)
+    var fallbackUrl = encodeURIComponent(
+      'https://www.google.com/maps/dir/?api=1&destination=' + destino
+      + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '')
+    );
+    window.location.href = 'intent://maps.google.com/maps?daddr=' + destino
+      + '&directionsmode=driving' + (nome ? '&q=' + nomeEnc : '')
+      + '#Intent;scheme=http;package=com.google.android.apps.maps;'
+      + 'S.browser_fallback_url=' + fallbackUrl + ';end';
 
   } else {
     // Android Chrome / PWA standalone

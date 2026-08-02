@@ -17,14 +17,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <!-- v20260802e-webview-intent -->
+  <!-- v20260802f-intent-scheme-fix -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
   <meta name="theme-color" content="#FF6D00"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
-  <meta name="build" content="20260802e"/>
+  <meta name="build" content="20260802f"/>
   <title>RotaPosto</title>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
@@ -4763,94 +4763,112 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   // ── Abre Google Maps NATIVO do aparelho ──────────────────────────────────────
-  // Estratégia multicamada para garantir que o app Maps abre, mesmo dentro de
-  // WebViews de apps como Instagram, Facebook, WhatsApp, TikTok etc.
+  // Baseado na documentação oficial do Google Intent URLs e Apple URL Schemes.
   //
-  // PROBLEMA: WebViews in-app interceptam window.open() e abrem o link dentro
-  // do próprio app, sem repassar ao sistema de apps do Android/iOS.
+  // PROBLEMA RAIZ: WebViews in-app (Instagram, Facebook, WhatsApp, TikTok etc.)
+  // interceptam qualquer link e abrem DENTRO do próprio app — jamais repassam
+  // ao sistema de apps. window.open() e window.location.href com URLs https://
+  // ficam presos no WebView.
   //
-  // SOLUÇÃO por camadas:
-  //   1. iOS          → comgooglemaps:// (abre direto no app Maps se instalado)
-  //                     fallback: maps.apple.com
-  //   2. Android WebView (Instagram/FB/etc.) → intent:// (força o app Maps)
-  //   3. Android Chrome/PWA normal           → window.open('_blank') é suficiente
+  // SOLUÇÃO por ambiente (3 caminhos):
   //
-  // DETECÇÃO de WebView:
-  //   - wv no UserAgent (Android WebView explícito)
-  //   - Instagram, FBAN, FBAV, Twitter, Line, etc. no UserAgent
+  //  ┌─ iOS ─────────────────────────────────────────────────────────────────────┐
+  //  │  WebView iOS (Instagram/FB):                                              │
+  //  │    → comgooglemaps:// via location.href                                  │
+  //  │    → Apple bloqueia popup de WebView, mas location.href funciona          │
+  //  │    → fallback: maps.apple.com se Maps não instalado (timer 600ms)         │
+  //  │  Safari / PWA iOS standalone:                                             │
+  //  │    → comgooglemaps:// + fallback maps.apple.com (mesmo fluxo)             │
+  //  └───────────────────────────────────────────────────────────────────────────┘
+  //
+  //  ┌─ Android WebView in-app ───────────────────────────────────────────────────┐
+  //  │  Instagram, Facebook, WhatsApp, TikTok, Snapchat etc.                     │
+  //  │    → intent://maps.google.com/maps?daddr=...                              │
+  //  │    → scheme=http (OBRIGATÓRIO — Maps não responde a scheme=https)         │
+  //  │    → package=com.google.android.apps.maps (abre direto, ignora WebView)   │
+  //  │    → S.browser_fallback_url = google.com/maps (se Maps não instalado)     │
+  //  └───────────────────────────────────────────────────────────────────────────┘
+  //
+  //  ┌─ Android Chrome / PWA standalone ─────────────────────────────────────────┐
+  //  │    → window.open(google.com/maps/dir, '_blank')                           │
+  //  │    → Chrome repassa ao app Maps instalado automaticamente                 │
+  //  └───────────────────────────────────────────────────────────────────────────┘
 
-  // Controla estado "Maps aberto" para detectar retorno via visibilitychange
+  // Estado para detectar retorno do Maps via visibilitychange
   var _mapsAberto = false;
-  var _postoNavegando = null; // posto que o usuário abriu no Maps
+  var _postoNavegando = null;
 
+  // Detecta WebView in-app: Instagram, Facebook, WhatsApp, TikTok, Twitter etc.
   function _isInWebView() {
     var ua = navigator.userAgent || '';
-    // Android WebView explícito
-    if (/wv\b/.test(ua)) return true;
-    // Apps sociais conhecidos que usam WebView in-app
-    if (/Instagram|FBAN|FBAV|FB_IAB|Twitter|Line\/|Musical|TikTok|Snapchat|Pinterest|LinkedIn/.test(ua)) return true;
-    // iOS UIWebView / WKWebView (sem Safari no UA)
-    if (/iphone|ipad|ipod/i.test(ua) && !/Safari\//.test(ua) && /AppleWebKit/.test(ua)) return true;
+    // Android WebView explícito (flag "wv" adicionada pelo sistema)
+    if (/\bwv\b/.test(ua)) return true;
+    // Apps sociais conhecidos — todos colocam o próprio nome no UA
+    if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Twitter|Line\/|TikTok|Snapchat|Pinterest|LinkedIn|MicroMessenger|QQ\/|Weibo/.test(ua)) return true;
+    // iOS WKWebView: tem AppleWebKit mas NÃO tem "Safari/" no UA
+    if (/iphone|ipad|ipod/i.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true;
     return false;
   }
 
   function _abrirGoogleMapsNativo(lat, lng, nome) {
-    var destino = lat + ',' + lng;
-    var nomeEnc = nome ? encodeURIComponent(nome) : '';
-    var ua = navigator.userAgent || '';
-    var isIOS = /iphone|ipad|ipod/i.test(ua);
+    var destino  = lat + ',' + lng;
+    var nomeEnc  = nome ? encodeURIComponent(nome) : '';
+    var ua       = navigator.userAgent || '';
+    var isIOS    = /iphone|ipad|ipod/i.test(ua);
     var inWebView = _isInWebView();
 
-    // Registra que o Maps foi aberto para detectar retorno
-    _mapsAberto = true;
+    // Marca para detectar retorno via visibilitychange (banner "Chegou ao posto?")
+    _mapsAberto    = true;
     _postoNavegando = { lat: lat, lng: lng, nome: nome || '' };
 
     if (isIOS) {
-      // iOS: tenta abrir o app Google Maps pelo scheme comgooglemaps://
-      // Se não tiver instalado, cai para maps.apple.com
-      var gmapsIOS = 'comgooglemaps://?daddr=' + destino + '&directionsmode=driving';
-      var appleIOS = 'https://maps.apple.com/?daddr=' + destino + (nome ? '&q=' + nomeEnc : '');
+      // ── iOS: comgooglemaps:// → se Maps não abrir em 600ms, cai para Apple Maps ──
+      // Funciona tanto em Safari, PWA standalone quanto WebView in-app (Instagram etc.)
+      var mapsAppIOS   = 'comgooglemaps://?daddr=' + destino + '&directionsmode=driving';
+      var mapsAppleIOS = 'https://maps.apple.com/?daddr=' + destino + (nome ? '&q=' + nomeEnc : '');
 
-      // Tenta o app Google Maps; se não abrir em 500ms, usa Apple Maps
-      var fallbackTimer = setTimeout(function() {
-        window.open(appleIOS, '_blank');
-      }, 500);
+      // Se o app Google Maps não estiver instalado, o browser fica visível após 600ms
+      // e o timer dispara o fallback para Apple Maps
+      var _iosFallbackTimer = setTimeout(function() {
+        window.location.href = mapsAppleIOS;
+      }, 600);
 
-      // Abre via location para evitar bloqueio de popup em iOS WebView
-      window.location.href = gmapsIOS;
-
-      // Se a página ficou visível (app não abriu), o timer dispara
-      // Se abriu o app, o timer é cancelado pelo visibilitychange
-      document.addEventListener('visibilitychange', function cancelFallback() {
+      // Se o app abriu (página saiu do foco), cancela o fallback
+      // IMPORTANTE: usar listener nomeado para não colidir com o visibilitychange do banner
+      var _iosFallbackListener = function() {
         if (document.hidden) {
-          clearTimeout(fallbackTimer);
-          document.removeEventListener('visibilitychange', cancelFallback);
+          clearTimeout(_iosFallbackTimer);
+          document.removeEventListener('visibilitychange', _iosFallbackListener);
         }
-      });
+      };
+      document.addEventListener('visibilitychange', _iosFallbackListener);
+
+      window.location.href = mapsAppIOS;
 
     } else if (inWebView) {
-      // Android DENTRO de WebView (Instagram, Facebook, WhatsApp etc.)
-      // intent:// força o Android a abrir o app Google Maps instalado,
-      // ignorando o WebView do app atual.
+      // ── Android WebView in-app: intent:// — único método que escapa do WebView ──
+      // scheme=http é OBRIGATÓRIO (o package Maps responde a http, não https)
+      // S.browser_fallback_url = fallback se Maps não estiver instalado
+      var fallbackUrl = encodeURIComponent(
+        'https://www.google.com/maps/dir/?api=1'
+        + '&destination=' + destino
+        + '&travelmode=driving'
+        + (nome ? '&destination_place_name=' + nomeEnc : '')
+      );
+
       var intentUrl = 'intent://maps.google.com/maps?daddr=' + destino
         + '&directionsmode=driving'
         + (nome ? '&q=' + nomeEnc : '')
         + '#Intent;'
-        + 'scheme=https;'
+        + 'scheme=http;'
         + 'package=com.google.android.apps.maps;'
-        + 'S.browser_fallback_url=' + encodeURIComponent(
-            'https://www.google.com/maps/dir/?api=1'
-            + '&destination=' + destino
-            + '&travelmode=driving'
-            + (nome ? '&destination_place_name=' + nomeEnc : '')
-          )
+        + 'S.browser_fallback_url=' + fallbackUrl
         + ';end';
 
-      // intent:// precisa de window.location — window.open não funciona em WebView
       window.location.href = intentUrl;
 
     } else {
-      // Android Chrome / PWA standalone — window.open('_blank') abre o app Maps normalmente
+      // ── Android Chrome / PWA standalone: window.open abre o app Maps normalmente ──
       var mapsUrl = 'https://www.google.com/maps/dir/?api=1'
         + '&destination=' + destino
         + '&travelmode=driving'
