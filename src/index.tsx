@@ -4788,7 +4788,6 @@ async function enviar(){
 
 app.get('/app', (c) => {
   // Se abrindo via domínio antigo (pages.dev), redirecionar para rotaposto.com.br
-  // Isso faz o TWA reconhecer o assetlinks e esconder a barra do Chrome
   const host = c.req.header('host') || ''
   if (host.includes('pages.dev') || host.includes('gensparksite.com')) {
     const url = new URL(c.req.url)
@@ -4799,7 +4798,16 @@ app.get('/app', (c) => {
   const gKey = (c.env as any)?.GOOGLE_MAPS_JS_KEY as string
            || (c.env as any)?.GOOGLE_PLACES_KEY as string
            || GOOGLE_API_KEY || ''
-  return c.html(getAppHTML(firebaseScripts, gKey))
+  // Cache-Control: força revalidação sempre — PWA nunca serve versão antiga
+  const html = getAppHTML(firebaseScripts, gKey)
+  return new Response(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=UTF-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  })
 })
 
 
@@ -4847,9 +4855,9 @@ app.get('/reset', (c) => {
     localStorage.removeItem('rp_loc_ts');
     localStorage.removeItem('rp_geo_denied');
   } catch(e) { console.warn('reset error:', e); }
-  // 4. Redirecionar para o app após 2s
+  // 4. Redirecionar para o app com cache buster
   setTimeout(function() {
-    window.location.replace('/app');
+    window.location.replace('/app?v=' + Date.now());
   }, 2000);
 })();
 </script>
