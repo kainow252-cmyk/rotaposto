@@ -22198,7 +22198,7 @@ function irAtePosto() {
   if (!state.postoSelecionado) return;
   const p = state.postoSelecionado;
   document.getElementById('modal-overlay').classList.remove('visible');
-  _abrirGoogleMapsNativo(p.lat, p.lng, p.nome || '');
+  window.location.href = 'https://waze.com/ul?ll=' + p.lat + ',' + p.lng + '&navigate=yes';
 }
 
 function irAoMelhorPosto() {
@@ -22232,7 +22232,7 @@ async function calcularRotaPosto() {
 function abrirRotaOSM() {
   const p = state.postoSelecionado;
   if (!p || !p.lat || !p.lng) return;
-  _abrirGoogleMapsNativo(p.lat, p.lng, p.nome || '');
+  window.location.href = 'https://waze.com/ul?ll=' + p.lat + ',' + p.lng + '&navigate=yes';
 }
 
 // ═══ CALCULADORA ══════════════════════════════════════════════════════════════
