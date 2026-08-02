@@ -5043,7 +5043,6 @@ app.get('/ir', async (c) => {
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>Navegando — ${tituloSafe}</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.css"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;
@@ -5068,62 +5067,100 @@ html,body{width:100%;height:100%;overflow:hidden;
 #loading-msg{color:#fff;font-size:15px;font-weight:600}
 #loading-sub{color:rgba(255,255,255,.5);font-size:12px}
 
-/* ── Barra superior: instrução de manobra ── */
+/* ── Barra superior: instrução de manobra — Google Maps style ── */
 #instr-bar{
-  position:fixed;top:0;left:0;right:0;z-index:40;
-  background:#1b5e20;
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  background:#1565C0;
   padding-top:env(safe-area-inset-top,0px);
   display:none;flex-direction:column;
-  box-shadow:0 2px 12px rgba(0,0,0,.4);
+  box-shadow:0 4px 20px rgba(0,0,0,.45);
 }
 #instr-bar.show{display:flex}
-#instr-main{display:flex;align-items:stretch;min-height:68px}
-#instr-icon{
-  width:68px;min-width:68px;
-  background:#2e7d32;
-  display:flex;align-items:center;justify-content:center;
-  font-size:32px;
+#instr-main{
+  display:flex;align-items:center;
+  min-height:72px;
+  padding:10px 16px 10px 12px;
+  gap:14px;
 }
-#instr-right{flex:1;padding:10px 14px;display:flex;flex-direction:column;justify-content:center}
-#instr-dist{font-size:12px;font-weight:800;color:#a5d6a7;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
-#instr-txt{font-size:16px;font-weight:700;color:#fff;line-height:1.2}
+/* Caixa da seta de manobra */
+#instr-icon-box{
+  width:56px;min-width:56px;height:56px;
+  background:rgba(255,255,255,.12);
+  border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+#instr-icon-svg{display:block}
+#instr-right{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+/* Distância até a manobra — número grande */
+#instr-dist{
+  font-size:13px;font-weight:800;
+  color:rgba(255,255,255,.75);
+  text-transform:uppercase;letter-spacing:.6px;
+  line-height:1;
+}
+/* Instrução principal */
+#instr-txt{
+  font-size:17px;font-weight:700;color:#fff;
+  line-height:1.25;
+  white-space:normal;
+}
+/* Rua atual em que o usuário está */
 #instr-rua{
   display:none;align-items:center;gap:6px;
-  padding:4px 14px 5px;
-  background:#1565C0;
-  border-top:1px solid rgba(255,255,255,.08);
+  padding:5px 16px 6px;
+  background:rgba(0,0,0,.18);
+  border-top:1px solid rgba(255,255,255,.10);
 }
 #instr-rua.show{display:flex}
-#rua-icone{font-size:12px;opacity:.7}
-#rua-txt{font-size:12px;font-weight:700;color:rgba(255,255,255,.92);flex:1;
+#rua-icone{font-size:11px;opacity:.65;flex-shrink:0}
+#rua-txt{
+  font-size:13px;font-weight:600;color:rgba(255,255,255,.88);flex:1;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  letter-spacing:.2px}
+}
+/* Próxima manobra */
 #instr-prox{
   display:none;align-items:center;gap:8px;
-  padding:5px 14px 7px;
-  border-top:1px solid rgba(255,255,255,.1);
-  background:#1b5e20;
+  padding:5px 16px 7px;
+  border-top:1px solid rgba(255,255,255,.08);
+  background:rgba(0,0,0,.12);
 }
 #instr-prox.show{display:flex}
-#prox-icone{font-size:14px}
-#prox-txt{font-size:12px;color:rgba(255,255,255,.8);flex:1;
+#prox-icone{font-size:13px;opacity:.8}
+#prox-label{font-size:11px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.4px;flex-shrink:0}
+#prox-txt{font-size:12px;font-weight:600;color:rgba(255,255,255,.85);flex:1;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── Bússola (botão para norte) — canto superior direito ── */
+#btn-compass{
+  position:fixed;right:14px;z-index:50;
+  width:44px;height:44px;
+  background:#fff;border-radius:50%;
+  border:none;
+  box-shadow:0 2px 10px rgba(0,0,0,.25);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:opacity .2s;
+  -webkit-tap-highlight-color:transparent;
+}
+#btn-compass.hidden{display:none}
+#btn-compass:active{opacity:.7}
 
 /* ── Painel inferior ── */
 #painel{
   position:fixed;bottom:0;left:0;right:0;z-index:40;
   background:#fff;
-  border-radius:18px 18px 0 0;
-  box-shadow:0 -4px 20px rgba(0,0,0,.15);
+  border-radius:20px 20px 0 0;
+  box-shadow:0 -4px 24px rgba(0,0,0,.18);
   padding-bottom:env(safe-area-inset-bottom,0px);
 }
-#painel-handle{width:36px;height:4px;border-radius:2px;background:#e0e0e0;margin:10px auto 0}
+#painel-handle{width:40px;height:4px;border-radius:2px;background:#e0e0e0;margin:10px auto 0}
 #eta-row{
   display:flex;align-items:center;justify-content:space-between;
-  padding:10px 16px 6px;
+  padding:10px 18px 6px;
 }
-#eta-tempo{font-size:26px;font-weight:800;color:#1a1f2e}
-#eta-dist{font-size:15px;font-weight:700;color:#555;margin-left:8px}
+#eta-tempo{font-size:28px;font-weight:900;color:#1a1f2e;letter-spacing:-.5px}
+#eta-dist{font-size:15px;font-weight:700;color:#555;margin-left:10px}
 #eta-hora{font-size:14px;color:#888}
 #posto-row{
   display:flex;align-items:center;gap:10px;
@@ -5194,22 +5231,40 @@ html,body{width:100%;height:100%;overflow:hidden;
 <!-- Barra de instrução -->
 <div id="instr-bar">
   <div id="instr-main">
-    <div id="instr-icon">⬆</div>
+    <!-- Caixa da seta SVG de manobra -->
+    <div id="instr-icon-box">
+      <svg id="instr-icon-svg" width="36" height="36" viewBox="0 0 36 36" fill="none">
+        <!-- Seta padrão: reto (será substituída por JS) -->
+        <path id="instr-icon-path" d="M18 30 L18 8 M12 14 L18 8 L24 14" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
     <div id="instr-right">
       <div id="instr-dist"></div>
       <div id="instr-txt">Calculando…</div>
     </div>
   </div>
-  <!-- Rua atual onde o usuário está -->
+  <!-- Rua atual -->
   <div id="instr-rua">
-    <span id="rua-icone">📍</span>
+    <svg id="rua-icone" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
     <span id="rua-txt"></span>
   </div>
   <div id="instr-prox">
-    <span id="prox-icone">↪</span>
+    <svg id="prox-icone" width="14" height="14" viewBox="0 0 36 36" fill="none">
+      <path id="prox-icon-path" d="M18 30 L18 8 M12 14 L18 8 L24 14" stroke="rgba(255,255,255,.7)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span id="prox-label">depois</span>
     <span id="prox-txt"></span>
   </div>
 </div>
+
+<!-- Bússola — volta o mapa para norte -->
+<button id="btn-compass" class="hidden" onclick="_voltarNorte()" title="Apontar para norte">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <polygon points="12,3 15,10 12,9 9,10" fill="#E53935"/>
+    <polygon points="12,21 15,14 12,15 9,14" fill="#BDBDBD"/>
+    <circle cx="12" cy="12" r="1.5" fill="#444"/>
+  </svg>
+</button>
 
 <!-- Painel inferior -->
 <div id="painel">
@@ -5245,7 +5300,6 @@ html,body{width:100%;height:100%;overflow:hidden;
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
 //  RotaPosto /ir — Navegação profissional estilo Google Maps
@@ -5373,32 +5427,73 @@ function _distPolyline(lat,lng){
 }
 
 // ── Ícones ───────────────────────────────────────────────────────
+// Cone azul estilo Google Maps — sempre aponta para cima
+// O mapa é que gira via CSS, não o cone
 function _iconUser(heading){
-  // Seta com heading (rotação real do GPS) ou ponto azul
-  if(heading!=null){
-    return L.divIcon({className:'',
-      html:'<div style="width:0;height:0;position:relative;left:-14px;top:-14px">'
-        +'<div style="width:28px;height:28px;background:#1a73e8;border-radius:50%;'
-        +'border:3px solid #fff;box-shadow:0 2px 8px rgba(26,115,232,.7);'
-        +'display:flex;align-items:center;justify-content:center;'
-        +'transform:rotate('+heading+'deg)">'
-        +'<svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><polygon points="12,2 20,20 12,15 4,20"/></svg>'
-        +'</div></div>',
-      iconSize:[28,28],iconAnchor:[14,14]});
-  }
-  return L.divIcon({className:'',
-    html:'<div style="width:22px;height:22px;background:#1a73e8;border-radius:50%;'
-      +'border:3px solid #fff;box-shadow:0 2px 8px rgba(26,115,232,.7)"></div>',
-    iconSize:[22,22],iconAnchor:[11,11]});
+  var html =
+    '<div style="position:relative;width:52px;height:52px;left:-26px;top:-26px">'+
+    // Halo de acurácia GPS
+    '<div style="position:absolute;inset:0;border-radius:50%;'+
+    'background:rgba(26,115,232,.13);border:1.5px solid rgba(26,115,232,.28)"></div>'+
+    // Cone de navegação — aponta pra cima (mapa gira, não o cone)
+    '<svg style="position:absolute;left:10px;top:4px" width="32" height="34" viewBox="0 0 32 34" fill="none">'+
+    '<path d="M16 2 L30 32 L16 26 L2 32 Z" fill="#1a73e8" stroke="white" stroke-width="2.5" stroke-linejoin="round"/>'+
+    '<path d="M16 2 L30 32 L16 26 Z" fill="#0d52b5" opacity=".6"/>'+
+    '</svg>'+
+    '</div>';
+  return L.divIcon({className:'', html:html, iconSize:[52,52], iconAnchor:[26,26]});
 }
 function _iconDest(){
-  return L.divIcon({className:'',
-    html:'<div style="width:36px;height:36px;background:#d93025;border-radius:50% 50% 50% 0;'
-      +'transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.4)"></div>',
-    iconSize:[36,36],iconAnchor:[18,36]});
+  var html =
+    '<div style="position:relative;width:44px;height:54px;left:-22px;top:-50px">'+
+    // Sombra do pin
+    '<div style="position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);'+
+    'width:16px;height:6px;border-radius:50%;background:rgba(0,0,0,.25)"></div>'+
+    // Pin vermelho
+    '<svg width="44" height="54" viewBox="0 0 44 54" fill="none">'+
+    '<path d="M22 2C12.06 2 4 10.06 4 20C4 33 22 52 22 52C22 52 40 33 40 20C40 10.06 31.94 2 22 2Z" '+
+    'fill="#d93025" stroke="white" stroke-width="2.5"/>'+
+    '<circle cx="22" cy="20" r="7" fill="white"/>'+
+    '</svg>'+
+    '</div>';
+  return L.divIcon({className:'', html:html, iconSize:[44,54], iconAnchor:[22,52]});
 }
 
-// ── Seta e texto de manobra ──────────────────────────────────────
+// ── SVG paths de manobra (estilo Waze/Google Maps) ───────────────
+// Retorna objeto {path, rotate} para construir SVG dinâmico
+var _MANOBRA_SVGS = {
+  // Reto
+  'straight': 'M18 30 L18 6 M12 12 L18 6 L24 12',
+  // Virar à direita
+  'right':    'M10 28 L10 16 Q10 8 20 8 M14 4 L20 8 L16 14',
+  // Virar à esquerda
+  'left':     'M26 28 L26 16 Q26 8 16 8 M22 4 L16 8 L20 14',
+  // Levemente à direita
+  'slight right': 'M13 30 L13 18 Q13 8 22 8 M18 5 L22 8 L18 13',
+  // Levemente à esquerda
+  'slight left':  'M23 30 L23 18 Q23 8 14 8 M18 5 L14 8 L18 13',
+  // Retorno (U-turn)
+  'uturn': 'M14 28 L14 16 Q14 8 22 8 Q28 8 28 14 Q28 20 22 20 L14 20 M10 24 L14 28 L18 24',
+  // Rotatória
+  'roundabout': 'M18 22 A6 6 0 1 1 18 10 M21 8 L18 10 L16 7',
+  // Chegada
+  'arrive': 'M18 6 L18 24 M12 20 L18 26 L24 20',
+  // Merge / rampa
+  'merge': 'M18 30 L18 10 M12 10 L18 4 L24 10',
+};
+function _setaSvgPath(tipo, mod){
+  var t=(tipo||'').toLowerCase(), m=(mod||'').toLowerCase();
+  if(t==='arrive') return _MANOBRA_SVGS['arrive'];
+  if(t.includes('roundabout')||t.includes('rotary')) return _MANOBRA_SVGS['roundabout'];
+  if(m==='sharp right'||m==='right') return _MANOBRA_SVGS['right'];
+  if(m==='sharp left' ||m==='left')  return _MANOBRA_SVGS['left'];
+  if(m==='slight right')             return _MANOBRA_SVGS['slight right'];
+  if(m==='slight left')              return _MANOBRA_SVGS['slight left'];
+  if(m==='uturn')                    return _MANOBRA_SVGS['uturn'];
+  if(t==='merge'||t==='on ramp'||t==='off ramp') return _MANOBRA_SVGS['merge'];
+  return _MANOBRA_SVGS['straight'];
+}
+// Mantém _seta() para uso interno (voz antecipada etc.)
 function _seta(tipo, mod){
   var t=(tipo||'').toLowerCase(), m=(mod||'').toLowerCase();
   if(t==='arrive') return '🏁';
@@ -5481,8 +5576,7 @@ function _initMapa(){
   var cLat=_DLAT?parseFloat(_DLAT):-20.3155;
   var cLng=_DLNG?parseFloat(_DLNG):-40.3128;
 
-  _map=L.map('map',{center:[cLat,cLng],zoom:15,zoomControl:false,attributionControl:true,
-    rotate:true, bearing:0, touchRotate:false});
+  _map=L.map('map',{center:[cLat,cLng],zoom:15,zoomControl:false,attributionControl:true});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:19,attribution:'© OpenStreetMap'
   }).addTo(_map);
@@ -5643,31 +5737,42 @@ function _mostrarErro(msg,det){
 //  Voz em 3 níveis + GPS real com heading + recalculo automático
 // ══════════════════════════════════════════════════════════════════
 
+// ── Aplicar SVG de manobra ao elemento ───────────────────────────
+function _aplicarSvgManobra(pathElId, tipo, mod, size, color){
+  var el = document.getElementById(pathElId);
+  if(!el) return;
+  el.setAttribute('d', _setaSvgPath(tipo, mod));
+  el.setAttribute('stroke', color || '#fff');
+  el.setAttribute('stroke-width', size==='sm' ? '3' : '3.5');
+}
+
 // ── Mostrar instrução atual no painel ────────────────────────────
 function _mostrarPasso(idx){
   if(!_passos||idx>=_passos.length) return;
   var p = _passos[idx];
-  document.getElementById('instr-icon').textContent = _seta(p.tipo, p.mod);
+
+  // SVG de manobra principal
+  _aplicarSvgManobra('instr-icon-path', p.tipo, p.mod, 'lg', '#fff');
+
   document.getElementById('instr-txt').textContent  = p.texto;
   document.getElementById('instr-dist').textContent = p.dist>0 ? _fmtD(p.dist) : '';
   document.getElementById('instr-bar').classList.add('show');
 
-  // ── Rua atual (onde o usuário está percorrendo agora) ─────────
-  var ruaEl = document.getElementById('instr-rua');
-  var ruaTxt = document.getElementById('rua-txt');
+  // ── Rua atual onde o usuário está ────────────────────────────
   var rua = p.rua || '';
+  var ruaEl = document.getElementById('instr-rua');
   if(rua){
-    ruaTxt.textContent = rua;
+    document.getElementById('rua-txt').textContent = rua;
     ruaEl.classList.add('show');
   } else {
     ruaEl.classList.remove('show');
   }
 
-  // Próxima manobra
+  // ── Próxima manobra ──────────────────────────────────────────
   if(idx+1 < _passos.length){
     var q = _passos[idx+1];
-    document.getElementById('prox-icone').textContent = _seta(q.tipo, q.mod);
-    document.getElementById('prox-txt').textContent   = q.texto;
+    _aplicarSvgManobra('prox-icon-path', q.tipo, q.mod, 'sm', 'rgba(255,255,255,.75)');
+    document.getElementById('prox-txt').textContent = q.texto;
     document.getElementById('instr-prox').classList.add('show');
   } else {
     document.getElementById('instr-prox').classList.remove('show');
@@ -5716,11 +5821,10 @@ function _onGpsUpdate(pos){
 
   // ── Centraliza mapa + rotaciona pelo heading GPS ──────────────
   if(_navegando){
-    if(_curHeading !== null && !isNaN(_curHeading)){
-      // setBearing rotaciona o mapa — norte fica na direção do movimento
-      _map.setBearing(_curHeading);
-    }
     _map.setView([lat,lng], 17, {animate:true, duration:0.5, noMoveStart:true});
+    if(_curHeading !== null && !isNaN(_curHeading)){
+      _rotacionarMapa(_curHeading);
+    }
   }
 
   // ── Detecção de desvio de rota (snap-to-road) ─────────────────
@@ -5786,7 +5890,7 @@ function _onGpsUpdate(pos){
 
 // ── Chegada ao destino ───────────────────────────────────────────
 function _chegou(){
-  document.getElementById('instr-icon').textContent = '🏁';
+  _aplicarSvgManobra('instr-icon-path','arrive','','lg','#fff');
   document.getElementById('instr-txt').textContent  = 'Você chegou ao destino!';
   document.getElementById('instr-dist').textContent = '';
   document.getElementById('instr-prox').classList.remove('show');
@@ -5857,6 +5961,78 @@ function _trafAtualizarIndicador(d){
   el.textContent = emoji + ' ' + d.label;
   el.style.color   = d.color || '#555';
   el.style.display = 'inline-block';
+}
+
+// ── Rotação do mapa via CSS transform — técnica correta ──────────
+//
+// Como funciona (igual ao Google Maps / Waze mobile):
+//   1. O container #map gira pelo NEGATIVO do heading → tiles apontam na direção do movimento
+//   2. O pane de tiles (.leaflet-tile-pane) gira → estradas ficam "pra frente"
+//   3. Os markers (.leaflet-marker-pane, .leaflet-shadow-pane) CONTRARO​TAM
+//      para ficarem sempre alinhados com a tela (não giram com o mapa)
+//   4. O cone do usuário aponta sempre para cima na tela (destino fica na frente)
+//
+var _mapBearing = 0;
+function _rotacionarMapa(heading){
+  heading = ((heading % 360) + 360) % 360; // normaliza 0–360
+  _mapBearing = heading;
+
+  var mapEl = document.getElementById('map');
+  if(!mapEl) return;
+
+  if(heading === 0){
+    // Norte: remove todas as transforms
+    mapEl.style.transition = 'transform 0.5s ease-out';
+    mapEl.style.transform  = '';
+    mapEl.style.transformOrigin = '';
+    // Remove contra-rotação dos markers
+    ['leaflet-marker-pane','leaflet-shadow-pane','leaflet-overlay-pane'].forEach(function(cls){
+      var p = mapEl.querySelector('.'+cls);
+      if(p){ p.style.transition = 'transform 0.5s ease-out'; p.style.transform = ''; }
+    });
+  } else {
+    // Gira o mapa: heading 90° → gira -90° (leste fica no topo = "frente")
+    // scale(1.45) cobre os cantos pretos que aparecem durante a rotação
+    mapEl.style.transition = 'transform 0.4s ease-out';
+    mapEl.style.transform  = 'rotate(-'+heading+'deg) scale(1.45)';
+    mapEl.style.transformOrigin = 'center center';
+
+    // Contra-rotação dos markers: eles giram +heading para cancelar o giro do container
+    // Resultado: marcadores ficam alinhados com a tela, não giram com o mapa
+    ['leaflet-marker-pane','leaflet-shadow-pane','leaflet-overlay-pane'].forEach(function(cls){
+      var p = mapEl.querySelector('.'+cls);
+      if(p){
+        p.style.transition = 'transform 0.4s ease-out';
+        p.style.transform  = 'rotate('+heading+'deg)';
+        p.style.transformOrigin = 'center center';
+      }
+    });
+  }
+
+  // ── Bússola: aparece quando girado, indica o norte real ─────
+  var btn = document.getElementById('btn-compass');
+  if(btn){
+    var barEl = document.getElementById('instr-bar');
+    var barH  = barEl ? (barEl.offsetHeight || 130) : 130;
+    btn.style.top = (barH + 12) + 'px';
+    if(heading !== 0){
+      btn.classList.remove('hidden');
+      // A bússola gira para mostrar onde é o norte
+      var svgEl = btn.querySelector('svg');
+      if(svgEl) svgEl.style.transform = 'rotate('+heading+'deg)';
+    } else {
+      btn.classList.add('hidden');
+    }
+  }
+
+  // Invalidar tamanho para redesenhar tiles
+  setTimeout(function(){ if(_map) _map.invalidateSize({animate:false}); }, 60);
+}
+
+// ── Voltar ao norte (botão bússola) ──────────────────────────────
+function _voltarNorte(){
+  _curHeading = null;
+  _rotacionarMapa(0);
 }
 
 // ── Recalcular a partir de uma posição (auto-recalculo) ──────────
@@ -5941,7 +6117,7 @@ function _pararNav(){
   document.getElementById('instr-bar').classList.remove('show');
   if(window.speechSynthesis) window.speechSynthesis.cancel();
   // Resetar rotação para norte ao parar
-  _map.setBearing(0);
+  _rotacionarMapa(0);
   // Volta zoom para ver rota completa
   if(_rotaLayer) _map.fitBounds(_rotaLayer.getBounds(), {paddingTopLeft:[20,20], paddingBottomRight:[20,80]});
   _fitMap();
