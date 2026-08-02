@@ -5452,6 +5452,7 @@ html,body{width:100%;height:100%;overflow:hidden;
 // ═══════════════════════════════════════════════════════
 var _DLAT = '${DLAT}', _DLNG = '${DLNG}';
 var _OLAT = '${OLAT}', _OLNG = '${OLNG}';
+var _POSTO_NOME = '${NOME_JS}';   // nome do posto para marcador de destino
 
 var _map, _rotaLayer, _userArrow, _destMarker;
 var _passos = [], _passoIdx = 0;
@@ -5589,19 +5590,29 @@ function _iconUser(){
   return L.divIcon({className:'', html:html, iconSize:[52,52], iconAnchor:[26,26]});
 }
 function _iconDest(){
+  // Marcador de destino estilo Google Maps:
+  // bandeirinha + nome do posto em pill branco
+  var nome = (typeof _POSTO_NOME !== 'undefined' && _POSTO_NOME) ? _POSTO_NOME : 'Destino';
+  // Trunca nome longo
+  if(nome.length > 22) nome = nome.substring(0,20)+'…';
   var html =
-    '<div style="position:relative;width:44px;height:54px;left:-22px;top:-50px">'+
-    // Sombra do pin
-    '<div style="position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);'+
-    'width:16px;height:6px;border-radius:50%;background:rgba(0,0,0,.25)"></div>'+
-    // Pin vermelho
-    '<svg width="44" height="54" viewBox="0 0 44 54" fill="none">'+
-    '<path d="M22 2C12.06 2 4 10.06 4 20C4 33 22 52 22 52C22 52 40 33 40 20C40 10.06 31.94 2 22 2Z" '+
-    'fill="#d93025" stroke="white" stroke-width="2.5"/>'+
-    '<circle cx="22" cy="20" r="7" fill="white"/>'+
+    '<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none">'+
+    // Pill com nome
+    '<div style="background:#fff;border-radius:20px;padding:5px 10px 5px 8px;'+
+    'box-shadow:0 2px 8px rgba(0,0,0,.32);display:flex;align-items:center;gap:5px;'+
+    'font-family:sans-serif;font-size:12px;font-weight:700;color:#1a1f2e;white-space:nowrap">'+
+    // Bandeirinha vermelha (SVG inline)
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none">'+
+    '<path d="M4 4v17M4 4l10 4-10 4" stroke="#d93025" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'+
     '</svg>'+
+    nome+
+    '</div>'+
+    // Ponteiro triangular abaixo do pill
+    '<div style="width:0;height:0;border-left:6px solid transparent;'+
+    'border-right:6px solid transparent;border-top:8px solid #fff;'+
+    'margin-top:-1px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.15))"></div>'+
     '</div>';
-  return L.divIcon({className:'', html:html, iconSize:[44,54], iconAnchor:[22,52]});
+  return L.divIcon({className:'', html:html, iconSize:[1,1], iconAnchor:[0, 38]});
 }
 
 // ── SVG paths de manobra (estilo Waze/Google Maps) ───────────────
