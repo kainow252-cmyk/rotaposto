@@ -108,7 +108,7 @@ type Bindings = {
 
 // Versão do build — muda a cada deploy, força o browser a revalidar o HTML do /app
 // Formato: AAAAMMDD + letra sequencial
-const APP_BUILD = '20260802a'
+const APP_BUILD = '20260802b'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v18', build: '20260802a' })
+  return c.json({ version: 'v19', build: '20260802b' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6641,73 +6641,73 @@ window.addEventListener('load',   _initMapa);
 //  Service Worker — servido pelo Worker (evita cache Pages)
 // ══════════════════════════════════════════════════════
 app.get('/sw.js', (c) => {
-  const swCode = `// RotaPosto — Service Worker PWA v4.0
-// REGRA: O SW NUNCA intercepta páginas HTML — apenas assets estáticos (/icons/, /static/)
-// Motivo: páginas são server-side no Cloudflare Worker; interceptá-las causa crash no TWA
-const CACHE_NAME = 'rotaposto-v6';
-const STATIC_ASSETS = [
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  '/icons/icon-512x512-maskable.png'
-];
+  const swCode = `// RotaPosto — Service Worker PWA v5.0
+// NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
+// Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-// Só assets com extensão estática conhecida
-const STATIC_EXTS = ['.png','.jpg','.jpeg','.gif','.svg','.ico',
-                     '.woff','.woff2','.ttf','.otf',
-                     '.css','.js','.webp','.avif'];
+const CACHE_NAME = 'rotaposto-v7';
 
-function isStaticAsset(pathname) {
-  return STATIC_EXTS.some(ext => pathname.endsWith(ext)) ||
-         pathname.startsWith('/icons/') ||
-         pathname.startsWith('/static/');
-}
-
+// ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache =>
-      Promise.allSettled(
-        STATIC_ASSETS.map(url => cache.add(url).catch(() => {}))
-      )
-    )
-  );
+  // Não pré-cacheia nada — páginas são sempre buscadas do servidor (no-cache)
   self.skipWaiting();
 });
 
+// ── ACTIVATE: limpa TODOS os caches antigos e toma controle ──────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Avisa TODAS as abas abertas para recarregar com versão nova
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      })
+      .then(clients => {
+        clients.forEach(client => {
+          // Manda mensagem para o app recarregar
+          client.postMessage({ type: 'SW_UPDATED', version: 'v5.0' });
+        });
+      })
   );
 });
 
-// Fetch: interceptar APENAS assets estáticos — NUNCA páginas HTML
+// ── FETCH: NUNCA intercepta HTML — apenas assets estáticos ────────────────────
+// Regra crítica: /app, /ir, /posto/* etc. SEMPRE vão ao servidor
+// Só cacheia imagens e fontes estáticas
+const STATIC_EXTS = ['.png','.jpg','.jpeg','.gif','.svg','.ico',
+                     '.woff','.woff2','.ttf','.otf','.webp','.avif'];
+
+function isStaticAsset(pathname) {
+  return STATIC_EXTS.some(ext => pathname.endsWith(ext)) ||
+         pathname.startsWith('/icons/');
+}
+
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Outro domínio → ignorar
+  // Outro domínio → passar direto (CDN, Firebase, Google Maps, etc.)
   if (url.hostname !== self.location.hostname) return;
 
-  // API → ignorar
+  // API → sempre ao servidor
   if (url.pathname.startsWith('/api/')) return;
 
-  // Qualquer URL sem extensão estática = página HTML → NUNCA interceptar
+  // HTML e tudo mais que não seja asset estático → SEMPRE ao servidor (sem cache)
   if (!isStaticAsset(url.pathname)) return;
 
-  // Asset estático: cache-first
+  // Assets estáticos: cache-first com fallback de rede
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (response && response.ok && event.request.method === 'GET') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => new Response('', { status: 408, statusText: 'Offline' }));
-    })
+    caches.open(CACHE_NAME).then(cache =>
+      cache.match(event.request).then(cached => {
+        if (cached) return cached;
+        return fetch(event.request).then(response => {
+          if (response && response.ok && event.request.method === 'GET') {
+            cache.put(event.request, response.clone());
+          }
+          return response;
+        }).catch(() => new Response('', { status: 408 }));
+      })
+    )
   );
 });`
 
@@ -6715,6 +6715,7 @@ self.addEventListener('fetch', event => {
     headers: {
       'Content-Type': 'application/javascript; charset=utf-8',
       'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
       'Service-Worker-Allowed': '/'
     }
   })

@@ -23,7 +23,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
-  <meta name="build" content="20260802a"/>
+  <meta name="build" content="20260802b"/>
   <title>RotaPosto</title>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
@@ -6406,6 +6406,20 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js', { scope: '/' })
         .catch(function(err) { console.warn('SW registration failed:', err); });
+
+      // SW novo ativou e limpou caches → recarregar página para pegar JS fresco
+      navigator.serviceWorker.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'SW_UPDATED') {
+          console.log('[RotaPosto] SW atualizado para', event.data.version, '— recarregando...');
+          window.location.reload();
+        }
+      });
+
+      // Fallback: quando o controller muda (SW novo assumiu controle), recarregar
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        console.log('[RotaPosto] Novo SW assumiu controle — recarregando para JS fresco...');
+        window.location.reload();
+      });
     }
 
     // ── Verificação de sessão única ──────────────────────────────────────
