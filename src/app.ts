@@ -3001,6 +3001,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       _mapaLivre = true;
     });
 
+    // ── Pré-carregar cache de postos do localStorage imediatamente ──────────
+    // Mostra os últimos postos reais ANTES do GPS chegar — zero tela vazia / zero mockados
+    try {
+      var _pcache = JSON.parse(localStorage.getItem('rp_postos_cache') || 'null');
+      if (_pcache && _pcache.postos && _pcache.postos.length > 0) {
+        var _pcacheIdade = (Date.now() - (_pcache.ts || 0)) / 3600000;
+        if (_pcacheIdade < 24) {
+          postosData = _pcache.postos;
+          _pcache.postos.forEach(function(p) { p._doCacheLocal = true; });
+          addMapMarkers();
+          renderLista();
+          console.log('[Cache] Postos carregados do localStorage (' + postosData.length + ' postos, ' + _pcacheIdade.toFixed(1) + 'h atrás)');
+        }
+      }
+    } catch(e) {}
+
     // Carregar postos SOMENTE se tiver GPS real confirmado OU cache local válido.
     // Se _geoGPSConfirmado=false, o GPS ainda está vindo — _aplicarLocalizacao
     // vai chamar loadPostos() quando tiver a posição real, evitando SP falso.
@@ -3023,7 +3039,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         loadPostos(); // carrega postos da última cidade conhecida
         console.log('[GPS] Carregando postos da última posição salva enquanto aguarda GPS');
       }
-      // Se não tem última posição válida: mostra spinner/overlay até GPS chegar
+      // Se não tem última posição válida: cache local já foi mostrado acima
     }
   }
 
@@ -3049,6 +3065,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       if (data.postos && data.postos.length > 0) {
         postosData = data.postos;
         if (data.estatisticas?.semanaANP) semanaANP = data.estatisticas.semanaANP;
+        // ── Salvar últimos postos reais no localStorage (máx 30 postos, ~50KB) ──
+        try {
+          localStorage.setItem('rp_postos_cache', JSON.stringify({
+            postos: postosData.slice(0, 30),
+            lat: userLat,
+            lng: userLng,
+            fuel: selectedFuel,
+            ts: Date.now()
+          }));
+        } catch(e) {}
         addMapMarkers();
         // Enriquecer bandeiras via Google em background (não bloqueia UI)
         _enriquecerBandeirasBackground(postosData);
@@ -3056,8 +3082,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
         _calcularETAsReaisOSRM(postosData);
       }
     } catch(e) {
-      postosData = getDemoPostos();
-      addMapMarkers();
+      // Falha na API — não mostra mockados, não faz nada (mantém o que já tem)
+      console.warn('[loadPostos] falha na API', e);
     }
   }
 
@@ -4187,6 +4213,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function renderLista() {
     const container = document.getElementById('lista-postos');
     const empty = document.getElementById('lista-empty');
+    // Usar postosData reais ou fallback do cache local (nunca dados mockados)
     let postos = postosData.length > 0 ? [...postosData] : getDemoPostos();
 
     // ── Aplicar filtros ──────────────────────────────────────────────────────
@@ -4230,6 +4257,19 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     } else {
       var bi = document.getElementById('lista-filtros-info');
       if (bi) bi.remove();
+    }
+
+    // Banner de cache local: avisa que dados são da última sessão (aguardando GPS)
+    var temCache = postos.length > 0 && postos[0]._doCacheLocal;
+    var bannerCache = document.getElementById('lista-cache-banner');
+    if (temCache && !bannerCache) {
+      var bc = document.createElement('div');
+      bc.id = 'lista-cache-banner';
+      bc.style.cssText = 'margin:0 0 10px;padding:8px 14px;background:#F0F4FF;border-radius:10px;display:flex;align-items:center;gap:8px;font-size:12px;color:#555;';
+      bc.innerHTML = '🕐 Última atualização · Aguardando localização GPS…';
+      container.parentElement?.insertBefore(bc, container);
+    } else if (!temCache && bannerCache) {
+      bannerCache.remove();
     }
 
     if (postos.length === 0) {
@@ -4672,14 +4712,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     return { emoji:'⛽', bg:'#607D8B', border:'#90A4AE', cor:'#607D8B', corTxt:'#fff', sigla:'IND', bandNome:'Independente' };
   }
 
+  // Retorna últimos postos reais salvos no localStorage (máx 24h)
+  // Substitui os dados mockados — nunca mais Shell/Ipiranga/BR fake
   function getDemoPostos() {
-    return [
-      { id:'1', nome:'Posto Shell', bandeira:'Shell', endereco:'Av. Rebouças, 1234', bairro:'Pinheiros', cidade:'São Paulo', estado:'SP', lat:-23.5538, lng:-46.6662, preco:5.67, distancia:1.2, precos:{ gasolina:5.67, etanol:3.89, diesel:6.19, dieselS10:6.19, gnv:4.49 } },
-      { id:'2', nome:'Posto Ipiranga', bandeira:'Ipiranga', endereco:'Av. Paulista, 900', bairro:'Bela Vista', cidade:'São Paulo', estado:'SP', lat:-23.5615, lng:-46.6542, preco:5.74, distancia:1.4, precos:{ gasolina:5.74, etanol:3.95, diesel:6.25 } },
-      { id:'3', nome:'Posto BR Petrobras', bandeira:'BR', endereco:'Rua Augusta, 2100', bairro:'Consolação', cidade:'São Paulo', estado:'SP', lat:-23.5580, lng:-46.6610, preco:5.79, distancia:1.6, precos:{ gasolina:5.79, etanol:4.01 } },
-      { id:'4', nome:'Posto Ale', bandeira:'Ale', endereco:'Al. Santos, 1500', bairro:'Jardins', cidade:'São Paulo', estado:'SP', lat:-23.5640, lng:-46.6490, preco:5.89, distancia:2.1, precos:{ gasolina:5.89, etanol:4.05 } },
-      { id:'5', nome:'Posto Raizen', bandeira:'Raizen', endereco:'Rua Oscar Freire, 800', bairro:'Cerqueira César', cidade:'São Paulo', estado:'SP', lat:-23.5610, lng:-46.6680, preco:5.92, distancia:2.3, precos:{ gasolina:5.92, etanol:4.10 } },
-    ];
+    try {
+      var cached = JSON.parse(localStorage.getItem('rp_postos_cache') || 'null');
+      if (cached && cached.postos && cached.postos.length > 0) {
+        var idadeH = (Date.now() - (cached.ts || 0)) / 3600000;
+        if (idadeH < 24) {
+          // Marcar visualmente que são dados do cache (não ao vivo)
+          cached.postos.forEach(function(p) { p._doCacheLocal = true; });
+          return cached.postos;
+        }
+      }
+    } catch(e) {}
+    // Sem cache válido → lista vazia (não mostra postos fake)
+    return [];
   }
 
   function selectFuel(fuel, btn) {
