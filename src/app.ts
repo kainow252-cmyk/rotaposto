@@ -4753,156 +4753,32 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     document.getElementById('month-label').textContent = MONTHS_FULL[currentMonthIdx] + ' 2024';
   }
 
-  // Abre navegação no Google Maps — Round 6 (server-side redirect)
-  // ─────────────────────────────────────────────────────────────────────────
-  // HISTÓRICO DE FALHAS (todas as abordagens client-side bloqueadas pelo TWA):
-  //   R1: geo:LAT,LNG                     → ERR_UNKNOWN_URL_SCHEME
-  //   R2: window.open(maps.google.com, '_blank', 'noopener') → intent:// → bloqueado
-  //   R3: <a target="_blank">.click()     → App Links → intent:// → bloqueado
-  //   R4: window.location.href = 'intent://navigation/now#Intent;...' → ERR_UNKNOWN_URL_SCHEME
-  //   R5: window.open(maps.google.com, '_blank') sem features → Custom Tab, mas
-  //       TWA intercepts window.open para domínios externos → intent:// → bloqueado
-  //
-  // SOLUÇÃO R6: Redirect HTTP 302 server-side via endpoint /ir
-  //   1. JS navega para '/ir?lat=X&lng=Y' (URL PRÓPRIO domínio — TWA aceita)
-  //   2. Servidor retorna 302 → https://maps.google.com/maps?daddr=X,Y
-  //   3. TWA segue redirect → Android resolve App Link via PackageManager
-  //   4. Google Maps app abre nativamente sem passar pelo Chrome/WebView
-  // ─────────────────────────────────────────────────────────────────────────
-  function _abrirNavegacaoExterna(lat, lng, nome) {
-    var temCoords = lat && lng && lat !== 0 && lng !== 0;
-
-    // ── "Como Chegar" → /maps (página intermediária) → Google Maps nativo ──
-    // TWA bloqueia window.location programático para google.com/maps (intent://).
-    // A ÚNICA forma que funciona: usuário toca manualmente um <a href> na tela.
-    // /maps serve uma página com botão grande — usuário toca → Maps abre nativamente.
+  // ── Monta params e navega para /ir (navegação interna Leaflet + OSRM) ──
+  function _irParaNavegacaoInterna(posto) {
+    if (!posto) { showToast('Selecione um posto primeiro'); return; }
+    var lat = posto.lat, lng = posto.lng;
     var params = new URLSearchParams();
-    params.set('app', 'google');
-    if (temCoords) {
-      params.set('lat', String(lat));
-      params.set('lng', String(lng));
-    }
-    if (nome) params.set('nome', encodeURIComponent(nome));
-    if (userLat && userLng) {
-      params.set('olat', String(userLat));
-      params.set('olng', String(userLng));
-    }
-    window.location.href = '/maps?' + params.toString();
-  }
-
-  // Fallback: exibe modal com link copiável quando window.open é bloqueado
-  function _mostrarFallbackMaps(lat, lng, nome, mapsUrl) {
-    // Remover modal anterior se existir
-    var existing = document.getElementById('fallback-maps-modal');
-    if (existing) existing.parentNode.removeChild(existing);
-
-    var modal = document.createElement('div');
-    modal.id = 'fallback-maps-modal';
-    modal.style.cssText = [
-      'position:fixed', 'top:0', 'left:0', 'width:100%', 'height:100%',
-      'background:rgba(0,0,0,0.6)', 'z-index:99999',
-      'display:flex', 'align-items:center', 'justify-content:center',
-      'padding:16px'
-    ].join(';');
-
-    var box = document.createElement('div');
-    box.style.cssText = [
-      'background:#fff', 'border-radius:16px', 'padding:24px',
-      'max-width:360px', 'width:100%', 'box-shadow:0 8px 32px rgba(0,0,0,0.3)'
-    ].join(';');
-
-    var titulo = document.createElement('h3');
-    titulo.style.cssText = 'margin:0 0 8px;color:#FF6D00;font-size:18px;font-weight:700;';
-    titulo.textContent = '🗺️ Abrir no Google Maps';
-
-    var sub = document.createElement('p');
-    sub.style.cssText = 'margin:0 0 16px;color:#555;font-size:14px;line-height:1.4;';
-    sub.textContent = 'Toque no link abaixo para abrir o Google Maps:';
-
-    var link = document.createElement('a');
-    link.href = mapsUrl;
-    link.target = '_blank';
-    link.rel = 'noopener';
-    link.style.cssText = [
-      'display:block', 'background:#FF6D00', 'color:#fff',
-      'text-align:center', 'padding:14px 16px', 'border-radius:10px',
-      'font-size:15px', 'font-weight:600', 'text-decoration:none',
-      'margin-bottom:12px'
-    ].join(';');
-    link.textContent = '📍 Abrir Rota no Maps';
-    link.onclick = function() {
-      modal.parentNode && modal.parentNode.removeChild(modal);
-    };
-
-    var btnCopiar = document.createElement('button');
-    btnCopiar.style.cssText = [
-      'display:block', 'width:100%', 'background:#f5f5f5', 'color:#333',
-      'border:1px solid #ddd', 'padding:12px 16px', 'border-radius:10px',
-      'font-size:14px', 'cursor:pointer', 'margin-bottom:12px'
-    ].join(';');
-    btnCopiar.textContent = '📋 Copiar link';
-    btnCopiar.onclick = function() {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(mapsUrl).then(function() {
-          btnCopiar.textContent = '✅ Link copiado!';
-          setTimeout(function() { btnCopiar.textContent = '📋 Copiar link'; }, 2000);
-        });
-      } else {
-        var ta = document.createElement('textarea');
-        ta.value = mapsUrl;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        btnCopiar.textContent = '✅ Link copiado!';
-        setTimeout(function() { btnCopiar.textContent = '📋 Copiar link'; }, 2000);
-      }
-    };
-
-    var btnFechar = document.createElement('button');
-    btnFechar.style.cssText = [
-      'display:block', 'width:100%', 'background:transparent', 'color:#999',
-      'border:none', 'padding:8px', 'font-size:13px', 'cursor:pointer'
-    ].join(';');
-    btnFechar.textContent = 'Fechar';
-    btnFechar.onclick = function() {
-      modal.parentNode && modal.parentNode.removeChild(modal);
-    };
-
-    box.appendChild(titulo);
-    box.appendChild(sub);
-    box.appendChild(link);
-    box.appendChild(btnCopiar);
-    box.appendChild(btnFechar);
-    modal.appendChild(box);
-    document.body.appendChild(modal);
-
-    // Fechar ao clicar fora da caixa
-    modal.onclick = function(e) {
-      if (e.target === modal) modal.parentNode && modal.parentNode.removeChild(modal);
-    };
+    if (lat && lng) { params.set('lat', String(lat)); params.set('lng', String(lng)); }
+    if (posto.nome)     params.set('nome', posto.nome);
+    if (posto.bandeira) params.set('bandeira', posto.bandeira);
+    if (posto.placeId)  params.set('placeId',  posto.placeId);
+    if (posto.foto)     params.set('foto', posto.foto);
+    if (userLat && userLng) { params.set('olat', String(userLat)); params.set('olng', String(userLng)); }
+    window.location.href = '/ir?' + params.toString();
   }
 
   function irAteLa() {
     if (!selectedPosto) { showToast('Selecione um posto primeiro'); return; }
-    // "Como Chegar" → /maps → Google Maps nativo (usuário toca botão grande)
-    _abrirNavegacaoExterna(selectedPosto.lat, selectedPosto.lng, selectedPosto.nome);
+    // "Como Chegar" → /ir (navegação interna Leaflet + OSRM VPS)
+    _irParaNavegacaoInterna(selectedPosto);
   }
 
   function openMaps() { irAteLa(); }
 
-  // "Planejar rota" no card de detalhes → /ir (mapa embutido + custo estimado)
+  // "Planejar rota" no card de detalhes → /ir (mesmo fluxo)
   function _abrirPlanejadorInterno() {
     if (!selectedPosto) { showToast('Selecione um posto primeiro'); return; }
-    var lat = selectedPosto.lat, lng = selectedPosto.lng;
-    var nome = selectedPosto.nome || '';
-    var params = new URLSearchParams();
-    if (lat && lng) { params.set('lat', String(lat)); params.set('lng', String(lng)); }
-    if (nome)       params.set('nome', nome);
-    if (selectedPosto.bandeira) params.set('bandeira', selectedPosto.bandeira);
-    if (selectedPosto.placeId)  params.set('placeId',  selectedPosto.placeId);
-    if (userLat && userLng)     { params.set('olat', String(userLat)); params.set('olng', String(userLng)); }
-    window.location.href = '/ir?' + params.toString();
+    _irParaNavegacaoInterna(selectedPosto);
   }
 
   function shareStation() {

@@ -4764,194 +4764,27 @@ app.get('/manifest.json', (c) => {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════
-//  /maps — proxy de redirect server-side para apps de navegação externos
-//
-//  PROBLEMA RAIZ: Android TWA/WebView intercepta QUALQUER URL google.com/maps
-//  ou waze.com no nível do OS e converte para intent:// → ERR_UNKNOWN_URL_SCHEME.
-//  Isso acontece independentemente de window.location.href, <a>, window.open, etc.
-//
-//  SOLUÇÃO: o servidor emite HTTP 302 para a URL do app externo.
-//  O redirect HTTP 302 é processado pelo sistema Android FORA do WebView —
-//  o PackageManager do Android resolve o App Link e abre o app nativo diretamente,
-//  sem passar pelo WebView e sem gerar intent://.
-//
-//  Parâmetros:
-//    app  = 'google' | 'waze' | 'apple'
-//    lat  = latitude destino
-//    lng  = longitude destino
-//    olat = latitude origem (opcional)
-//    olng = longitude origem (opcional)
+//  /maps — redirect para /ir (navegação interna)
+//  Mantido para compatibilidade com links antigos / notificações / bookmarks
 // ══════════════════════════════════════════════════════════════════════════════
 app.get('/maps', (c) => {
-  const appParam = c.req.query('app')  || 'google'
-  const lat      = c.req.query('lat')  || ''
-  const lng      = c.req.query('lng')  || ''
-  const olat     = c.req.query('olat') || ''
-  const olng     = c.req.query('olng') || ''
-  const nomeRaw  = c.req.query('nome') || ''
-  const nome     = nomeRaw ? decodeURIComponent(nomeRaw) : ''
+  const lat  = c.req.query('lat')  || ''
+  const lng  = c.req.query('lng')  || ''
+  const olat = c.req.query('olat') || ''
+  const olng = c.req.query('olng') || ''
+  const nome = c.req.query('nome') || ''
+  const bandeira = c.req.query('bandeira') || ''
 
-  if (!lat || !lng) {
-    return c.text('Coordenadas ausentes', 400)
-  }
+  if (!lat || !lng) return c.text('Coordenadas ausentes', 400)
 
-  // ── Monta URLs para cada app ──────────────────────────────────────────────
-  // dir_action=navigate → abre Maps diretamente em modo navegação (sem tela de confirmação extra)
-  let googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving&dir_action=navigate`
-  if (olat && olng) googleUrl += `&origin=${olat},${olng}`
+  // Redireciona para navegação interna mantendo todos os params
+  const p = new URLSearchParams({ lat, lng })
+  if (olat) p.set('olat', olat)
+  if (olng) p.set('olng', olng)
+  if (nome) p.set('nome', nome)
+  if (bandeira) p.set('bandeira', bandeira)
 
-  // Waze: ll=lat,lng&navigate=yes abre direto na navegação
-  const wazeUrl = `https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes&zoom=17`
-
-  // ── SOLUÇÃO DEFINITIVA PARA TWA/WebView Android ───────────────────────────
-  // O Android intercepta QUALQUER navegação programática para google.com/maps
-  // (window.location, 302 redirect, window.open, <a>.click()) e converte para
-  // intent:// → ERR_UNKNOWN_URL_SCHEME.
-  //
-  // A ÚNICA exceção confirmada: toque MANUAL do usuário num <a href> visível.
-  // Comprovado pela screenshot do usuário (Google Maps abriu com "Confirme o local de partida").
-  //
-  // Não existe auto-clique — o Android detecta e bloqueia gestos sintéticos.
-  // Solução: página limpa, 1 botão grande, instrução clara → usuário toca → Maps abre.
-  // ─────────────────────────────────────────────────────────────────────────
-  const destinoLabel = nome || `${lat}, ${lng}`
-
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>Navegar até ${destinoLabel}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{
-  min-height:100%;
-  background:#0d1117;
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
-}
-.wrap{
-  padding:28px 24px;
-  max-width:380px;width:100%;
-  text-align:center;
-}
-
-/* Header RotaPosto */
-.brand{
-  display:flex;align-items:center;justify-content:center;gap:8px;
-  margin-bottom:28px;
-}
-.brand-dot{
-  width:10px;height:10px;border-radius:50%;
-  background:#f97316;
-  box-shadow:0 0 8px #f97316aa;
-}
-.brand-txt{font-size:13px;font-weight:700;color:#f97316;letter-spacing:0.5px}
-
-/* Destino */
-.dest-card{
-  background:#161b22;
-  border:1.5px solid #30363d;
-  border-radius:16px;
-  padding:16px 20px;
-  margin-bottom:28px;
-  text-align:left;
-}
-.dest-label{font-size:11px;font-weight:600;color:#6e7681;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px}
-.dest-nome{font-size:16px;font-weight:700;color:#e6edf3;line-height:1.3}
-.dest-coords{font-size:12px;color:#6e7681;margin-top:2px}
-
-/* Botão principal Google Maps */
-.btn-gmaps{
-  display:flex;align-items:center;justify-content:center;gap:12px;
-  width:100%;padding:18px 20px;
-  background:#1a73e8;color:#fff;
-  border-radius:16px;
-  font-size:17px;font-weight:800;
-  text-decoration:none;
-  box-shadow:0 4px 24px #1a73e840;
-  margin-bottom:12px;
-  -webkit-tap-highlight-color:transparent;
-  transition:transform 0.1s,opacity 0.1s;
-  letter-spacing:0.2px;
-}
-.btn-gmaps:active{opacity:0.88;transform:scale(0.985)}
-.btn-gmaps svg{flex-shrink:0}
-
-/* Botão Waze */
-.btn-waze{
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  width:100%;padding:14px 20px;
-  background:#161b22;color:#e6edf3;
-  border:1.5px solid #30363d;
-  border-radius:14px;
-  font-size:15px;font-weight:700;
-  text-decoration:none;
-  margin-bottom:20px;
-  -webkit-tap-highlight-color:transparent;
-  transition:opacity 0.1s;
-}
-.btn-waze:active{opacity:0.7}
-
-/* Hint */
-.hint{
-  font-size:12px;color:#6e7681;
-  line-height:1.5;margin-bottom:20px;
-}
-
-/* Voltar */
-.btn-back{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:10px 18px;
-  background:transparent;color:#6e7681;
-  border:1.5px solid #30363d;
-  border-radius:10px;
-  font-size:13px;font-weight:600;
-  text-decoration:none;
-  -webkit-tap-highlight-color:transparent;
-}
-.btn-back:active{opacity:0.6}
-</style>
-</head>
-<body>
-<div class="wrap">
-
-  <div class="brand">
-    <div class="brand-dot"></div>
-    <span class="brand-txt">ROTAPOSTO</span>
-    <div class="brand-dot"></div>
-  </div>
-
-  <div class="dest-card">
-    <div class="dest-label">Destino</div>
-    <div class="dest-nome">${destinoLabel.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-    ${olat && olng ? `<div class="dest-coords">Saindo da sua localização atual</div>` : `<div class="dest-coords">${lat}, ${lng}</div>`}
-  </div>
-
-  <!-- BOTÃO PRINCIPAL — toque manual abre Google Maps nativo no Android -->
-  <a href="${googleUrl}" class="btn-gmaps">
-    <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#fff" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
-    Abrir no Google Maps
-  </a>
-
-  <a href="${wazeUrl}" class="btn-waze">
-    <svg width="20" height="20" viewBox="0 0 50 50" fill="none"><circle cx="25" cy="25" r="23" fill="#06CCFF" stroke="#06CCFF" stroke-width="2"/><ellipse cx="25" cy="28" rx="14" ry="12" fill="#fff"/><circle cx="20" cy="32" r="2.5" fill="#333"/><circle cx="30" cy="32" r="2.5" fill="#333"/><path d="M20 26 Q25 22 30 26" stroke="#333" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
-    Abrir no Waze
-  </a>
-
-  <p class="hint">Toque em um dos botões acima para abrir o app de navegação</p>
-
-  <a href="javascript:history.back()" class="btn-back">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-    Voltar
-  </a>
-
-</div>
-</body>
-</html>`
-
-  return c.html(html)
+  return c.redirect('/ir?' + p.toString(), 302)
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -5250,6 +5083,7 @@ html,body{width:100%;height:100%;overflow:hidden;
   <div id="posto-row">
     <img id="posto-logo" src="${logoFinalUrl}" alt="" onerror="this.src='/static/logos/independente.svg'"/>
     <span id="posto-nome-el">${tituloSafe}</span>
+    <span id="fonte-badge" style="font-size:10px;color:#aaa;background:#f5f5f5;border-radius:6px;padding:2px 7px;flex-shrink:0;display:none"></span>
   </div>
   <div id="btn-row">
     <button id="btn-back" onclick="_voltar()">
@@ -5258,6 +5092,9 @@ html,body{width:100%;height:100%;overflow:hidden;
     <button id="btn-nav" onclick="_toggleNav()">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       Iniciar Navegação
+    </button>
+    <button id="btn-recalc" onclick="_recalcularRota()" title="Recalcular" style="width:50px;height:50px;border:none;border-radius:14px;background:#f1f3f4;color:#555;display:none;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
     </button>
     <button id="btn-voz" onclick="_toggleVoz()" title="Voz" style="width:50px;height:50px;border:none;border-radius:14px;background:#f1f3f4;color:#555;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;">
       🔊
@@ -5277,9 +5114,10 @@ var _map, _rotaLayer, _userMarker, _destMarker;
 var _passos = [], _passoIdx = 0;
 var _navegando = false, _watchId = null;
 var _oriLat, _oriLng;
-var _vozAtiva = true;   // voz ligada por padrão
+var _vozAtiva = true;
 var _ultimoPassoFalado = -1;
-var _avisado50m = false; // flag para aviso em 50m
+var _avisado50m = false;
+var _fonteRota = ''; // 'vps' | 'publico'
 
 // ── Síntese de voz (Web Speech API — funciona no Android WebView) ────
 function _falar(texto) {
@@ -5424,43 +5262,96 @@ function _initMapa(){
   }
 }
 
-// ── Calcular rota OSRM ───────────────────────────────────────────
+// ── Detectar instância OSRM correta pelo VPS (por região) ────────
+var _REGIOES_VPS = [
+  ['sudeste',      -25.0, -14.0, -53.5, -39.0, 'http://145.223.92.30/osrm'],
+  ['sul',          -34.0, -22.5, -58.0, -48.0, 'http://145.223.92.30/osrm-sul'],
+  ['nordeste',     -18.0,  -1.0, -50.0, -34.0, 'http://145.223.92.30/osrm-nordeste'],
+  ['centro-oeste', -24.0,  -7.0, -63.0, -45.0, 'http://145.223.92.30/osrm-co'],
+  ['norte',        -14.0,   6.0, -74.0, -44.0, 'http://145.223.92.30/osrm-norte']
+];
+function _getVpsOsrm(lat,lng){
+  for(var i=0;i<_REGIOES_VPS.length;i++){
+    var r=_REGIOES_VPS[i];
+    if(lat>=r[1]&&lat<=r[2]&&lng>=r[3]&&lng<=r[4]) return r[5];
+  }
+  return 'http://145.223.92.30/osrm'; // fallback sudeste
+}
+
+// ── Calcular rota: VPS primeiro, fallback OSRM público ───────────
 function _calcRota(oLat,oLng){
   var dLat=parseFloat(_DLAT), dLng=parseFloat(_DLNG);
-  // OSRM: coordenadas no formato lng,lat (longitude PRIMEIRO)
   var coords = oLng.toFixed(6)+','+oLat.toFixed(6)+';'+dLng.toFixed(6)+','+dLat.toFixed(6);
-  var url = 'https://router.project-osrm.org/route/v1/driving/'+coords
-    +'?overview=full&geometries=geojson&steps=true';
+  var qs = '?overview=full&geometries=geojson&steps=true';
+  var vpsBase = _getVpsOsrm(oLat,oLng);
+  var urlVps  = vpsBase+'/route/v1/driving/'+coords+qs;
+  var urlPub  = 'https://router.project-osrm.org/route/v1/driving/'+coords+qs;
 
-  fetch(url,{signal:AbortSignal.timeout(12000)})
-    .then(function(r){
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      return r.json();
+  document.getElementById('loading-sub').textContent = 'Conectando ao servidor de rotas…';
+
+  function _tentarUrl(url, isVps){
+    return fetch(url,{signal:AbortSignal.timeout(isVps?8000:14000)})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(data){
+        if(data.code!=='Ok'||!data.routes||!data.routes[0]) throw new Error('sem rota: '+data.code);
+        return data.routes[0];
+      });
+  }
+
+  _tentarUrl(urlVps, true)
+    .then(function(route){ _fonteRota='vps'; _exibirRota(route, oLat, oLng); })
+    .catch(function(){
+      document.getElementById('loading-sub').textContent = 'Usando servidor público…';
+      return _tentarUrl(urlPub, false)
+        .then(function(route){ _fonteRota='publico'; _exibirRota(route, oLat, oLng); });
     })
-    .then(function(data){
-      if(data.code!=='Ok'||!data.routes||!data.routes[0]){
-        _mostrarErro('Rota indisponível ('+data.code+').','');
-        return;
-      }
-      _exibirRota(data.routes[0], oLat, oLng);
-    })
-    .catch(function(e){
-      _mostrarErro('Erro de conexão ao calcular rota.',String(e));
-    });
+    .catch(function(e){ _mostrarErro('Não foi possível calcular a rota.',String(e)); });
+}
+
+// ── Recalcular rota (botão manual) ───────────────────────────────
+function _recalcularRota(){
+  if(!_oriLat||!_oriLng) return;
+  // Remove rota atual
+  if(_rotaLayer){ _map.removeLayer(_rotaLayer); _rotaLayer=null; }
+  if(_userMarker){ _map.removeLayer(_userMarker); _userMarker=null; }
+  _passos=[]; _passoIdx=0; _ultimoPassoFalado=-1; _avisado50m=false;
+  // Oculta badge e botão recalcular
+  var badge=document.getElementById('fonte-badge'); if(badge) badge.style.display='none';
+  var btnR=document.getElementById('btn-recalc'); if(btnR) btnR.style.display='none';
+  // Mostra loading e busca GPS atual
+  document.getElementById('tela-loading').style.display='flex';
+  document.getElementById('loading-msg').textContent='Recalculando…';
+  document.getElementById('loading-sub').textContent='Obtendo posição atual…';
+  navigator.geolocation.getCurrentPosition(
+    function(p){
+      _oriLat=p.coords.latitude; _oriLng=p.coords.longitude;
+      if(_userMarker) _map.removeLayer(_userMarker);
+      _calcRota(_oriLat,_oriLng);
+    },
+    function(){ _calcRota(_oriLat,_oriLng); },
+    {timeout:6000,maximumAge:0,enableHighAccuracy:true}
+  );
 }
 
 // ── Exibir rota no mapa ──────────────────────────────────────────
 function _exibirRota(route, oLat, oLng){
-  // Ocultar loading
   document.getElementById('tela-loading').style.display='none';
 
   var leg = route.legs[0];
   var seg = route.duration, met = route.distance;
 
-  // ETA no painel
   document.getElementById('eta-tempo').textContent = _fmtT(seg);
   document.getElementById('eta-dist').textContent  = _fmtD(met);
   document.getElementById('eta-hora').textContent  = _hora(seg);
+
+  // Badge de fonte (VPS RotaPosto / OSM público)
+  var badge = document.getElementById('fonte-badge');
+  if(badge){
+    badge.textContent = _fonteRota==='vps' ? '📡 RotaPosto' : '🌐 OSM';
+    badge.style.display='inline-block';
+    badge.style.color   = _fonteRota==='vps' ? '#1b5e20' : '#888';
+    badge.style.background = _fonteRota==='vps' ? '#e8f5e9' : '#f5f5f5';
+  }
 
   // Extrai passos
   _passos = [];
@@ -5477,7 +5368,7 @@ function _exibirRota(route, oLat, oLng){
     });
   }
 
-  // Desenha polyline azul
+  // Desenha polyline
   if(_rotaLayer) _map.removeLayer(_rotaLayer);
   var coords = route.geometry.coordinates.map(function(c){return[c[1],c[0]];});
   _rotaLayer = L.polyline(coords,{
@@ -5485,12 +5376,13 @@ function _exibirRota(route, oLat, oLng){
     lineJoin:'round',lineCap:'round'
   }).addTo(_map);
 
-  // Marcador azul do usuário
   _userMarker = L.marker([oLat,oLng],{icon:_iconUser(),zIndexOffset:1000}).addTo(_map);
-
-  // Ajusta zoom para mostrar rota inteira
   _map.fitBounds(_rotaLayer.getBounds(),{paddingTopLeft:[20,20],paddingBottomRight:[20,80]});
   setTimeout(_fitMap,150);
+
+  // Mostra botão recalcular após rota carregada
+  var btnR = document.getElementById('btn-recalc');
+  if(btnR) btnR.style.display='flex';
 }
 
 // ── Mostrar erro ─────────────────────────────────────────────────
