@@ -5798,17 +5798,47 @@ function _atualizarEta(){
 }
 
 // ── Callback GPS — coração da navegação ─────────────────────────
+// Histórico de posições para calcular heading quando GPS não fornece
+var _posHist = []; // [{lat,lng,ts}]
+
 function _onGpsUpdate(pos){
   var lat = pos.coords.latitude;
   var lng = pos.coords.longitude;
   var acc = pos.coords.accuracy || 999;
   var heading = pos.coords.heading;
   _curLat = lat; _curLng = lng;
-  // Heading: usa do GPS se válido, senão mantém null
-  if(heading !== null && !isNaN(heading)) _curHeading = heading;
 
-  // ── Atualiza marcador do usuário ── seta aponta sempre pra cima
-  //    (o mapa rotaciona, então a seta não precisa girar)
+  // ── Heading: GPS nativo OU calculado por posições anteriores ──
+  var headingValido = heading !== null && !isNaN(heading) && heading >= 0;
+  if(!headingValido){
+    // Calcula heading pelas últimas 2 posições se GPS não fornece
+    if(_posHist.length >= 1){
+      var prev = _posHist[_posHist.length-1];
+      var dlat = lat - prev.lat;
+      var dlng = lng - prev.lng;
+      if(Math.abs(dlat) > 0.00001 || Math.abs(dlng) > 0.00001){
+        var calc = (Math.atan2(dlng, dlat) * 180 / Math.PI + 360) % 360;
+        heading = calc;
+        headingValido = true;
+      }
+    }
+  }
+  // Guarda histórico (máx 5 posições)
+  _posHist.push({lat:lat, lng:lng, ts:Date.now()});
+  if(_posHist.length > 5) _posHist.shift();
+
+  // Suavização do heading: média angular ponderada (evita saltos)
+  if(headingValido){
+    if(_curHeading === null){
+      _curHeading = heading;
+    } else {
+      // Interpola 30% em direção ao novo heading (filtro passa-baixa)
+      var diff = ((heading - _curHeading + 540) % 360) - 180;
+      _curHeading = (_curHeading + diff * 0.3 + 360) % 360;
+    }
+  }
+
+  // ── Atualiza marcador (cone sempre aponta pra cima — o mapa gira) ──
   if(!_userArrow){
     _userArrow = L.marker([lat,lng],{icon:_iconUser(null),zIndexOffset:2000}).addTo(_map);
   } else {
@@ -5819,10 +5849,10 @@ function _onGpsUpdate(pos){
   _trafColetar(lat, lng, pos.coords.speed);
   if(_navegando) _trafConsultarStatus(lat, lng);
 
-  // ── Centraliza mapa + rotaciona pelo heading GPS ──────────────
+  // ── Centraliza mapa + rotaciona pelo heading suavizado ────────
   if(_navegando){
     _map.setView([lat,lng], 17, {animate:true, duration:0.5, noMoveStart:true});
-    if(_curHeading !== null && !isNaN(_curHeading)){
+    if(_curHeading !== null){
       _rotacionarMapa(_curHeading);
     }
   }
@@ -5963,70 +5993,93 @@ function _trafAtualizarIndicador(d){
   el.style.display = 'inline-block';
 }
 
-// ── Rotação do mapa via CSS transform — técnica correta ──────────
+// ════════════════════════════════════════════════════════════════
+//  ROTAÇÃO DO MAPA — técnica pane-level (Google Maps / Waze)
 //
-// Como funciona (igual ao Google Maps / Waze mobile):
-//   1. O container #map gira pelo NEGATIVO do heading → tiles apontam na direção do movimento
-//   2. O pane de tiles (.leaflet-tile-pane) gira → estradas ficam "pra frente"
-//   3. Os markers (.leaflet-marker-pane, .leaflet-shadow-pane) CONTRARO​TAM
-//      para ficarem sempre alinhados com a tela (não giram com o mapa)
-//   4. O cone do usuário aponta sempre para cima na tela (destino fica na frente)
+//  Princípio:
+//    heading GPS = azimute: 0°=Norte 90°=Leste 180°=Sul 270°=Oeste
+//    Para o movimento ficar "pra cima da tela", giramos os tiles -heading
+//    Ex: indo Sul (180°) → tiles giram -180° → Sul fica no topo ✓
 //
-var _mapBearing = 0;
-function _rotacionarMapa(heading){
-  heading = ((heading % 360) + 360) % 360; // normaliza 0–360
-  _mapBearing = heading;
+//  Arquitetura de panes do Leaflet:
+//    tile-pane    → tiles OSM          → GIRA com heading
+//    overlay-pane → polylines (rota)   → GIRA com heading
+//    marker-pane  → cone do usuário    → NÃO gira (sempre alinhado com tela)
+//    shadow-pane  → sombras            → NÃO gira
+//
+//  Suavização: interpolação angular por requestAnimationFrame
+//    Evita salto brusco ao cruzar 0°/360°
+// ════════════════════════════════════════════════════════════════
+
+var _mapBearing    = 0;
+var _bearingTarget = 0;
+var _bearingRafId  = null;
+
+// Função que aplica o bearing diretamente nos panes
+function _aplicarBearing(deg){
+  deg = ((deg % 360) + 360) % 360;
+  _mapBearing = deg;
 
   var mapEl = document.getElementById('map');
   if(!mapEl) return;
+  var W = mapEl.offsetWidth, H = mapEl.offsetHeight;
+  var cx = (W/2)+'px '+(H/2)+'px';
 
-  if(heading === 0){
-    // Norte: remove todas as transforms
-    mapEl.style.transition = 'transform 0.5s ease-out';
-    mapEl.style.transform  = '';
-    mapEl.style.transformOrigin = '';
-    // Remove contra-rotação dos markers
-    ['leaflet-marker-pane','leaflet-shadow-pane','leaflet-overlay-pane'].forEach(function(cls){
-      var p = mapEl.querySelector('.'+cls);
-      if(p){ p.style.transition = 'transform 0.5s ease-out'; p.style.transform = ''; }
-    });
-  } else {
-    // Gira o mapa: heading 90° → gira -90° (leste fica no topo = "frente")
-    // scale(1.45) cobre os cantos pretos que aparecem durante a rotação
-    mapEl.style.transition = 'transform 0.4s ease-out';
-    mapEl.style.transform  = 'rotate(-'+heading+'deg) scale(1.45)';
-    mapEl.style.transformOrigin = 'center center';
+  // Panes que acompanham o heading
+  ['leaflet-tile-pane','leaflet-overlay-pane'].forEach(function(cls){
+    var p = mapEl.querySelector('.'+cls);
+    if(!p) return;
+    p.style.transformOrigin = cx;
+    p.style.transform = deg === 0 ? '' : 'rotate(-'+deg.toFixed(2)+'deg)';
+    p.style.willChange = 'transform';
+  });
 
-    // Contra-rotação dos markers: eles giram +heading para cancelar o giro do container
-    // Resultado: marcadores ficam alinhados com a tela, não giram com o mapa
-    ['leaflet-marker-pane','leaflet-shadow-pane','leaflet-overlay-pane'].forEach(function(cls){
-      var p = mapEl.querySelector('.'+cls);
-      if(p){
-        p.style.transition = 'transform 0.4s ease-out';
-        p.style.transform  = 'rotate('+heading+'deg)';
-        p.style.transformOrigin = 'center center';
-      }
-    });
-  }
+  // Panes de marcadores: sem transform → ficam estáticos na tela
+  ['leaflet-marker-pane','leaflet-shadow-pane'].forEach(function(cls){
+    var p = mapEl.querySelector('.'+cls);
+    if(!p) return;
+    p.style.transform = '';
+    p.style.transformOrigin = '';
+  });
 
-  // ── Bússola: aparece quando girado, indica o norte real ─────
+  // ── Bússola ────────────────────────────────────────────────
   var btn = document.getElementById('btn-compass');
   if(btn){
     var barEl = document.getElementById('instr-bar');
     var barH  = barEl ? (barEl.offsetHeight || 130) : 130;
     btn.style.top = (barH + 12) + 'px';
-    if(heading !== 0){
+    if(deg > 2 && deg < 358){
       btn.classList.remove('hidden');
-      // A bússola gira para mostrar onde é o norte
       var svgEl = btn.querySelector('svg');
-      if(svgEl) svgEl.style.transform = 'rotate('+heading+'deg)';
+      if(svgEl) svgEl.style.transform = 'rotate('+deg+'deg)';
     } else {
       btn.classList.add('hidden');
     }
   }
+}
 
-  // Invalidar tamanho para redesenhar tiles
-  setTimeout(function(){ if(_map) _map.invalidateSize({animate:false}); }, 60);
+// Loop de animação suave (interpola 18% por frame ≈ rápido mas sem solavanco)
+function _animarBearing(){
+  var cur  = _mapBearing;
+  var tgt  = _bearingTarget;
+  // Caminho mais curto entre dois ângulos (evita girar 350° quando bastaria -10°)
+  var diff = ((tgt - cur + 540) % 360) - 180;
+  if(Math.abs(diff) < 0.3){
+    _aplicarBearing(tgt);
+    _bearingRafId = null;
+    return;
+  }
+  _aplicarBearing(cur + diff * 0.18);
+  _bearingRafId = requestAnimationFrame(_animarBearing);
+}
+
+// Ponto de entrada público: define bearing alvo e dispara animação
+function _rotacionarMapa(heading){
+  heading = ((heading % 360) + 360) % 360;
+  _bearingTarget = heading;
+  if(!_bearingRafId){
+    _bearingRafId = requestAnimationFrame(_animarBearing);
+  }
 }
 
 // ── Voltar ao norte (botão bússola) ──────────────────────────────
