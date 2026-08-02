@@ -4753,39 +4753,32 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     document.getElementById('month-label').textContent = MONTHS_FULL[currentMonthIdx] + ' 2024';
   }
 
-  // ── Monta params e navega para /ir (navegação interna Leaflet + OSRM) ──
+  // ── Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome ──
   function _irParaNavegacaoInterna(posto) {
     if (!posto) { showToast('Selecione um posto primeiro'); return; }
     var lat = posto.lat, lng = posto.lng;
-    var params = new URLSearchParams();
-    if (lat && lng) { params.set('lat', String(lat)); params.set('lng', String(lng)); }
-    if (posto.nome)     params.set('nome', posto.nome);
-    if (posto.bandeira) params.set('bandeira', posto.bandeira);
-    if (posto.placeId)  params.set('placeId',  posto.placeId);
-    if (posto.foto)     params.set('foto', posto.foto);
-    if (userLat && userLng) { params.set('olat', String(userLat)); params.set('olng', String(userLng)); }
-    window.location.href = '/ir?' + params.toString();
+    if (!lat || !lng) { showToast('Coordenadas não disponíveis'); return; }
+    var url = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng;
+    if (posto.nome) url += '&destination_place_name=' + encodeURIComponent(posto.nome);
+    window.location.href = url;
   }
 
-  // ── SOS: "Ir até lá" para borracheiro/mecânica — SEMPRE /ir interno ──
-  // NUNCA abre google.com/maps — mantém tudo dentro do PWA/RotaPosto
+  // ── SOS: "Ir até lá" para borracheiro/mecânica — Google Maps na mesma janela ──
   function _abrirNavegacaoExterna(lat, lng, nome) {
-    var params = new URLSearchParams();
+    var url;
     if (lat && lng && lat !== 0 && lng !== 0) {
-      params.set('lat', String(lat));
-      params.set('lng', String(lng));
-    }
-    if (nome) params.set('nome', decodeURIComponent(String(nome)));
-    if (userLat && userLng) {
-      params.set('olat', String(userLat));
-      params.set('olng', String(userLng));
-    }
-    window.location.href = '/ir?' + params.toString();
+      url = 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng;
+      if (nome) url += '&destination_place_name=' + encodeURIComponent(decodeURIComponent(String(nome)));
+    } else if (nome) {
+      // Sem coords — busca por nome/endereço
+      url = 'https://www.google.com/maps/search/' + encodeURIComponent(decodeURIComponent(String(nome)));
+    } else { return; }
+    window.location.href = url;
   }
 
   function irAteLa() {
     if (!selectedPosto) { showToast('Selecione um posto primeiro'); return; }
-    // "Como Chegar" → /ir (navegação interna Leaflet + OSRM VPS)
+    // "Como Chegar" → Google Maps na mesma janela do PWA
     _irParaNavegacaoInterna(selectedPosto);
   }
 
@@ -4989,19 +4982,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       return;
     }
 
-    // ── Monta e abre /ir (mapa embutido, NUNCA maps.google.com → TWA bloqueia) ──
+    // ── Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome ──
     function _abrirIr(oLat, oLng) {
-      var params = new URLSearchParams();
-      if (lat && lng) { params.set('lat', String(lat)); params.set('lng', String(lng)); }
-      if (nome)       params.set('nome',     nome);
-      if (bandeira)   params.set('bandeira', bandeira);
-      if (placeId)    params.set('placeId',  placeId);
-      // Só passa olat/olng se tiver coords reais (não o default de São Paulo)
-      if (oLat && oLng) {
-        params.set('olat', String(oLat));
-        params.set('olng', String(oLng));
-      }
-      window.location.href = '/ir?' + params.toString();
+      var url = 'https://www.google.com/maps/dir/?api=1';
+      if (oLat && oLng) url += '&origin=' + oLat + ',' + oLng;
+      if (lat && lng)   url += '&destination=' + lat + ',' + lng;
+      if (nome)         url += '&destination_place_name=' + encodeURIComponent(nome);
+      url += '&travelmode=driving';
+      window.location.href = url;
     }
 
     // ── Tentar GPS fresco (timeout 5s) para garantir origem correta ──────────

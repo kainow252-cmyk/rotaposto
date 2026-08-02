@@ -1090,16 +1090,13 @@ app.get('/api/rota', async (c) => {
   const rota = await calcularRotaOSRM(origemLat, origemLng, destinoLat, destinoLng)
   if (!rota) return c.json({ error: 'Serviço de rota indisponível' }, 500)
 
-  // url_mapa agora aponta para /ir interno — nunca abre Google Maps ou OSM externo
-  const irParams = new URLSearchParams()
-  irParams.set('lat',  String(destinoLat))
-  irParams.set('lng',  String(destinoLng))
-  const urlInterna = '/ir?' + irParams.toString()
+  // url_mapa aponta para Google Maps — abre na mesma janela do PWA
+  const gmUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destinoLat + ',' + destinoLng
 
   return c.json({
     distanciaKm: rota.distanciaKm,
     duracaoMin: rota.duracaoMin,
-    url_mapa: urlInterna
+    url_mapa: gmUrl
   })
 })
 
@@ -7273,14 +7270,11 @@ function abrirWpp() {
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
 function abrirMapa() {
-  // Abre navegação interna /ir — não sai do RotaPosto
+  // Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome
   if (_posto && _posto.lat && _posto.lng) {
-    var params = new URLSearchParams();
-    params.set('lat',  String(_posto.lat));
-    params.set('lng',  String(_posto.lng));
-    if (_posto.nomePosto) params.set('nome', _posto.nomePosto);
-    if (_posto.bandeira)  params.set('bandeira', _posto.bandeira);
-    window.location.href = '/ir?' + params.toString();
+    var url = 'https://www.google.com/maps/dir/?api=1&destination=' + _posto.lat + ',' + _posto.lng;
+    if (_posto.nomePosto) url += '&destination_place_name=' + encodeURIComponent(_posto.nomePosto);
+    window.location.href = url;
   }
 }
 function compartilhar() {
@@ -9872,22 +9866,11 @@ function irAtePosto() {
   const p = state.postoSelecionado;
 
   // Monta URL da tela /ir com todos os dados do posto
-  const params = new URLSearchParams();
-  if (p.lat)  params.set('lat',  String(p.lat));
-  if (p.lng)  params.set('lng',  String(p.lng));
-  if (p.nome) params.set('nome', p.nome);
-  if (p.bandeira) params.set('bandeira', p.bandeira);
-
-  // placeId: permite buscar foto real via Google Places server-side
-  const rawId = p.googlePlaceId || p.id || '';
-  const placeId = rawId.startsWith('google-') ? rawId.replace('google-', '') : rawId;
-  if (placeId && !placeId.startsWith('anp-')) params.set('placeId', placeId);
-
-  // fotoUrl do parceiro tem máxima prioridade (logo/marca oficial)
-  if (p.fotoUrl) params.set('foto', p.fotoUrl);
-
-  window.location.href = '/ir?' + params.toString();
+  // Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome
+  var gmUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng;
+  if (p.nome) gmUrl += '&destination_place_name=' + encodeURIComponent(p.nome);
   document.getElementById('modal-overlay').classList.remove('visible');
+  window.location.href = gmUrl;
 }
 
 function irAoMelhorPosto() {
@@ -9919,15 +9902,12 @@ async function calcularRotaPosto() {
 }
 
 function abrirRotaOSM() {
-  // Usa navegação interna /ir em vez de OSM externo
+  // Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome
   const p = state.postoSelecionado;
   if (!p || !p.lat || !p.lng) return;
-  const params = new URLSearchParams();
-  params.set('lat',  String(p.lat));
-  params.set('lng',  String(p.lng));
-  if (p.nome) params.set('nome', p.nome);
-  if (p.bandeira) params.set('bandeira', p.bandeira);
-  window.location.href = '/ir?' + params.toString();
+  var url = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng;
+  if (p.nome) url += '&destination_place_name=' + encodeURIComponent(p.nome);
+  window.location.href = url;
 }
 
 // ═══ CALCULADORA ══════════════════════════════════════════════════════════════
