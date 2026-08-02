@@ -5043,6 +5043,7 @@ app.get('/ir', async (c) => {
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>Navegando — ${tituloSafe}</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.css"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;
@@ -5086,6 +5087,17 @@ html,body{width:100%;height:100%;overflow:hidden;
 #instr-right{flex:1;padding:10px 14px;display:flex;flex-direction:column;justify-content:center}
 #instr-dist{font-size:12px;font-weight:800;color:#a5d6a7;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
 #instr-txt{font-size:16px;font-weight:700;color:#fff;line-height:1.2}
+#instr-rua{
+  display:none;align-items:center;gap:6px;
+  padding:4px 14px 5px;
+  background:#1565C0;
+  border-top:1px solid rgba(255,255,255,.08);
+}
+#instr-rua.show{display:flex}
+#rua-icone{font-size:12px;opacity:.7}
+#rua-txt{font-size:12px;font-weight:700;color:rgba(255,255,255,.92);flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  letter-spacing:.2px}
 #instr-prox{
   display:none;align-items:center;gap:8px;
   padding:5px 14px 7px;
@@ -5188,6 +5200,11 @@ html,body{width:100%;height:100%;overflow:hidden;
       <div id="instr-txt">Calculando…</div>
     </div>
   </div>
+  <!-- Rua atual onde o usuário está -->
+  <div id="instr-rua">
+    <span id="rua-icone">📍</span>
+    <span id="rua-txt"></span>
+  </div>
   <div id="instr-prox">
     <span id="prox-icone">↪</span>
     <span id="prox-txt"></span>
@@ -5228,6 +5245,7 @@ html,body{width:100%;height:100%;overflow:hidden;
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
 //  RotaPosto /ir — Navegação profissional estilo Google Maps
@@ -5463,7 +5481,8 @@ function _initMapa(){
   var cLat=_DLAT?parseFloat(_DLAT):-20.3155;
   var cLng=_DLNG?parseFloat(_DLNG):-40.3128;
 
-  _map=L.map('map',{center:[cLat,cLng],zoom:15,zoomControl:false,attributionControl:true});
+  _map=L.map('map',{center:[cLat,cLng],zoom:15,zoomControl:false,attributionControl:true,
+    rotate:true, bearing:0, touchRotate:false});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:19,attribution:'© OpenStreetMap'
   }).addTo(_map);
@@ -5565,15 +5584,17 @@ function _exibirRota(route, oLat, oLng){
   _passos = [];
   if(leg && leg.steps){
     leg.steps.forEach(function(s){
+      var rua = s.name || '';
+      if(!rua && s.ref) rua = s.ref.replace(/;/g,'/');
       _passos.push({
         texto:   _textoManobra(s),
         tipo:    s.maneuver ? s.maneuver.type : '',
         mod:     s.maneuver ? (s.maneuver.modifier || '') : '',
         dist:    s.distance  || 0,
         duracao: s.duration  || 0,   // ← para ETA dinâmico
+        rua:     rua,                // ← nome da rua atual
         lat:     s.maneuver  ? s.maneuver.location[1] : oLat,
         lng:     s.maneuver  ? s.maneuver.location[0] : oLng,
-        // guarda o step original para _textoVozAntecipado
         _step: s
       });
     });
@@ -5630,6 +5651,18 @@ function _mostrarPasso(idx){
   document.getElementById('instr-txt').textContent  = p.texto;
   document.getElementById('instr-dist').textContent = p.dist>0 ? _fmtD(p.dist) : '';
   document.getElementById('instr-bar').classList.add('show');
+
+  // ── Rua atual (onde o usuário está percorrendo agora) ─────────
+  var ruaEl = document.getElementById('instr-rua');
+  var ruaTxt = document.getElementById('rua-txt');
+  var rua = p.rua || '';
+  if(rua){
+    ruaTxt.textContent = rua;
+    ruaEl.classList.add('show');
+  } else {
+    ruaEl.classList.remove('show');
+  }
+
   // Próxima manobra
   if(idx+1 < _passos.length){
     var q = _passos[idx+1];
@@ -5669,23 +5702,25 @@ function _onGpsUpdate(pos){
   // Heading: usa do GPS se válido, senão mantém null
   if(heading !== null && !isNaN(heading)) _curHeading = heading;
 
-  // ── Atualiza marcador do usuário com seta rotacionada ──────────
+  // ── Atualiza marcador do usuário ── seta aponta sempre pra cima
+  //    (o mapa rotaciona, então a seta não precisa girar)
   if(!_userArrow){
-    _userArrow = L.marker([lat,lng],{icon:_iconUser(_curHeading),zIndexOffset:2000}).addTo(_map);
+    _userArrow = L.marker([lat,lng],{icon:_iconUser(null),zIndexOffset:2000}).addTo(_map);
   } else {
     _userArrow.setLatLng([lat,lng]);
-    _userArrow.setIcon(_iconUser(_curHeading));
   }
 
   // ── Traffic Intelligence — coleta silenciosa ──────────────────
-  // Sempre coleta velocidade, mesmo sem navegação ativa
   _trafColetar(lat, lng, pos.coords.speed);
-  // Consulta status do trânsito na posição atual (throttle 60s)
   if(_navegando) _trafConsultarStatus(lat, lng);
 
-  // Centraliza mapa no usuário com zoom de navegação (17)
+  // ── Centraliza mapa + rotaciona pelo heading GPS ──────────────
   if(_navegando){
-    _map.setView([lat,lng], 17, {animate:true, duration:0.6, noMoveStart:true});
+    if(_curHeading !== null && !isNaN(_curHeading)){
+      // setBearing rotaciona o mapa — norte fica na direção do movimento
+      _map.setBearing(_curHeading);
+    }
+    _map.setView([lat,lng], 17, {animate:true, duration:0.5, noMoveStart:true});
   }
 
   // ── Detecção de desvio de rota (snap-to-road) ─────────────────
@@ -5755,6 +5790,7 @@ function _chegou(){
   document.getElementById('instr-txt').textContent  = 'Você chegou ao destino!';
   document.getElementById('instr-dist').textContent = '';
   document.getElementById('instr-prox').classList.remove('show');
+  document.getElementById('instr-rua').classList.remove('show');
   _falar('Você chegou ao destino!', true);
   _pararNav();
   // Centraliza no destino
@@ -5904,6 +5940,8 @@ function _pararNav(){
   btn.innerHTML = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Iniciar Navegação';
   document.getElementById('instr-bar').classList.remove('show');
   if(window.speechSynthesis) window.speechSynthesis.cancel();
+  // Resetar rotação para norte ao parar
+  _map.setBearing(0);
   // Volta zoom para ver rota completa
   if(_rotaLayer) _map.fitBounds(_rotaLayer.getBounds(), {paddingTopLeft:[20,20], paddingBottomRight:[20,80]});
   _fitMap();
