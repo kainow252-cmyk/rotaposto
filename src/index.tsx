@@ -1090,13 +1090,16 @@ app.get('/api/rota', async (c) => {
   const rota = await calcularRotaOSRM(origemLat, origemLng, destinoLat, destinoLng)
   if (!rota) return c.json({ error: 'Serviço de rota indisponível' }, 500)
 
-  // url_mapa aponta para Google Maps — abre na mesma janela do PWA
-  const gmUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destinoLat + ',' + destinoLng
+  // url_mapa aponta para /ir interno — nunca abre Google Maps ou OSM externo
+  const irParams = new URLSearchParams()
+  irParams.set('lat', String(destinoLat))
+  irParams.set('lng', String(destinoLng))
+  const urlInterna = '/ir?' + irParams.toString()
 
   return c.json({
     distanciaKm: rota.distanciaKm,
     duracaoMin: rota.duracaoMin,
-    url_mapa: gmUrl
+    url_mapa: urlInterna
   })
 })
 
