@@ -5055,14 +5055,19 @@ html,body{width:100%;height:100%;overflow:hidden;
   transform-origin:center center;
   will-change:transform;
 }
-/* ── Cone do usuário — div fixo FORA do mapa, nunca gira ── */
+/* ── Cone do usuário — SEMPRE no centro da tela (abaixo do instr-bar) ── */
+/* ARQUITETURA GOOGLE MAPS: cone é CSS puro, mapa se move por baixo via setView */
 #user-cone{
   position:fixed;
+  left:50%;
+  /* acima do painel (~160px) + offset visual para ficar no centro útil do mapa */
+  bottom:calc(160px + env(safe-area-inset-bottom,0px) + 60px);
   width:52px;height:52px;
   z-index:45;
   pointer-events:none;
   display:none;
-  transform:translate(-50%,-50%);
+  /* centraliza horizontalmente, pivô no bico do cone (topo do triângulo ~25% da altura) */
+  transform:translate(-50%, 25%);
 }
 
 /* ── Spinner de carregamento ── */
@@ -5879,44 +5884,25 @@ function _atualizarEta(){
   document.getElementById('eta-hora').textContent  = _hora(tempoAcum);
 }
 
-// ── Cone HTML — posiciona div fixo sobre o mapa via pixel coords ─
-// O div #user-cone está fixed na tela (z-index 45), nunca gira.
-// Calculamos sua posição em pixels usando latLngToContainerPoint
-// e aplicamos left/top. Como é fixed fora do #map, não sofre
-// nenhuma rotação CSS do mapa.
-// _coneRafPending evita múltiplas chamadas por frame (throttle)
-var _coneRafPending = false;
-var _conePendLat, _conePendLng;
-
+// ── Cone HTML — ARQUITETURA GOOGLE MAPS ────────────────────────────
+// O cone é SEMPRE fixo no centro da tela via CSS (position:fixed; left:50%; bottom:...).
+// O mapa se move por baixo via setView([lat,lng]) — GPS = centro do mapa = cone.
+// ZERO matemática de coordenadas — elimina o bug de salto com scale(1.5).
+//
+// Antes: cone calculado com latLngToContainerPoint + trig matrix
+//   → quebrava porque getBoundingClientRect() retorna coords pós-scale(1.5)
+//     mas latLngToContainerPoint retorna coords pré-scale (espaço interno Leaflet)
+//
+// Agora: cone não tem posição dinâmica. Só mostra/esconde.
 function _atualizarConeHtml(lat, lng){
-  // Throttle: agenda apenas 1 update por frame de animação
-  _conePendLat = lat;
-  _conePendLng = lng;
-  if(_coneRafPending) return;
-  _coneRafPending = true;
-  requestAnimationFrame(function(){
-    _coneRafPending = false;
-    _atualizarConeHtmlImediato(_conePendLat, _conePendLng);
-  });
+  var el = document.getElementById('user-cone');
+  if(!el) return;
+  el.style.display = 'block'; // posição é 100% CSS — nunca muda via JS
 }
 
-// Execução real — sempre sincronizada com o frame de pintura
+// Mantido para compatibilidade com chamadas existentes (recentrar etc.)
 function _atualizarConeHtmlImediato(lat, lng){
-  var el = document.getElementById('user-cone');
-  if(!el || !_map) return;
-  var pt = _map.latLngToContainerPoint([lat, lng]);
-  var mapEl = document.getElementById('map');
-  var rect  = mapEl ? mapEl.getBoundingClientRect() : {left:0, top:0};
-  var cx = rect.left + rect.width  / 2;
-  var cy = rect.top  + rect.height / 2;
-  var rad = -_mapBearing * Math.PI / 180;
-  var dx  = pt.x - rect.width  / 2;
-  var dy  = pt.y - rect.height / 2;
-  var rx  = dx * Math.cos(rad) - dy * Math.sin(rad);
-  var ry  = dx * Math.sin(rad) + dy * Math.cos(rad);
-  el.style.left    = (cx + rx) + 'px';
-  el.style.top     = (cy + ry) + 'px';
-  el.style.display = 'block';
+  _atualizarConeHtml(lat, lng);
 }
 
 // ── Callback GPS — coração da navegação ─────────────────────────
@@ -5968,7 +5954,8 @@ function _onGpsUpdate(pos){
   if(_navegando) _trafConsultarStatus(lat, lng);
 
   // ── Centraliza mapa + rotaciona pelo heading suavizado ────────
-  // Só centraliza se estiver em follow mode (_seguindoUsuario = true)
+  // ARQUITETURA GOOGLE MAPS: setView([lat,lng]) mantém GPS no centro do mapa.
+  // Cone é CSS-fixo — o mapa se move por baixo dele. Zero math de coordenadas.
   if(_navegando){
     if(_seguindoUsuario){
       // animate:false evita conflito com nossa rotação CSS
@@ -5977,7 +5964,7 @@ function _onGpsUpdate(pos){
         _rotacionarMapa(_curHeading);
       }
     }
-    // Cone sempre atualiza, mesmo em modo livre
+    // Cone sempre visível em nav, mesmo em modo livre
   }
 
   // ── Detecção de desvio de rota (snap-to-road) ─────────────────
@@ -6175,7 +6162,7 @@ function _recentrar(){
   if(_curLat !== undefined && _curLng !== undefined && _map){
     _map.setView([_curLat, _curLng], 17, {animate:false});
     if(_curHeading !== null) _rotacionarMapa(_curHeading);
-    _atualizarConeHtmlImediato(_curLat, _curLng);
+    // Cone é CSS-fixo — sem recálculo necessário
   }
 }
 
@@ -6195,10 +6182,8 @@ function _aplicarBearing(deg){
   }
   mapEl.style.transformOrigin = 'center center';
 
-  // Atualiza posição do cone HTML (recalcula pixel coords com bearing atual)
-  if(_curLat !== undefined && _curLng !== undefined){
-    _atualizarConeHtml(_curLat, _curLng);
-  }
+  // Cone é CSS-fixo: não precisa recalcular ao mudar bearing
+  // (o mapa gira por baixo, o cone fica parado no centro da tela)
 
   // ── Bússola ──────────────────────────────────────────────────
   var btn = document.getElementById('btn-compass');
