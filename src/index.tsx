@@ -1145,6 +1145,35 @@ app.get('/api/osrm', async (c) => {
   }
 })
 
+// Frontend chama /api/osrm-table?regiao=sudeste&coords=lng1,lat1;lng2,lat2
+// Resolve Mixed Content: browser chamava http://145.223.92.30/osrm/table/... → BLOQUEADO
+// Agora: browser chama /api/osrm-table (HTTPS) → Worker chama VPS em HTTP por dentro
+app.get('/api/osrm-table', async (c) => {
+  const regiao = c.req.query('regiao') || 'sudeste'
+  const coords = c.req.query('coords') || ''
+  if (!coords) return c.json({ error: 'coords obrigatório' }, 400)
+
+  const VPS_BASE = '145.223.92.30'
+  const SUFIXO: Record<string, string> = {
+    sudeste:        '/osrm',
+    sul:            '/osrm-sul',
+    nordeste:       '/osrm-nordeste',
+    'centro-oeste': '/osrm-co',
+    norte:          '/osrm-norte'
+  }
+  const sufixo = SUFIXO[regiao] ?? '/osrm'
+  const vpsUrl = `http://${VPS_BASE}${sufixo}/table/v1/driving/${coords}?sources=0&annotations=duration,distance`
+
+  try {
+    const resp = await fetch(vpsUrl, { signal: AbortSignal.timeout(8000) })
+    if (!resp.ok) throw new Error('VPS HTTP ' + resp.status)
+    const data = await resp.json() as any
+    return c.json(data)
+  } catch (e) {
+    return c.json({ error: 'OSRM table indisponível', detail: String(e) }, 502)
+  }
+})
+
 // ─── API: Calcular Economia ───────────────────────────────────────────────────
 app.get('/api/economia', (c) => {
   const precoAtual = parseFloat(c.req.query('precoAtual') || '0')
@@ -7286,10 +7315,10 @@ function abrirMapa() {
   }
 }
 
-// ── Abre Google Maps NATIVO do aparelho (Android/iOS) ──────────────────────
-// Android: intent URL → abre o app Google Maps instalado
-// iOS:     maps.apple.com → abre Apple Maps
-// Fallback: google.com/maps no browser
+// ── Abre Google Maps NATIVO do aparelho ──────────────────────────────────────
+// Android PWA/Chrome: geo: não funciona — usar google.com/maps/dir
+// No Android, google.com/maps/dir abre o app Google Maps instalado diretamente
+// iOS: maps.apple.com
 function _abrirGoogleMapsNativo(lat, lng, nome) {
   var destino = lat + ',' + lng;
   var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -7298,11 +7327,13 @@ function _abrirGoogleMapsNativo(lat, lng, nome) {
     url = 'maps://maps.apple.com/?daddr=' + destino
         + (nome ? '&q=' + encodeURIComponent(nome) : '');
   } else {
-    // Android: geo: URI abre o app de mapas padrão (Google Maps, Waze, etc)
-    url = 'geo:' + destino + '?q=' + destino
-        + (nome ? '(' + encodeURIComponent(nome) + ')' : '');
+    // Android: google.com/maps/dir abre o app Google Maps instalado
+    url = 'https://www.google.com/maps/dir/?api=1'
+        + '&destination=' + destino
+        + '&travelmode=driving'
+        + (nome ? '&destination_place_name=' + encodeURIComponent(nome) : '');
   }
-  window.location.href = url;
+  window.open(url, '_blank');
 }
 function compartilhar() {
   var url = window.location.href;

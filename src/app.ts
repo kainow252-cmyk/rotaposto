@@ -3107,18 +3107,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       const coords = userLng.toFixed(6) + ',' + userLat.toFixed(6)
         + ';' + alvo.map(p => p.lng.toFixed(6) + ',' + p.lat.toFixed(6)).join(';');
 
-      // Detecta região pela posição do usuário → instância OSRM correta
-      const tableBase = _getOsrmBase(userLat, userLng);
-      const tableUrl = tableBase + '/table/v1/driving/' + coords
-        + '?sources=0&annotations=duration,distance';
+      // Detecta região pela posição do usuário → passa ao proxy /api/osrm-table
+      // Proxy Worker chama VPS em HTTP internamente — sem Mixed Content no browser
+      const regiao = _getRegiaoNome(userLat, userLng) || 'sudeste';
+      const proxyUrl = '/api/osrm-table'
+        + '?regiao=' + encodeURIComponent(regiao)
+        + '&coords=' + encodeURIComponent(coords);
 
-      let res = await fetch(tableUrl, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok && tableBase === VPS_OSRM) {
-        // VPS indisponível → fallback para OSRM público
-        _vpsOsrmOk = false; _vpsOsrmLastFail = Date.now();
-        const fallbackUrl = PUB_OSRM + '/table/v1/driving/' + coords + '?sources=0&annotations=duration,distance';
-        res = await fetch(fallbackUrl, { signal: AbortSignal.timeout(8000) });
-      }
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) return;
       const json = await res.json();
 
@@ -3590,10 +3586,21 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     return null; // fora do Brasil → fallback público
   }
 
+  // Retorna o nome da região ('sudeste', 'sul', etc.) para o proxy /api/osrm-table
+  function _getRegiaoNome(lat, lng) {
+    if (!lat || !lng) return 'sudeste';
+    for (var i = 0; i < _REGIOES_BR.length; i++) {
+      var r = _REGIOES_BR[i];
+      if (lat >= r[1] && lat <= r[2] && lng >= r[3] && lng <= r[4]) {
+        return r[0]; // nome ex: 'sudeste', 'sul', 'nordeste'
+      }
+    }
+    return 'sudeste'; // fora do Brasil → usa sudeste como padrão
+  }
+
   // Retorna URL base do OSRM para um ponto dado (VPS regional ou público)
   // lat/lng = coordenada de referência (origem ou destino da rota)
-  function _getOsrmBase(lat, lng) {
-    var path = (lat != null && lng != null) ? _getRegiaoPath(lat, lng) : null;
+  function _getOsrmBase(lat, lng) {    var path = (lat != null && lng != null) ? _getRegiaoPath(lat, lng) : null;
     if (path && (_vpsOsrmOk || (Date.now() - _vpsOsrmLastFail > VPS_RETRY_MS))) {
       return VPS_BASE + path;
     }
@@ -4755,24 +4762,24 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // ── Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome ──
   // ── Abre Google Maps NATIVO do aparelho ──────────────────────────────────────
-  // geo: URI — padrão Android, abre seletor de apps de navegação (Google Maps, Waze, etc)
+  // Android PWA/Chrome: geo: não funciona — usar google.com/maps/dir
+  // No Android, google.com/maps/dir abre o app Google Maps instalado diretamente
   // iOS: maps.apple.com
-  // Desktop: google.com/maps
   function _abrirGoogleMapsNativo(lat, lng, nome) {
     var destino = lat + ',' + lng;
     var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     var url;
     if (isIOS) {
-      // Apple Maps no iOS
       url = 'maps://maps.apple.com/?daddr=' + destino
           + (nome ? '&q=' + encodeURIComponent(nome) : '');
     } else {
-      // Android + Desktop: geo: URI abre o app de mapas padrão do celular
-      // Se tiver Google Maps instalado, abre o Google Maps diretamente
-      url = 'geo:' + destino + '?q=' + destino
-          + (nome ? '(' + encodeURIComponent(nome) + ')' : '');
+      // Android: google.com/maps/dir abre o app Google Maps instalado
+      url = 'https://www.google.com/maps/dir/?api=1'
+          + '&destination=' + destino
+          + '&travelmode=driving'
+          + (nome ? '&destination_place_name=' + encodeURIComponent(nome) : '');
     }
-    window.location.href = url;
+    window.open(url, '_blank');
   }
 
   function _irParaNavegacaoInterna(posto) {
