@@ -4754,22 +4754,23 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   }
 
   // ── Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome ──
-  // ── Abre Google Maps NATIVO do aparelho (Intent URL Android / Apple Maps iOS) ──
+  // ── Abre Google Maps NATIVO do aparelho ──────────────────────────────────────
+  // geo: URI — padrão Android, abre seletor de apps de navegação (Google Maps, Waze, etc)
+  // iOS: maps.apple.com
+  // Desktop: google.com/maps
   function _abrirGoogleMapsNativo(lat, lng, nome) {
     var destino = lat + ',' + lng;
-    var isAndroid = /android/i.test(navigator.userAgent);
-    var isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     var url;
-    if (isAndroid) {
-      url = 'intent://maps.google.com/maps?daddr=' + destino
-          + (nome ? '&q=' + encodeURIComponent(nome) : '')
-          + '#Intent;scheme=https;package=com.google.android.apps.maps;action=android.intent.action.VIEW;end';
-    } else if (isIOS) {
+    if (isIOS) {
+      // Apple Maps no iOS
       url = 'maps://maps.apple.com/?daddr=' + destino
           + (nome ? '&q=' + encodeURIComponent(nome) : '');
     } else {
-      url = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
-          + (nome ? '&destination_place_name=' + encodeURIComponent(nome) : '');
+      // Android + Desktop: geo: URI abre o app de mapas padrão do celular
+      // Se tiver Google Maps instalado, abre o Google Maps diretamente
+      url = 'geo:' + destino + '?q=' + destino
+          + (nome ? '(' + encodeURIComponent(nome) + ')' : '');
     }
     window.location.href = url;
   }

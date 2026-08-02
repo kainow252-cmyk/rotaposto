@@ -7284,22 +7284,15 @@ function abrirMapa() {
 // Fallback: google.com/maps no browser
 function _abrirGoogleMapsNativo(lat, lng, nome) {
   var destino = lat + ',' + lng;
-  var isAndroid = /android/i.test(navigator.userAgent);
-  var isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   var url;
-  if (isAndroid) {
-    // Intent URL — abre Google Maps app instalado no Android
-    url = 'intent://maps.google.com/maps?daddr=' + destino
-        + (nome ? '&q=' + encodeURIComponent(nome) : '')
-        + '#Intent;scheme=https;package=com.google.android.apps.maps;action=android.intent.action.VIEW;end';
-  } else if (isIOS) {
-    // Apple Maps no iOS
+  if (isIOS) {
     url = 'maps://maps.apple.com/?daddr=' + destino
         + (nome ? '&q=' + encodeURIComponent(nome) : '');
   } else {
-    // Desktop — abre Google Maps no browser
-    url = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
-        + (nome ? '&destination_place_name=' + encodeURIComponent(nome) : '');
+    // Android: geo: URI abre o app de mapas padrão (Google Maps, Waze, etc)
+    url = 'geo:' + destino + '?q=' + destino
+        + (nome ? '(' + encodeURIComponent(nome) + ')' : '');
   }
   window.location.href = url;
 }
