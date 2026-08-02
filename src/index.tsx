@@ -5709,14 +5709,10 @@ function _textoVozAntecipado(passo, metros){
 
 // ── Ajuste layout mapa ───────────────────────────────────────────
 function _fitMap(){
-  var instr =document.getElementById('instr-bar');
-  var painel=document.getElementById('painel');
-  var mapEl =document.getElementById('map');
-  if(!mapEl) return;
-  var top=instr&&instr.classList.contains('show')?instr.getBoundingClientRect().bottom:0;
-  var bot=painel?painel.offsetHeight:140;
-  mapEl.style.top   =top+'px';
-  mapEl.style.bottom=bot+'px';
+  // #map é position:fixed;inset:0 — sempre ocupa a tela inteira.
+  // Os painéis (instr-bar, painel inferior) flutuam em cima via z-index.
+  // NÃO redimensionar o #map — isso deslocaria o centro geométrico e
+  // quebraria o alinhamento cone (top:50%) ↔ Leaflet center.
   if(_map) setTimeout(function(){_map.invalidateSize();},50);
 }
 
@@ -5875,8 +5871,8 @@ function _exibirRota(route, oLat, oLng){
     lineJoin:'round', lineCap:'round'
   }).addTo(_map);
 
-  // Mostra cone HTML e posiciona na origem da rota
-  _atualizarConeHtml(oLat, oLng);
+  // Cone só aparece quando navegação GPS estiver ativa (_onGpsUpdate)
+  // Aqui ainda é apenas visualização da rota — NÃO mostrar cone
 
   _map.fitBounds(_rotaLayer.getBounds(), {paddingTopLeft:[20,20], paddingBottomRight:[20,80]});
   setTimeout(_fitMap, 150);
