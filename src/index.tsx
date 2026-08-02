@@ -5049,7 +5049,12 @@ html,body{width:100%;height:100%;overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 
 /* ── Mapa ocupa tela inteira ── */
-#map{position:fixed;inset:0;background:#e8eaed;z-index:1}
+#map{
+  position:fixed;inset:0;background:#e8eaed;z-index:1;
+  overflow:hidden;          /* esconde cantos ao rotacionar */
+  will-change:transform;    /* hint GPU para rotação suave */
+  transform-origin:center center;
+}
 
 /* ── Spinner de carregamento ── */
 #tela-loading{
@@ -5857,7 +5862,8 @@ function _onGpsUpdate(pos){
 
   // ── Centraliza mapa + rotaciona pelo heading suavizado ────────
   if(_navegando){
-    _map.setView([lat,lng], 17, {animate:true, duration:0.5, noMoveStart:true});
+    // animate:false evita conflito com nossa rotação CSS
+    _map.setView([lat,lng], 17, {animate:false});
     if(_curHeading !== null){
       _rotacionarMapa(_curHeading);
     }
@@ -6017,33 +6023,58 @@ function _trafAtualizarIndicador(d){
 //  Animação por requestAnimationFrame com interpolação angular suave.
 // ════════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════════
+//  ROTAÇÃO DO MAPA — versão estável sem piscar
+//
+//  PROBLEMA: O Leaflet reescreve o transform do leaflet-map-pane
+//  a cada setView/pan com translate3d(x,y,0). Se sobrescrevemos
+//  com rotate(), ele perde o translate e o mapa pula/pisca.
+//
+//  SOLUÇÃO: Usar o #map container como wrapper de rotação.
+//  O #map gira (CSS), o Leaflet opera normalmente dentro dele.
+//  O conePane está fora do leaflet-map-pane mas dentro do #map —
+//  aplicamos contra-rotação no conePane para manter o cone fixo.
+//
+//  Escalamos o #map para cobrir os cantos pretos da rotação.
+// ════════════════════════════════════════════════════════════════
+
 var _mapBearing    = 0;
 var _bearingTarget = 0;
 var _bearingRafId  = null;
+var _rotacaoAtiva  = false;
 
 function _aplicarBearing(deg){
   deg = ((deg % 360) + 360) % 360;
   _mapBearing = deg;
 
-  if(!_map) return;
-
-  // Obtém o leaflet-map-pane (container de todos os panes padrão)
-  var mapPane = _map.getPane('mapPane') || document.querySelector('#map .leaflet-map-pane');
-  if(!mapPane) return;
+  var mapEl = document.getElementById('map');
+  if(!mapEl) return;
 
   if(deg < 0.5 || deg > 359.5){
-    mapPane.style.transform = '';
-    mapPane.style.transformOrigin = '';
+    // Norte: sem rotação, sem escala
+    mapEl.style.transition    = 'transform 0.4s ease-out';
+    mapEl.style.transform     = '';
+    mapEl.style.transformOrigin = 'center center';
+    // conePane: sem contra-rotação
+    var cp = _map && _map.getPane('conePane');
+    if(cp){ cp.style.transform = ''; cp.style.transformOrigin = ''; }
+    _rotacaoAtiva = false;
   } else {
-    // Ponto de rotação = centro do mapa
-    var mapEl = document.getElementById('map');
-    var cx = mapEl ? (mapEl.offsetWidth/2 - mapPane.offsetLeft) : 0;
-    var cy = mapEl ? (mapEl.offsetHeight/2 - mapPane.offsetTop) : 0;
-    mapPane.style.transformOrigin = cx+'px '+cy+'px';
-    mapPane.style.transform = 'rotate(-'+deg.toFixed(1)+'deg)';
+    // Gira o container #map inteiro
+    // scale(1.5) elimina os cantos pretos nas diagonais
+    mapEl.style.transition    = '';
+    mapEl.style.transform     = 'rotate(-'+deg.toFixed(2)+'deg) scale(1.5)';
+    mapEl.style.transformOrigin = 'center center';
+    // conePane contra-rotaciona para ficar fixo na tela
+    var cp = _map && _map.getPane('conePane');
+    if(cp){
+      cp.style.transform = 'rotate('+deg.toFixed(2)+'deg) scale('+( 1/1.5).toFixed(4)+')';
+      cp.style.transformOrigin = '50% 50%';
+    }
+    _rotacaoAtiva = true;
   }
 
-  // ── Bússola ────────────────────────────────────────────────
+  // ── Bússola ──────────────────────────────────────────────────
   var btn = document.getElementById('btn-compass');
   if(btn){
     var barEl = document.getElementById('instr-bar');
@@ -6059,19 +6090,19 @@ function _aplicarBearing(deg){
   }
 }
 
-// Loop de animação suave — interpola caminho angular mais curto
+// Loop suave — interpola pelo caminho angular mais curto
 function _animarBearing(){
   var diff = (((_bearingTarget - _mapBearing) + 540) % 360) - 180;
-  if(Math.abs(diff) < 0.4){
+  if(Math.abs(diff) < 0.5){
     _aplicarBearing(_bearingTarget);
     _bearingRafId = null;
     return;
   }
-  _aplicarBearing(_mapBearing + diff * 0.2);
+  _aplicarBearing(_mapBearing + diff * 0.22);
   _bearingRafId = requestAnimationFrame(_animarBearing);
 }
 
-// Ponto de entrada: define bearing alvo e anima
+// Ponto de entrada público
 function _rotacionarMapa(heading){
   heading = ((heading % 360) + 360) % 360;
   _bearingTarget = heading;
@@ -6167,7 +6198,9 @@ function _pararNav(){
   btn.innerHTML = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Iniciar Navegação';
   document.getElementById('instr-bar').classList.remove('show');
   if(window.speechSynthesis) window.speechSynthesis.cancel();
-  // Resetar rotação para norte ao parar
+  // Para animação de rotação e reseta para norte
+  if(_bearingRafId){ cancelAnimationFrame(_bearingRafId); _bearingRafId = null; }
+  _bearingTarget = 0;
   _rotacionarMapa(0);
   // Volta zoom para ver rota completa
   if(_rotaLayer) _map.fitBounds(_rotaLayer.getBounds(), {paddingTopLeft:[20,20], paddingBottomRight:[20,80]});
