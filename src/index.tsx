@@ -5428,8 +5428,8 @@ function _distPolyline(lat,lng){
 
 // ── Ícones ───────────────────────────────────────────────────────
 // Cone azul estilo Google Maps — sempre aponta para cima
-// O mapa é que gira via CSS, não o cone
-function _iconUser(heading){
+// O conePane não gira, então o cone aponta sempre para cima na tela
+function _iconUser(){
   var html =
     '<div style="position:relative;width:52px;height:52px;left:-26px;top:-26px">'+
     // Halo de acurácia GPS
@@ -5581,6 +5581,12 @@ function _initMapa(){
     maxZoom:19,attribution:'© OpenStreetMap'
   }).addTo(_map);
 
+  // ── Cria pane dedicado para o cone (não gira com o mapa) ─────
+  // O Leaflet permite criar panes customizados com z-index próprio
+  _map.createPane('conePane');
+  _map.getPane('conePane').style.zIndex = 650;
+  _map.getPane('conePane').style.pointerEvents = 'none';
+
   if(_DLAT&&_DLNG){
     _destMarker=L.marker([parseFloat(_DLAT),parseFloat(_DLNG)],{icon:_iconDest()}).addTo(_map);
   }
@@ -5706,9 +5712,9 @@ function _exibirRota(route, oLat, oLng){
     lineJoin:'round', lineCap:'round'
   }).addTo(_map);
 
-  // ── Marcador do usuário (substitui _userMarker pelo novo _userArrow) ─
+  // ── Marcador do usuário no pane dedicado (não gira com mapa) ──
   if(_userArrow){ _map.removeLayer(_userArrow); _userArrow = null; }
-  _userArrow = L.marker([oLat, oLng], {icon:_iconUser(null), zIndexOffset:2000}).addTo(_map);
+  _userArrow = L.marker([oLat, oLng], {icon:_iconUser(), pane:'conePane', zIndexOffset:2000}).addTo(_map);
 
   _map.fitBounds(_rotaLayer.getBounds(), {paddingTopLeft:[20,20], paddingBottomRight:[20,80]});
   setTimeout(_fitMap, 150);
@@ -5838,9 +5844,9 @@ function _onGpsUpdate(pos){
     }
   }
 
-  // ── Atualiza marcador (cone sempre aponta pra cima — o mapa gira) ──
+  // ── Atualiza cone no pane dedicado (não gira com mapa) ────────
   if(!_userArrow){
-    _userArrow = L.marker([lat,lng],{icon:_iconUser(null),zIndexOffset:2000}).addTo(_map);
+    _userArrow = L.marker([lat,lng],{icon:_iconUser(), pane:'conePane', zIndexOffset:2000}).addTo(_map);
   } else {
     _userArrow.setLatLng([lat,lng]);
   }
@@ -5994,53 +6000,48 @@ function _trafAtualizarIndicador(d){
 }
 
 // ════════════════════════════════════════════════════════════════
-//  ROTAÇÃO DO MAPA — técnica pane-level (Google Maps / Waze)
+//  ROTAÇÃO DO MAPA — técnica definitiva
 //
-//  Princípio:
-//    heading GPS = azimute: 0°=Norte 90°=Leste 180°=Sul 270°=Oeste
-//    Para o movimento ficar "pra cima da tela", giramos os tiles -heading
-//    Ex: indo Sul (180°) → tiles giram -180° → Sul fica no topo ✓
+//  Gira o "leaflet-map-pane" (container interno que contém tiles,
+//  overlay/polyline, shadow e marker padrão).
 //
-//  Arquitetura de panes do Leaflet:
-//    tile-pane    → tiles OSM          → GIRA com heading
-//    overlay-pane → polylines (rota)   → GIRA com heading
-//    marker-pane  → cone do usuário    → NÃO gira (sempre alinhado com tela)
-//    shadow-pane  → sombras            → NÃO gira
+//  O cone do usuário fica em "conePane" — criado FORA do
+//  leaflet-map-pane — portanto NUNCA gira, sempre alinhado à tela.
 //
-//  Suavização: interpolação angular por requestAnimationFrame
-//    Evita salto brusco ao cruzar 0°/360°
+//  Heading GPS (azimute magnético):
+//    0° = Norte → sem rotação
+//    90° = Leste → gira -90° (leste fica no topo)
+//    180° = Sul → gira -180° (sul fica no topo = indo pra frente)
+//    270° = Oeste → gira -270°
+//
+//  Animação por requestAnimationFrame com interpolação angular suave.
 // ════════════════════════════════════════════════════════════════
 
 var _mapBearing    = 0;
 var _bearingTarget = 0;
 var _bearingRafId  = null;
 
-// Função que aplica o bearing diretamente nos panes
 function _aplicarBearing(deg){
   deg = ((deg % 360) + 360) % 360;
   _mapBearing = deg;
 
-  var mapEl = document.getElementById('map');
-  if(!mapEl) return;
-  var W = mapEl.offsetWidth, H = mapEl.offsetHeight;
-  var cx = (W/2)+'px '+(H/2)+'px';
+  if(!_map) return;
 
-  // Panes que acompanham o heading
-  ['leaflet-tile-pane','leaflet-overlay-pane'].forEach(function(cls){
-    var p = mapEl.querySelector('.'+cls);
-    if(!p) return;
-    p.style.transformOrigin = cx;
-    p.style.transform = deg === 0 ? '' : 'rotate(-'+deg.toFixed(2)+'deg)';
-    p.style.willChange = 'transform';
-  });
+  // Obtém o leaflet-map-pane (container de todos os panes padrão)
+  var mapPane = _map.getPane('mapPane') || document.querySelector('#map .leaflet-map-pane');
+  if(!mapPane) return;
 
-  // Panes de marcadores: sem transform → ficam estáticos na tela
-  ['leaflet-marker-pane','leaflet-shadow-pane'].forEach(function(cls){
-    var p = mapEl.querySelector('.'+cls);
-    if(!p) return;
-    p.style.transform = '';
-    p.style.transformOrigin = '';
-  });
+  if(deg < 0.5 || deg > 359.5){
+    mapPane.style.transform = '';
+    mapPane.style.transformOrigin = '';
+  } else {
+    // Ponto de rotação = centro do mapa
+    var mapEl = document.getElementById('map');
+    var cx = mapEl ? (mapEl.offsetWidth/2 - mapPane.offsetLeft) : 0;
+    var cy = mapEl ? (mapEl.offsetHeight/2 - mapPane.offsetTop) : 0;
+    mapPane.style.transformOrigin = cx+'px '+cy+'px';
+    mapPane.style.transform = 'rotate(-'+deg.toFixed(1)+'deg)';
+  }
 
   // ── Bússola ────────────────────────────────────────────────
   var btn = document.getElementById('btn-compass');
@@ -6048,7 +6049,7 @@ function _aplicarBearing(deg){
     var barEl = document.getElementById('instr-bar');
     var barH  = barEl ? (barEl.offsetHeight || 130) : 130;
     btn.style.top = (barH + 12) + 'px';
-    if(deg > 2 && deg < 358){
+    if(deg > 3 && deg < 357){
       btn.classList.remove('hidden');
       var svgEl = btn.querySelector('svg');
       if(svgEl) svgEl.style.transform = 'rotate('+deg+'deg)';
@@ -6058,22 +6059,19 @@ function _aplicarBearing(deg){
   }
 }
 
-// Loop de animação suave (interpola 18% por frame ≈ rápido mas sem solavanco)
+// Loop de animação suave — interpola caminho angular mais curto
 function _animarBearing(){
-  var cur  = _mapBearing;
-  var tgt  = _bearingTarget;
-  // Caminho mais curto entre dois ângulos (evita girar 350° quando bastaria -10°)
-  var diff = ((tgt - cur + 540) % 360) - 180;
-  if(Math.abs(diff) < 0.3){
-    _aplicarBearing(tgt);
+  var diff = (((_bearingTarget - _mapBearing) + 540) % 360) - 180;
+  if(Math.abs(diff) < 0.4){
+    _aplicarBearing(_bearingTarget);
     _bearingRafId = null;
     return;
   }
-  _aplicarBearing(cur + diff * 0.18);
+  _aplicarBearing(_mapBearing + diff * 0.2);
   _bearingRafId = requestAnimationFrame(_animarBearing);
 }
 
-// Ponto de entrada público: define bearing alvo e dispara animação
+// Ponto de entrada: define bearing alvo e anima
 function _rotacionarMapa(heading){
   heading = ((heading % 360) + 360) % 360;
   _bearingTarget = heading;
