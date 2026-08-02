@@ -3081,8 +3081,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       const coords = userLng.toFixed(6) + ',' + userLat.toFixed(6)
         + ';' + alvo.map(p => p.lng.toFixed(6) + ',' + p.lat.toFixed(6)).join(';');
 
-      // Usa VPS OSRM (grátis) com fallback automático para OSRM público
-      const tableBase = _getOsrmBase();
+      // Detecta região pela posição do usuário → instância OSRM correta
+      const tableBase = _getOsrmBase(userLat, userLng);
       const tableUrl = tableBase + '/table/v1/driving/' + coords
         + '?sources=0&annotations=duration,distance';
 
@@ -3525,26 +3525,57 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     return result;
   }
 
-  // ── URLs do servidor VPS próprio (São Paulo) ── 
-  // VPS Hostinger KVM2 com OSRM + tiles OSM próprios → custo zero por requisição
-  // Fallback automático para servidores públicos caso VPS esteja indisponível
-  var VPS_OSRM = 'http://145.223.92.30/osrm';   // OSRM auto-hospedado
-  var VPS_TILES = 'http://145.223.92.30/tiles';   // Tile server próprio (futuro)
-  var PUB_OSRM = 'https://router.project-osrm.org'; // Fallback público
-  var PUB_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'; // Fallback OSM
+  // ── URLs do servidor VPS próprio (São Paulo) ──
+  // VPS Hostinger KVM2: 5 instâncias OSRM para Brasil completo (zero custo por req)
+  // Cada região roda numa porta dedicada, Nginx roteia via /osrm-{regiao}/
+  // Fallback automático para OSRM público caso VPS esteja indisponível
+  var VPS_BASE  = 'http://145.223.92.30';          // IP do VPS
+  var VPS_TILES = 'http://145.223.92.30/tiles';    // Tile server próprio (futuro)
+  var PUB_OSRM  = 'https://router.project-osrm.org'; // Fallback público (fora do BR)
+  var PUB_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-  var _osrmCache = {};  // cache simples por chave "lat,lng→lat,lng"
-  var _vpsOsrmOk = true; // assume VPS online até falha confirmada
-  var _vpsOsrmLastFail = 0; // timestamp da última falha (ms)
+  // Limites geográficos de cada região brasileira
+  // Formato: [latMin, latMax, lngMin, lngMax]
+  var _REGIOES_BR = [
+    // região,      latMin, latMax,  lngMin,  lngMax,  path Nginx
+    ['sudeste',     -25.0,  -14.0,   -53.5,   -39.0,   '/osrm'],
+    ['sul',         -34.0,  -22.5,   -58.0,   -48.0,   '/osrm-sul'],
+    ['nordeste',    -18.0,   -1.0,   -50.0,   -34.0,   '/osrm-nordeste'],
+    ['centro-oeste',-24.0,   -7.0,   -63.0,   -45.0,   '/osrm-co'],
+    ['norte',       -14.0,    6.0,   -74.0,   -44.0,   '/osrm-norte'],
+  ];
+
+  var _osrmCache = {};       // cache por chave "lat,lng→lat,lng"
+  var _vpsOsrmOk = true;     // assume VPS online até falha confirmada
+  var _vpsOsrmLastFail = 0;  // timestamp da última falha (ms)
   var VPS_RETRY_MS = 5 * 60 * 1000; // retentar VPS após 5 min
 
-  // Retorna URL base do OSRM ativa (VPS ou público)
-  function _getOsrmBase() {
-    if (_vpsOsrmOk || (Date.now() - _vpsOsrmLastFail > VPS_RETRY_MS)) {
-      return VPS_OSRM;
+  // Detecta qual região cobre o ponto (lat, lng)
+  // Retorna o path Nginx da instância correta, ou null se fora do Brasil
+  function _getRegiaoPath(lat, lng) {
+    if (!lat || !lng) return null;
+    // Ordem de prioridade: regiões mais densas/usadas primeiro
+    for (var i = 0; i < _REGIOES_BR.length; i++) {
+      var r = _REGIOES_BR[i];
+      if (lat >= r[1] && lat <= r[2] && lng >= r[3] && lng <= r[4]) {
+        return r[5]; // path Nginx ex: '/osrm', '/osrm-sul'
+      }
+    }
+    return null; // fora do Brasil → fallback público
+  }
+
+  // Retorna URL base do OSRM para um ponto dado (VPS regional ou público)
+  // lat/lng = coordenada de referência (origem ou destino da rota)
+  function _getOsrmBase(lat, lng) {
+    var path = (lat != null && lng != null) ? _getRegiaoPath(lat, lng) : null;
+    if (path && (_vpsOsrmOk || (Date.now() - _vpsOsrmLastFail > VPS_RETRY_MS))) {
+      return VPS_BASE + path;
     }
     return PUB_OSRM;
   }
+
+  // Compat: VPS_OSRM usado em comparações de fallback
+  var VPS_OSRM = VPS_BASE + '/osrm';
 
   function _buscarRotaOSRM(mapObj, oriLat, oriLng, dstLat, dstLng, onResult) {
     // onResult(distKm, durationMin, latlngs)
@@ -3554,7 +3585,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       onResult(c.distKm, c.durationMin, c.latlngs);
       return;
     }
-    var osrmBase = _getOsrmBase();
+    // Detecta região pela origem (oriLat/oriLng)
+    var osrmBase = _getOsrmBase(oriLat, oriLng);
     var suffix = '/route/v1/driving/'
       + oriLng.toFixed(6) + ',' + oriLat.toFixed(6)
       + ';' + dstLng.toFixed(6) + ',' + dstLat.toFixed(6)
