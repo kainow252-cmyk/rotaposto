@@ -17,7 +17,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <!-- v20260802c-banner-retorno -->
+  <!-- v20260802d-fix-intent -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
   <meta name="theme-color" content="#FF6D00"/>
   <meta name="mobile-web-app-capable" content="yes"/>
@@ -4908,8 +4908,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (lat && lng && lat !== 0 && lng !== 0) {
       _abrirGoogleMapsNativo(lat, lng, nome ? decodeURIComponent(String(nome)) : '');
     } else if (nome) {
-      // Sem coords — busca por nome no Google Maps
-      window.location.href = 'https://www.google.com/maps/search/' + encodeURIComponent(decodeURIComponent(String(nome)));
+      // Sem coords — busca por nome no Google Maps (window.open evita intent://)
+      window.open('https://www.google.com/maps/search/' + encodeURIComponent(decodeURIComponent(String(nome))), '_blank');
     }
   }
 
@@ -5119,14 +5119,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       return;
     }
 
-    // ── Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome ──
+    // ── Abre Google Maps NATIVO — window.open evita intent:// no retorno ──────
     function _abrirIr(oLat, oLng) {
-      var url = 'https://www.google.com/maps/dir/?api=1';
-      if (oLat && oLng) url += '&origin=' + oLat + ',' + oLng;
-      if (lat && lng)   url += '&destination=' + lat + ',' + lng;
-      if (nome)         url += '&destination_place_name=' + encodeURIComponent(nome);
-      url += '&travelmode=driving';
-      window.location.href = url;
+      // Usa _abrirGoogleMapsNativo que já tem window.open('_blank') correto
+      // window.location.href causava intent:// no retorno dentro do WebView do PWA
+      _abrirGoogleMapsNativo(
+        lat, lng,
+        nome || ''
+      );
     }
 
     // ── Tentar GPS fresco (timeout 5s) para garantir origem correta ──────────
