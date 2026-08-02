@@ -4767,6 +4767,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     window.location.href = '/ir?' + params.toString();
   }
 
+  // ── SOS: "Ir até lá" para borracheiro/mecânica — SEMPRE /ir interno ──
+  // NUNCA abre google.com/maps — mantém tudo dentro do PWA/RotaPosto
+  function _abrirNavegacaoExterna(lat, lng, nome) {
+    var params = new URLSearchParams();
+    if (lat && lng && lat !== 0 && lng !== 0) {
+      params.set('lat', String(lat));
+      params.set('lng', String(lng));
+    }
+    if (nome) params.set('nome', decodeURIComponent(String(nome)));
+    if (userLat && userLng) {
+      params.set('olat', String(userLat));
+      params.set('olng', String(userLng));
+    }
+    window.location.href = '/ir?' + params.toString();
+  }
+
   function irAteLa() {
     if (!selectedPosto) { showToast('Selecione um posto primeiro'); return; }
     // "Como Chegar" → /ir (navegação interna Leaflet + OSRM VPS)
