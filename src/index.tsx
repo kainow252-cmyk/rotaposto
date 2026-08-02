@@ -5051,9 +5051,18 @@ html,body{width:100%;height:100%;overflow:hidden;
 /* ── Mapa ocupa tela inteira ── */
 #map{
   position:fixed;inset:0;background:#e8eaed;z-index:1;
-  overflow:hidden;          /* esconde cantos ao rotacionar */
-  will-change:transform;    /* hint GPU para rotação suave */
+  overflow:hidden;
   transform-origin:center center;
+  will-change:transform;
+}
+/* ── Cone do usuário — div fixo FORA do mapa, nunca gira ── */
+#user-cone{
+  position:fixed;
+  width:52px;height:52px;
+  z-index:45;
+  pointer-events:none;
+  display:none;
+  transform:translate(-50%,-50%);
 }
 
 /* ── Spinner de carregamento ── */
@@ -5214,6 +5223,17 @@ html,body{width:100%;height:100%;overflow:hidden;
 
 <!-- Mapa -->
 <div id="map"></div>
+
+<!-- Cone do usuário (fora do mapa, não gira) -->
+<div id="user-cone">
+  <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+    <!-- Halo de acurácia GPS -->
+    <circle cx="26" cy="26" r="25" fill="rgba(26,115,232,0.13)" stroke="rgba(26,115,232,0.28)" stroke-width="1.5"/>
+    <!-- Cone azul apontando pra cima -->
+    <path d="M26 8 L42 44 L26 37 L10 44 Z" fill="#1a73e8" stroke="white" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M26 8 L42 44 L26 37 Z" fill="#0d52b5" opacity="0.55"/>
+  </svg>
+</div>
 
 <!-- Loading -->
 <div id="tela-loading">
@@ -5586,11 +5606,7 @@ function _initMapa(){
     maxZoom:19,attribution:'© OpenStreetMap'
   }).addTo(_map);
 
-  // ── Cria pane dedicado para o cone (não gira com o mapa) ─────
-  // O Leaflet permite criar panes customizados com z-index próprio
-  _map.createPane('conePane');
-  _map.getPane('conePane').style.zIndex = 650;
-  _map.getPane('conePane').style.pointerEvents = 'none';
+  // Cone é div HTML fixo — não precisa de pane Leaflet
 
   if(_DLAT&&_DLNG){
     _destMarker=L.marker([parseFloat(_DLAT),parseFloat(_DLNG)],{icon:_iconDest()}).addTo(_map);
@@ -5717,9 +5733,8 @@ function _exibirRota(route, oLat, oLng){
     lineJoin:'round', lineCap:'round'
   }).addTo(_map);
 
-  // ── Marcador do usuário no pane dedicado (não gira com mapa) ──
-  if(_userArrow){ _map.removeLayer(_userArrow); _userArrow = null; }
-  _userArrow = L.marker([oLat, oLng], {icon:_iconUser(), pane:'conePane', zIndexOffset:2000}).addTo(_map);
+  // Mostra cone HTML e posiciona na origem da rota
+  _atualizarConeHtml(oLat, oLng);
 
   _map.fitBounds(_rotaLayer.getBounds(), {paddingTopLeft:[20,20], paddingBottomRight:[20,80]});
   setTimeout(_fitMap, 150);
@@ -5808,6 +5823,35 @@ function _atualizarEta(){
   document.getElementById('eta-hora').textContent  = _hora(tempoAcum);
 }
 
+// ── Cone HTML — posiciona div fixo sobre o mapa via pixel coords ─
+// O div #user-cone está fixed na tela (z-index 45), nunca gira.
+// Calculamos sua posição em pixels usando latLngToContainerPoint
+// e aplicamos left/top. Como é fixed fora do #map, não sofre
+// nenhuma rotação CSS do mapa.
+function _atualizarConeHtml(lat, lng){
+  var el = document.getElementById('user-cone');
+  if(!el || !_map) return;
+  // Converte lat/lng para ponto em pixels na tela
+  var pt = _map.latLngToContainerPoint([lat, lng]);
+  var mapEl = document.getElementById('map');
+  var rect  = mapEl ? mapEl.getBoundingClientRect() : {left:0, top:0};
+  // Como o #map está rotacionado via CSS, precisamos converter
+  // o ponto do espaço rotacionado para o espaço da tela.
+  // Usamos o centro do mapa como origem da rotação.
+  var cx = rect.left + rect.width  / 2;
+  var cy = rect.top  + rect.height / 2;
+  // pt é relativo ao container do mapa (antes da rotação CSS)
+  // Precisamos rotacionar pt pelo mesmo ângulo para obter posição real na tela
+  var rad = -_mapBearing * Math.PI / 180; // negativo = gira mapa -heading
+  var dx  = pt.x - rect.width  / 2;
+  var dy  = pt.y - rect.height / 2;
+  var rx  = dx * Math.cos(rad) - dy * Math.sin(rad);
+  var ry  = dx * Math.sin(rad) + dy * Math.cos(rad);
+  el.style.left    = (cx + rx) + 'px';
+  el.style.top     = (cy + ry) + 'px';
+  el.style.display = 'block';
+}
+
 // ── Callback GPS — coração da navegação ─────────────────────────
 // Histórico de posições para calcular heading quando GPS não fornece
 var _posHist = []; // [{lat,lng,ts}]
@@ -5849,12 +5893,8 @@ function _onGpsUpdate(pos){
     }
   }
 
-  // ── Atualiza cone no pane dedicado (não gira com mapa) ────────
-  if(!_userArrow){
-    _userArrow = L.marker([lat,lng],{icon:_iconUser(), pane:'conePane', zIndexOffset:2000}).addTo(_map);
-  } else {
-    _userArrow.setLatLng([lat,lng]);
-  }
+  // ── Atualiza cone HTML (div fixo fora do mapa) ────────────────
+  _atualizarConeHtml(lat, lng);
 
   // ── Traffic Intelligence — coleta silenciosa ──────────────────
   _trafColetar(lat, lng, pos.coords.speed);
@@ -6051,27 +6091,17 @@ function _aplicarBearing(deg){
   if(!mapEl) return;
 
   if(deg < 0.5 || deg > 359.5){
-    // Norte: sem rotação, sem escala
-    mapEl.style.transition    = 'transform 0.4s ease-out';
-    mapEl.style.transform     = '';
-    mapEl.style.transformOrigin = 'center center';
-    // conePane: sem contra-rotação
-    var cp = _map && _map.getPane('conePane');
-    if(cp){ cp.style.transform = ''; cp.style.transformOrigin = ''; }
-    _rotacaoAtiva = false;
+    mapEl.style.transform = '';
   } else {
-    // Gira o container #map inteiro
-    // scale(1.5) elimina os cantos pretos nas diagonais
-    mapEl.style.transition    = '';
-    mapEl.style.transform     = 'rotate(-'+deg.toFixed(2)+'deg) scale(1.5)';
-    mapEl.style.transformOrigin = 'center center';
-    // conePane contra-rotaciona para ficar fixo na tela
-    var cp = _map && _map.getPane('conePane');
-    if(cp){
-      cp.style.transform = 'rotate('+deg.toFixed(2)+'deg) scale('+( 1/1.5).toFixed(4)+')';
-      cp.style.transformOrigin = '50% 50%';
-    }
-    _rotacaoAtiva = true;
+    // Gira apenas o container #map — o Leaflet opera normalmente dentro dele
+    // scale(1.5) cobre cantos pretos que aparecem na rotação
+    mapEl.style.transform = 'rotate(-'+deg.toFixed(2)+'deg) scale(1.5)';
+  }
+  mapEl.style.transformOrigin = 'center center';
+
+  // Atualiza posição do cone HTML (recalcula pixel coords com bearing atual)
+  if(_curLat !== undefined && _curLng !== undefined){
+    _atualizarConeHtml(_curLat, _curLng);
   }
 
   // ── Bússola ──────────────────────────────────────────────────
@@ -6131,7 +6161,7 @@ function _recalcularDe(lat, lng){
 // ── Recalcular rota (botão manual) ───────────────────────────────
 function _recalcularRota(){
   if(_rotaLayer){ _map.removeLayer(_rotaLayer); _rotaLayer = null; }
-  if(_userArrow){ _map.removeLayer(_userArrow); _userArrow = null; }
+  var coneEl = document.getElementById('user-cone'); if(coneEl) coneEl.style.display='none';
   _passos = []; _passoIdx = 0; _ultimoPassoFalado = -1;
   _avisadoMetros = false; _avisado50m = false; _rotaCoords = [];
   _offRouteCount = 0;
@@ -6198,6 +6228,8 @@ function _pararNav(){
   btn.innerHTML = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Iniciar Navegação';
   document.getElementById('instr-bar').classList.remove('show');
   if(window.speechSynthesis) window.speechSynthesis.cancel();
+  // Esconde cone HTML
+  var coneEl = document.getElementById('user-cone'); if(coneEl) coneEl.style.display='none';
   // Para animação de rotação e reseta para norte
   if(_bearingRafId){ cancelAnimationFrame(_bearingRafId); _bearingRafId = null; }
   _bearingTarget = 0;
