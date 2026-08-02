@@ -5737,24 +5737,19 @@ function _initMapa(){
   _map.on('dragstart', function(){
     if(_navegando) _entrarModoLivre();
   });
-  _map.on('zoomstart', function(){
-    // Só sai do follow mode se o zoom foi iniciado por gesto humano
-    // (setView com animate:false também dispara zoomstart, então checamos)
-    if(_navegando && _seguindoUsuario){
-      // Pequeno delay para distinguir zoom do GPS vs zoom manual
-      setTimeout(function(){
-        // Se o mapa está em posição diferente do GPS atual = foi manual
-        if(_seguindoUsuario && _navegando && _curLat !== undefined){
-          var centro = _map.getCenter();
-          var dLat = Math.abs(centro.lat - _curLat);
-          var dLng = Math.abs(centro.lng - _curLng);
-          if(dLat > 0.001 || dLng > 0.001){
-            _entrarModoLivre();
-          }
-        }
-      }, 50);
+  // ── Zoom em follow mode: pivot = GPS (igual Google Maps) ────────
+  // Leaflet usa o centro da tela como pivot do zoom por padrão.
+  // Após cada zoom, se estiver seguindo, recentra no GPS imediatamente.
+  // Isso faz o zoom "crescer/encolher" ao redor do cone, não do centro geométrico.
+  _map.on('zoomend', function(){
+    if(_navegando && _seguindoUsuario && _curLat !== undefined){
+      // Recentra no GPS sem animação — cone permanece sobre o GPS
+      _map.setView([_curLat, _curLng], _map.getZoom(), {animate: false});
     }
   });
+
+  // Drag sai do follow mode normalmente
+  // Zoom manual (pinch) NÃO sai do follow mode — apenas recentra no GPS
 
   // Cone é div HTML fixo — não precisa de pane Leaflet
 
