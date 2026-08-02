@@ -7261,10 +7261,14 @@ function abrirWpp() {
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
 function abrirMapa() {
+  // Abre navegação interna /ir — não sai do RotaPosto
   if (_posto && _posto.lat && _posto.lng) {
-    window.open('https://www.google.com/maps?q=' + _posto.lat + ',' + _posto.lng,'_blank');
-  } else {
-    window.open('https://www.google.com/maps/search/' + encodeURIComponent((_posto?.nomePosto||'posto') + ' ' + (_posto?.cidade||'')),'_blank');
+    var params = new URLSearchParams();
+    params.set('lat',  String(_posto.lat));
+    params.set('lng',  String(_posto.lng));
+    if (_posto.nomePosto) params.set('nome', _posto.nomePosto);
+    if (_posto.bandeira)  params.set('bandeira', _posto.bandeira);
+    window.location.href = '/ir?' + params.toString();
   }
 }
 function compartilhar() {
@@ -9137,7 +9141,7 @@ app.get('/app_old', (c) => {
         <span style="font-size:15px;font-weight:800;" id="rota-tempo">–</span>
       </div>
       <button class="btn-ir" style="margin-top:12px;" onclick="abrirRotaOSM()">
-        <i class="fas fa-external-link-alt"></i> Abrir no OpenStreetMap
+        <i class="fas fa-directions"></i> Navegar agora
       </button>
     </div>
   </div>
@@ -9907,7 +9911,15 @@ async function calcularRotaPosto() {
 }
 
 function abrirRotaOSM() {
-  if (state.rotaUrl) window.open(state.rotaUrl, '_blank');
+  // Usa navegação interna /ir em vez de OSM externo
+  const p = state.postoSelecionado;
+  if (!p || !p.lat || !p.lng) return;
+  const params = new URLSearchParams();
+  params.set('lat',  String(p.lat));
+  params.set('lng',  String(p.lng));
+  if (p.nome) params.set('nome', p.nome);
+  if (p.bandeira) params.set('bandeira', p.bandeira);
+  window.location.href = '/ir?' + params.toString();
 }
 
 // ═══ CALCULADORA ══════════════════════════════════════════════════════════════
