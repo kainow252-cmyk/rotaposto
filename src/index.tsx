@@ -7101,7 +7101,7 @@ app.get('/posto/:id', async (c) => {
     .btn-acao i{font-size:20px}
     .btn-cupom{background:var(--laranja);color:#fff}
     .btn-wpp{background:#25D366;color:#fff}
-    .btn-mapa{background:#1565C0;color:#fff}
+    .btn-waze{background:#05C8F7;color:#000}
     .btn-app{background:#1A1A1A;color:#fff}
 
     /* Info */
@@ -7156,7 +7156,7 @@ app.get('/posto/:id', async (c) => {
   <div class="acoes" id="acoes-wrap">
     <button class="btn-acao btn-cupom" onclick="abrirCupom()"><i class="fas fa-ticket-alt"></i>Gerar Cupom</button>
     <button class="btn-acao btn-wpp"   id="btn-wpp" onclick="abrirWpp()"><i class="fab fa-whatsapp"></i>WhatsApp</button>
-    <button class="btn-acao btn-mapa"  onclick="abrirMapa()"><i class="fas fa-map-marker-alt"></i>Ver no Mapa</button>
+    <button class="btn-acao btn-waze" onclick="abrirWaze()"><img src="https://www.waze.com/favicon.ico" style="width:20px;height:20px">Waze</button>
     <button class="btn-acao btn-app"   onclick="window.location.href='/app'"><i class="fas fa-gas-pump"></i>Abrir App</button>
   </div>
 
@@ -7315,10 +7315,11 @@ function abrirWpp() {
   var num = _posto.whatsapp.replace(/\\D/g,'');
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
-function abrirMapa() {
-  if (_posto && _posto.lat && _posto.lng) {
-    _abrirGoogleMapsNativo(_posto.lat, _posto.lng, _posto.nomePosto || '');
-  }
+function abrirWaze() {
+  if (!_posto || !_posto.lat || !_posto.lng) return;
+  // URL universal do Waze — abre app nativo no celular, site no desktop
+  // /ul?ll={lat},{lng}&navigate=yes → inicia navegação direto
+  window.location.href = 'https://waze.com/ul?ll=' + _posto.lat + ',' + _posto.lng + '&navigate=yes';
 }
 
 // ── Abre Google Maps NATIVO do aparelho ──────────────────────────────────────
