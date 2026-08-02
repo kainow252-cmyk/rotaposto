@@ -17,7 +17,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <!-- v20260802-gmaps -->
+  <!-- v20260802c-banner-retorno -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
   <meta name="theme-color" content="#FF6D00"/>
   <meta name="mobile-web-app-capable" content="yes"/>
@@ -4762,17 +4762,20 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     document.getElementById('month-label').textContent = MONTHS_FULL[currentMonthIdx] + ' 2024';
   }
 
-  // ── Abre Google Maps na mesma janela do PWA — usuário já logado no Chrome ──
   // ── Abre Google Maps NATIVO do aparelho ──────────────────────────────────────
-  // Android PWA/Chrome: geo: não funciona — usar google.com/maps/dir
-  // No Android, google.com/maps/dir abre o app Google Maps instalado diretamente
-  // iOS: maps.apple.com
+  // Android: google.com/maps/dir abre o app Google Maps instalado diretamente
+  // iOS: maps.apple.com (sem geo: que é bloqueado pelo Chrome)
+
+  // Controla estado "Maps aberto" para detectar retorno via visibilitychange
+  var _mapsAberto = false;
+  var _postoNavegando = null; // posto que o usuário abriu no Maps
+
   function _abrirGoogleMapsNativo(lat, lng, nome) {
     var destino = lat + ',' + lng;
     var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     var url;
     if (isIOS) {
-      url = 'maps://maps.apple.com/?daddr=' + destino
+      url = 'https://maps.apple.com/?daddr=' + destino
           + (nome ? '&q=' + encodeURIComponent(nome) : '');
     } else {
       // Android: google.com/maps/dir abre o app Google Maps instalado
@@ -4781,8 +4784,117 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
           + '&travelmode=driving'
           + (nome ? '&destination_place_name=' + encodeURIComponent(nome) : '');
     }
+
+    // Registra que o Maps foi aberto para detectar retorno
+    _mapsAberto = true;
+    _postoNavegando = { lat: lat, lng: lng, nome: nome || '' };
+
     window.open(url, '_blank');
   }
+
+  // ── Banner "Chegou ao posto?" — aparece quando usuário volta do Maps ──────────
+  // Criado uma única vez no DOM e reaproveitado
+  function _criarBannerRetorno() {
+    if (document.getElementById('banner-retorno-maps')) return;
+    var el = document.createElement('div');
+    el.id = 'banner-retorno-maps';
+    el.style.cssText = [
+      'position:fixed',
+      'bottom:80px',
+      'left:50%',
+      'transform:translateX(-50%) translateY(120px)',
+      'background:#1a1a2e',
+      'color:#fff',
+      'border-radius:16px',
+      'padding:14px 20px',
+      'display:flex',
+      'align-items:center',
+      'gap:12px',
+      'box-shadow:0 8px 32px rgba(0,0,0,0.45)',
+      'z-index:9999',
+      'min-width:260px',
+      'max-width:90vw',
+      'transition:transform 0.35s cubic-bezier(.34,1.56,.64,1)',
+      'pointer-events:auto'
+    ].join(';');
+
+    el.innerHTML = [
+      '<div style="flex:1">',
+        '<div style="font-size:15px;font-weight:700;margin-bottom:2px">📍 Chegou ao posto?</div>',
+        '<div id="banner-retorno-nome" style="font-size:13px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px"></div>',
+      '</div>',
+      '<button id="banner-retorno-sim" style="',
+        'background:#00C851;color:#fff;border:none;border-radius:10px;',
+        'padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap',
+      '">✓ Cheguei</button>',
+      '<button id="banner-retorno-x" style="',
+        'background:rgba(255,255,255,0.12);color:#fff;border:none;border-radius:10px;',
+        'padding:8px 10px;font-size:16px;cursor:pointer;line-height:1',
+      '">✕</button>'
+    ].join('');
+
+    document.body.appendChild(el);
+
+    // Botão X — fecha o banner sem fazer nada
+    document.getElementById('banner-retorno-x').addEventListener('click', function() {
+      _esconderBannerRetorno();
+    });
+
+    // Botão "Cheguei" — registra chegada e fecha
+    document.getElementById('banner-retorno-sim').addEventListener('click', function() {
+      _esconderBannerRetorno();
+      if (_postoNavegando && _postoNavegando.nome) {
+        showToast('Ótimo! Bom abastecimento no ' + _postoNavegando.nome + ' ⛽');
+      } else {
+        showToast('Ótimo! Bom abastecimento! ⛽');
+      }
+      _postoNavegando = null;
+    });
+  }
+
+  function _mostrarBannerRetorno(posto) {
+    _criarBannerRetorno();
+    var el = document.getElementById('banner-retorno-maps');
+    var nomeEl = document.getElementById('banner-retorno-nome');
+    if (!el) return;
+    if (nomeEl) nomeEl.textContent = posto && posto.nome ? posto.nome : 'Posto encontrado';
+    // Animar entrada
+    requestAnimationFrame(function() {
+      el.style.transform = 'translateX(-50%) translateY(0)';
+    });
+    // Auto-esconder após 15 segundos
+    clearTimeout(el._autoHide);
+    el._autoHide = setTimeout(function() {
+      _esconderBannerRetorno();
+    }, 15000);
+  }
+
+  function _esconderBannerRetorno() {
+    var el = document.getElementById('banner-retorno-maps');
+    if (!el) return;
+    el.style.transform = 'translateX(-50%) translateY(120px)';
+  }
+
+  // ── visibilitychange — detecta quando usuário fecha o Maps e volta pro RotaPosto ──
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && _mapsAberto) {
+      _mapsAberto = false;
+      // Pequeno delay para o app estar totalmente visível antes de mostrar o banner
+      setTimeout(function() {
+        _mostrarBannerRetorno(_postoNavegando);
+      }, 600);
+    }
+  });
+
+  // pageshow cobre o caso do iOS onde visibilitychange pode não disparar
+  window.addEventListener('pageshow', function(e) {
+    if (e.persisted && _mapsAberto) {
+      _mapsAberto = false;
+      setTimeout(function() {
+        _mostrarBannerRetorno(_postoNavegando);
+      }, 600);
+    }
+  });
 
   function _irParaNavegacaoInterna(posto) {
     if (!posto) { showToast('Selecione um posto primeiro'); return; }
