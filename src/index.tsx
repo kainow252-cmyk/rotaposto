@@ -7322,23 +7322,16 @@ function abrirMapa() {
 }
 
 // ── Abre Google Maps NATIVO do aparelho ──────────────────────────────────────
-// 3 caminhos: iOS → comgooglemaps://+fallback | Android WebView → intent://scheme=http | Chrome/PWA → window.open
-function _isInWebView() {
-  var ua = navigator.userAgent || '';
-  if (ua.indexOf('wv') > -1 && ua.indexOf('Android') > -1) return true;
-  if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Twitter|TikTok|Snapchat|Pinterest|LinkedIn|MicroMessenger/.test(ua)) return true;
-  if (/iphone|ipad|ipod/i.test(ua) && /AppleWebKit/.test(ua) && ua.indexOf('Safari/') < 0) return true;
-  return false;
-}
+// intent:// para todo Android (Chrome, PWA standalone, WebView) | comgooglemaps:// para iOS
 function _abrirGoogleMapsNativo(lat, lng, nome) {
   var destino  = lat + ',' + lng;
   var nomeEnc  = nome ? encodeURIComponent(nome) : '';
   var ua       = navigator.userAgent || '';
   var isIOS    = /iphone|ipad|ipod/i.test(ua);
-  var inWebView = _isInWebView();
+  var isAndroid = /android/i.test(ua);
 
   if (isIOS) {
-    // comgooglemaps:// → se Maps não abrir em 600ms, cai para Apple Maps
+    // ── iOS: comgooglemaps:// abre app nativo; fallback Apple Maps após 600ms ──
     var mapsAppIOS   = 'comgooglemaps://?daddr=' + destino + '&directionsmode=driving';
     var mapsAppleIOS = 'https://maps.apple.com/?daddr=' + destino + (nome ? '&q=' + nomeEnc : '');
     var _t = setTimeout(function() { window.location.href = mapsAppleIOS; }, 600);
@@ -7346,8 +7339,11 @@ function _abrirGoogleMapsNativo(lat, lng, nome) {
     document.addEventListener('visibilitychange', _l);
     window.location.href = mapsAppIOS;
 
-  } else if (inWebView) {
-    // Android WebView in-app → intent:// scheme=http OBRIGATÓRIO (Maps ignora https)
+  } else if (isAndroid) {
+    // ── Android (Chrome, PWA standalone, WebView, Instagram, FB) ──────────────
+    // intent:// é o único método que abre o APP nativo do Maps em TODOS os casos
+    // scheme=http OBRIGATÓRIO — Maps ignora scheme=https
+    // S.browser_fallback_url garante fallback se Maps não estiver instalado
     var fallbackUrl = encodeURIComponent(
       'https://www.google.com/maps/dir/?api=1&destination=' + destino
       + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '')
@@ -7358,9 +7354,7 @@ function _abrirGoogleMapsNativo(lat, lng, nome) {
       + 'S.browser_fallback_url=' + fallbackUrl + ';end';
 
   } else {
-    // Android Chrome / PWA standalone
-    // IMPORTANTE: window.open('_blank') é bloqueado em PWA standalone mode
-    // window.location.href força saída do PWA e abre o GPS nativo
+    // ── Desktop / outros: abre google.com/maps no browser ────────────────────
     window.location.href = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
       + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '');
   }
