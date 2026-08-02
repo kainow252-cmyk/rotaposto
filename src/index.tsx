@@ -5732,24 +5732,19 @@ function _initMapa(){
     maxZoom:19,attribution:'© OpenStreetMap'
   }).addTo(_map);
 
-  // ── Detectar quando usuário arrasta/zooma para sair do follow mode ──
-  // Igual ao Google Maps: drag ou pinch → para de seguir, mostra "Recentralizar"
+  // ── Drag ou zoom manual → sai do follow mode, mostra Recentralizar ──
+  // Igual Google Maps: qualquer interação manual para de seguir o GPS.
+  // O mapa fica onde o usuário deixou. Botão Recentralizar aparece.
   _map.on('dragstart', function(){
     if(_navegando) _entrarModoLivre();
   });
-  // ── Zoom em follow mode: pivot = GPS (igual Google Maps) ────────
-  // Leaflet usa o centro da tela como pivot do zoom por padrão.
-  // Após cada zoom, se estiver seguindo, recentra no GPS imediatamente.
-  // Isso faz o zoom "crescer/encolher" ao redor do cone, não do centro geométrico.
-  _map.on('zoomend', function(){
-    if(_navegando && _seguindoUsuario && _curLat !== undefined){
-      // Recentra no GPS sem animação — cone permanece sobre o GPS
-      _map.setView([_curLat, _curLng], _map.getZoom(), {animate: false});
+  // zoomstart detecta se foi iniciado pelo usuário (não pelo setView do GPS)
+  // Usamos flag _zoomByGps para distinguir
+  _map.on('zoomstart', function(){
+    if(_navegando && _seguindoUsuario && !_zoomByGps){
+      _entrarModoLivre();
     }
   });
-
-  // Drag sai do follow mode normalmente
-  // Zoom manual (pinch) NÃO sai do follow mode — apenas recentra no GPS
 
   // Cone é div HTML fixo — não precisa de pane Leaflet
 
@@ -6028,8 +6023,10 @@ function _onGpsUpdate(pos){
   // Cone é CSS-fixo — o mapa se move por baixo dele. Zero math de coordenadas.
   if(_navegando){
     if(_seguindoUsuario){
-      // animate:false evita conflito com nossa rotação CSS
-      _map.setView([lat,lng], 17, {animate:false});
+      // Flag: este setView veio do GPS — não acionar _entrarModoLivre no zoomstart
+      _zoomByGps = true;
+      _map.setView([lat,lng], _map.getZoom(), {animate:false});
+      _zoomByGps = false;
       if(_curHeading !== null){
         _rotacionarMapa(_curHeading);
       }
@@ -6200,6 +6197,7 @@ function _trafAtualizarIndicador(d){
 var _mapBearing    = 0;
 var _bearingTarget = 0;
 var _bearingRafId  = null;
+var _zoomByGps     = false; // true durante setView do GPS — evita acionar _entrarModoLivre
 var _rotacaoAtiva  = false;
 
 // ── Follow mode (estilo Google Maps) ─────────────────────────────
@@ -6221,9 +6219,10 @@ function _recentrar(){
   if(btn) btn.classList.remove('show');
   // Centraliza imediatamente no GPS atual
   if(_curLat !== undefined && _curLng !== undefined && _map){
-    _map.setView([_curLat, _curLng], 17, {animate:false});
+    _zoomByGps = true;
+    _map.setView([_curLat, _curLng], _map.getZoom(), {animate:false});
+    _zoomByGps = false;
     if(_curHeading !== null) _rotacionarMapa(_curHeading);
-    // Cone é CSS-fixo — sem recálculo necessário
   }
 }
 
@@ -6360,7 +6359,9 @@ function _iniciarNav(){
   // ficaria no fitBounds da rota (visão geral). Centralizamos já na
   // _oriLat/_oriLng com zoom 17 e mostramos o cone.
   if(_oriLat !== undefined && _oriLng !== undefined && _map){
+    _zoomByGps = true;
     _map.setView([_oriLat, _oriLng], 17, {animate: false});
+    _zoomByGps = false;
     _rotacionarMapa(0); // começa norte-up; rotação real vem com o GPS
     var coneEl = document.getElementById('user-cone');
     if(coneEl) coneEl.style.display = 'block';
