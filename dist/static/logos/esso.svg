@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="200" height="100">
+  <rect x="0" y="0" width="160" height="80" rx="6" fill="white"/>
+  <!-- Oval azul fundo -->
+  <ellipse cx="80" cy="40" rx="72" ry="30" fill="#003087"/>
+  <!-- Oval vermelho interno (linha) -->
+  <ellipse cx="80" cy="40" rx="72" ry="30" fill="none"
+    stroke="#CC0000" stroke-width="4"/>
+  <!-- Texto ESSO branco -->
+  <text x="80" y="48"
+    font-family="'Arial Black','Impact','Arial',sans-serif"
+    font-weight="900" font-size="36"
+    fill="white" text-anchor="middle" dominant-baseline="middle"
+    letter-spacing="4">ESSO</text>
+</svg>

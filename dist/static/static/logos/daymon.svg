@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="dayGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D40000"/>
+      <stop offset="100%" stop-color="#8B0000"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="url(#dayGrad)"/>
+  <text x="60" y="70"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="44"
+    fill="white" text-anchor="middle" dominant-baseline="middle"
+    letter-spacing="-2">DAY</text>
+  <text x="60" y="94"
+    font-family="'Arial','Helvetica',sans-serif"
+    font-weight="400" font-size="12"
+    fill="rgba(255,255,255,0.8)" text-anchor="middle" letter-spacing="3">COMBUSTÍVEIS</text>
+</svg>

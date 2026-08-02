@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="spGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0047AB"/>
+      <stop offset="100%" stop-color="#002D6F"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="url(#spGrad)"/>
+  <!-- Duas faixas brancas horizontais (cruz do sul simplificado) -->
+  <path d="M30 38 Q60 28 90 38 Q60 32 30 38" fill="white" opacity="0.4"/>
+  <path d="M30 82 Q60 72 90 82 Q60 76 30 82" fill="white" opacity="0.4"/>
+  <text x="60" y="64"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="38"
+    fill="white" text-anchor="middle" dominant-baseline="middle">SUL</text>
+  <text x="60" y="90"
+    font-family="'Arial','Helvetica',sans-serif"
+    font-weight="600" font-size="11"
+    fill="rgba(255,255,255,0.8)" text-anchor="middle" letter-spacing="3">PETRO</text>
+</svg>

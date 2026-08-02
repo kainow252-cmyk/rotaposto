@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <radialGradient id="shellBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F5F5F5"/>
+    </radialGradient>
+  </defs>
+  <circle cx="60" cy="60" r="58" fill="url(#shellBg)"/>
+  <!-- Concha Shell - vieiras (forma simplificada fiel) -->
+  <!-- Base da concha -->
+  <path d="M60 95 Q40 95 30 82 L60 68 L90 82 Q80 95 60 95 Z" fill="#DD1D21"/>
+  <!-- Segmentos da concha -->
+  <path d="M60 68 L60 25 Q50 30 45 45 L60 68" fill="#DD1D21"/>
+  <path d="M60 68 L60 25 Q70 30 75 45 L60 68" fill="#DD1D21"/>
+  <path d="M60 68 L45 45 Q35 55 30 68 L60 68" fill="#DD1D21"/>
+  <path d="M60 68 L75 45 Q85 55 90 68 L60 68" fill="#DD1D21"/>
+  <path d="M60 68 L35 60 Q28 72 30 82 L60 68" fill="#DD1D21"/>
+  <path d="M60 68 L85 60 Q92 72 90 82 L60 68" fill="#DD1D21"/>
+  <!-- Nervuras amarelas -->
+  <line x1="60" y1="68" x2="60" y2="25" stroke="#FFD500" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="60" y1="68" x2="45" y2="29" stroke="#FFD500" stroke-width="2" stroke-linecap="round"/>
+  <line x1="60" y1="68" x2="75" y2="29" stroke="#FFD500" stroke-width="2" stroke-linecap="round"/>
+  <line x1="60" y1="68" x2="33" y2="52" stroke="#FFD500" stroke-width="2" stroke-linecap="round"/>
+  <line x1="60" y1="68" x2="87" y2="52" stroke="#FFD500" stroke-width="2" stroke-linecap="round"/>
+  <line x1="60" y1="68" x2="28" y2="70" stroke="#FFD500" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="60" y1="68" x2="92" y2="70" stroke="#FFD500" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Ponto base -->
+  <circle cx="60" cy="68" r="4" fill="#FFD500"/>
+</svg>

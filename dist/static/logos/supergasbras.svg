@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="200" height="100">
+  <defs>
+    <linearGradient id="sgbGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F4A700"/>
+      <stop offset="100%" stop-color="#E08800"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="160" height="80" rx="8" fill="white"/>
+  <!-- Faixa amarela superior -->
+  <rect x="0" y="0" width="160" height="28" rx="8" fill="url(#sgbGrad)"/>
+  <rect x="0" y="20" width="160" height="8" fill="url(#sgbGrad)"/>
+  <!-- Chama azul -->
+  <path d="M22 55 C18 45 22 35 26 30 C24 38 30 42 28 50 C32 44 34 36 38 30 C36 42 40 48 36 58 Q28 62 22 55 Z"
+        fill="#003087"/>
+  <!-- Texto -->
+  <text x="95" y="52"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="15"
+    fill="#003087" text-anchor="middle" letter-spacing="0.5">SuperGasBrás</text>
+</svg>

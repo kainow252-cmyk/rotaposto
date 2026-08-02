@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="aleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#E31837"/>
+      <stop offset="100%" stop-color="#B00020"/>
+    </linearGradient>
+    <filter id="aleShadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.3)"/>
+    </filter>
+  </defs>
+  <!-- Círculo de fundo -->
+  <circle cx="60" cy="60" r="57" fill="url(#aleGrad)" filter="url(#aleShadow)"/>
+  <!-- Anel interno branco -->
+  <circle cx="60" cy="60" r="50" fill="none" stroke="white" stroke-width="3" opacity="0.3"/>
+  <!-- Símbolo chama / gota acima -->
+  <path d="M60 18 C54 28 46 34 48 44 C50 54 60 50 60 60 C60 50 70 54 72 44 C74 34 66 28 60 18 Z"
+        fill="white" opacity="0.9"/>
+  <!-- Texto ALÉ -->
+  <text x="60" y="90"
+    font-family="'Arial Black','Impact','Arial',sans-serif"
+    font-weight="900" font-size="30"
+    fill="white" text-anchor="middle" dominant-baseline="middle"
+    letter-spacing="3">ALÉ</text>
+</svg>

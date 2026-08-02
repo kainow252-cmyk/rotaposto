@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="nacGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1565C0"/>
+      <stop offset="50%" stop-color="#1565C0"/>
+      <stop offset="50%" stop-color="#FFD600"/>
+      <stop offset="100%" stop-color="#FFD600"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="url(#nacGrad)"/>
+  <text x="60" y="50"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="18"
+    fill="white" text-anchor="middle" dominant-baseline="middle"
+    letter-spacing="1">NACIONAL</text>
+  <text x="60" y="78"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="16"
+    fill="#1565C0" text-anchor="middle" dominant-baseline="middle"
+    letter-spacing="2">GÁS</text>
+</svg>

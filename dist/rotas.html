@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RotaPosto — Mapa Completo de Rotas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); padding: 32px 24px 24px; border-bottom: 2px solid #1e40af; }
+  .header h1 { font-size: 28px; font-weight: 800; color: #60a5fa; letter-spacing: -0.5px; }
+  .header h1 span { color: #f97316; }
+  .header p { color: #94a3b8; margin-top: 6px; font-size: 14px; }
+  .header .stats { display: flex; gap: 20px; margin-top: 16px; flex-wrap: wrap; }
+  .stat { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 16px; }
+  .stat .num { font-size: 22px; font-weight: 800; color: #60a5fa; }
+  .stat .lbl { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .search-bar { padding: 16px 24px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+  .search-bar input { width: 100%; max-width: 480px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 16px; color: #e2e8f0; font-size: 14px; outline: none; }
+  .search-bar input:focus { border-color: #3b82f6; }
+  .search-bar input::placeholder { color: #475569; }
+
+  .nav-tabs { display: flex; gap: 4px; padding: 12px 24px; background: #0f172a; border-bottom: 1px solid #1e293b; overflow-x: auto; flex-wrap: nowrap; }
+  .tab { padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; border: 1px solid transparent; transition: all 0.15s; color: #64748b; }
+  .tab:hover { background: #1e293b; color: #e2e8f0; }
+  .tab.active { background: #1e40af; color: #fff; border-color: #3b82f6; }
+
+  .content { padding: 20px 24px; max-width: 1200px; }
+
+  .module { margin-bottom: 28px; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }
+  .module-header { padding: 14px 18px; display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
+  .module-header:hover { filter: brightness(1.1); }
+  .module-icon { font-size: 20px; }
+  .module-title { font-size: 15px; font-weight: 700; flex: 1; }
+  .module-count { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 700; }
+  .module-status { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 700; }
+  .status-ok { background: #14532d; color: #4ade80; }
+  .status-pending { background: #7c2d12; color: #fb923c; }
+  .toggle-icon { font-size: 12px; color: #64748b; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #0f172a; color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; text-align: left; }
+  tr.route-row { border-top: 1px solid #1e293b; transition: background 0.1s; }
+  tr.route-row:hover { background: #1e293b44; }
+  td { padding: 10px 16px; font-size: 13px; vertical-align: middle; }
+
+  .num-col { color: #475569; font-size: 12px; width: 40px; }
+  .method { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.3px; min-width: 56px; text-align: center; }
+  .GET    { background: #1e3a5f; color: #60a5fa; border: 1px solid #1e40af; }
+  .POST   { background: #14532d; color: #4ade80; border: 1px solid #166534; }
+  .DELETE { background: #7c2d12; color: #fb923c; border: 1px solid #9a3412; }
+  .PUT    { background: #312e81; color: #a5b4fc; border: 1px solid #3730a3; }
+
+  .route-path { font-family: 'SF Mono', 'Fira Code', monospace; color: #f1f5f9; font-size: 13px; }
+  .route-path .param { color: #fb923c; }
+  .route-desc { color: #94a3b8; font-size: 12px; }
+
+  .badge-ok { color: #4ade80; font-size: 14px; }
+  .badge-no { color: #fb923c; font-size: 14px; }
+
+  .tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; font-weight: 600; }
+  .tag-new { background: #1e3a5f; color: #60a5fa; }
+  .tag-todo { background: #7c2d12; color: #fb923c; }
+
+  .progress-bar { height: 3px; background: #1e293b; }
+  .progress-fill { height: 100%; border-radius: 0 0 0 0; }
+
+  .hidden { display: none !important; }
+  .collapsed tbody { display: none; }
+
+  .footer { padding: 24px; text-align: center; color: #475569; font-size: 12px; border-top: 1px solid #1e293b; margin-top: 24px; }
+
+  @media (max-width: 600px) {
+    .header { padding: 20px 16px; }
+    .content { padding: 12px 12px; }
+    .nav-tabs { padding: 8px 12px; }
+    td { padding: 8px 10px; }
+    .route-desc { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🛣️ <span>Rota</span>Posto — Mapa de Rotas</h1>
+  <p>Documento vivo · Atualizado em 01/08/2025 · v5.1</p>
+  <div class="stats">
+    <div class="stat"><div class="num">201</div><div class="lbl">Rotas totais</div></div>
+    <div class="stat"><div class="num">195</div><div class="lbl">✅ Implementadas</div></div>
+    <div class="stat"><div class="num">6</div><div class="lbl">🔴 Pendentes</div></div>
+    <div class="stat"><div class="num">13</div><div class="lbl">Módulos</div></div>
+  </div>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="busca" placeholder="🔍  Buscar rota, método, descrição..." oninput="filtrar(this.value)">
+</div>
+
+<div class="nav-tabs">
+  <div class="tab active" onclick="filtrarModulo('todos', this)">Todos</div>
+  <div class="tab" onclick="filtrarModulo('mod1', this)">🟢 Telas</div>
+  <div class="tab" onclick="filtrarModulo('mod2', this)">🔵 Core</div>
+  <div class="tab" onclick="filtrarModulo('mod3', this)">🟡 Geo</div>
+  <div class="tab" onclick="filtrarModulo('mod4', this)">🟠 Auth</div>
+  <div class="tab" onclick="filtrarModulo('mod5', this)">💛 Favoritos</div>
+  <div class="tab" onclick="filtrarModulo('mod6', this)">💜 Pagamento</div>
+  <div class="tab" onclick="filtrarModulo('mod7', this)">🔴 SOS</div>
+  <div class="tab" onclick="filtrarModulo('mod8', this)">⚫ Admin</div>
+  <div class="tab" onclick="filtrarModulo('mod9', this)">🟤 Parceiros</div>
+  <div class="tab" onclick="filtrarModulo('mod10', this)">🔔 Push</div>
+  <div class="tab" onclick="filtrarModulo('mod11', this)">🛡️ RotaSegura</div>
+  <div class="tab" onclick="filtrarModulo('mod12', this)">💰 Carteira</div>
+  <div class="tab" onclick="filtrarModulo('mod13', this)">🔧 Sistema</div>
+</div>
+
+<div class="content" id="conteudo">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- MÓDULO 1 -->
+<div class="module" data-mod="mod1">
+  <div class="module-header" style="background:#0f2d1a;" onclick="toggle(this)">
+    <span class="module-icon">🟢</span>
+    <span class="module-title">MÓDULO 1 — TELAS PÚBLICAS</span>
+    <span class="module-count" style="background:#14532d;color:#4ade80;">15 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#22c55e;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">1</td><td><span class="method GET">GET</span></td><td class="route-path">/</td><td class="route-desc">SPA principal — lista postos, mapa, navegação</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">2</td><td><span class="method GET">GET</span></td><td class="route-path">/ir</td><td class="route-desc">Mapa interno Leaflet + OSRM (navegação turn-by-turn)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">3</td><td><span class="method GET">GET</span></td><td class="route-path">/landing</td><td class="route-desc">Landing page pública</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">4</td><td><span class="method GET">GET</span></td><td class="route-path">/onboarding</td><td class="route-desc">Tela de onboarding (primeiro acesso)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">5</td><td><span class="method GET">GET</span></td><td class="route-path">/app</td><td class="route-desc">Alias da SPA principal</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">6</td><td><span class="method GET">GET</span></td><td class="route-path">/app/login</td><td class="route-desc">Tela de login do app</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">7</td><td><span class="method GET">GET</span></td><td class="route-path">/maps</td><td class="route-desc">View de mapa</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">8</td><td><span class="method GET">GET</span></td><td class="route-path">/posto/<span class="param">:id</span></td><td class="route-desc">Perfil público de um posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">9</td><td><span class="method GET">GET</span></td><td class="route-path">/privacidade</td><td class="route-desc">Política de privacidade</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">10</td><td><span class="method GET">GET</span></td><td class="route-path">/termos</td><td class="route-desc">Termos de uso</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">11</td><td><span class="method GET">GET</span></td><td class="route-path">/mapa-brasil</td><td class="route-desc">Mapa de preços Brasil (ANP)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">12</td><td><span class="method GET">GET</span></td><td class="route-path">/download/apk</td><td class="route-desc">Download do APK Android</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">13</td><td><span class="method GET">GET</span></td><td class="route-path">/convite/<span class="param">:token</span></td><td class="route-desc">Link de convite parceiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">14</td><td><span class="method GET">GET</span></td><td class="route-path">/app/cadastrar-posto</td><td class="route-desc">Formulário cadastrar posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">15</td><td><span class="method GET">GET</span></td><td class="route-path">/reset</td><td class="route-desc">Reset de estado / debug</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 2 -->
+<div class="module" data-mod="mod2">
+  <div class="module-header" style="background:#0c1e3a;" onclick="toggle(this)">
+    <span class="module-icon">🔵</span>
+    <span class="module-title">MÓDULO 2 — API CORE (Postos + Preços + Navegação)</span>
+    <span class="module-count" style="background:#1e3a5f;color:#60a5fa;">14 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#3b82f6;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">16</td><td><span class="method GET">GET</span></td><td class="route-path">/api/postos</td><td class="route-desc">Lista postos por lat/lng/raio</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">17</td><td><span class="method GET">GET</span></td><td class="route-path">/api/postos/brasil</td><td class="route-desc">Todos postos do Brasil (ANP)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">18</td><td><span class="method GET">GET</span></td><td class="route-path">/api/posto/<span class="param">:id</span></td><td class="route-desc">Dados de um posto específico</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">19</td><td><span class="method GET">GET</span></td><td class="route-path">/api/precos/municipio</td><td class="route-desc">Preços por município (ANP)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">20</td><td><span class="method GET">GET</span></td><td class="route-path">/api/precos/posto</td><td class="route-desc">Preços de um posto específico</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">21</td><td><span class="method GET">GET</span></td><td class="route-path">/api/precos/brasil</td><td class="route-desc">Média de preços nacional</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">22</td><td><span class="method POST">POST</span></td><td class="route-path">/api/precos/reportar</td><td class="route-desc">Usuário reporta preço</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">23</td><td><span class="method GET">GET</span></td><td class="route-path">/api/precos/reportados</td><td class="route-desc">Lista preços reportados</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">24</td><td><span class="method GET">GET</span></td><td class="route-path">/api/contribuidores/ranking</td><td class="route-desc">Ranking de colaboradores</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">25</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rota</td><td class="route-desc">Cálculo de rota (A→B)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">26</td><td><span class="method GET">GET</span></td><td class="route-path">/api/economia</td><td class="route-desc">Cálculo de economia com posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">27</td><td><span class="method GET">GET</span></td><td class="route-path">/api/combustivel</td><td class="route-desc">Dados de combustível</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">28</td><td><span class="method GET">GET</span></td><td class="route-path">/api/brasil/stats</td><td class="route-desc">Estatísticas gerais Brasil</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">29</td><td><span class="method GET">GET</span></td><td class="route-path">/api/bandeiras</td><td class="route-desc">Lista de bandeiras (Shell, BR...)</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 3 -->
+<div class="module" data-mod="mod3">
+  <div class="module-header" style="background:#1a1a0a;" onclick="toggle(this)">
+    <span class="module-icon">🟡</span>
+    <span class="module-title">MÓDULO 3 — API GEOCODING / LOCALIZAÇÃO</span>
+    <span class="module-count" style="background:#3f3000;color:#facc15;">5 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#eab308;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">30</td><td><span class="method GET">GET</span></td><td class="route-path">/api/geocode</td><td class="route-desc">Geocoding direto (endereço→coords)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">31</td><td><span class="method GET">GET</span></td><td class="route-path">/api/geocode/reverso</td><td class="route-desc">Geocoding reverso (coords→endereço)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">32</td><td><span class="method POST">POST</span></td><td class="route-path">/api/geolocate-device</td><td class="route-desc">Localização por IP/WiFi</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">33</td><td><span class="method GET">GET</span></td><td class="route-path">/api/geoip</td><td class="route-desc">Localização por IP</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">34</td><td><span class="method GET">GET</span></td><td class="route-path">/api/meus-numeros/<span class="param">:userId</span></td><td class="route-desc">Estatísticas do usuário</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 4 -->
+<div class="module" data-mod="mod4">
+  <div class="module-header" style="background:#1a0d00;" onclick="toggle(this)">
+    <span class="module-icon">🟠</span>
+    <span class="module-title">MÓDULO 4 — AUTENTICAÇÃO / USUÁRIO</span>
+    <span class="module-count" style="background:#431407;color:#fb923c;">13 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#f97316;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">35</td><td><span class="method GET">GET</span></td><td class="route-path">/api/auth/config</td><td class="route-desc">Config Firebase (clientside)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">36</td><td><span class="method POST">POST</span></td><td class="route-path">/api/auth/session</td><td class="route-desc">Criar sessão (login Firebase)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">37</td><td><span class="method DELETE">DELETE</span></td><td class="route-path">/api/auth/session</td><td class="route-desc">Logout (destruir sessão)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">38</td><td><span class="method GET">GET</span></td><td class="route-path">/api/auth/session/verify</td><td class="route-desc">Verificar sessão ativa</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">39</td><td><span class="method POST">POST</span></td><td class="route-path">/api/auth/google-code</td><td class="route-desc">Login Google (code flow)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">40</td><td><span class="method POST">POST</span></td><td class="route-path">/api/auth/google-onetap</td><td class="route-desc">Login Google One Tap</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">41</td><td><span class="method GET">GET</span></td><td class="route-path">/auth/google/callback</td><td class="route-desc">Callback OAuth Google</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">42</td><td><span class="method GET">GET</span></td><td class="route-path">/api/usuario/perfil/<span class="param">:uid</span></td><td class="route-desc">Perfil do usuário</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">43</td><td><span class="method POST">POST</span></td><td class="route-path">/api/usuario/dados</td><td class="route-desc">Salvar dados do usuário</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">44</td><td><span class="method GET">GET</span></td><td class="route-path">/api/usuario/veiculo/<span class="param">:uid</span></td><td class="route-desc">Veículo do usuário</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">45</td><td><span class="method POST">POST</span></td><td class="route-path">/api/usuario/veiculo</td><td class="route-desc">Salvar veículo</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">46</td><td><span class="method POST">POST</span></td><td class="route-path">/api/perfil/foto</td><td class="route-desc">Upload foto de perfil</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">47</td><td><span class="method GET">GET</span></td><td class="route-path">/api/perfil/foto/<span class="param">:userId</span></td><td class="route-desc">Buscar foto de perfil</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 5 -->
+<div class="module" data-mod="mod5">
+  <div class="module-header" style="background:#1a1500;" onclick="toggle(this)">
+    <span class="module-icon">💛</span>
+    <span class="module-title">MÓDULO 5 — FAVORITOS</span>
+    <span class="module-count" style="background:#422006;color:#fbbf24;">4 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#f59e0b;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">48</td><td><span class="method GET">GET</span></td><td class="route-path">/api/user/favoritos/<span class="param">:userId</span></td><td class="route-desc">Lista favoritos do usuário</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">49</td><td><span class="method POST">POST</span></td><td class="route-path">/api/user/favoritos/<span class="param">:userId</span></td><td class="route-desc">Adicionar favorito</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">50</td><td><span class="method DELETE">DELETE</span></td><td class="route-path">/api/user/favoritos/<span class="param">:userId</span>/<span class="param">:postoId</span></td><td class="route-desc">Remover favorito</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">51</td><td><span class="method GET">GET</span></td><td class="route-path">/api/user/favoritos/<span class="param">:userId</span>/check/<span class="param">:postoId</span></td><td class="route-desc">Verificar se é favorito</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 6 -->
+<div class="module" data-mod="mod6">
+  <div class="module-header" style="background:#16003a;" onclick="toggle(this)">
+    <span class="module-icon">💜</span>
+    <span class="module-title">MÓDULO 6 — PLANOS / ASSINATURA / PIX</span>
+    <span class="module-count" style="background:#3b0764;color:#c084fc;">19 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#a855f7;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">52</td><td><span class="method GET">GET</span></td><td class="route-path">/api/planos</td><td class="route-desc">Lista planos disponíveis</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">53</td><td><span class="method GET">GET</span></td><td class="route-path">/api/assinatura/status/<span class="param">:userId</span></td><td class="route-desc">Status assinatura do usuário</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">54</td><td><span class="method POST">POST</span></td><td class="route-path">/api/assinatura/cancelar</td><td class="route-desc">Cancelar assinatura</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">55</td><td><span class="method POST">POST</span></td><td class="route-path">/api/pix/assinar</td><td class="route-desc">Criar assinatura via PIX (Asaas)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">56</td><td><span class="method POST">POST</span></td><td class="route-path">/api/pix/gerar-manual</td><td class="route-desc">Gerar cobrança manual PIX</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">57</td><td><span class="method GET">GET</span></td><td class="route-path">/api/pix/verificar/<span class="param">:txid</span></td><td class="route-desc">Verificar pagamento PIX</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">58</td><td><span class="method POST">POST</span></td><td class="route-path">/api/pix/renovar</td><td class="route-desc">Renovar assinatura PIX</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">59</td><td><span class="method POST">POST</span></td><td class="route-path">/api/pix/webhook</td><td class="route-desc">Webhook Asaas PIX usuário</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">60</td><td><span class="method POST">POST</span></td><td class="route-path">/api/pagamento/assinar</td><td class="route-desc">Assinar (PagBank/MercadoPago)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">61</td><td><span class="method POST">POST</span></td><td class="route-path">/api/pagamento/webhook</td><td class="route-desc">Webhook pagamento</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">62</td><td><span class="method GET">GET</span></td><td class="route-path">/api/pagamento/status/<span class="param">:subscriptionId</span></td><td class="route-desc">Status assinatura gateway</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">63</td><td><span class="method POST">POST</span></td><td class="route-path">/api/pagamento/cancelar</td><td class="route-desc">Cancelar via gateway</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">64</td><td><span class="method POST">POST</span></td><td class="route-path">/api/asaas/assinar</td><td class="route-desc">Assinar via Asaas (plano posto)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">65</td><td><span class="method GET">GET</span></td><td class="route-path">/api/asaas/verificar/<span class="param">:paymentId</span></td><td class="route-desc">Verificar pagamento Asaas</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">66</td><td><span class="method POST">POST</span></td><td class="route-path">/api/asaas/renovar</td><td class="route-desc">Renovar Asaas</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">67</td><td><span class="method POST">POST</span></td><td class="route-path">/api/asaas/webhook</td><td class="route-desc">Webhook Asaas</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">68</td><td><span class="method POST">POST</span></td><td class="route-path">/api/pix/posto/assinar</td><td class="route-desc">Posto assina plano via PIX</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">69</td><td><span class="method POST">POST</span></td><td class="route-path">/api/pix/posto/renovar</td><td class="route-desc">Posto renova plano PIX</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">70</td><td><span class="method GET">GET</span></td><td class="route-path">/api/pix/posto/status/<span class="param">:postoId</span></td><td class="route-desc">Status plano do posto</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 7 -->
+<div class="module" data-mod="mod7">
+  <div class="module-header" style="background:#200a0a;" onclick="toggle(this)">
+    <span class="module-icon">🔴</span>
+    <span class="module-title">MÓDULO 7 — SOS / SERVIÇOS DE EMERGÊNCIA</span>
+    <span class="module-count" style="background:#450a0a;color:#f87171;">1 rota</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#ef4444;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">71</td><td><span class="method POST">POST</span></td><td class="route-path">/api/sos/servicos</td><td class="route-desc">Chamar serviço SOS (reboque etc.)</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 8 -->
+<div class="module" data-mod="mod8">
+  <div class="module-header" style="background:#0d0d0d;" onclick="toggle(this)">
+    <span class="module-icon">⚫</span>
+    <span class="module-title">MÓDULO 8 — ADMIN (Painel Interno)</span>
+    <span class="module-count" style="background:#1e1e1e;color:#9ca3af;">37 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#6b7280;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">72</td><td><span class="method GET">GET</span></td><td class="route-path">/admin</td><td class="route-desc">Painel admin principal</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">73</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/usuarios</td><td class="route-desc">Lista usuários</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">74</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/app-usuarios</td><td class="route-desc">Usuários do app</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">75</td><td><span class="method PUT">PUT</span></td><td class="route-path">/api/admin/app-usuarios/<span class="param">:uid</span></td><td class="route-desc">Editar usuário</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">76</td><td><span class="method DELETE">DELETE</span></td><td class="route-path">/api/admin/app-usuarios/<span class="param">:uid</span></td><td class="route-desc">Deletar usuário</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">77</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/usuarios-dados</td><td class="route-desc">Dados completos usuários</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">78</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/usuarios/<span class="param">:uid</span>/editar</td><td class="route-desc">Editar usuário admin</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">79</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/usuarios/<span class="param">:uid</span>/permissao</td><td class="route-desc">Alterar permissão</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">80</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/assinatura/<span class="param">:uid</span>/cancelar</td><td class="route-desc">Admin cancela assinatura</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">81</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/assinatura/<span class="param">:uid</span>/ativar</td><td class="route-desc">Admin ativa assinatura</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">82</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/assinaturas</td><td class="route-desc">Lista todas assinaturas</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">83</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/menu-app</td><td class="route-desc">Config menu do app</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">84</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/menu-app</td><td class="route-desc">Salvar config menu</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">85</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/planos</td><td class="route-desc">Lista planos admin</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">86</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/planos</td><td class="route-desc">Criar plano</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">87</td><td><span class="method PUT">PUT</span></td><td class="route-path">/api/admin/planos/<span class="param">:id</span></td><td class="route-desc">Editar plano</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">88</td><td><span class="method DELETE">DELETE</span></td><td class="route-path">/api/admin/planos/<span class="param">:id</span></td><td class="route-desc">Deletar plano</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">89</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/planos-posto</td><td class="route-desc">Planos para postos</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">90</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/planos-posto</td><td class="route-desc">Criar plano posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">91</td><td><span class="method PUT">PUT</span></td><td class="route-path">/api/admin/planos-posto/<span class="param">:id</span></td><td class="route-desc">Editar plano posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">92</td><td><span class="method DELETE">DELETE</span></td><td class="route-path">/api/admin/planos-posto/<span class="param">:id</span></td><td class="route-desc">Deletar plano posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">93</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/config/pagamento</td><td class="route-desc">Config gateway pagamento</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">94</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/config/pagamento</td><td class="route-desc">Salvar config gateway</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">95</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/config/pagamento/testar</td><td class="route-desc">Testar conexão gateway</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">96</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/planos/criar-no-gateway</td><td class="route-desc">Criar plano no gateway</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">97</td><td><span class="method DELETE">DELETE</span></td><td class="route-path">/api/admin/postos/<span class="param">:id</span></td><td class="route-desc">Deletar posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">98</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/parceiros</td><td class="route-desc">Lista parceiros admin</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">99</td><td><span class="method PUT">PUT</span></td><td class="route-path">/api/admin/parceiros/<span class="param">:id</span></td><td class="route-desc">Editar parceiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">100</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/parceiros/<span class="param">:id</span>/convite</td><td class="route-desc">Enviar convite parceiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">101</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/anp-busca</td><td class="route-desc">Busca ANP admin</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">102</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/sync-anp</td><td class="route-desc">Sincronizar dados ANP</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">103</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/sync-anp/status</td><td class="route-desc">Status sync ANP</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">104</td><td><span class="method GET">GET</span></td><td class="route-path">/api/admin/equipe</td><td class="route-desc">Membros da equipe admin</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">105</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/equipe</td><td class="route-desc">Adicionar membro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">106</td><td><span class="method DELETE">DELETE</span></td><td class="route-path">/api/admin/equipe/<span class="param">:email</span></td><td class="route-desc">Remover membro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">107</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/equipe/<span class="param">:email</span>/senha</td><td class="route-desc">Alterar senha membro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">108</td><td><span class="method POST">POST</span></td><td class="route-path">/api/admin/equipe/login</td><td class="route-desc">Login da equipe admin</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 9 -->
+<div class="module" data-mod="mod9">
+  <div class="module-header" style="background:#1a0e00;" onclick="toggle(this)">
+    <span class="module-icon">🟤</span>
+    <span class="module-title">MÓDULO 9 — PARCEIROS (Donos de Posto)</span>
+    <span class="module-count" style="background:#431407;color:#d97706;">26 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#b45309;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">109</td><td><span class="method GET">GET</span></td><td class="route-path">/parcerias</td><td class="route-desc">Landing parceiros</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">110</td><td><span class="method GET">GET</span></td><td class="route-path">/parcerias/login</td><td class="route-desc">Login parceiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">111</td><td><span class="method GET">GET</span></td><td class="route-path">/parcerias/empresa</td><td class="route-desc">Painel empresa parceira</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">112</td><td><span class="method GET">GET</span></td><td class="route-path">/parcerias/validar</td><td class="route-desc">Validador de cupom</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">113</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/cadastro</td><td class="route-desc">Cadastro parceiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">114</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/login</td><td class="route-desc">Login parceiro API</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">115</td><td><span class="method GET">GET</span></td><td class="route-path">/api/parceiros/dashboard</td><td class="route-desc">Dashboard do parceiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">116</td><td><span class="method GET">GET</span></td><td class="route-path">/api/parceiros/perfil</td><td class="route-desc">Perfil do parceiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">117</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/perfil</td><td class="route-desc">Atualizar perfil</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">118</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/foto-bandeira</td><td class="route-desc">Upload logo bandeira</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">119</td><td><span class="method GET">GET</span></td><td class="route-path">/api/parceiros/equipe</td><td class="route-desc">Equipe do parceiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">120</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/equipe/convidar</td><td class="route-desc">Convidar membro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">121</td><td><span class="method DELETE">DELETE</span></td><td class="route-path">/api/parceiros/equipe/<span class="param">:id</span></td><td class="route-desc">Remover membro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">122</td><td><span class="method GET">GET</span></td><td class="route-path">/api/parceiros/anp-consultar</td><td class="route-desc">Consultar dados ANP do posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">123</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/anp-aplicar</td><td class="route-desc">Aplicar dados ANP</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">124</td><td><span class="method GET">GET</span></td><td class="route-path">/api/parceiros/cupons</td><td class="route-desc">Lista cupons</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">125</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/cupons/criar</td><td class="route-desc">Criar cupom</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">126</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/cupons/validar</td><td class="route-desc">Validar cupom do cliente</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">127</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/cupons/gerar</td><td class="route-desc">Gerar cupom para cliente</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">128</td><td><span class="method GET">GET</span></td><td class="route-path">/api/parceiros/cupons/posto</td><td class="route-desc">Cupons do posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">129</td><td><span class="method GET">GET</span></td><td class="route-path">/api/parceiros/promocoes</td><td class="route-desc">Lista promoções</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">130</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/promocoes</td><td class="route-desc">Criar promoção</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">131</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/precos</td><td class="route-desc">Atualizar preços do posto</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">132</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/notificacoes/enviar</td><td class="route-desc">Enviar push notification</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">133</td><td><span class="method GET">GET</span></td><td class="route-path">/api/parceiros/config</td><td class="route-desc">Config do parceiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">134</td><td><span class="method POST">POST</span></td><td class="route-path">/api/parceiros/config</td><td class="route-desc">Salvar config</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 10 -->
+<div class="module" data-mod="mod10">
+  <div class="module-header" style="background:#0a1a2a;" onclick="toggle(this)">
+    <span class="module-icon">🔔</span>
+    <span class="module-title">MÓDULO 10 — PUSH NOTIFICATIONS</span>
+    <span class="module-count" style="background:#0c2a3a;color:#38bdf8;">3 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#0ea5e9;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">135</td><td><span class="method GET">GET</span></td><td class="route-path">/api/push/vapid-key</td><td class="route-desc">Chave pública VAPID</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">136</td><td><span class="method POST">POST</span></td><td class="route-path">/api/push/subscribe</td><td class="route-desc">Registrar device para push</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">137</td><td><span class="method POST">POST</span></td><td class="route-path">/api/push/unsubscribe</td><td class="route-desc">Desregistrar device</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 11 -->
+<div class="module" data-mod="mod11">
+  <div class="module-header" style="background:#001a0d;" onclick="toggle(this)">
+    <span class="module-icon">🛡️</span>
+    <span class="module-title">MÓDULO 11 — ROTASEGURA (Seguro por Percurso)</span>
+    <span class="module-count" style="background:#003a1a;color:#34d399;">40 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#10b981;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">138</td><td><span class="method GET">GET</span></td><td class="route-path">/rotasegura</td><td class="route-desc">App passageiro (tela principal)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">139</td><td><span class="method GET">GET</span></td><td class="route-path">/rotasegura/login</td><td class="route-desc">Login passageiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">140</td><td><span class="method GET">GET</span></td><td class="route-path">/rotasegura/privacidade</td><td class="route-desc">Privacidade passageiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">141</td><td><span class="method GET">GET</span></td><td class="route-path">/rotasegura/motorista</td><td class="route-desc">App motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">142</td><td><span class="method GET">GET</span></td><td class="route-path">/rotasegura/motorista/login</td><td class="route-desc">Login motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">143</td><td><span class="method GET">GET</span></td><td class="route-path">/rotasegura/motorista/privacidade</td><td class="route-desc">Privacidade motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">144</td><td><span class="method GET">GET</span></td><td class="route-path">/rotasegura/admin</td><td class="route-desc">Painel admin RotaSegura</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">145</td><td><span class="method GET">GET</span></td><td class="route-path">/rotasegura/motorista/admin</td><td class="route-desc">Admin motoristas</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">146</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/passageiro/cadastro</td><td class="route-desc">Cadastrar passageiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">147</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/passageiro/login</td><td class="route-desc">Login passageiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">148</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/passageiro/perfil</td><td class="route-desc">Perfil passageiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">149</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/passageiro/logout</td><td class="route-desc">Logout passageiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">150</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/passageiro/docs</td><td class="route-desc">Enviar documentos</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">151</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/motorista/cadastro</td><td class="route-desc">Cadastrar motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">152</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/motorista/login</td><td class="route-desc">Login motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">153</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/motorista/perfil</td><td class="route-desc">Perfil motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">154</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/motorista/subconta</td><td class="route-desc">Criar subconta Asaas</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">155</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/motorista/logout</td><td class="route-desc">Logout motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">156</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/motorista/docs</td><td class="route-desc">Enviar documentos CNH/CRLV</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">157</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/motorista/disponivel</td><td class="route-desc">Verificar disponibilidade</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">158</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/motorista/aceitar</td><td class="route-desc">Aceitar corrida</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">159</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/motorista/localizacao</td><td class="route-desc">Atualizar localização em tempo real</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">160</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/motorista/iniciar</td><td class="route-desc">Iniciar corrida</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">161</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/motorista/finalizar</td><td class="route-desc">Finalizar corrida</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">162</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/solicitar</td><td class="route-desc">Solicitar corrida (passageiro)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">163</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/status/<span class="param">:corridaId</span></td><td class="route-desc">Status da corrida</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">164</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/cancelar</td><td class="route-desc">Cancelar corrida</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">165</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/pagamento/gerar-pix</td><td class="route-desc">Gerar PIX da corrida</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">166</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/pagamento/status/<span class="param">:paymentId</span></td><td class="route-desc">Status pagamento corrida</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">167</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/pagamento/webhook</td><td class="route-desc">Webhook pagamento corrida</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">168</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/admin/motoristas</td><td class="route-desc">Lista motoristas</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">169</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/admin/passageiros</td><td class="route-desc">Lista passageiros</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">170</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/admin/motorista/<span class="param">:id</span>/foto/<span class="param">:tipo</span></td><td class="route-desc">Foto documento motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">171</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/admin/passageiro/<span class="param">:id</span>/foto/<span class="param">:tipo</span></td><td class="route-desc">Foto documento passageiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">172</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/admin/motorista/<span class="param">:id</span>/status</td><td class="route-desc">Aprovar/reprovar motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">173</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/admin/passageiro/<span class="param">:id</span>/status</td><td class="route-desc">Aprovar/reprovar passageiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">174</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/admin/motorista/<span class="param">:id</span>/foto</td><td class="route-desc">Upload foto admin motorista</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">175</td><td><span class="method POST">POST</span></td><td class="route-path">/api/rotasegura/admin/passageiro/<span class="param">:id</span>/foto</td><td class="route-desc">Upload foto admin passageiro</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">176</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/admin/stats</td><td class="route-desc">Estatísticas RotaSegura</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">177</td><td><span class="method GET">GET</span></td><td class="route-path">/api/rotasegura/diagnostico/asaas</td><td class="route-desc">Diagnóstico Asaas</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 12 — PENDENTE -->
+<div class="module" data-mod="mod12">
+  <div class="module-header" style="background:#1a1000;border:1px solid #f97316;" onclick="toggle(this)">
+    <span class="module-icon">💰</span>
+    <span class="module-title">MÓDULO 12 — CARTEIRA DIGITAL <span style="color:#fb923c;font-size:12px;">← PRÓXIMA ETAPA</span></span>
+    <span class="module-count" style="background:#7c2d12;color:#fb923c;">6 rotas</span>
+    <span class="module-status status-pending">🔴 0%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:0%;background:#f97316;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row" style="opacity:0.6;"><td class="num-col">178</td><td><span class="method GET">GET</span></td><td class="route-path">/carteira <span class="tag tag-todo">TODO</span></td><td class="route-desc">Tela carteira digital (saldo + histórico)</td><td class="badge-no">🔴</td></tr>
+    <tr class="route-row" style="opacity:0.6;"><td class="num-col">179</td><td><span class="method GET">GET</span></td><td class="route-path">/api/carteira/saldo/<span class="param">:userId</span> <span class="tag tag-todo">TODO</span></td><td class="route-desc">Saldo atual da carteira</td><td class="badge-no">🔴</td></tr>
+    <tr class="route-row" style="opacity:0.6;"><td class="num-col">180</td><td><span class="method GET">GET</span></td><td class="route-path">/api/carteira/extrato/<span class="param">:userId</span> <span class="tag tag-todo">TODO</span></td><td class="route-desc">Histórico de transações</td><td class="badge-no">🔴</td></tr>
+    <tr class="route-row" style="opacity:0.6;"><td class="num-col">181</td><td><span class="method POST">POST</span></td><td class="route-path">/api/carteira/recarregar <span class="tag tag-todo">TODO</span></td><td class="route-desc">Recarga via PIX Asaas</td><td class="badge-no">🔴</td></tr>
+    <tr class="route-row" style="opacity:0.6;"><td class="num-col">182</td><td><span class="method POST">POST</span></td><td class="route-path">/api/carteira/pagar <span class="tag tag-todo">TODO</span></td><td class="route-desc">Pagar combustível no posto parceiro</td><td class="badge-no">🔴</td></tr>
+    <tr class="route-row" style="opacity:0.6;"><td class="num-col">183</td><td><span class="method GET">GET</span></td><td class="route-path">/api/carteira/status/<span class="param">:txId</span> <span class="tag tag-todo">TODO</span></td><td class="route-desc">Status da transação</td><td class="badge-no">🔴</td></tr>
+  </table>
+</div>
+
+<!-- MÓDULO 13 -->
+<div class="module" data-mod="mod13">
+  <div class="module-header" style="background:#0a0a1a;" onclick="toggle(this)">
+    <span class="module-icon">🔧</span>
+    <span class="module-title">MÓDULO 13 — SISTEMA / INFRA</span>
+    <span class="module-count" style="background:#1e1e3a;color:#818cf8;">6 rotas</span>
+    <span class="module-status status-ok">✅ 100%</span>
+    <span class="toggle-icon">▼</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#6366f1;"></div></div>
+  <table>
+    <tr><th>#</th><th>Método</th><th>Rota</th><th>Descrição</th><th>OK</th></tr>
+    <tr class="route-row"><td class="num-col">184</td><td><span class="method GET">GET</span></td><td class="route-path">/api/sw-version</td><td class="route-desc">Versão do service worker</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">185</td><td><span class="method GET">GET</span></td><td class="route-path">/api/app/menu-config</td><td class="route-desc">Config do menu (clientside)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">186</td><td><span class="method GET">GET</span></td><td class="route-path">/sw.js</td><td class="route-desc">Service Worker PWA</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">187</td><td><span class="method GET">GET</span></td><td class="route-path">/manifest.json</td><td class="route-desc">PWA manifest</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">188</td><td><span class="method GET">GET</span></td><td class="route-path">/.well-known/assetlinks.json</td><td class="route-desc">TWA digital asset links (Android)</td><td class="badge-ok">✅</td></tr>
+    <tr class="route-row"><td class="num-col">189</td><td><span class="method GET">GET</span></td><td class="route-path">/logo-rotaposto.png</td><td class="route-desc">Logo do app</td><td class="badge-ok">✅</td></tr>
+  </table>
+</div>
+
+</div><!-- /content -->
+
+<div class="footer">
+  RotaPosto · Mapa de Rotas v5.1 · 01/08/2025 · 201 rotas · 13 módulos · <strong style="color:#4ade80;">97% implementado</strong>
+</div>
+
+<script>
+function toggle(header) {
+  var module = header.parentElement;
+  module.classList.toggle('collapsed');
+  var icon = header.querySelector('.toggle-icon');
+  icon.textContent = module.classList.contains('collapsed') ? '▶' : '▼';
+}
+
+function filtrar(q) {
+  q = q.toLowerCase().trim();
+  document.querySelectorAll('.route-row').forEach(function(row) {
+    var txt = row.textContent.toLowerCase();
+    row.classList.toggle('hidden', q !== '' && !txt.includes(q));
+  });
+  if (q === '') {
+    document.querySelectorAll('.module').forEach(function(m) {
+      m.classList.remove('collapsed');
+      var icon = m.querySelector('.toggle-icon');
+      if (icon) icon.textContent = '▼';
+    });
+  }
+}
+
+function filtrarModulo(modId, tabEl) {
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  tabEl.classList.add('active');
+  document.getElementById('busca').value = '';
+  document.querySelectorAll('.route-row').forEach(function(r){ r.classList.remove('hidden'); });
+  document.querySelectorAll('.module').forEach(function(m) {
+    if (modId === 'todos') {
+      m.style.display = '';
+    } else {
+      m.style.display = m.getAttribute('data-mod') === modId ? '' : 'none';
+    }
+  });
+}
+</script>
+</body>
+</html>

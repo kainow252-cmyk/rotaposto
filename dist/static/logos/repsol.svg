@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="200" height="100">
+  <rect x="0" y="0" width="160" height="80" rx="8" fill="white"/>
+  <!-- Sol Repsol simplificado -->
+  <circle cx="35" cy="40" r="22" fill="#F4A700"/>
+  <!-- Raios solares -->
+  <line x1="35" y1="8"  x2="35" y2="15" stroke="#F4A700" stroke-width="3" stroke-linecap="round"/>
+  <line x1="35" y1="65" x2="35" y2="72" stroke="#F4A700" stroke-width="3" stroke-linecap="round"/>
+  <line x1="3"  y1="40" x2="10" y2="40" stroke="#F4A700" stroke-width="3" stroke-linecap="round"/>
+  <line x1="60" y1="40" x2="67" y2="40" stroke="#F4A700" stroke-width="3" stroke-linecap="round"/>
+  <!-- Inicial R -->
+  <text x="35" y="47"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="20"
+    fill="white" text-anchor="middle" dominant-baseline="middle">R</text>
+  <!-- Texto REPSOL -->
+  <text x="115" y="46"
+    font-family="'Arial','Helvetica',sans-serif"
+    font-weight="700" font-size="22"
+    fill="#1A1A2E" text-anchor="middle">REPSOL</text>
+</svg>

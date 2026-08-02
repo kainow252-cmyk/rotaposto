@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="200" height="100">
+  <defs>
+    <linearGradient id="ugGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E31937"/>
+      <stop offset="100%" stop-color="#B00020"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="160" height="80" rx="8" fill="url(#ugGrad)"/>
+  <!-- Símbolo U com chama -->
+  <path d="M25 20 L25 50 Q25 65 40 65 Q55 65 55 50 L55 20 L47 20 L47 50 Q47 57 40 57 Q33 57 33 50 L33 20 Z"
+        fill="white"/>
+  <!-- Chama amarela -->
+  <path d="M40 14 C36 20 32 24 34 30 C36 36 40 33 40 38 C40 33 44 36 46 30 C48 24 44 20 40 14 Z"
+        fill="#FFD700"/>
+  <!-- Texto ULTRAGAZ -->
+  <text x="112" y="48"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="18"
+    fill="white" text-anchor="middle" letter-spacing="1">ULTRAGAZ</text>
+</svg>

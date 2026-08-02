@@ -1,6 +1,4 @@
 # prod
-dist/
-
 # dev
 .yarn/
 !.yarn/releases
@@ -10,16 +8,13 @@ dist/
 .idea/workspace.xml
 .idea/usage.statistics.xml
 .idea/shelf
-
 # deps
 node_modules/
 .wrangler
-
 # env
 .env
 .env.production
 .dev.vars
-
 # logs
 logs/
 *.log
@@ -28,17 +23,14 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
 # misc
 .DS_Store
 *.bak
 *.backup
 *.tmp
-
 # Android build intermediates (regenerated on build)
 android/app/build/
 android/.gradle/
 android/build/
-
 # Wrangler temp builds
 .wrangler/tmp/

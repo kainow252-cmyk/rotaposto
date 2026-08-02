@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="pitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1565C0"/>
+      <stop offset="100%" stop-color="#0D47A1"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="116" height="116" rx="14" fill="url(#pitGrad)"/>
+  <!-- Bandeirada xadrez (símbolo corrida) -->
+  <rect x="18" y="18" width="12" height="12" fill="white"/>
+  <rect x="30" y="18" width="12" height="12" fill="#0D47A1"/>
+  <rect x="42" y="18" width="12" height="12" fill="white"/>
+  <rect x="18" y="30" width="12" height="12" fill="#0D47A1"/>
+  <rect x="30" y="30" width="12" height="12" fill="white"/>
+  <rect x="42" y="30" width="12" height="12" fill="#0D47A1"/>
+  <rect x="18" y="42" width="12" height="12" fill="white"/>
+  <rect x="30" y="42" width="12" height="12" fill="#0D47A1"/>
+  <rect x="42" y="42" width="12" height="12" fill="white"/>
+  <!-- Linha de chegada vertical -->
+  <rect x="54" y="18" width="4" height="42" fill="#FFD700"/>
+  <!-- Texto PIT STOP -->
+  <text x="60" y="88"
+    font-family="'Arial Black','Impact','Arial',sans-serif"
+    font-weight="900" font-size="20"
+    fill="white" text-anchor="middle" dominant-baseline="middle"
+    letter-spacing="1">PIT STOP</text>
+</svg>

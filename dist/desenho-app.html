@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RotaPosto · Estratégia & Arquitetura</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#07090e;color:#e2e2e2;padding:36px 24px}
+
+/* ── TIPOGRAFIA ── */
+h1{font-size:26px;font-weight:900;color:#FF6D00;margin-bottom:4px;letter-spacing:-0.5px}
+.subtitle{font-size:13px;color:rgba(255,255,255,.38);margin-bottom:36px}
+.section{margin-bottom:60px}
+.sec-title{font-size:15px;font-weight:800;color:#fff;padding:10px 16px;background:rgba(255,255,255,.04);border-left:4px solid #FF6D00;border-radius:6px;margin-bottom:22px;display:flex;align-items:center;gap:8px}
+.sec-title.blue{border-left-color:#1a6aff}
+.sec-title.green{border-left-color:#00C851}
+.sec-title.purple{border-left-color:#9c27b0}
+.sec-num{background:#FF6D00;color:#fff;font-size:10px;font-weight:900;padding:2px 7px;border-radius:6px}
+.sec-num.blue{background:#1a6aff}
+.sec-num.green{background:#00C851}
+.sec-num.purple{background:#9c27b0}
+
+/* ── MERCADO CARDS ── */
+.market-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.mcard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px}
+.mcard.orange{border-color:rgba(255,109,0,.3);background:rgba(255,109,0,.05)}
+.mcard.blue{border-color:rgba(26,106,255,.3);background:rgba(26,106,255,.05)}
+.mcard.green{border-color:rgba(0,200,81,.3);background:rgba(0,200,81,.05)}
+.mcard h3{font-size:12px;font-weight:700;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+.mcard h3.orange{color:#FF6D00}
+.mcard h3.blue{color:#4d8bff}
+.mcard h3.green{color:#00C851}
+.kpi{margin-bottom:10px}
+.kpi-val{font-size:26px;font-weight:900;line-height:1}
+.kpi-val.orange{color:#FF6D00}
+.kpi-val.blue{color:#4d8bff}
+.kpi-val.green{color:#00C851}
+.kpi-lbl{font-size:10px;color:rgba(255,255,255,.4);margin-top:2px}
+.kpi-src{font-size:9px;color:rgba(255,255,255,.2);margin-top:1px}
+.divider-h{height:1px;background:rgba(255,255,255,.06);margin:10px 0}
+.bullet{font-size:10px;color:rgba(255,255,255,.55);padding:3px 0;display:flex;gap:6px;align-items:flex-start;line-height:1.4}
+.bullet::before{content:'›';color:rgba(255,255,255,.25);flex-shrink:0}
+
+/* ── COMPETITOR TABLE ── */
+.comp-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px}
+.comp-table th{background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);padding:8px 10px;text-align:left;font-weight:700;border-bottom:1px solid rgba(255,255,255,.08)}
+.comp-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle;line-height:1.4}
+.comp-table tr:last-child td{border-bottom:none}
+.comp-table tr.highlight td{background:rgba(255,109,0,.06)}
+.tag{display:inline-block;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:700}
+.tag-g{background:rgba(0,200,81,.15);color:#00C851}
+.tag-r{background:rgba(255,68,88,.15);color:#ff5555}
+.tag-y{background:rgba(255,193,7,.15);color:#ffc107}
+.tag-b{background:rgba(26,106,255,.15);color:#4d8bff}
+.tag-o{background:rgba(255,109,0,.15);color:#FF6D00}
+
+/* ── OPPORTUNITY ── */
+.opp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.opp-card{background:rgba(255,255,255,.04);border-radius:10px;padding:14px;border:1px solid rgba(255,255,255,.07)}
+.opp-card h4{font-size:12px;font-weight:700;margin-bottom:8px}
+.opp-card p{font-size:11px;color:rgba(255,255,255,.5);line-height:1.5}
+
+/* ── ARCHITECTURE ── */
+.arch-wrapper{position:relative;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:28px;margin-bottom:20px}
+.arch-title{font-size:11px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:20px}
+
+/* APP SHELL */
+.app-shell{background:#0d1117;border:2px solid rgba(255,109,0,.4);border-radius:20px;padding:20px;position:relative}
+.app-name{font-size:16px;font-weight:900;color:#FF6D00;margin-bottom:4px}
+.app-sub{font-size:11px;color:rgba(255,255,255,.35);margin-bottom:20px}
+
+/* MODULES ROW */
+.modules-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px}
+.module{border-radius:14px;padding:16px;position:relative;overflow:hidden}
+.module.m1{background:linear-gradient(135deg,rgba(255,109,0,.12),rgba(255,109,0,.05));border:1px solid rgba(255,109,0,.3)}
+.module.m2{background:linear-gradient(135deg,rgba(255,109,0,.1),rgba(255,109,0,.03));border:1px solid rgba(255,109,0,.2)}
+.module.m3{background:linear-gradient(135deg,rgba(26,106,255,.12),rgba(26,106,255,.05));border:1px solid rgba(26,106,255,.3)}
+.module-icon{font-size:24px;margin-bottom:8px}
+.module-name{font-size:13px;font-weight:800;margin-bottom:4px}
+.module-name.orange{color:#FF6D00}
+.module-name.blue{color:#4d8bff}
+.module-origin{font-size:9px;color:rgba(255,255,255,.3);margin-bottom:10px;font-style:italic}
+.module-feat{font-size:10px;color:rgba(255,255,255,.55);padding:3px 0;display:flex;gap:5px;align-items:flex-start;line-height:1.3}
+.module-feat::before{content:'•';color:rgba(255,255,255,.2);flex-shrink:0}
+
+/* SHARED LAYER */
+.shared-layer{background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.1);border-radius:12px;padding:14px;margin-bottom:14px}
+.shared-title{font-size:10px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.shared-items{display:flex;flex-wrap:wrap;gap:8px}
+.shared-item{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:5px 10px;font-size:10px;color:rgba(255,255,255,.6);display:flex;align-items:center;gap:5px}
+
+/* DATA LAYER */
+.data-layer{background:rgba(255,255,255,.03);border:1px dashed rgba(26,106,255,.2);border-radius:12px;padding:14px}
+.data-items{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.data-item{background:rgba(255,255,255,.04);border-radius:8px;padding:8px;text-align:center;font-size:10px;color:rgba(255,255,255,.5)}
+.data-item b{display:block;font-size:9px;color:rgba(255,255,255,.3);margin-top:2px}
+
+/* NAVBAR PREVIEW */
+.navbar-preview{display:flex;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;margin-bottom:20px}
+.nb-tab{flex:1;padding:12px 6px;text-align:center;font-size:10px;color:rgba(255,255,255,.35);border-right:1px solid rgba(255,255,255,.06)}
+.nb-tab:last-child{border-right:none}
+.nb-tab.active{background:rgba(255,109,0,.1);color:#FF6D00;font-weight:700}
+.nb-tab.active.blue{background:rgba(26,106,255,.1);color:#4d8bff}
+.nb-tab .icon{font-size:18px;margin-bottom:4px}
+
+/* FLOW */
+.flow-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.fb{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;font-size:11px;text-align:center;line-height:1.35}
+.fb.o{background:rgba(255,109,0,.1);border-color:rgba(255,109,0,.3);color:#FF6D00}
+.fb.b{background:rgba(26,106,255,.1);border-color:rgba(26,106,255,.3);color:#4d8bff}
+.fb.g{background:rgba(0,200,81,.1);border-color:rgba(0,200,81,.3);color:#00C851}
+.fb.r{background:rgba(255,68,88,.1);border-color:rgba(255,68,88,.3);color:#ff6666}
+.fa{color:rgba(255,255,255,.25);font-size:20px;flex-shrink:0}
+
+/* REVENUE MODEL */
+.rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.rev-card{background:rgba(255,255,255,.04);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,.07)}
+.rev-card h4{font-size:12px;font-weight:700;margin-bottom:10px}
+.rev-line{font-size:11px;color:rgba(255,255,255,.55);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;gap:8px}
+.rev-line:last-child{border-bottom:none}
+.rev-val{color:#00C851;font-weight:700;white-space:nowrap}
+
+/* TIMELINE */
+.timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.phase{background:rgba(255,255,255,.04);border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,.07);position:relative}
+.phase-num{font-size:22px;font-weight:900;color:rgba(255,255,255,.08);position:absolute;top:10px;right:12px}
+.phase h4{font-size:12px;font-weight:700;margin-bottom:6px}
+.phase-dur{font-size:9px;color:rgba(255,255,255,.3);margin-bottom:10px}
+.phase-item{font-size:10px;color:rgba(255,255,255,.5);padding:3px 0;display:flex;gap:5px}
+.phase-item::before{content:'✓';color:#FF6D00;flex-shrink:0}
+.phase.p2 h4{color:#FF6D00}
+.phase.p3 h4{color:#4d8bff}
+.phase.p4 h4{color:#00C851}
+
+/* NOTA */
+.nota{background:rgba(255,109,0,.07);border:1px solid rgba(255,109,0,.18);border-radius:10px;padding:12px 14px;font-size:11px;color:rgba(255,255,255,.65);line-height:1.55;margin-top:14px}
+.nota.blue{background:rgba(26,106,255,.07);border-color:rgba(26,106,255,.18)}
+.nota.green{background:rgba(0,200,81,.07);border-color:rgba(0,200,81,.18)}
+
+/* PHONE FRAMES */
+.phones{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;margin-top:4px}
+.phone-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.phone-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;text-align:center}
+.phone{width:200px;background:#0d1117;border:2px solid rgba(255,255,255,.1);border-radius:32px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+.phone.orange{border-color:rgba(255,109,0,.4)}
+.phone.blue{border-color:rgba(26,106,255,.4)}
+.phone-notch{width:70px;height:16px;background:#07090e;border-radius:0 0 10px 10px;margin:0 auto;flex-shrink:0}
+.phone-screen{padding:10px 12px 6px;flex:1}
+.pnav{display:flex;background:#0d1117;border-top:1px solid rgba(255,255,255,.07);padding:7px 0 9px;flex-shrink:0}
+.pt{flex:1;text-align:center;font-size:7px;color:rgba(255,255,255,.3)}
+.pt.a{color:#FF6D00;font-weight:700}
+.pt.ab{color:#1a6aff;font-weight:700}
+.pt svg{width:14px;height:14px;display:block;margin:0 auto 2px}
+.sbar{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,.3);margin-bottom:7px}
+.stitle{font-size:13px;font-weight:700;color:#fff;margin-bottom:8px}
+.scard{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:9px;margin-bottom:6px}
+.slbl{font-size:8px;color:rgba(255,255,255,.3);margin-bottom:1px}
+.sval{font-size:11px;color:#fff;font-weight:600}
+.sbtn{background:#FF6D00;border:none;border-radius:8px;color:#fff;font-size:9px;font-weight:700;padding:7px;width:100%;margin-top:4px;margin-bottom:4px}
+.sbtn.b{background:#1a6aff}
+.sbtn.g{background:#00C851}
+.saldo-bg{background:linear-gradient(135deg,#c04a00,#FF6D00);border-radius:10px;padding:10px;margin-bottom:8px}
+.seg-bg{background:linear-gradient(135deg,#0a1a33,#1a3560);border:1px solid rgba(26,106,255,.3);border-radius:10px;padding:10px;margin-bottom:8px}
+.row-bet{display:flex;justify-content:space-between;align-items:center}
+
+@media(max-width:900px){.market-grid,.modules-row,.rev-grid,.timeline,.data-items{grid-template-columns:1fr 1fr}.opp-grid{grid-template-columns:1fr}.phones{justify-content:center}.phone{width:175px}}
+@media(max-width:600px){.market-grid,.rev-grid,.timeline{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<h1>⚡ RotaPosto — Estratégia de Mercado & Arquitetura</h1>
+<p class="subtitle">Pesquisa de mercado real · Como 3 apps viram 1 · Arquitetura técnica completa · Modelo de receita</p>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SEÇÃO 1 — PESQUISA DE MERCADO -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-title"><span class="sec-num">1</span> Pesquisa de Mercado — Oportunidade Real</div>
+
+  <div class="market-grid">
+
+    <!-- POSTOS -->
+    <div class="mcard orange">
+      <h3 class="orange">⛽ Mercado Postos Brasil</h3>
+      <div class="kpi"><div class="kpi-val orange">45 mil</div><div class="kpi-lbl">postos de combustível ativos</div><div class="kpi-src">Fonte: ANP / usebaratao.com.br 2025</div></div>
+      <div class="divider-h"></div>
+      <div class="kpi"><div class="kpi-val orange">133 bi</div><div class="kpi-lbl">litros vendidos em 2024</div><div class="kpi-src">Fonte: FecCombustíveis, fev/2025</div></div>
+      <div class="divider-h"></div>
+      <div class="bullet">Faturamento médio posto pequeno: R$ 1,8 mi/mês</div>
+      <div class="bullet">Vibra 21,6% · Ipiranga 16,7% · Raízen 15,5% do mercado</div>
+      <div class="bullet">Programas de fidelidade: Petrobras Premmia, Ipiranga KM de Vantagens</div>
+      <div class="bullet"><b>GAP:</b> ~55% dos postos independentes <b>sem</b> programa de fidelidade digital</div>
+    </div>
+
+    <!-- CARTEIRA -->
+    <div class="mcard blue">
+      <h3 class="blue">💳 Frota & Pagamento Digital</h3>
+      <div class="kpi"><div class="kpi-val blue">124 mi</div><div class="kpi-lbl">veículos em circulação no Brasil</div><div class="kpi-src">Fonte: Ministério Transportes, dez/2024</div></div>
+      <div class="divider-h"></div>
+      <div class="kpi"><div class="kpi-val blue">62 mi</div><div class="kpi-lbl">autoveículos + motos (frota circulante)</div><div class="kpi-src">Fonte: Movenews / Denatran 2024</div></div>
+      <div class="divider-h"></div>
+      <div class="bullet">Sem Parar: 8 mil pontos de aceitação em postos — crescendo</div>
+      <div class="bullet">Embedded finance para mobilidade: tendência forte América Latina 2026</div>
+      <div class="bullet">Cartão de combustível frota: mercado dominado por Ticket, VR, Sem Parar (foco B2B)</div>
+      <div class="bullet"><b>GAP:</b> nenhuma solução <b>B2C nativa app</b> com saldo + cashback em postos independentes</div>
+    </div>
+
+    <!-- SEGURO -->
+    <div class="mcard green">
+      <h3 class="green">🛡️ Seguro por Uso (UBI/Pay-per-km)</h3>
+      <div class="kpi"><div class="kpi-val green">70%</div><div class="kpi-lbl">da frota brasileira <b>sem seguro</b></div><div class="kpi-src">Fonte: BandNews / dados SUSEP 2024</div></div>
+      <div class="divider-h"></div>
+      <div class="kpi"><div class="kpi-val green">US$35 bi</div><div class="kpi-lbl">mercado global seguro viagem 2026</div><div class="kpi-src">Fonte: Fortune Business Insights</div></div>
+      <div class="divider-h"></div>
+      <div class="bullet">Insurtechs LATAM captaram US$199 mi em 2025 — alta de 117%</div>
+      <div class="bullet">Kakau (BR) aprovada SUSEP como seguradora digital em 2023</div>
+      <div class="bullet">Modelo pay-per-km pode custar até <b>50% menos</b> que seguro tradicional</div>
+      <div class="bullet"><b>GAP:</b> nenhum app BR oferece seguro por viagem <b>integrado ao app de rota</b></div>
+    </div>
+
+  </div>
+
+  <!-- ANÁLISE CONCORRENTES -->
+  <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:10px;margin-top:24px;text-transform:uppercase;letter-spacing:.5px">Análise de Concorrentes Diretos</div>
+  <table class="comp-table">
+    <tr>
+      <th>Produto / App</th>
+      <th>Foco</th>
+      <th>Carteira digital</th>
+      <th>Seguro viagem</th>
+      <th>Fidelidade postos</th>
+      <th>App motorista comum</th>
+      <th>Modelo</th>
+    </tr>
+    <tr>
+      <td><b>Sem Parar</b></td>
+      <td>Pedágio + combustível</td>
+      <td><span class="tag tag-y">Parcial (cartão)</span></td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-g">Sim (8k pontos)</span></td>
+      <td><span class="tag tag-r">Foco B2B frotas</span></td>
+      <td>Assinatura</td>
+    </tr>
+    <tr>
+      <td><b>Ipiranga KM Vantagens</b></td>
+      <td>Fidelidade rede Ipiranga</td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-g">Sim (só Ipiranga)</span></td>
+      <td><span class="tag tag-y">App simples</span></td>
+      <td>Pontos</td>
+    </tr>
+    <tr>
+      <td><b>Petrobras Premmia</b></td>
+      <td>Fidelidade rede Petrobras</td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-g">Sim (7.700 postos)</span></td>
+      <td><span class="tag tag-y">App básico</span></td>
+      <td>Pontos</td>
+    </tr>
+    <tr>
+      <td><b>Kakau Seguros</b></td>
+      <td>Seguro digital</td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-g">Sim (UBI)</span></td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-y">Seguro só</span></td>
+      <td>Subscrição</td>
+    </tr>
+    <tr>
+      <td><b>Google Maps / Waze</b></td>
+      <td>Navegação + preço comb.</td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-r">Não</span></td>
+      <td><span class="tag tag-g">Sim (navegação)</span></td>
+      <td>Gratuito/Ads</td>
+    </tr>
+    <tr class="highlight">
+      <td><b>⚡ RotaPosto</b></td>
+      <td><b>Tudo em um</b></td>
+      <td><span class="tag tag-o">💳 Carteira Digital</span></td>
+      <td><span class="tag tag-o">🛡️ Seguro/Viagem</span></td>
+      <td><span class="tag tag-o">✓ Todos postos</span></td>
+      <td><span class="tag tag-o">✓ App central</span></td>
+      <td><b>Comissão + split</b></td>
+    </tr>
+  </table>
+
+  <div class="nota">
+    💡 <b>Tese central:</b> nenhum concorrente une as 3 verticais — rota até posto + pagamento com saldo + seguro da viagem — num único app voltado ao motorista comum (não só frotas B2B). Essa é a brecha que o RotaPosto ocupa.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SEÇÃO 2 — ARQUITETURA 3 APPS EM 1 -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-title blue"><span class="sec-num blue">2</span> Arquitetura — 3 Apps Flutter → 1 RotaPosto (Hono + Cloudflare)</div>
+
+  <div class="arch-wrapper">
+    <div class="arch-title">RotaPosto PWA — app único, 3 módulos integrados</div>
+
+    <!-- NAVBAR PREVIEW -->
+    <div class="navbar-preview">
+      <div class="nb-tab"><div class="icon">🗺️</div>Lista</div>
+      <div class="nb-tab active"><div class="icon">📍</div>Mapa</div>
+      <div class="nb-tab active" style="background:rgba(255,109,0,.1);color:#FF6D00"><div class="icon">💳</div>Carteira</div>
+      <div class="nb-tab active blue" style="background:rgba(26,106,255,.1);color:#1a6aff"><div class="icon">🛡️</div>Seguro</div>
+      <div class="nb-tab"><div class="icon">🧭</div>Planejar</div>
+      <div class="nb-tab"><div class="icon">👤</div>Perfil</div>
+    </div>
+
+    <!-- 3 MÓDULOS -->
+    <div class="modules-row">
+
+      <!-- MÓDULO 1: ROTAPOSTO CORE -->
+      <div class="module m1">
+        <div class="module-icon">⛽</div>
+        <div class="module-name orange">RotaPosto Core</div>
+        <div class="module-origin">app original — já existe</div>
+        <div class="module-feat">Mapa postos com preços</div>
+        <div class="module-feat">Rota até o posto mais barato</div>
+        <div class="module-feat">Lista + filtros (bandeira, dist.)</div>
+        <div class="module-feat">Onboarding motorista</div>
+        <div class="module-feat">Painel parceiros / postos</div>
+        <div class="module-feat">RotaSegura (corridas)</div>
+        <div style="margin-top:10px;font-size:9px;color:rgba(255,255,255,.25)">src/index.tsx · src/app.ts</div>
+      </div>
+
+      <!-- MÓDULO 2: CARTEIRA DIGITAL -->
+      <div class="module m2">
+        <div class="module-icon">💳</div>
+        <div class="module-name orange">Carteira Digital</div>
+        <div class="module-origin">porta do ShareWallet (Flutter)</div>
+        <div class="module-feat">Saldo via subconta Asaas</div>
+        <div class="module-feat">Depósito PIX (QR dinâmico)</div>
+        <div class="module-feat">Saque PIX (chave do motorista)</div>
+        <div class="module-feat">Pagar no posto (QR + split)</div>
+        <div class="module-feat">Extrato completo + cashback</div>
+        <div class="module-feat">Subconta exclusiva por posto</div>
+        <div style="margin-top:10px;font-size:9px;color:rgba(255,255,255,.25)">src/carteira.ts (A CRIAR)</div>
+      </div>
+
+      <!-- MÓDULO 3: SEGURO -->
+      <div class="module m3">
+        <div class="module-icon">🛡️</div>
+        <div class="module-name blue">Seguro por Percurso</div>
+        <div class="module-origin">porta do SafeRouteGo (Flutter)</div>
+        <div class="module-feat">Motor atuarial (Dart → TS)</div>
+        <div class="module-feat">Cotação em tempo real</div>
+        <div class="module-feat">FIPE + OSRM + OpenWeather</div>
+        <div class="module-feat">Score de risco por CEP</div>
+        <div class="module-feat">GPS tracking ativo</div>
+        <div class="module-feat">Pagamento via saldo Carteira</div>
+        <div style="margin-top:10px;font-size:9px;color:rgba(255,255,255,.25)">src/seguro.ts (A CRIAR)</div>
+      </div>
+
+    </div>
+
+    <!-- CAMADA COMPARTILHADA -->
+    <div class="shared-layer">
+      <div class="shared-title">🔗 Camada compartilhada — usada pelos 3 módulos</div>
+      <div class="shared-items">
+        <div class="shared-item">🔐 Autenticação JWT (motorista/posto)</div>
+        <div class="shared-item">🏦 Asaas SDK (subcontas + PIX + split)</div>
+        <div class="shared-item">🗝️ KV Storage (sessões + cache)</div>
+        <div class="shared-item">🗄️ D1 Database (perfis + extrato + apólices)</div>
+        <div class="shared-item">📡 Webhook handler (/api/carteira/webhook)</div>
+        <div class="shared-item">🌤️ OpenWeather API (risco clima)</div>
+        <div class="shared-item">🗺️ OSRM (rotas + distâncias)</div>
+        <div class="shared-item">🚗 FIPE API (valor veículo)</div>
+        <div class="shared-item">📱 PWA / Service Worker</div>
+      </div>
+    </div>
+
+    <!-- CAMADA DE DADOS -->
+    <div class="data-layer">
+      <div class="shared-title">☁️ Cloudflare Edge — sem servidor próprio</div>
+      <div class="data-items">
+        <div class="data-item">⚡ Workers<b>Runtime edge</b></div>
+        <div class="data-item">🗄️ D1 SQLite<b>Banco de dados</b></div>
+        <div class="data-item">🗝️ KV Store<b>Cache / sessões</b></div>
+        <div class="data-item">📦 R2 Storage<b>Documentos / apólices</b></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="nota blue">
+    💡 <b>Por que 1 app e não 3 separados?</b> O motorista já tem o RotaPosto instalado. Adicionar Carteira e Seguro como abas custa zero em aquisição de usuário. O saldo da Carteira paga o Seguro — criando um ecossistema fechado onde os 3 módulos se alimentam. Cada novo usuário do Seguro já tem carteira, e vice-versa.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SEÇÃO 3 — WIREFRAMES DAS 3 ABAS -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-title"><span class="sec-num">3</span> Telas — as 3 abas no mesmo app</div>
+
+  <div class="phones">
+
+    <!-- ABA MAPA (CORE) -->
+    <div class="phone-wrap">
+      <div class="phone-label">Mapa (Core) — hoje</div>
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="sbar"><span>9:41</span><span>●●●</span></div>
+          <div class="stitle">📍 Postos Próximos</div>
+          <div style="width:100%;height:120px;background:linear-gradient(135deg,#0d1a0d,#0a1208);border-radius:10px;position:relative;overflow:hidden;margin-bottom:7px">
+            <svg style="position:absolute;inset:0;opacity:.12" viewBox="0 0 200 120"><line x1="0" y1="30" x2="200" y2="30" stroke="white" stroke-width="0.5"/><line x1="0" y1="70" x2="200" y2="70" stroke="white" stroke-width="0.5"/><line x1="0" y1="100" x2="200" y2="100" stroke="white" stroke-width="0.5"/><line x1="50" y1="0" x2="50" y2="120" stroke="white" stroke-width="0.5"/><line x1="110" y1="0" x2="110" y2="120" stroke="white" stroke-width="0.5"/><line x1="160" y1="0" x2="160" y2="120" stroke="white" stroke-width="0.5"/></svg>
+            <span style="position:absolute;left:22px;top:20px;font-size:13px">⛽</span>
+            <span style="position:absolute;left:70px;top:50px;font-size:13px">⛽</span>
+            <span style="position:absolute;right:22px;bottom:18px;font-size:13px">⛽</span>
+            <span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:14px">📍</span>
+          </div>
+          <div class="scard row-bet">
+            <div><div class="slbl">Ipiranga · 0,8 km</div><div class="sval">R$ 5,89/L</div></div>
+            <div style="font-size:9px;background:rgba(0,200,81,.15);color:#00C851;padding:3px 7px;border-radius:6px;font-weight:700">IR</div>
+          </div>
+          <div class="scard row-bet">
+            <div><div class="slbl">Shell · 1,2 km</div><div class="sval">R$ 5,94/L</div></div>
+            <div style="font-size:9px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);padding:3px 7px;border-radius:6px">IR</div>
+          </div>
+        </div>
+        <div class="pnav">
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Lista</div>
+          <div class="pt a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Mapa</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Carteira</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Seguro</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Perfil</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA CARTEIRA -->
+    <div class="phone-wrap">
+      <div class="phone-label">💳 Carteira Digital — novo</div>
+      <div class="phone orange">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="sbar"><span>9:41</span><span>●●●</span></div>
+          <div class="stitle">💳 Carteira Digital</div>
+          <div class="saldo-bg">
+            <div style="font-size:8px;color:rgba(255,255,255,.6)">SALDO · SUBCONTA ASAAS</div>
+            <div style="font-size:22px;font-weight:900;color:#fff;margin:3px 0">R$ 127,50</div>
+            <div style="font-size:8px;color:rgba(255,255,255,.5)">⏳ R$ 8,00 pendente</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px">
+            <div style="background:rgba(0,200,81,.12);border:1px solid rgba(0,200,81,.2);border-radius:8px;padding:6px;text-align:center"><div style="font-size:14px">↓</div><div style="font-size:7px;color:#00C851">Depositar</div></div>
+            <div style="background:rgba(255,109,0,.12);border:1px solid rgba(255,109,0,.2);border-radius:8px;padding:6px;text-align:center"><div style="font-size:14px">⛽</div><div style="font-size:7px;color:#FF6D00">Pagar</div></div>
+            <div style="background:rgba(255,255,255,.07);border-radius:8px;padding:6px;text-align:center"><div style="font-size:14px">↑</div><div style="font-size:7px;color:rgba(255,255,255,.4)">Sacar</div></div>
+          </div>
+          <div style="font-size:8px;color:rgba(255,255,255,.3);margin-bottom:4px">EXTRATO</div>
+          <div class="scard row-bet"><div style="font-size:9px">Depósito PIX</div><div style="font-size:9px;color:#00C851;font-weight:700">+R$50</div></div>
+          <div class="scard row-bet"><div style="font-size:9px">⛽ Shell · abastec.</div><div style="font-size:9px;color:#ff4444;font-weight:700">-R$80</div></div>
+          <div class="scard row-bet"><div style="font-size:9px">🛡️ Seguro viagem</div><div style="font-size:9px;color:#ff4444;font-weight:700">-R$4,99</div></div>
+        </div>
+        <div class="pnav">
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Lista</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>Mapa</div>
+          <div class="pt a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Carteira</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Seguro</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Perfil</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA SEGURO -->
+    <div class="phone-wrap">
+      <div class="phone-label">🛡️ Seguro por Percurso — novo</div>
+      <div class="phone blue">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="sbar"><span>9:41</span><span>●●●</span></div>
+          <div class="stitle">🛡️ Seguro por Percurso</div>
+          <div class="seg-bg">
+            <div style="font-size:8px;color:rgba(255,255,255,.5)">Proteção por viagem a partir de</div>
+            <div style="font-size:20px;font-weight:900;color:#fff;margin:3px 0">R$ 4,99</div>
+            <div style="font-size:8px;color:rgba(255,255,255,.4)">Cotação em 15 segundos</div>
+          </div>
+          <button class="sbtn b">🛡️ Cotar Nova Viagem</button>
+          <div style="font-size:8px;color:rgba(255,255,255,.3);margin-bottom:4px">FATORES DE RISCO</div>
+          <div class="scard row-bet"><div style="font-size:8px;color:rgba(255,255,255,.4)">🌤️ Clima</div><div style="font-size:9px;color:#00C851">Bom ×1,0</div></div>
+          <div class="scard row-bet"><div style="font-size:8px;color:rgba(255,255,255,.4)">🚦 Trânsito</div><div style="font-size:9px;color:#ffc107">Moderado ×1,1</div></div>
+          <div class="scard row-bet"><div style="font-size:8px;color:rgba(255,255,255,.4)">📍 Zona CEP</div><div style="font-size:9px;color:#00C851">Baixo ×1,0</div></div>
+          <div class="scard row-bet"><div style="font-size:8px;color:rgba(255,255,255,.4)">🚗 FIPE veículo</div><div style="font-size:9px;color:#ffc107">R$38k ×1,1</div></div>
+          <div style="font-size:8px;color:rgba(255,255,255,.25);text-align:center;margin-top:4px">Paga com saldo da 💳 Carteira</div>
+        </div>
+        <div class="pnav">
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Lista</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>Mapa</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Carteira</div>
+          <div class="pt ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Seguro</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Perfil</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INTEGRAÇÃO: SEGURO PAGA COM SALDO -->
+    <div class="phone-wrap">
+      <div class="phone-label">🔗 Integração Carteira↔Seguro</div>
+      <div class="phone" style="border-color:rgba(0,200,81,.3)">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="sbar"><span>9:41</span><span>●●●</span></div>
+          <div class="stitle">✅ Pagar Seguro</div>
+          <div class="scard">
+            <div class="slbl">ROTA</div>
+            <div class="sval" style="font-size:10px">Centro SP → Av. Paulista</div>
+          </div>
+          <div class="scard">
+            <div class="slbl">VEÍCULO (FIPE)</div>
+            <div class="sval" style="font-size:10px">Onix 2020 · R$ 38.000</div>
+          </div>
+          <div class="seg-bg" style="padding:8px">
+            <div style="font-size:8px;color:rgba(255,255,255,.4)">PRÊMIO CALCULADO</div>
+            <div style="font-size:18px;font-weight:900;color:#fff">R$ 4,99</div>
+          </div>
+          <div style="font-size:8px;color:rgba(255,255,255,.35);margin-bottom:4px">PAGAR COM</div>
+          <div style="background:rgba(0,200,81,.1);border:1px solid rgba(0,200,81,.3);border-radius:8px;padding:7px;margin-bottom:4px">
+            <div style="font-size:9px;color:#00C851;font-weight:700">💳 Saldo Carteira Digital</div>
+            <div style="font-size:8px;color:rgba(255,255,255,.3)">R$ 127,50 → R$ 122,51</div>
+          </div>
+          <button class="sbtn g" style="margin-top:4px">🛡️ ATIVAR SEGURO</button>
+          <div style="font-size:8px;color:rgba(255,255,255,.2);text-align:center">Débito imediato · GPS ativado</div>
+        </div>
+        <div class="pnav">
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Lista</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>Mapa</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Carteira</div>
+          <div class="pt ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Seguro</div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Perfil</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SEÇÃO 4 — FLUXOS DE DINHEIRO -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-title green"><span class="sec-num green">4</span> Fluxos de Dinheiro — como o RotaPosto ganha</div>
+
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;color:rgba(255,255,255,.35);font-weight:700;margin-bottom:8px;text-transform:uppercase">⛽ Fluxo 1 — Motorista paga posto via Carteira</div>
+    <div class="flow-row">
+      <div class="fb">Motorista<br/>abre Carteira</div><div class="fa">→</div>
+      <div class="fb o">Deposita<br/>PIX (Asaas)</div><div class="fa">→</div>
+      <div class="fb">Saldo<br/>creditado</div><div class="fa">→</div>
+      <div class="fb o">Paga posto<br/>QR Code</div><div class="fa">→</div>
+      <div class="fb g">Posto recebe<br/><b>97%</b> na subconta</div><div class="fa">→</div>
+      <div class="fb o">RotaPosto<br/>fica <b>3%</b></div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;color:rgba(255,255,255,.35);font-weight:700;margin-bottom:8px;text-transform:uppercase">🛡️ Fluxo 2 — Motorista contrata seguro</div>
+    <div class="flow-row">
+      <div class="fb b">Aba Seguro<br/>+ traça rota</div><div class="fa">→</div>
+      <div class="fb">OSRM + FIPE<br/>+ Clima</div><div class="fa">→</div>
+      <div class="fb b">Motor atuarial<br/>calcula prêmio</div><div class="fa">→</div>
+      <div class="fb o">Débita saldo<br/>da Carteira</div><div class="fa">→</div>
+      <div class="fb g">GPS ativa<br/>proteção</div><div class="fa">→</div>
+      <div class="fb o">RotaPosto<br/>fica <b>20–30%</b></div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;color:rgba(255,255,255,.35);font-weight:700;margin-bottom:8px;text-transform:uppercase">💰 Fluxo 3 — Saldo da Carteira alimenta Seguro (flywheel)</div>
+    <div class="flow-row">
+      <div class="fb o">Motorista<br/>deposita R$100</div><div class="fa">→</div>
+      <div class="fb g">Paga posto<br/>R$80 (−R$2,40 taxa)</div><div class="fa">→</div>
+      <div class="fb">Recebe<br/>cashback R$2</div><div class="fa">→</div>
+      <div class="fb b">Contrata<br/>seguro R$4,99</div><div class="fa">→</div>
+      <div class="fb o">Cada R$1 no<br/>app = 2 receitas</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SEÇÃO 5 — MODELO DE RECEITA -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-title purple"><span class="sec-num purple">5</span> Modelo de Receita — como cada módulo gera caixa</div>
+
+  <div class="rev-grid">
+
+    <div class="rev-card" style="border-color:rgba(255,109,0,.2)">
+      <h4 style="color:#FF6D00">⛽ RotaPosto Core</h4>
+      <div class="rev-line"><span>Comissão pagto. no posto</span><span class="rev-val">3% da transação</span></div>
+      <div class="rev-line"><span>Assinatura posto parceiro</span><span class="rev-val">R$ 49–199/mês</span></div>
+      <div class="rev-line"><span>Destaque no mapa (ads)</span><span class="rev-val">R$ 99–299/mês</span></div>
+      <div class="rev-line"><span>RotaSegura (corridas)</span><span class="rev-val">20% da corrida</span></div>
+    </div>
+
+    <div class="rev-card" style="border-color:rgba(255,109,0,.15)">
+      <h4 style="color:#ffa040">💳 Carteira Digital</h4>
+      <div class="rev-line"><span>Split pagto. posto (automático)</span><span class="rev-val">3% por transação</span></div>
+      <div class="rev-line"><span>Float saldo em subconta</span><span class="rev-val">rendimento Asaas</span></div>
+      <div class="rev-line"><span>Tarifa saque acima limite</span><span class="rev-val">R$ 2,50/saque</span></div>
+      <div class="rev-line"><span>B2B: carteira para frotas</span><span class="rev-val">future R$</span></div>
+    </div>
+
+    <div class="rev-card" style="border-color:rgba(26,106,255,.2)">
+      <h4 style="color:#4d8bff">🛡️ Seguro por Percurso</h4>
+      <div class="rev-line"><span>Margem operacional do prêmio</span><span class="rev-val">30% do prêmio</span></div>
+      <div class="rev-line"><span>Ex: prêmio R$4,99</span><span class="rev-val">R$1,50 RotaPosto</span></div>
+      <div class="rev-line"><span>Volume 1.000 seguros/dia</span><span class="rev-val">R$1.500/dia</span></div>
+      <div class="rev-line"><span>Parceria seguradora (regulat.)</span><span class="rev-val">futuro</span></div>
+    </div>
+
+  </div>
+
+  <!-- PROJEÇÃO SIMPLES -->
+  <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;max-width:700px">
+    <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.4);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px">Projeção conservadora (cenário 6 meses pós-lançamento)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div style="text-align:center">
+        <div style="font-size:24px;font-weight:900;color:#FF6D00">5.000</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">motoristas ativos/mês</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.2);margin-top:2px">meta inicial</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:24px;font-weight:900;color:#ffa040">R$2k/dia</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">GMV em transações</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.2);margin-top:2px">pagtos. posto + seguro</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:24px;font-weight:900;color:#00C851">R$60/mês</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4)">receita por usuário</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.2);margin-top:2px">comissão + seguro</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SEÇÃO 6 — ROADMAP DE IMPLEMENTAÇÃO -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-title"><span class="sec-num">6</span> Roadmap — 4 fases de implementação</div>
+
+  <div class="timeline">
+
+    <div class="phase">
+      <div class="phase-num">1</div>
+      <h4>✅ Fase 1 — Done</h4>
+      <div class="phase-dur">Concluído</div>
+      <div class="phase-item">App core funcionando</div>
+      <div class="phase-item">Mapa postos + preços</div>
+      <div class="phase-item">RotaSegura (corridas)</div>
+      <div class="phase-item">Painel parceiros</div>
+      <div class="phase-item">Sandbox Asaas configurado</div>
+      <div class="phase-item">Arquitetura /rotas dinâmico</div>
+    </div>
+
+    <div class="phase p2">
+      <div class="phase-num">2</div>
+      <h4>💳 Fase 2 — Carteira</h4>
+      <div class="phase-dur">Próxima · ~3 semanas</div>
+      <div class="phase-item">src/carteira.ts criado</div>
+      <div class="phase-item">Subconta motorista (Asaas)</div>
+      <div class="phase-item">Depósito PIX + webhook</div>
+      <div class="phase-item">Saque PIX</div>
+      <div class="phase-item">Pagar posto + split 97/3</div>
+      <div class="phase-item">Aba 💳 em app.ts (telas B1-B5)</div>
+    </div>
+
+    <div class="phase p3">
+      <div class="phase-num">3</div>
+      <h4>🛡️ Fase 3 — Seguro</h4>
+      <div class="phase-dur">~4 semanas após F2</div>
+      <div class="phase-item">src/seguro.ts criado</div>
+      <div class="phase-item">Motor atuarial Dart→TS</div>
+      <div class="phase-item">FIPE + OSRM + Clima</div>
+      <div class="phase-item">Cotação em tempo real</div>
+      <div class="phase-item">Pagamento via saldo Carteira</div>
+      <div class="phase-item">Aba 🛡️ em app.ts (C1-C6)</div>
+    </div>
+
+    <div class="phase p4">
+      <div class="phase-num">4</div>
+      <h4>🚀 Fase 4 — Escala</h4>
+      <div class="phase-dur">~2 meses após F3</div>
+      <div class="phase-item">Deploy Cloudflare Pages</div>
+      <div class="phase-item">D1 banco produção</div>
+      <div class="phase-item">Carteira para frotas B2B</div>
+      <div class="phase-item">Parceria seguradora (SUSEP)</div>
+      <div class="phase-item">Dashboard analítico postos</div>
+      <div class="phase-item">Programa cashback postos</div>
+    </div>
+
+  </div>
+
+  <div class="nota green">
+    🎯 <b>Minha recomendação:</b> começar pela <b>Fase 2 (Carteira)</b> agora — já temos Asaas configurado, o padrão de subconta já existe em <code>rotasegura-asaas.ts</code> e é o módulo que <b>gera receita imediata</b> (cada pagamento no posto = 3% automático). O Seguro (Fase 3) só faz sentido depois que o motorista tiver saldo na carteira para pagar o prêmio — a sequência é estratégica, não técnica.
+  </div>
+</div>
+
+</body>
+</html>

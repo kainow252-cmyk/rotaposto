@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="200" height="100">
+  <rect x="0" y="0" width="160" height="80" rx="8" fill="white"/>
+  <!-- Faixa azul lateral -->
+  <rect x="0" y="0" width="50" height="80" rx="8" fill="#003082"/>
+  <rect x="42" y="0" width="8" height="80" fill="#003082"/>
+  <!-- Chama laranja/amarela -->
+  <path d="M25 55 C20 42 24 30 28 23 C25 34 32 38 30 48 C35 40 37 30 42 23 C39 36 44 44 40 56 Q32 62 25 55 Z"
+        fill="#FFD700"/>
+  <!-- Texto COPAGAZ -->
+  <text x="108" y="46"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="20"
+    fill="#003082" text-anchor="middle" letter-spacing="0.5">COPAGAZ</text>
+</svg>

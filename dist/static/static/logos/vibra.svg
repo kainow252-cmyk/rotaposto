@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="200" height="100">
+  <defs>
+    <linearGradient id="vibraGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00C853"/>
+      <stop offset="100%" stop-color="#007E33"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="160" height="80" rx="8" fill="white"/>
+  <!-- Zig-zag energia (símbolo) -->
+  <path d="M25 20 L45 20 L30 42 L50 42 L20 70 L38 48 L18 48 Z"
+        fill="url(#vibraGrad)"/>
+  <!-- Texto VIBRA -->
+  <text x="100" y="38"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="26"
+    fill="#007E33" text-anchor="middle">VIBRA</text>
+  <!-- Texto ENERGIA menor -->
+  <text x="100" y="60"
+    font-family="'Arial','Helvetica',sans-serif"
+    font-weight="400" font-size="13"
+    fill="#009C41" text-anchor="middle" letter-spacing="4">ENERGIA</text>
+</svg>

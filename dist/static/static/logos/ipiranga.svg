@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" width="180" height="120">
+  <defs>
+    <linearGradient id="ipiGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F7B500"/>
+      <stop offset="100%" stop-color="#E5A000"/>
+    </linearGradient>
+  </defs>
+  <!-- Fundo retangular amarelo arredondado -->
+  <rect x="2" y="2" width="116" height="76" rx="10" fill="url(#ipiGrad)"/>
+  <rect x="2" y="2" width="116" height="76" rx="10" fill="none" stroke="#C88800" stroke-width="1.5"/>
+  <!-- Chama / símbolo Ipiranga acima -->
+  <path d="M60 10 C55 18 48 22 50 30 C52 38 60 36 60 44 C60 36 68 38 70 30 C72 22 65 18 60 10 Z"
+        fill="#003087" opacity="0.9"/>
+  <!-- Texto IPIRANGA -->
+  <text x="60" y="65"
+    font-family="'Arial Black','Arial',sans-serif"
+    font-weight="900" font-size="18"
+    fill="#003087" text-anchor="middle" dominant-baseline="middle"
+    letter-spacing="1.5">IPIRANGA</text>
+</svg>

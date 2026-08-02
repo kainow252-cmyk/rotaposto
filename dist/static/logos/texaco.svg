@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="200" height="100">
+  <rect x="0" y="0" width="160" height="80" rx="6" fill="white"/>
+  <!-- Estrela vermelha 6 pontas Texaco -->
+  <polygon points="30,10 35,24 50,24 39,33 43,47 30,38 17,47 21,33 10,24 25,24"
+    fill="#CC0000"/>
+  <!-- Cruz branca na estrela -->
+  <rect x="26" y="18" width="8" height="22" rx="2" fill="white"/>
+  <rect x="18" y="26" width="24" height="7" rx="2" fill="white"/>
+  <!-- Texto TEXACO vermelho bold -->
+  <text x="105" y="48"
+    font-family="'Arial Black','Impact','Arial',sans-serif"
+    font-weight="900" font-size="26"
+    fill="#CC0000" text-anchor="middle"
+    letter-spacing="1">TEXACO</text>
+  <!-- Linha decorativa -->
+  <line x1="60" y1="40" x2="155" y2="40" stroke="#CC0000" stroke-width="1" opacity="0.3"/>
+</svg>

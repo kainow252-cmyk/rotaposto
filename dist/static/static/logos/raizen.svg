@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="200" height="100">
+  <defs>
+    <linearGradient id="rzGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F7941D"/>
+      <stop offset="100%" stop-color="#E07010"/>
+    </linearGradient>
+  </defs>
+  <!-- Fundo branco -->
+  <rect x="0" y="0" width="160" height="80" rx="8" fill="white"/>
+  <!-- Elemento gráfico: curva laranja -->
+  <path d="M15 60 Q40 20 80 40 Q120 60 145 20" stroke="url(#rzGrad)" stroke-width="8"
+        fill="none" stroke-linecap="round"/>
+  <!-- Texto -->
+  <text x="80" y="68"
+    font-family="'Arial','Helvetica',sans-serif"
+    font-weight="700" font-size="22"
+    fill="#F7941D" text-anchor="middle"
+    letter-spacing="2">RAÍZEN</text>
+</svg>
