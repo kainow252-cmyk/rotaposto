@@ -7900,16 +7900,16 @@ document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
     if (!posto) { showToast('Selecione um posto primeiro'); return; }
     var lat = posto.lat, lng = posto.lng;
     if (!lat || !lng) { showToast('Coordenadas não disponíveis'); return; }
-    _abrirGoogleMapsNativo(lat, lng, posto.nome || '');
+    window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
   }
 
   // ── SOS: "Ir até lá" para borracheiro/mecânica ──
   function _abrirNavegacaoExterna(lat, lng, nome) {
     if (lat && lng && lat !== 0 && lng !== 0) {
-      _abrirGoogleMapsNativo(lat, lng, nome ? decodeURIComponent(String(nome)) : '');
+      window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
     } else if (nome) {
-      // Sem coords — busca por nome no Google Maps (window.open evita intent://)
-      window.open('https://www.google.com/maps/search/' + encodeURIComponent(decodeURIComponent(String(nome))), '_blank');
+      // Sem coords — busca por nome no Waze
+      window.location.href = 'https://waze.com/ul?q=' + encodeURIComponent(decodeURIComponent(String(nome))) + '&navigate=yes';
     }
   }
 
@@ -8119,14 +8119,9 @@ document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
       return;
     }
 
-    // ── Abre Google Maps NATIVO — window.open evita intent:// no retorno ──────
+    // ── Abre Waze direto ─────────────────────────────────────────────────────
     function _abrirIr(oLat, oLng) {
-      // Usa _abrirGoogleMapsNativo que já tem window.open('_blank') correto
-      // window.location.href causava intent:// no retorno dentro do WebView do PWA
-      _abrirGoogleMapsNativo(
-        lat, lng,
-        nome || ''
-      );
+      window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
     }
 
     // ── Tentar GPS fresco (timeout 5s) para garantir origem correta ──────────
