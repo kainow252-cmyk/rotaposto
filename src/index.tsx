@@ -106,6 +106,10 @@ type Bindings = {
   [key: string]: unknown
 }
 
+// Versão do build — muda a cada deploy, força o browser a revalidar o HTML do /app
+// Formato: AAAAMMDD + letra sequencial
+const APP_BUILD = '20260802a'
+
 const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('*', cors())
@@ -379,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v17', build: '20260710e' })
+  return c.json({ version: 'v18', build: '20260802a' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -4834,7 +4838,8 @@ app.get('/app', (c) => {
       'Content-Type': 'text/html; charset=UTF-8',
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Pragma': 'no-cache',
-      'Expires': '0'
+      'Expires': '0',
+      'ETag': `"${APP_BUILD}"`,
     }
   })
 })
@@ -6639,7 +6644,7 @@ app.get('/sw.js', (c) => {
   const swCode = `// RotaPosto — Service Worker PWA v4.0
 // REGRA: O SW NUNCA intercepta páginas HTML — apenas assets estáticos (/icons/, /static/)
 // Motivo: páginas são server-side no Cloudflare Worker; interceptá-las causa crash no TWA
-const CACHE_NAME = 'rotaposto-v5';
+const CACHE_NAME = 'rotaposto-v6';
 const STATIC_ASSETS = [
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',

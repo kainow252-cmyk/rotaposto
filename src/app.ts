@@ -23,6 +23,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
+  <meta name="build" content="20260802a"/>
   <title>RotaPosto</title>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
