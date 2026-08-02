@@ -5688,8 +5688,10 @@ function _iconDest(){
   var nome = (typeof _POSTO_NOME !== 'undefined' && _POSTO_NOME) ? _POSTO_NOME : 'Destino';
   // Trunca nome longo
   if(nome.length > 22) nome = nome.substring(0,20)+'…';
+  // Contra-rotação atual do mapa: mantém o pill sempre legível
+  var contrarRot = (typeof _mapBearing !== 'undefined' && _mapBearing) ? _mapBearing.toFixed(2) : '0';
   var html =
-    '<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none">'+
+    '<div id="dest-pill" style="display:flex;flex-direction:column;align-items:center;pointer-events:none;transform:rotate('+contrarRot+'deg);transform-origin:center bottom;will-change:transform">'+
     // Pill com nome
     '<div style="background:#fff;border-radius:20px;padding:5px 10px 5px 8px;'+
     'box-shadow:0 2px 8px rgba(0,0,0,.32);display:flex;align-items:center;gap:5px;'+
@@ -6373,6 +6375,11 @@ function _aplicarBearing(deg){
 
   // Cone é CSS-fixo: não precisa recalcular ao mudar bearing
   // (o mapa gira por baixo, o cone fica parado no centro da tela)
+
+  // ── Pill de destino: contra-rotação para manter label legível ─
+  // O #map gira com rotate(-deg), então o pill precisa de rotate(+deg)
+  var destPill = document.getElementById('dest-pill');
+  if(destPill) destPill.style.transform = 'rotate('+deg.toFixed(2)+'deg)';
 
   // ── Bússola ──────────────────────────────────────────────────
   var btn = document.getElementById('btn-compass');
