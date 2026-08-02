@@ -4949,13 +4949,24 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     if (!posto) { showToast('Selecione um posto primeiro'); return; }
     var lat = posto.lat, lng = posto.lng;
     if (!lat || !lng) { showToast('Coordenadas não disponíveis'); return; }
-    window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
+    _abrirWazeNativo(lat, lng);
+}
+
+  // Função central Waze — scheme nativo + fallback web
+  function _abrirWazeNativo(lat, lng) {
+    var wazeApp = 'waze://ul?ll=' + lat + ',' + lng + '&navigate=yes';
+    var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
+    var t = setTimeout(function() { window.location.href = wazeWeb; }, 1500);
+    document.addEventListener('visibilitychange', function c() {
+      if (document.hidden) { clearTimeout(t); document.removeEventListener('visibilitychange', c); }
+    });
+    window.location.href = wazeApp;
   }
 
   // ── SOS: "Ir até lá" para borracheiro/mecânica ──
   function _abrirNavegacaoExterna(lat, lng, nome) {
     if (lat && lng && lat !== 0 && lng !== 0) {
-      window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
+      _abrirWazeNativo(lat, lng);
     } else if (nome) {
       // Sem coords — busca por nome no Waze
       window.location.href = 'https://waze.com/ul?q=' + encodeURIComponent(decodeURIComponent(String(nome))) + '&navigate=yes';
@@ -5168,9 +5179,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       return;
     }
 
-    // ── Abre Waze direto ─────────────────────────────────────────────────────
+    // ── Abre Waze nativo (scheme waze://) + fallback web após 1.5s ──────────────
     function _abrirIr(oLat, oLng) {
-      window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
+      _abrirWazeNativo(lat, lng);
     }
 
     // ── Tentar GPS fresco (timeout 5s) para garantir origem correta ──────────

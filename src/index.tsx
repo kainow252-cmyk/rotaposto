@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v26', build: '20260802j' })
+  return c.json({ version: 'v27', build: '20260802k' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,7 +6645,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v11';
+const CACHE_NAME = 'rotaposto-v12';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7315,11 +7315,26 @@ function abrirWpp() {
   var num = _posto.whatsapp.replace(/\\D/g,'');
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
+function _abrirWazeNativo(lat, lng) {
+  // Deep Link oficial Waze — inicia navegação imediata
+  // Tenta scheme nativo waze:// primeiro (app instalado)
+  // Fallback automático após 1500ms: https://waze.com/ul (site ou app store)
+  var wazeApp = 'waze://ul?ll=' + lat + ',' + lng + '&navigate=yes';
+  var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
+  var fallbackTimer = setTimeout(function() {
+    window.location.href = wazeWeb;
+  }, 1500);
+  document.addEventListener('visibilitychange', function cancelFallback() {
+    if (document.hidden) {
+      clearTimeout(fallbackTimer);
+      document.removeEventListener('visibilitychange', cancelFallback);
+    }
+  });
+  window.location.href = wazeApp;
+}
 function abrirWaze() {
   if (!_posto || !_posto.lat || !_posto.lng) return;
-  // URL universal do Waze — abre app nativo no celular, site no desktop
-  // /ul?ll={lat},{lng}&navigate=yes → inicia navegação direto
-  window.location.href = 'https://waze.com/ul?ll=' + _posto.lat + ',' + _posto.lng + '&navigate=yes';
+  _abrirWazeNativo(_posto.lat, _posto.lng);
 }
 
 // ── Abre Google Maps NATIVO do aparelho ──────────────────────────────────────
@@ -9948,7 +9963,7 @@ function irAtePosto() {
   if (!state.postoSelecionado) return;
   const p = state.postoSelecionado;
   document.getElementById('modal-overlay').classList.remove('visible');
-  window.location.href = 'https://waze.com/ul?ll=' + p.lat + ',' + p.lng + '&navigate=yes';
+  _abrirWazeNativo(p.lat, p.lng);
 }
 
 function irAoMelhorPosto() {
@@ -9982,7 +9997,7 @@ async function calcularRotaPosto() {
 function abrirRotaOSM() {
   const p = state.postoSelecionado;
   if (!p || !p.lat || !p.lng) return;
-  window.location.href = 'https://waze.com/ul?ll=' + p.lat + ',' + p.lng + '&navigate=yes';
+  _abrirWazeNativo(p.lat, p.lng);
 }
 
 // ═══ CALCULADORA ══════════════════════════════════════════════════════════════
