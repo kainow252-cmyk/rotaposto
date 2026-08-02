@@ -47,7 +47,7 @@ export interface RotaInfo {
   distanciaKm: number
   duracaoMin: number
   urlOSM: string
-  urlGoogleMaps: string
+  urlWaze: string
 }
 
 export interface EconomiaPosto extends PostoReal {
@@ -672,7 +672,7 @@ export async function calcularRotaOSRM(
       distanciaKm: Math.round(rota.distance / 1000 * 10) / 10,
       duracaoMin: Math.round(rota.duration / 60),
       urlOSM: `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${origemLat}%2C${origemLng}%3B${destinoLat}%2C${destinoLng}`,
-      urlGoogleMaps: `https://www.google.com/maps/dir/${origemLat},${origemLng}/${destinoLat},${destinoLng}`
+      urlWaze: `https://waze.com/ul?ll=${destinoLat},${destinoLng}&navigate=yes`
     }
   } catch {
     return null
