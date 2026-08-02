@@ -5126,6 +5126,10 @@ html,body{width:100%;height:100%;overflow:hidden;
   0%,100%{transform:translate(-50%,-50%) scale(1);opacity:1}
   50%{transform:translate(-50%,-50%) scale(1.15);opacity:.55}
 }
+@keyframes slideUpChegada{
+  from{transform:translateY(100%);opacity:0}
+  to{transform:translateY(0);opacity:1}
+}
 /* Ponto central azul Google Maps — círculo branco + ponto azul */
 #cone-dot{
   position:absolute;
@@ -5347,6 +5351,90 @@ html,body{width:100%;height:100%;overflow:hidden;
   <div id="cone-dot"></div>
 </div>
 
+<!-- Modal chegada ao destino -->
+<div id="modal-chegada" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:flex-end;justify-content:center;">
+  <div id="modal-chegada-sheet" style="
+    background:#fff;
+    border-radius:28px 28px 0 0;
+    padding:28px 24px 40px;
+    width:100%;
+    max-width:480px;
+    box-shadow:0 -8px 32px rgba(0,0,0,.18);
+    animation:slideUpChegada .35s cubic-bezier(.32,1.2,.52,1) forwards;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+  ">
+    <!-- Ícone destino -->
+    <div style="
+      width:64px;height:64px;
+      background:linear-gradient(135deg,#34a853 0%,#1a73e8 100%);
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 4px 18px rgba(26,115,232,.35);
+      margin-bottom:4px;
+    ">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+        <path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <!-- Título -->
+    <div style="font-size:22px;font-weight:800;color:#1a1f2e;letter-spacing:-.3px">Você chegou! 🎉</div>
+    <!-- Nome do posto -->
+    <div id="chegada-posto-nome" style="
+      font-size:15px;font-weight:600;color:#555;
+      text-align:center;line-height:1.4;
+      max-width:300px;
+    "></div>
+    <!-- Distância percorrida placeholder -->
+    <div id="chegada-stats" style="
+      background:#f8f9fa;border-radius:16px;
+      padding:12px 24px;
+      display:flex;gap:24px;
+      font-size:13px;color:#777;
+      margin-top:4px;
+    ">
+      <span>📍 <b id="chegada-dist">--</b></span>
+      <span>⏱ <b id="chegada-tempo">--</b></b></span>
+    </div>
+    <!-- Botões -->
+    <div style="display:flex;gap:12px;width:100%;margin-top:8px;">
+      <button onclick="_buscarNovoPosto()" style="
+        flex:1;
+        height:52px;
+        border:2px solid #1a73e8;
+        border-radius:16px;
+        background:#fff;
+        color:#1a73e8;
+        font-size:15px;font-weight:700;
+        cursor:pointer;
+        display:flex;align-items:center;justify-content:center;gap:8px;
+        -webkit-tap-highlight-color:transparent;
+      ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Novo posto
+      </button>
+      <button onclick="_fecharNavegacao()" style="
+        flex:1;
+        height:52px;
+        border:none;
+        border-radius:16px;
+        background:#1a73e8;
+        color:#fff;
+        font-size:15px;font-weight:700;
+        cursor:pointer;
+        display:flex;align-items:center;justify-content:center;gap:8px;
+        box-shadow:0 4px 14px rgba(26,115,232,.4);
+        -webkit-tap-highlight-color:transparent;
+      ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Loading -->
 <div id="tela-loading">
   <div class="spin"></div>
@@ -5463,6 +5551,7 @@ var _avisadoMetros = false;   // aviso a ~200m
 var _avisado50m    = false;   // aviso a ~50m
 var _fonteRota = '';
 var _distRestante = 0, _tempoRestante = 0;
+var _distTotal = 0, _tempoTotal = 0; // totais da rota para exibição no modal de chegada
 var _recalcPendente = false, _recalcTs = 0;
 var _offRouteCount = 0;       // contador GPS fora da rota → recalculo auto
 var _rotaCoords = [];         // [[lat,lng]…] da polyline para snap-to-road
@@ -5853,6 +5942,8 @@ function _exibirRota(route, oLat, oLng){
   _rotaCoords = coords.slice(); // ← cópia para cálculo de snap-to-road
   _distRestante  = route.distance || 0;
   _tempoRestante = route.duration || 0;
+  _distTotal     = route.distance || 0;  // salva total para modal de chegada
+  _tempoTotal    = route.duration || 0;
 
   _rotaLayer = L.polyline(coords, {
     color:'#1a73e8', weight:6, opacity:.92,
@@ -6102,12 +6193,45 @@ function _chegou(){
   document.getElementById('instr-dist').textContent = '';
   document.getElementById('instr-prox').classList.remove('show');
   document.getElementById('instr-rua').classList.remove('show');
-  _falar('Você chegou ao destino!', true);
-  _pararNav();
-  // Centraliza no destino
+
+  // Voz
+  _falar('Você chegou ao seu destino!', true);
+
+  // Centraliza no destino antes de parar
   if(_DLAT && _DLNG){
+    _zoomByGps = true;
     _map.setView([parseFloat(_DLAT), parseFloat(_DLNG)], 16, {animate:true});
+    _zoomByGps = false;
   }
+
+  _pararNav();
+
+  // Preenche stats do modal
+  var nomeEl = document.getElementById('chegada-posto-nome');
+  if(nomeEl) nomeEl.textContent = (typeof _POSTO_NOME !== 'undefined' && _POSTO_NOME) ? _POSTO_NOME : 'Destino';
+
+  var distEl = document.getElementById('chegada-dist');
+  if(distEl){
+    var km = (_distRestante / 1000);
+    // usa a distância total da rota (já percorreu tudo)
+    distEl.textContent = _distTotal > 0
+      ? (_distTotal >= 1000 ? (_distTotal/1000).toFixed(1)+' km' : Math.round(_distTotal)+' m')
+      : '–';
+  }
+  var tempoEl = document.getElementById('chegada-tempo');
+  if(tempoEl){
+    tempoEl.textContent = _tempoTotal > 0
+      ? (_tempoTotal >= 3600
+          ? Math.floor(_tempoTotal/3600)+'h '+Math.round((_tempoTotal%3600)/60)+'min'
+          : Math.round(_tempoTotal/60)+' min')
+      : '–';
+  }
+
+  // Mostra modal após 800ms (voz ainda falando)
+  setTimeout(function(){
+    var modal = document.getElementById('modal-chegada');
+    if(modal){ modal.style.display = 'flex'; }
+  }, 800);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -6417,6 +6541,23 @@ function _toggleVoz(){
 function _voltar(){
   if(_navegando) _pararNav();
   history.back();
+}
+
+// ── Fechar navegação pelo modal de chegada ────────────────────────
+// Esconde o modal e volta para a home do RotaPosto
+function _fecharNavegacao(){
+  var modal = document.getElementById('modal-chegada');
+  if(modal) modal.style.display = 'none';
+  // Navega para a home — fica dentro do RotaPosto (não abre navegador)
+  window.location.href = '/';
+}
+
+// ── Buscar novo posto ─────────────────────────────────────────────
+// Fecha modal e vai para home para nova busca
+function _buscarNovoPosto(){
+  var modal = document.getElementById('modal-chegada');
+  if(modal) modal.style.display = 'none';
+  window.location.href = '/';
 }
 
 // ── Toast de navegação ───────────────────────────────────────────
