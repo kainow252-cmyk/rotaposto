@@ -5105,155 +5105,256 @@ html,body{width:100%;height:100%;overflow:hidden;
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
-//  RotaPosto /ir — Leaflet + OSRM route (navegador interno)
+//  RotaPosto /ir — Navegação profissional estilo Google Maps
+//  Voz natural pt-BR + GPS tracking real + recalculo automático
 // ═══════════════════════════════════════════════════════
 var _DLAT = '${DLAT}', _DLNG = '${DLNG}';
 var _OLAT = '${OLAT}', _OLNG = '${OLNG}';
 
-var _map, _rotaLayer, _userMarker, _destMarker;
+var _map, _rotaLayer, _userArrow, _destMarker;
 var _passos = [], _passoIdx = 0;
 var _navegando = false, _watchId = null;
-var _oriLat, _oriLng;
-var _vozAtiva = true;
+var _oriLat, _oriLng, _curLat, _curLng, _curHeading = null;
+var _vozAtiva = true, _vozVoz = null;
 var _ultimoPassoFalado = -1;
-var _avisado50m = false;
-var _fonteRota = ''; // 'vps' | 'publico'
+var _avisadoMetros = false;   // aviso a ~200m
+var _avisado50m    = false;   // aviso a ~50m
+var _fonteRota = '';
+var _distRestante = 0, _tempoRestante = 0;
+var _recalcPendente = false, _recalcTs = 0;
+var _offRouteCount = 0;       // contador GPS fora da rota → recalculo auto
+var _rotaCoords = [];         // [[lat,lng]…] da polyline para snap-to-road
 
-// ── Síntese de voz (Web Speech API — funciona no Android WebView) ────
-function _falar(texto) {
-  if (!_vozAtiva) return;
-  if (!window.speechSynthesis) return;
-  try {
-    window.speechSynthesis.cancel(); // cancela fala anterior
-    var u = new SpeechSynthesisUtterance(texto);
-    u.lang  = 'pt-BR';
-    u.rate  = 1.05;
-    u.pitch = 1.0;
-    u.volume = 1.0;
-    // Tenta usar voz pt-BR se disponível
-    var vozes = window.speechSynthesis.getVoices();
-    var voz = vozes.find(function(v){
-      return v.lang === 'pt-BR' || v.lang === 'pt_BR' || v.lang.startsWith('pt');
-    });
-    if (voz) u.voice = voz;
-    window.speechSynthesis.speak(u);
-  } catch(e) { console.warn('[VOZ]', e); }
+// ══════════════════════════════════════════════════════════════
+//  VOZ PROFISSIONAL — escolhe a melhor voz pt-BR disponível
+//  Prioridade: Google pt-BR > Microsoft pt-BR > qualquer pt > padrão
+// ══════════════════════════════════════════════════════════════
+function _carregarVozes(){
+  if(!window.speechSynthesis) return;
+  var vozes = window.speechSynthesis.getVoices();
+  if(!vozes.length) return;
+
+  // Prioridade decrescente
+  var candidatos = [
+    function(v){ return v.name.includes('Google') && (v.lang==='pt-BR'||v.lang==='pt_BR'); },
+    function(v){ return v.name.includes('Microsoft') && (v.lang==='pt-BR'||v.lang==='pt_BR'); },
+    function(v){ return (v.lang==='pt-BR'||v.lang==='pt_BR') && !v.name.includes('compact'); },
+    function(v){ return v.lang==='pt-BR'||v.lang==='pt_BR'; },
+    function(v){ return v.lang.startsWith('pt'); }
+  ];
+  for(var i=0;i<candidatos.length;i++){
+    var v = vozes.find(candidatos[i]);
+    if(v){ _vozVoz=v; console.log('[VOZ] Selecionada:',v.name,v.lang); break; }
+  }
 }
 
-// Pré-carrega vozes (Android exige chamada prévia)
-if (window.speechSynthesis) {
-  window.speechSynthesis.getVoices();
-  window.speechSynthesis.addEventListener('voiceschanged', function(){
-    window.speechSynthesis.getVoices(); // força cache
-  });
+if(window.speechSynthesis){
+  _carregarVozes();
+  window.speechSynthesis.addEventListener('voiceschanged', _carregarVozes);
+}
+
+function _falar(texto, urgente){
+  if(!_vozAtiva||!window.speechSynthesis) return;
+  try{
+    if(urgente) window.speechSynthesis.cancel();
+    else if(window.speechSynthesis.speaking) return; // não interrompe fala em curso
+    var u = new SpeechSynthesisUtterance(texto);
+    u.lang   = 'pt-BR';
+    u.rate   = 1.0;
+    u.pitch  = 1.05;
+    u.volume = 1.0;
+    if(_vozVoz) u.voice = _vozVoz;
+    // Watchdog: Android às vezes trava o speechSynthesis
+    var _dito = false;
+    u.onstart = function(){ _dito=true; };
+    setTimeout(function(){
+      if(!_dito){ window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }
+    }, 800);
+    window.speechSynthesis.speak(u);
+  }catch(e){ console.warn('[VOZ]',e); }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
-function _fmtT(s){var m=Math.round(s/60);if(m<60)return m+' min';var h=Math.floor(m/60),r=m%60;return r?h+'h '+r+' min':h+'h';}
-function _fmtD(m){return m<1000?Math.round(m)+' m':(m/1000).toFixed(1).replace('.',',')+' km';}
-function _hora(s){var d=new Date(Date.now()+s*1000);return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');}
-function _dist(a,b,c,d){var R=6371e3,p=(c-a)*Math.PI/180,q=(d-b)*Math.PI/180;var x=Math.sin(p/2)*Math.sin(p/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(q/2)*Math.sin(q/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function _fmtT(s){
+  var m=Math.round(s/60);
+  if(m<1) return 'menos de 1 min';
+  if(m<60) return m+' min';
+  var h=Math.floor(m/60),r=m%60;
+  return r ? h+'h '+r+' min' : h+'h';
+}
+function _fmtD(m){
+  if(m<50)  return Math.round(m)+' m';
+  if(m<1000) return (Math.round(m/10)*10)+' m';
+  return (m/1000).toFixed(1).replace('.',',')+' km';
+}
+function _fmtDVoz(m){
+  // Versão para fala — sem vírgula, natural
+  if(m<50)  return Math.round(m)+' metros';
+  if(m<1000) return (Math.round(m/50)*50)+' metros';
+  var km=(m/1000);
+  if(km<10) return km.toFixed(1).replace('.',',')+' quilômetros';
+  return Math.round(km)+' quilômetros';
+}
+function _hora(s){
+  var d=new Date(Date.now()+s*1000);
+  return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+}
+function _dist(a,b,c,d){
+  var R=6371e3,p=(c-a)*Math.PI/180,q=(d-b)*Math.PI/180;
+  var x=Math.sin(p/2)*Math.sin(p/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(q/2)*Math.sin(q/2);
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+// Distância ponto → segmento (snap-to-road)
+function _distPontoSegmento(px,py, ax,ay, bx,by){
+  var dx=bx-ax, dy=by-ay, len2=dx*dx+dy*dy;
+  if(len2===0) return _dist(px,py,ax,ay);
+  var t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/len2));
+  return _dist(px,py, ax+t*dx, ay+t*dy);
+}
+// Distância mínima do ponto à polyline completa
+function _distPolyline(lat,lng){
+  var min=Infinity;
+  for(var i=0;i<_rotaCoords.length-1;i++){
+    var d=_distPontoSegmento(lat,lng,
+      _rotaCoords[i][0],_rotaCoords[i][1],
+      _rotaCoords[i+1][0],_rotaCoords[i+1][1]);
+    if(d<min) min=d;
+  }
+  return min;
+}
 
+// ── Ícones ───────────────────────────────────────────────────────
+function _iconUser(heading){
+  // Seta com heading (rotação real do GPS) ou ponto azul
+  if(heading!=null){
+    return L.divIcon({className:'',
+      html:'<div style="width:0;height:0;position:relative;left:-14px;top:-14px">'
+        +'<div style="width:28px;height:28px;background:#1a73e8;border-radius:50%;'
+        +'border:3px solid #fff;box-shadow:0 2px 8px rgba(26,115,232,.7);'
+        +'display:flex;align-items:center;justify-content:center;'
+        +'transform:rotate('+heading+'deg)">'
+        +'<svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><polygon points="12,2 20,20 12,15 4,20"/></svg>'
+        +'</div></div>',
+      iconSize:[28,28],iconAnchor:[14,14]});
+  }
+  return L.divIcon({className:'',
+    html:'<div style="width:22px;height:22px;background:#1a73e8;border-radius:50%;'
+      +'border:3px solid #fff;box-shadow:0 2px 8px rgba(26,115,232,.7)"></div>',
+    iconSize:[22,22],iconAnchor:[11,11]});
+}
+function _iconDest(){
+  return L.divIcon({className:'',
+    html:'<div style="width:36px;height:36px;background:#d93025;border-radius:50% 50% 50% 0;'
+      +'transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.4)"></div>',
+    iconSize:[36,36],iconAnchor:[18,36]});
+}
+
+// ── Seta e texto de manobra ──────────────────────────────────────
 function _seta(tipo, mod){
   var t=(tipo||'').toLowerCase(), m=(mod||'').toLowerCase();
   if(t==='arrive') return '🏁';
   if(t.includes('roundabout')||t.includes('rotary')) return '↻';
-  if(m==='right'||m==='sharp right'||m==='slight right') return '↪';
-  if(m==='left'||m==='sharp left'||m==='slight left') return '↩';
-  if(m==='uturn') return '🔄';
+  if(m==='right'||m==='sharp right') return '↪';
+  if(m==='slight right')             return '↗';
+  if(m==='left'||m==='sharp left')   return '↩';
+  if(m==='slight left')              return '↖';
+  if(m==='uturn')                    return '↺';
+  if(t==='merge')                    return '⬆';
+  if(t==='fork'&&m.includes('right'))return '↗';
+  if(t==='fork'&&m.includes('left')) return '↖';
   return '⬆';
 }
 
 function _textoManobra(step){
-  var tipo = (step.maneuver&&step.maneuver.type)||'';
-  var mod  = (step.maneuver&&step.maneuver.modifier)||'';
-  var nome = step.name||'';
-  var t = tipo.toLowerCase(), m = mod.toLowerCase();
-  if(t==='depart')  return 'Siga por ' + (nome||'a via');
-  if(t==='arrive')  return 'Você chegou ao destino';
+  var tipo=(step.maneuver&&step.maneuver.type)||'';
+  var mod =(step.maneuver&&step.maneuver.modifier)||'';
+  var nome=step.name||'';
+  var ref =(step.ref&&step.ref.replace(/;/g,'/'))||'';
+  var via = nome ? (ref?nome+' ('+ref+')':nome) : (ref||'');
+  var t=tipo.toLowerCase(), m=mod.toLowerCase();
+
+  if(t==='depart')  return via ? 'Siga por ' + via : 'Inicie o percurso';
+  if(t==='arrive')  return 'Chegou ao destino';
+
   if(t==='turn'){
-    if(m==='right')        return 'Vire à direita em ' + (nome||'');
-    if(m==='left')         return 'Vire à esquerda em ' + (nome||'');
-    if(m==='sharp right')  return 'Vire bem à direita em ' + (nome||'');
-    if(m==='sharp left')   return 'Vire bem à esquerda em ' + (nome||'');
-    if(m==='slight right') return 'Vire levemente à direita';
-    if(m==='slight left')  return 'Vire levemente à esquerda';
+    if(m==='right')        return 'Vire à direita' + (via?' em '+via:'');
+    if(m==='left')         return 'Vire à esquerda' + (via?' em '+via:'');
+    if(m==='sharp right')  return 'Vire completamente à direita' + (via?' em '+via:'');
+    if(m==='sharp left')   return 'Vire completamente à esquerda' + (via?' em '+via:'');
+    if(m==='slight right') return 'Siga levemente à direita' + (via?' por '+via:'');
+    if(m==='slight left')  return 'Siga levemente à esquerda' + (via?' por '+via:'');
     if(m==='uturn')        return 'Faça o retorno';
   }
-  if(t==='roundabout'||t==='rotary') return 'Entre na rotatória';
-  if(t==='merge')   return 'Incorpore à via ' + (nome||'');
+  if(t==='roundabout'||t==='rotary'){
+    var exit=(step.maneuver&&step.maneuver.exit)||0;
+    return exit ? 'Na rotatória, tome a '+exit+'ª saída'+(via?' por '+via:'') : 'Entre na rotatória';
+  }
+  if(t==='merge')    return 'Incorpore à faixa' + (via?' da '+via:'');
+  if(t==='on ramp')  return 'Entre na rampa' + (via?' para '+via:'');
+  if(t==='off ramp') return 'Saia pela rampa' + (via?' para '+via:'');
   if(t==='fork'){
-    if(m.includes('right')) return 'Na bifurcação, mantenha à direita';
-    if(m.includes('left'))  return 'Na bifurcação, mantenha à esquerda';
+    if(m.includes('right')) return 'Na bifurcação, mantenha à direita' + (via?' por '+via:'');
+    if(m.includes('left'))  return 'Na bifurcação, mantenha à esquerda' + (via?' por '+via:'');
+    return 'Na bifurcação, siga em frente' + (via?' por '+via:'');
   }
-  if(t==='on ramp'||t==='off ramp') return 'Siga pela rampa';
-  if(t==='continue'||t==='new name') return 'Continue por ' + (nome||'a via');
   if(t==='end of road'){
-    if(m.includes('right')) return 'No fim da via, vire à direita';
-    if(m.includes('left'))  return 'No fim da via, vire à esquerda';
+    if(m.includes('right')) return 'No fim da via, vire à direita' + (via?' em '+via:'');
+    if(m.includes('left'))  return 'No fim da via, vire à esquerda' + (via?' em '+via:'');
   }
-  return nome ? 'Continue por ' + nome : 'Siga em frente';
+  if(t==='continue'||t==='new name') return via ? 'Continue por ' + via : 'Siga em frente';
+  if(t==='use lane') return 'Use a faixa correta';
+  return via ? 'Continue por ' + via : 'Siga em frente';
 }
 
-// ── Ajuste do mapa entre barra e painel ──────────────────────────
+// Frase de anúncio antecipado (ex: "Em 200 metros, vire à direita em Rua X")
+function _textoVozAntecipado(passo, metros){
+  var acao = _textoManobra(passo);
+  if(passo.tipo==='arrive') return 'Seu destino está a '+_fmtDVoz(metros);
+  return 'Em '+_fmtDVoz(metros)+', '+acao.toLowerCase();
+}
+
+// ── Ajuste layout mapa ───────────────────────────────────────────
 function _fitMap(){
-  var instr  = document.getElementById('instr-bar');
-  var painel = document.getElementById('painel');
-  var mapEl  = document.getElementById('map');
+  var instr =document.getElementById('instr-bar');
+  var painel=document.getElementById('painel');
+  var mapEl =document.getElementById('map');
   if(!mapEl) return;
-  var top = instr&&instr.classList.contains('show') ? instr.getBoundingClientRect().bottom : 0;
-  var bot = painel ? painel.offsetHeight : 140;
-  mapEl.style.top    = top + 'px';
-  mapEl.style.bottom = bot + 'px';
-  if(_map) setTimeout(function(){_map.invalidateSize();}, 50);
-}
-
-// ── Ícones ───────────────────────────────────────────────────────
-function _iconUser(){
-  return L.divIcon({className:'',
-    html:'<div style="width:18px;height:18px;background:#4285f4;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(66,133,244,.7)"></div>',
-    iconSize:[18,18],iconAnchor:[9,9]});
-}
-function _iconDest(){
-  return L.divIcon({className:'',
-    html:'<div style="width:32px;height:32px;background:#d93025;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>',
-    iconSize:[32,32],iconAnchor:[16,32]});
+  var top=instr&&instr.classList.contains('show')?instr.getBoundingClientRect().bottom:0;
+  var bot=painel?painel.offsetHeight:140;
+  mapEl.style.top   =top+'px';
+  mapEl.style.bottom=bot+'px';
+  if(_map) setTimeout(function(){_map.invalidateSize();},50);
 }
 
 // ── Inicializar mapa ─────────────────────────────────────────────
 function _initMapa(){
   _fitMap();
-  var cLat = _DLAT ? parseFloat(_DLAT) : -20.3155;
-  var cLng = _DLNG ? parseFloat(_DLNG) : -40.3128;
+  var cLat=_DLAT?parseFloat(_DLAT):-20.3155;
+  var cLng=_DLNG?parseFloat(_DLNG):-40.3128;
 
-  _map = L.map('map',{center:[cLat,cLng],zoom:15,zoomControl:false,attributionControl:true});
+  _map=L.map('map',{center:[cLat,cLng],zoom:15,zoomControl:false,attributionControl:true});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19, attribution:'© OpenStreetMap'
+    maxZoom:19,attribution:'© OpenStreetMap'
   }).addTo(_map);
 
   if(_DLAT&&_DLNG){
-    _destMarker = L.marker([parseFloat(_DLAT),parseFloat(_DLNG)],{icon:_iconDest()}).addTo(_map);
+    _destMarker=L.marker([parseFloat(_DLAT),parseFloat(_DLNG)],{icon:_iconDest()}).addTo(_map);
   }
+  if(!_DLAT||!_DLNG){ _mostrarErro('Coordenadas do posto não disponíveis.',''); return; }
 
-  if(!_DLAT||!_DLNG){
-    _mostrarErro('Coordenadas do posto não disponíveis.','');
-    return;
-  }
-
-  // Origem: params olat/olng ou GPS fresco
   if(_OLAT&&_OLNG){
     _oriLat=parseFloat(_OLAT); _oriLng=parseFloat(_OLNG);
-    document.getElementById('loading-sub').textContent = 'Traçando rota…';
+    document.getElementById('loading-sub').textContent='Traçando rota…';
     _calcRota(_oriLat,_oriLng);
   } else {
-    document.getElementById('loading-sub').textContent = 'Aguardando GPS…';
+    document.getElementById('loading-sub').textContent='Aguardando GPS…';
     navigator.geolocation.getCurrentPosition(
       function(p){
         _oriLat=p.coords.latitude; _oriLng=p.coords.longitude;
-        document.getElementById('loading-sub').textContent = 'Traçando rota…';
+        document.getElementById('loading-sub').textContent='Traçando rota…';
         _calcRota(_oriLat,_oriLng);
       },
-      function(e){
+      function(){
         _oriLat=cLat+0.001; _oriLng=cLng+0.001;
         _calcRota(_oriLat,_oriLng);
       },
@@ -5309,30 +5410,6 @@ function _calcRota(oLat,oLng){
 }
 
 // ── Recalcular rota (botão manual) ───────────────────────────────
-function _recalcularRota(){
-  if(!_oriLat||!_oriLng) return;
-  // Remove rota atual
-  if(_rotaLayer){ _map.removeLayer(_rotaLayer); _rotaLayer=null; }
-  if(_userMarker){ _map.removeLayer(_userMarker); _userMarker=null; }
-  _passos=[]; _passoIdx=0; _ultimoPassoFalado=-1; _avisado50m=false;
-  // Oculta badge e botão recalcular
-  var badge=document.getElementById('fonte-badge'); if(badge) badge.style.display='none';
-  var btnR=document.getElementById('btn-recalc'); if(btnR) btnR.style.display='none';
-  // Mostra loading e busca GPS atual
-  document.getElementById('tela-loading').style.display='flex';
-  document.getElementById('loading-msg').textContent='Recalculando…';
-  document.getElementById('loading-sub').textContent='Obtendo posição atual…';
-  navigator.geolocation.getCurrentPosition(
-    function(p){
-      _oriLat=p.coords.latitude; _oriLng=p.coords.longitude;
-      if(_userMarker) _map.removeLayer(_userMarker);
-      _calcRota(_oriLat,_oriLng);
-    },
-    function(){ _calcRota(_oriLat,_oriLng); },
-    {timeout:6000,maximumAge:0,enableHighAccuracy:true}
-  );
-}
-
 // ── Exibir rota no mapa ──────────────────────────────────────────
 function _exibirRota(route, oLat, oLng){
   document.getElementById('tela-loading').style.display='none';
@@ -5353,36 +5430,52 @@ function _exibirRota(route, oLat, oLng){
     badge.style.background = _fonteRota==='vps' ? '#e8f5e9' : '#f5f5f5';
   }
 
-  // Extrai passos
+  // ── Extrai passos com duração (para ETA dinâmico) ────────────────
   _passos = [];
-  if(leg&&leg.steps){
+  if(leg && leg.steps){
     leg.steps.forEach(function(s){
       _passos.push({
         texto:   _textoManobra(s),
         tipo:    s.maneuver ? s.maneuver.type : '',
-        mod:     s.maneuver ? (s.maneuver.modifier||'') : '',
-        dist:    s.distance||0,
-        lat:     s.maneuver ? s.maneuver.location[1] : oLat,
-        lng:     s.maneuver ? s.maneuver.location[0] : oLng
+        mod:     s.maneuver ? (s.maneuver.modifier || '') : '',
+        dist:    s.distance  || 0,
+        duracao: s.duration  || 0,   // ← para ETA dinâmico
+        lat:     s.maneuver  ? s.maneuver.location[1] : oLat,
+        lng:     s.maneuver  ? s.maneuver.location[0] : oLng,
+        // guarda o step original para _textoVozAntecipado
+        _step: s
       });
     });
   }
 
-  // Desenha polyline
+  // ── Desenha polyline + popula _rotaCoords (snap-to-road) ─────────
   if(_rotaLayer) _map.removeLayer(_rotaLayer);
-  var coords = route.geometry.coordinates.map(function(c){return[c[1],c[0]];});
-  _rotaLayer = L.polyline(coords,{
-    color:'#1a73e8',weight:6,opacity:.92,
-    lineJoin:'round',lineCap:'round'
+  var coords = route.geometry.coordinates.map(function(c){ return [c[1], c[0]]; });
+  _rotaCoords = coords.slice(); // ← cópia para cálculo de snap-to-road
+  _distRestante  = route.distance || 0;
+  _tempoRestante = route.duration || 0;
+
+  _rotaLayer = L.polyline(coords, {
+    color:'#1a73e8', weight:6, opacity:.92,
+    lineJoin:'round', lineCap:'round'
   }).addTo(_map);
 
-  _userMarker = L.marker([oLat,oLng],{icon:_iconUser(),zIndexOffset:1000}).addTo(_map);
-  _map.fitBounds(_rotaLayer.getBounds(),{paddingTopLeft:[20,20],paddingBottomRight:[20,80]});
-  setTimeout(_fitMap,150);
+  // ── Marcador do usuário (substitui _userMarker pelo novo _userArrow) ─
+  if(_userArrow){ _map.removeLayer(_userArrow); _userArrow = null; }
+  _userArrow = L.marker([oLat, oLng], {icon:_iconUser(null), zIndexOffset:2000}).addTo(_map);
+
+  _map.fitBounds(_rotaLayer.getBounds(), {paddingTopLeft:[20,20], paddingBottomRight:[20,80]});
+  setTimeout(_fitMap, 150);
 
   // Mostra botão recalcular após rota carregada
   var btnR = document.getElementById('btn-recalc');
-  if(btnR) btnR.style.display='flex';
+  if(btnR) btnR.style.display = 'flex';
+
+  // Anuncia resumo da rota ao carregar
+  setTimeout(function(){
+    var resumo = 'Rota calculada. ' + _fmtDVoz(route.distance) + ', tempo estimado ' + _fmtT(route.duration);
+    _falar(resumo, false);
+  }, 800);
 }
 
 // ── Mostrar erro ─────────────────────────────────────────────────
@@ -5393,104 +5486,261 @@ function _mostrarErro(msg,det){
   document.getElementById('tela-erro').classList.add('show');
 }
 
-// ── Instrução de passo ────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+//  ENGINE DE NAVEGAÇÃO PROFISSIONAL — estilo Google Maps
+//  Voz em 3 níveis + GPS real com heading + recalculo automático
+// ══════════════════════════════════════════════════════════════════
+
+// ── Mostrar instrução atual no painel ────────────────────────────
 function _mostrarPasso(idx){
   if(!_passos||idx>=_passos.length) return;
   var p = _passos[idx];
-  document.getElementById('instr-icon').textContent = _seta(p.tipo,p.mod);
+  document.getElementById('instr-icon').textContent = _seta(p.tipo, p.mod);
   document.getElementById('instr-txt').textContent  = p.texto;
-  document.getElementById('instr-dist').textContent = p.dist>0?_fmtD(p.dist):'';
+  document.getElementById('instr-dist').textContent = p.dist>0 ? _fmtD(p.dist) : '';
   document.getElementById('instr-bar').classList.add('show');
-  if(idx+1<_passos.length){
-    var q=_passos[idx+1];
-    document.getElementById('prox-icone').textContent=_seta(q.tipo,q.mod);
-    document.getElementById('prox-txt').textContent=q.texto;
+  // Próxima manobra
+  if(idx+1 < _passos.length){
+    var q = _passos[idx+1];
+    document.getElementById('prox-icone').textContent = _seta(q.tipo, q.mod);
+    document.getElementById('prox-txt').textContent   = q.texto;
     document.getElementById('instr-prox').classList.add('show');
   } else {
     document.getElementById('instr-prox').classList.remove('show');
   }
   _fitMap();
-  // Fala a instrução se ainda não foi falada para este passo
-  if (_ultimoPassoFalado !== idx) {
-    _ultimoPassoFalado = idx;
-    _avisado50m = false; // reseta aviso de 50m para novo passo
-    var distTxt = p.dist > 0 ? ' em ' + _fmtD(p.dist) : '';
-    _falar(p.texto + distTxt);
+}
+
+// ── Atualizar ETA dinamicamente a partir do passo atual ──────────
+function _atualizarEta(){
+  // Soma distâncias e durações dos passos restantes
+  var distAcum = 0, tempoAcum = 0;
+  for(var i = _passoIdx; i < _passos.length; i++){
+    distAcum += (_passos[i].dist || 0);
+    tempoAcum += (_passos[i].duracao || 0);
+  }
+  // Se temos duração real dos steps usa ela, senão estima (50 km/h)
+  if(tempoAcum === 0) tempoAcum = (distAcum / 1000) * 72; // 50 km/h → 72 s/km
+  _distRestante  = distAcum;
+  _tempoRestante = tempoAcum;
+  document.getElementById('eta-tempo').textContent = _fmtT(tempoAcum);
+  document.getElementById('eta-dist').textContent  = _fmtD(distAcum);
+  document.getElementById('eta-hora').textContent  = _hora(tempoAcum);
+}
+
+// ── Callback GPS — coração da navegação ─────────────────────────
+function _onGpsUpdate(pos){
+  var lat = pos.coords.latitude;
+  var lng = pos.coords.longitude;
+  var acc = pos.coords.accuracy || 999;
+  var heading = pos.coords.heading;
+  _curLat = lat; _curLng = lng;
+  // Heading: usa do GPS se válido, senão mantém null
+  if(heading !== null && !isNaN(heading)) _curHeading = heading;
+
+  // ── Atualiza marcador do usuário com seta rotacionada ──────────
+  if(!_userArrow){
+    _userArrow = L.marker([lat,lng],{icon:_iconUser(_curHeading),zIndexOffset:2000}).addTo(_map);
+  } else {
+    _userArrow.setLatLng([lat,lng]);
+    _userArrow.setIcon(_iconUser(_curHeading));
+  }
+
+  // Centraliza mapa no usuário com zoom de navegação (17)
+  if(_navegando){
+    _map.setView([lat,lng], 17, {animate:true, duration:0.6, noMoveStart:true});
+  }
+
+  // ── Detecção de desvio de rota (snap-to-road) ─────────────────
+  if(_rotaCoords.length > 1 && _navegando){
+    var distRota = _distPolyline(lat, lng);
+    if(distRota > 90){
+      _offRouteCount++;
+      if(_offRouteCount >= 3){
+        var agora = Date.now();
+        if(agora - _recalcTs > 20000){ // mínimo 20s entre recalculos
+          _recalcTs = agora;
+          _offRouteCount = 0;
+          _recalcularDe(lat, lng);
+          return; // aguarda recalculo
+        }
+      }
+    } else {
+      _offRouteCount = 0; // está na rota — reseta contador
+    }
+  }
+
+  if(!_navegando || !_passos.length) return;
+
+  // ── Avança passos pela proximidade ao ponto de manobra ────────
+  var s = _passos[_passoIdx];
+  var dPasso = _dist(lat, lng, s.lat, s.lng);
+
+  // Nível 3: executa manobra (< 20m do ponto)
+  if(dPasso < 20 && _passoIdx < _passos.length - 1){
+    _passoIdx++;
+    _ultimoPassoFalado = -1; // força novo anúncio
+    _avisadoMetros = false;
+    _avisado50m    = false;
+    _mostrarPasso(_passoIdx);
+    _atualizarEta();
+    // Anuncia nova instrução imediatamente (urgente = interrompe fala anterior)
+    var pNovo = _passos[_passoIdx];
+    _falar(pNovo.texto, true);
+    return;
+  }
+
+  // Nível 2: aviso iminente (~50m) — urgente
+  if(!_avisado50m && dPasso < 65 && dPasso >= 20){
+    _avisado50m = true;
+    _falar('Em ' + _fmtDVoz(50) + ', ' + s.texto.toLowerCase(), true);
+    return;
+  }
+
+  // Nível 1: aviso antecipado (~200m) — não interrompe
+  if(!_avisadoMetros && dPasso < 230 && dPasso >= 65){
+    _avisadoMetros = true;
+    _falar(_textoVozAntecipado(s, 200), false);
+  }
+
+  // ── Chegada ao destino (último passo) ────────────────────────
+  if(_passoIdx === _passos.length - 1){
+    var dest = _passos[_passos.length - 1];
+    if(_dist(lat, lng, dest.lat, dest.lng) < 50){
+      _chegou();
+    }
   }
 }
 
-// ── Toggle navegação ──────────────────────────────────────────────
+// ── Chegada ao destino ───────────────────────────────────────────
+function _chegou(){
+  document.getElementById('instr-icon').textContent = '🏁';
+  document.getElementById('instr-txt').textContent  = 'Você chegou ao destino!';
+  document.getElementById('instr-dist').textContent = '';
+  document.getElementById('instr-prox').classList.remove('show');
+  _falar('Você chegou ao destino!', true);
+  _pararNav();
+  // Centraliza no destino
+  if(_DLAT && _DLNG){
+    _map.setView([parseFloat(_DLAT), parseFloat(_DLNG)], 16, {animate:true});
+  }
+}
+
+// ── Recalcular a partir de uma posição (auto-recalculo) ──────────
+function _recalcularDe(lat, lng){
+  _falar('Recalculando rota', true);
+  if(_rotaLayer){ _map.removeLayer(_rotaLayer); _rotaLayer = null; }
+  _passos = []; _passoIdx = 0; _ultimoPassoFalado = -1;
+  _avisadoMetros = false; _avisado50m = false; _rotaCoords = [];
+  document.getElementById('instr-bar').classList.remove('show');
+  _oriLat = lat; _oriLng = lng;
+  _calcRota(lat, lng);
+}
+
+// ── Recalcular rota (botão manual) ───────────────────────────────
+function _recalcularRota(){
+  if(_rotaLayer){ _map.removeLayer(_rotaLayer); _rotaLayer = null; }
+  if(_userArrow){ _map.removeLayer(_userArrow); _userArrow = null; }
+  _passos = []; _passoIdx = 0; _ultimoPassoFalado = -1;
+  _avisadoMetros = false; _avisado50m = false; _rotaCoords = [];
+  _offRouteCount = 0;
+  var badge = document.getElementById('fonte-badge'); if(badge) badge.style.display = 'none';
+  var btnR  = document.getElementById('btn-recalc');  if(btnR)  btnR.style.display  = 'none';
+  document.getElementById('tela-loading').style.display  = 'flex';
+  document.getElementById('loading-msg').textContent     = 'Recalculando…';
+  document.getElementById('loading-sub').textContent     = 'Obtendo posição atual…';
+  navigator.geolocation.getCurrentPosition(
+    function(p){
+      _oriLat = p.coords.latitude; _oriLng = p.coords.longitude;
+      _calcRota(_oriLat, _oriLng);
+    },
+    function(){ _calcRota(_oriLat, _oriLng); },
+    {timeout:6000, maximumAge:0, enableHighAccuracy:true}
+  );
+}
+
+// ── Toggle navegação ─────────────────────────────────────────────
 function _toggleNav(){
   if(_navegando) _pararNav(); else _iniciarNav();
 }
 
+// ── Iniciar navegação — liga watchPosition com heading real ──────
 function _iniciarNav(){
-  if(!_passos.length) return;
-  _navegando=true; _passoIdx=0; _ultimoPassoFalado=-1; _avisado50m=false;
-  _mostrarPasso(0);
-  var btn=document.getElementById('btn-nav');
+  if(!_passos.length){ showToastNav('Calcule uma rota primeiro'); return; }
+  _navegando = true;
+  _passoIdx  = 0;
+  _ultimoPassoFalado = -1;
+  _avisadoMetros = false;
+  _avisado50m    = false;
+  _offRouteCount = 0;
+
+  // Muda botão para "Parar"
+  var btn = document.getElementById('btn-nav');
   btn.classList.add('stop');
-  btn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Parar';
+  btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Parar';
 
+  // Mostra primeira instrução e fala
+  _mostrarPasso(0);
+  var p0 = _passos[0];
+  var distTxt = p0.dist > 0 ? '. Em seguida, ' + _fmtDVoz(p0.dist) : '';
+  _falar('Iniciando navegação. ' + p0.texto + distTxt, true);
+
+  // watchPosition com alta precisão — callback real de GPS
   _watchId = navigator.geolocation.watchPosition(
-    function(pos){
-      var lat=pos.coords.latitude, lng=pos.coords.longitude;
-      if(_userMarker) _userMarker.setLatLng([lat,lng]);
-      _map.panTo([lat,lng],{animate:true,duration:.5});
-
-      if(_passoIdx<_passos.length-1){
-        var s=_passos[_passoIdx];
-        var dPasso = _dist(lat,lng,s.lat,s.lng);
-        // Aviso antecipado em ~100m do ponto de manobra
-        if (!_avisado50m && dPasso < 100 && dPasso > 30) {
-          _avisado50m = true;
-          _falar('Em ' + _fmtD(dPasso) + ', ' + s.texto);
-        }
-        // Avança passo ao chegar a 30m
-        if(dPasso < 30){_passoIdx++; _mostrarPasso(_passoIdx);}
-      } else {
-        var dest=_passos[_passos.length-1];
-        if(_dist(lat,lng,dest.lat,dest.lng)<50){
-          document.getElementById('instr-icon').textContent='🏁';
-          document.getElementById('instr-txt').textContent='Você chegou ao destino!';
-          document.getElementById('instr-dist').textContent='';
-          document.getElementById('instr-prox').classList.remove('show');
-          _falar('Você chegou ao destino!');
-          _pararNav();
-        }
-      }
-    },
-    function(){},
-    {enableHighAccuracy:true,maximumAge:1000,timeout:15000}
+    _onGpsUpdate,
+    function(err){ console.warn('[GPS]', err.code, err.message); },
+    {enableHighAccuracy: true, maximumAge: 500, timeout: 10000}
   );
 }
 
+// ── Parar navegação ──────────────────────────────────────────────
 function _pararNav(){
-  _navegando=false;
-  if(_watchId!=null){navigator.geolocation.clearWatch(_watchId);_watchId=null;}
-  var btn=document.getElementById('btn-nav');
+  _navegando = false;
+  if(_watchId != null){
+    navigator.geolocation.clearWatch(_watchId);
+    _watchId = null;
+  }
+  var btn = document.getElementById('btn-nav');
   btn.classList.remove('stop');
-  btn.innerHTML='<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Iniciar Navegação';
+  btn.innerHTML = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Iniciar Navegação';
   document.getElementById('instr-bar').classList.remove('show');
   if(window.speechSynthesis) window.speechSynthesis.cancel();
+  // Volta zoom para ver rota completa
+  if(_rotaLayer) _map.fitBounds(_rotaLayer.getBounds(), {paddingTopLeft:[20,20], paddingBottomRight:[20,80]});
   _fitMap();
 }
 
+// ── Toggle voz ───────────────────────────────────────────────────
 function _toggleVoz(){
   _vozAtiva = !_vozAtiva;
-  document.getElementById('btn-voz').textContent = _vozAtiva ? '🔊' : '🔇';
-  document.getElementById('btn-voz').style.background = _vozAtiva ? '#f1f3f4' : '#ffebee';
-  if (!_vozAtiva && window.speechSynthesis) window.speechSynthesis.cancel();
-  else if (_vozAtiva) _falar('Voz ativada');
+  var btn = document.getElementById('btn-voz');
+  btn.textContent   = _vozAtiva ? '🔊' : '🔇';
+  btn.style.background = _vozAtiva ? '#f1f3f4' : '#ffebee';
+  if(!_vozAtiva && window.speechSynthesis) window.speechSynthesis.cancel();
+  else if(_vozAtiva) _falar('Voz ativada', true);
 }
 
+// ── Voltar ───────────────────────────────────────────────────────
 function _voltar(){
   if(_navegando) _pararNav();
   history.back();
 }
 
-window.addEventListener('resize',_fitMap);
-window.addEventListener('load',_initMapa);
+// ── Toast de navegação ───────────────────────────────────────────
+function showToastNav(msg){
+  var t = document.getElementById('toast-nav');
+  if(!t){ t = document.createElement('div'); t.id = 'toast-nav';
+    t.style.cssText='position:fixed;bottom:160px;left:50%;transform:translateX(-50%);'
+      +'background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;'
+      +'z-index:9999;opacity:0;transition:opacity .3s';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg; t.style.opacity = '1';
+  setTimeout(function(){ t.style.opacity = '0'; }, 2800);
+}
+
+window.addEventListener('resize', _fitMap);
+window.addEventListener('load',   _initMapa);
 </script>
 
 </body>
