@@ -7325,9 +7325,9 @@ function abrirMapa() {
 // 3 caminhos: iOS → comgooglemaps://+fallback | Android WebView → intent://scheme=http | Chrome/PWA → window.open
 function _isInWebView() {
   var ua = navigator.userAgent || '';
-  if (/\bwv\b/.test(ua)) return true;
+  if (ua.indexOf('wv') > -1 && ua.indexOf('Android') > -1) return true;
   if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Twitter|TikTok|Snapchat|Pinterest|LinkedIn|MicroMessenger/.test(ua)) return true;
-  if (/iphone|ipad|ipod/i.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true;
+  if (/iphone|ipad|ipod/i.test(ua) && /AppleWebKit/.test(ua) && ua.indexOf('Safari/') < 0) return true;
   return false;
 }
 function _abrirGoogleMapsNativo(lat, lng, nome) {

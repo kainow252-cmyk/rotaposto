@@ -4802,11 +4802,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _isInWebView() {
     var ua = navigator.userAgent || '';
     // Android WebView explícito (flag "wv" adicionada pelo sistema)
-    if (/\bwv\b/.test(ua)) return true;
+    if (ua.indexOf('wv') > -1 && ua.indexOf('Android') > -1) return true;
     // Apps sociais conhecidos — todos colocam o próprio nome no UA
     if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Twitter|TikTok|Snapchat|Pinterest|LinkedIn|MicroMessenger|Weibo/.test(ua)) return true;
     // iOS WKWebView: tem AppleWebKit mas NÃO tem "Safari/" no UA
-    if (/iphone|ipad|ipod/i.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true;
+    if (/iphone|ipad|ipod/i.test(ua) && /AppleWebKit/.test(ua) && ua.indexOf('Safari/') < 0) return true;
     return false;
   }
 
