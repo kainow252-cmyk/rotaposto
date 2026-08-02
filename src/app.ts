@@ -17,14 +17,14 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <!-- v20260802f-intent-scheme-fix -->
+  <!-- v20260802g-regex-fix -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
   <meta name="theme-color" content="#FF6D00"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
   <meta name="apple-mobile-web-app-title" content="RotaPosto"/>
-  <meta name="build" content="20260802f"/>
+  <meta name="build" content="20260802g"/>
   <title>RotaPosto</title>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png"/>
@@ -4804,7 +4804,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     // Android WebView explícito (flag "wv" adicionada pelo sistema)
     if (/\bwv\b/.test(ua)) return true;
     // Apps sociais conhecidos — todos colocam o próprio nome no UA
-    if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Twitter|Line\/|TikTok|Snapchat|Pinterest|LinkedIn|MicroMessenger|QQ\/|Weibo/.test(ua)) return true;
+    if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Twitter|TikTok|Snapchat|Pinterest|LinkedIn|MicroMessenger|Weibo/.test(ua)) return true;
     // iOS WKWebView: tem AppleWebKit mas NÃO tem "Safari/" no UA
     if (/iphone|ipad|ipod/i.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true;
     return false;

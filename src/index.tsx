@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v22', build: '20260802f' })
+  return c.json({ version: 'v23', build: '20260802g' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -7326,7 +7326,7 @@ function abrirMapa() {
 function _isInWebView() {
   var ua = navigator.userAgent || '';
   if (/\bwv\b/.test(ua)) return true;
-  if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Twitter|Line\/|TikTok|Snapchat|Pinterest|LinkedIn|MicroMessenger/.test(ua)) return true;
+  if (/Instagram|FBAN|FBAV|FB_IAB|FBIOS|Twitter|TikTok|Snapchat|Pinterest|LinkedIn|MicroMessenger/.test(ua)) return true;
   if (/iphone|ipad|ipod/i.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true;
   return false;
 }
