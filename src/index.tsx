@@ -1090,11 +1090,16 @@ app.get('/api/rota', async (c) => {
   const rota = await calcularRotaOSRM(origemLat, origemLng, destinoLat, destinoLng)
   if (!rota) return c.json({ error: 'Serviço de rota indisponível' }, 500)
 
+  // url_mapa agora aponta para /ir interno — nunca abre Google Maps ou OSM externo
+  const irParams = new URLSearchParams()
+  irParams.set('lat',  String(destinoLat))
+  irParams.set('lng',  String(destinoLng))
+  const urlInterna = '/ir?' + irParams.toString()
+
   return c.json({
     distanciaKm: rota.distanciaKm,
     duracaoMin: rota.duracaoMin,
-    url_mapa: rota.urlOSM,
-    url_google: rota.urlGoogleMaps
+    url_mapa: urlInterna
   })
 })
 
@@ -9896,12 +9901,8 @@ async function calcularRotaPosto() {
     const data = await res.json();
 
     if (data.distanciaKm) {
-      state.rotaUrl = data.url_mapa;
-      document.getElementById('rota-dist').textContent = data.distanciaKm + ' km';
-      document.getElementById('rota-tempo').textContent = data.duracaoMin + ' minutos';
-      document.getElementById('rota-resultado').style.display = 'block';
-      mudarNavTab('planejar');
-      mostrarToast('Rota calculada! Veja na aba Planejar');
+      // Ir direto para /ir — nunca abre app externo
+      irAtePosto();
     }
   } catch {
     mostrarToast('Erro ao calcular rota');
