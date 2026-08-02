@@ -1,7 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "rotaposto",
-  "account_id": "371198b60c10634b9d636c1e58dcf0f2",
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-04-26",
   "compatibility_flags": [
