@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v23', build: '20260802g' })
+  return c.json({ version: 'v24', build: '20260802h' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -7359,11 +7359,10 @@ function _abrirGoogleMapsNativo(lat, lng, nome) {
 
   } else {
     // Android Chrome / PWA standalone
-    window.open(
-      'https://www.google.com/maps/dir/?api=1&destination=' + destino
-      + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : ''),
-      '_blank'
-    );
+    // IMPORTANTE: window.open('_blank') é bloqueado em PWA standalone mode
+    // window.location.href força saída do PWA e abre o GPS nativo
+    window.location.href = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
+      + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '');
   }
 }
 function compartilhar() {

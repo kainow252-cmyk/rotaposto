@@ -4868,13 +4868,17 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       window.location.href = intentUrl;
 
     } else {
-      // ── Android Chrome / PWA standalone: window.open abre o app Maps normalmente ──
+      // ── Android Chrome / PWA standalone ──────────────────────────────────────────
+      // IMPORTANTE: window.open('_blank') é bloqueado em PWA standalone mode
+      // window.location.href é o único método que funciona para sair do PWA e
+      // abrir o Google Maps nativo (o sistema operacional reconhece a URL e oferece
+      // ao usuário abrir no app Maps instalado)
       var mapsUrl = 'https://www.google.com/maps/dir/?api=1'
         + '&destination=' + destino
         + '&travelmode=driving'
         + (nome ? '&destination_place_name=' + nomeEnc : '');
 
-      window.open(mapsUrl, '_blank');
+      window.location.href = mapsUrl;
     }
   }
 
