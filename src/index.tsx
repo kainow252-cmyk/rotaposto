@@ -5160,6 +5160,30 @@ html,body{width:100%;height:100%;overflow:hidden;
 #btn-compass.hidden{display:none}
 #btn-compass:active{opacity:.7}
 
+/* ── Botão Recentralizar (estilo Google Maps) ── */
+#btn-recentrar{
+  position:fixed;
+  left:16px;
+  bottom:210px;
+  z-index:50;
+  display:none;
+  align-items:center;
+  gap:8px;
+  background:#fff;
+  border:none;
+  border-radius:24px;
+  padding:11px 18px;
+  box-shadow:0 2px 12px rgba(0,0,0,.28);
+  font-size:14px;
+  font-weight:700;
+  color:#1a73e8;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:opacity .2s;
+}
+#btn-recentrar:active{opacity:.75}
+#btn-recentrar.show{display:flex}
+
 /* ── Painel inferior ── */
 #painel{
   position:fixed;bottom:0;left:0;right:0;z-index:40;
@@ -5281,6 +5305,14 @@ html,body{width:100%;height:100%;overflow:hidden;
     <span id="prox-txt"></span>
   </div>
 </div>
+
+<!-- Botão Recentralizar (estilo Google Maps) -->
+<button id="btn-recentrar" onclick="_recentrar()">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+  </svg>
+  Recentralizar
+</button>
 
 <!-- Bússola — volta o mapa para norte -->
 <button id="btn-compass" class="hidden" onclick="_voltarNorte()" title="Apontar para norte">
@@ -5606,6 +5638,30 @@ function _initMapa(){
     maxZoom:19,attribution:'© OpenStreetMap'
   }).addTo(_map);
 
+  // ── Detectar quando usuário arrasta/zooma para sair do follow mode ──
+  // Igual ao Google Maps: drag ou pinch → para de seguir, mostra "Recentralizar"
+  _map.on('dragstart', function(){
+    if(_navegando) _entrarModoLivre();
+  });
+  _map.on('zoomstart', function(){
+    // Só sai do follow mode se o zoom foi iniciado por gesto humano
+    // (setView com animate:false também dispara zoomstart, então checamos)
+    if(_navegando && _seguindoUsuario){
+      // Pequeno delay para distinguir zoom do GPS vs zoom manual
+      setTimeout(function(){
+        // Se o mapa está em posição diferente do GPS atual = foi manual
+        if(_seguindoUsuario && _navegando && _curLat !== undefined){
+          var centro = _map.getCenter();
+          var dLat = Math.abs(centro.lat - _curLat);
+          var dLng = Math.abs(centro.lng - _curLng);
+          if(dLat > 0.001 || dLng > 0.001){
+            _entrarModoLivre();
+          }
+        }
+      }, 50);
+    }
+  });
+
   // Cone é div HTML fixo — não precisa de pane Leaflet
 
   if(_DLAT&&_DLNG){
@@ -5828,21 +5884,32 @@ function _atualizarEta(){
 // Calculamos sua posição em pixels usando latLngToContainerPoint
 // e aplicamos left/top. Como é fixed fora do #map, não sofre
 // nenhuma rotação CSS do mapa.
+// _coneRafPending evita múltiplas chamadas por frame (throttle)
+var _coneRafPending = false;
+var _conePendLat, _conePendLng;
+
 function _atualizarConeHtml(lat, lng){
+  // Throttle: agenda apenas 1 update por frame de animação
+  _conePendLat = lat;
+  _conePendLng = lng;
+  if(_coneRafPending) return;
+  _coneRafPending = true;
+  requestAnimationFrame(function(){
+    _coneRafPending = false;
+    _atualizarConeHtmlImediato(_conePendLat, _conePendLng);
+  });
+}
+
+// Execução real — sempre sincronizada com o frame de pintura
+function _atualizarConeHtmlImediato(lat, lng){
   var el = document.getElementById('user-cone');
   if(!el || !_map) return;
-  // Converte lat/lng para ponto em pixels na tela
   var pt = _map.latLngToContainerPoint([lat, lng]);
   var mapEl = document.getElementById('map');
   var rect  = mapEl ? mapEl.getBoundingClientRect() : {left:0, top:0};
-  // Como o #map está rotacionado via CSS, precisamos converter
-  // o ponto do espaço rotacionado para o espaço da tela.
-  // Usamos o centro do mapa como origem da rotação.
   var cx = rect.left + rect.width  / 2;
   var cy = rect.top  + rect.height / 2;
-  // pt é relativo ao container do mapa (antes da rotação CSS)
-  // Precisamos rotacionar pt pelo mesmo ângulo para obter posição real na tela
-  var rad = -_mapBearing * Math.PI / 180; // negativo = gira mapa -heading
+  var rad = -_mapBearing * Math.PI / 180;
   var dx  = pt.x - rect.width  / 2;
   var dy  = pt.y - rect.height / 2;
   var rx  = dx * Math.cos(rad) - dy * Math.sin(rad);
@@ -5901,12 +5968,16 @@ function _onGpsUpdate(pos){
   if(_navegando) _trafConsultarStatus(lat, lng);
 
   // ── Centraliza mapa + rotaciona pelo heading suavizado ────────
+  // Só centraliza se estiver em follow mode (_seguindoUsuario = true)
   if(_navegando){
-    // animate:false evita conflito com nossa rotação CSS
-    _map.setView([lat,lng], 17, {animate:false});
-    if(_curHeading !== null){
-      _rotacionarMapa(_curHeading);
+    if(_seguindoUsuario){
+      // animate:false evita conflito com nossa rotação CSS
+      _map.setView([lat,lng], 17, {animate:false});
+      if(_curHeading !== null){
+        _rotacionarMapa(_curHeading);
+      }
     }
+    // Cone sempre atualiza, mesmo em modo livre
   }
 
   // ── Detecção de desvio de rota (snap-to-road) ─────────────────
@@ -6083,6 +6154,31 @@ var _bearingTarget = 0;
 var _bearingRafId  = null;
 var _rotacaoAtiva  = false;
 
+// ── Follow mode (estilo Google Maps) ─────────────────────────────
+// true  = mapa acompanha GPS automaticamente (modo normal durante nav)
+// false = usuário arrastou/zoomou — mostra botão Recentralizar
+var _seguindoUsuario = true;
+var _recentrarTimeoutId = null; // auto-retomar após 8s (opcional)
+
+function _entrarModoLivre(){
+  if(!_navegando) return;
+  _seguindoUsuario = false;
+  var btn = document.getElementById('btn-recentrar');
+  if(btn) btn.classList.add('show');
+}
+
+function _recentrar(){
+  _seguindoUsuario = true;
+  var btn = document.getElementById('btn-recentrar');
+  if(btn) btn.classList.remove('show');
+  // Centraliza imediatamente no GPS atual
+  if(_curLat !== undefined && _curLng !== undefined && _map){
+    _map.setView([_curLat, _curLng], 17, {animate:false});
+    if(_curHeading !== null) _rotacionarMapa(_curHeading);
+    _atualizarConeHtmlImediato(_curLat, _curLng);
+  }
+}
+
 function _aplicarBearing(deg){
   deg = ((deg % 360) + 360) % 360;
   _mapBearing = deg;
@@ -6142,8 +6238,12 @@ function _rotacionarMapa(heading){
 }
 
 // ── Voltar ao norte (botão bússola) ──────────────────────────────
+// Também retoma follow mode
 function _voltarNorte(){
   _curHeading = null;
+  _seguindoUsuario = true;
+  var btn = document.getElementById('btn-recentrar');
+  if(btn) btn.classList.remove('show');
   _rotacionarMapa(0);
 }
 
@@ -6189,6 +6289,9 @@ function _toggleNav(){
 function _iniciarNav(){
   if(!_passos.length){ showToastNav('Calcule uma rota primeiro'); return; }
   _navegando = true;
+  _seguindoUsuario = true; // começa sempre em follow mode
+  var btnR2 = document.getElementById('btn-recentrar');
+  if(btnR2) btnR2.classList.remove('show');
   _passoIdx  = 0;
   _ultimoPassoFalado = -1;
   _avisadoMetros = false;
@@ -6217,6 +6320,9 @@ function _iniciarNav(){
 // ── Parar navegação ──────────────────────────────────────────────
 function _pararNav(){
   _navegando = false;
+  _seguindoUsuario = true; // reset para próxima sessão
+  var btnRC = document.getElementById('btn-recentrar');
+  if(btnRC) btnRC.classList.remove('show');
   if(_watchId != null){
     navigator.geolocation.clearWatch(_watchId);
     _watchId = null;
