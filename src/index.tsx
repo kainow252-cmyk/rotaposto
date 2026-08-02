@@ -5424,8 +5424,7 @@ html,body{width:100%;height:100%;overflow:hidden;
   <div id="posto-row">
     <img id="posto-logo" src="${logoFinalUrl}" alt="" onerror="this.src='/static/logos/independente.svg'"/>
     <span id="posto-nome-el">${tituloSafe}</span>
-    <span id="fonte-badge" style="font-size:10px;color:#aaa;background:#f5f5f5;border-radius:6px;padding:2px 7px;flex-shrink:0;display:none"></span>
-    <span id="traf-indicator" style="font-size:11px;font-weight:700;margin-left:6px;display:none"></span>
+    <!-- fonte-badge e traf-indicator removidos: poluem o painel -->
   </div>
   <div id="btn-row">
     <button id="btn-back" onclick="_voltar()">
@@ -5836,14 +5835,7 @@ function _exibirRota(route, oLat, oLng){
   document.getElementById('eta-dist').textContent  = _fmtD(met);
   document.getElementById('eta-hora').textContent  = _hora(seg);
 
-  // Badge de fonte (VPS RotaPosto / OSM público)
-  var badge = document.getElementById('fonte-badge');
-  if(badge){
-    badge.textContent = _fonteRota==='vps' ? '📡 RotaPosto' : '🌐 OSM';
-    badge.style.display='inline-block';
-    badge.style.color   = _fonteRota==='vps' ? '#1b5e20' : '#888';
-    badge.style.background = _fonteRota==='vps' ? '#e8f5e9' : '#f5f5f5';
-  }
+  // Badge de fonte removido do painel (não exibir OSM/VPS ao usuário)
 
   // ── Extrai passos com duração (para ETA dinâmico) ────────────────
   _passos = [];
@@ -6172,18 +6164,9 @@ function _trafConsultarStatus(lat, lng){
     .catch(function(){}); // silêncio total
 }
 
-// Atualiza o indicador visual no painel de ETA
+// Indicador de trânsito: dados coletados internamente, não exibidos no painel
 function _trafAtualizarIndicador(d){
-  var el = document.getElementById('traf-indicator');
-  if(!el) return;
-  if(d.status === 'unknown' || !d.label){
-    el.style.display = 'none';
-    return;
-  }
-  var emoji = d.status === 'free' ? '🟢' : d.status === 'moderate' ? '🟡' : '🔴';
-  el.textContent = emoji + ' ' + d.label;
-  el.style.color   = d.color || '#555';
-  el.style.display = 'inline-block';
+  // elemento removido do HTML — função mantida para não quebrar chamadas existentes
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -6333,7 +6316,7 @@ function _recalcularRota(){
   _passos = []; _passoIdx = 0; _ultimoPassoFalado = -1;
   _avisadoMetros = false; _avisado50m = false; _rotaCoords = [];
   _offRouteCount = 0;
-  var badge = document.getElementById('fonte-badge'); if(badge) badge.style.display = 'none';
+  // fonte-badge removido do HTML
   var btnR  = document.getElementById('btn-recalc');  if(btnR)  btnR.style.display  = 'none';
   document.getElementById('tela-loading').style.display  = 'flex';
   document.getElementById('loading-msg').textContent     = 'Recalculando…';
