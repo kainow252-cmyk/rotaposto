@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v34', build: '20260803d' })
+  return c.json({ version: 'v35', build: '20260803e' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,7 +6645,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v17';
+const CACHE_NAME = 'rotaposto-v18';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7319,16 +7319,11 @@ function _abrirWazeNativo(lat, lng) {
   var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
   var ua = navigator.userAgent || '';
   var isAndroid = /android/i.test(ua);
-  var isTWA = (document.referrer && document.referrer.includes('android-app://'));
   if (isAndroid) {
-    if (isTWA) {
-      // TWA (Play Store): intent:// não funciona no WebView do TWA
-      // window.open(_blank) passa o link para o Chrome externo que intercepta e abre o Waze
-      window.open(wazeWeb, '_blank');
-    } else {
-      // Chrome normal / atalho: abre direto
-      window.location.href = wazeWeb;
-    }
+    // TWA (Play Store) + Chrome + PWA standalone:
+    // rotaposto://maps é tratado como "fora do escopo" pelo TWA →
+    // MapLaunchActivity intercepta e abre waze:// diretamente via startActivity nativo
+    window.location.href = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze';
   } else {
     window.location.href = wazeWeb;
   }
@@ -7357,10 +7352,9 @@ function _abrirGoogleMapsNativo(lat, lng, nome) {
     window.location.href = mapsAppIOS;
 
   } else if (isAndroid) {
-    // geo: URI — Android mostra seletor nativo (Maps, Waze, Uber...)
-    // Funciona em Chrome, TWA (Play Store), PWA standalone — qualquer contexto Android
-    var nomeLabel = nome ? encodeURIComponent(nome) : 'Destino';
-    window.location.href = 'geo:' + destino + '?q=' + destino + '(' + nomeLabel + ')';
+    // TWA (Play Store) + Chrome + PWA standalone:
+    // rotaposto://maps é interceptado pela MapLaunchActivity que abre google.navigation:// nativo
+    window.location.href = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=google';
 
   } else {
     // ── Desktop / outros: abre google.com/maps no browser ────────────────────

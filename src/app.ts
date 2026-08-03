@@ -4814,9 +4814,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       window.location.href = mapsAppIOS;
 
     } else if (isAndroid) {
-      // geo: URI — Android mostra seletor nativo (Maps, Waze, Uber...)
-      var nomeLabel = nome ? encodeURIComponent(nome) : 'Destino';
-      window.location.href = 'geo:' + destino + '?q=' + destino + '(' + nomeLabel + ')';
+      // TWA (Play Store) + Chrome + PWA standalone:
+      // rotaposto://maps é interceptado pela MapLaunchActivity que abre google.navigation:// nativo
+      window.location.href = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=google';
 
     } else {
       // ── Desktop / outros: abre google.com/maps no browser ────────────────────────
@@ -4943,9 +4943,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var ua = navigator.userAgent || '';
     var isAndroid = /android/i.test(ua);
     if (isAndroid) {
-      // geo: URI — Android mostra seletor nativo (Maps, Waze, Uber...)
-      // Funciona em Chrome, TWA (Play Store), PWA standalone — qualquer contexto Android
-      window.location.href = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng;
+      // TWA (Play Store) + Chrome + PWA standalone:
+      // rotaposto://maps é interceptado pela MapLaunchActivity que abre waze:// nativo
+      window.location.href = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze';
     } else {
       window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
     }
