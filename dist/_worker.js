@@ -7910,12 +7910,13 @@ document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
     var ua = navigator.userAgent || '';
     var isAndroid = /android/i.test(ua);
     if (isAndroid) {
-      // intent:// bypassa WebView do PWA standalone e abre o app Waze nativo diretamente
-      // browser_fallback_url → abre waze.com no Chrome se Waze não estiver instalado
+      // intent://ul?ll=...#Intent;scheme=waze → Android monta waze://ul?ll=... e abre app nativo
+      // scheme=waze (NÃO https) — com https o Android monta https://ul?ll=... (URL inválida)
+      // browser_fallback_url → fallback para Chrome se Waze não instalado
       var fallback = encodeURIComponent(wazeWeb);
       window.location.href = 'intent://ul?ll=' + lat + ',' + lng
         + '&navigate=yes&zoom=17'
-        + '#Intent;scheme=https;package=com.waze;'
+        + '#Intent;scheme=waze;package=com.waze;'
         + 'S.browser_fallback_url=' + fallback + ';end';
     } else {
       // iOS e desktop: URL web oficial funciona direto
@@ -19606,12 +19607,13 @@ function _abrirWazeNativo(lat, lng) {
   var ua = navigator.userAgent || '';
   var isAndroid = /android/i.test(ua);
   if (isAndroid) {
-    // intent:// bypassa WebView do PWA standalone e abre o app Waze nativo diretamente
-    // browser_fallback_url → abre waze.com no Chrome se Waze não estiver instalado
+    // intent://ul?ll=...#Intent;scheme=waze → Android monta waze://ul?ll=... e abre app nativo
+    // scheme=waze (NÃO https) — com https o Android monta https://ul?ll=... (URL inválida)
+    // browser_fallback_url → fallback para Chrome se Waze não instalado
     var fallback = encodeURIComponent(wazeWeb);
     window.location.href = 'intent://ul?ll=' + lat + ',' + lng
       + '&navigate=yes&zoom=17'
-      + '#Intent;scheme=https;package=com.waze;'
+      + '#Intent;scheme=waze;package=com.waze;'
       + 'S.browser_fallback_url=' + fallback + ';end';
   } else {
     // iOS e desktop: URL web oficial funciona direto
