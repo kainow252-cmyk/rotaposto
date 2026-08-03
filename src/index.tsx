@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v28', build: '20260802l' })
+  return c.json({ version: 'v29', build: '20260803a' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,7 +6645,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v13';
+const CACHE_NAME = 'rotaposto-v14';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7316,23 +7316,12 @@ function abrirWpp() {
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
 function _abrirWazeNativo(lat, lng) {
-  // Deep Link oficial Waze — inicia navegação imediata
-  // Tenta scheme nativo waze:// primeiro (app instalado)
-  // Fallback automático após 1500ms: https://waze.com/ul (site ou app store)
-  // waze://?ll= é o deep link oficial para INICIAR navegação direto
-  // waze://ul abre o app mas não inicia a rota — NÃO usar
-  var wazeApp = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
-  var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
-  var fallbackTimer = setTimeout(function() {
-    window.location.href = wazeWeb;
-  }, 1500);
-  document.addEventListener('visibilitychange', function cancelFallback() {
-    if (document.hidden) {
-      clearTimeout(fallbackTimer);
-      document.removeEventListener('visibilitychange', cancelFallback);
-    }
-  });
-  window.location.href = wazeApp;
+  // Deep Link OFICIAL Waze (documentação google.com/waze/deeplinks)
+  // https://waze.com/ul?ll=lat,lng&navigate=yes&zoom=17
+  // navigate=yes → inicia navegação direto (não só mostra local)
+  // zoom=17      → zoom próximo — força Waze a usar GPS como origem automática
+  // O Waze abre o app se instalado, ou o site se não instalado
+  window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
 }
 function abrirWaze() {
   if (!_posto || !_posto.lat || !_posto.lng) return;

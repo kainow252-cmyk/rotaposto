@@ -4952,16 +4952,11 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     _abrirWazeNativo(lat, lng);
 }
 
-  // Função central Waze — scheme nativo + fallback web
+  // Função central Waze — URL oficial documentação google.com/waze/deeplinks
   function _abrirWazeNativo(lat, lng) {
-    // waze://?ll= é o deep link oficial para INICIAR navegação direto
-    var wazeApp = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
-    var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
-    var t = setTimeout(function() { window.location.href = wazeWeb; }, 1500);
-    document.addEventListener('visibilitychange', function c() {
-      if (document.hidden) { clearTimeout(t); document.removeEventListener('visibilitychange', c); }
-    });
-    window.location.href = wazeApp;
+    // navigate=yes → inicia navegação direto
+    // zoom=17      → força Waze a usar GPS como origem automática
+    window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
   }
 
   // ── SOS: "Ir até lá" para borracheiro/mecânica ──
