@@ -22974,7 +22974,7 @@ app.get('/download/apk', async (c) => {
   if (!obj) return c.text('APK não encontrado', 404)
   const headers = new Headers()
   headers.set('Content-Type', 'application/vnd.android.package-archive')
-  headers.set('Content-Disposition', 'attachment; filename="RotaPosto-v1.1.3.apk"')
+  headers.set('Content-Disposition', 'attachment; filename="RotaPosto-v1.2.0.apk"')
   headers.set('Cache-Control', 'no-cache')
   return new Response(obj.body, { headers })
 })
