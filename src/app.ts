@@ -4814,12 +4814,19 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       window.location.href = mapsAppIOS;
 
     } else if (isAndroid) {
-      // ── Android: google.navigation intent → inicia navegação turn-by-turn imediatamente ──
-      // Fonte: dev.to/luc45hn (jun/2026) — único método confirmado PWA standalone
-      var titleEnc = nome ? encodeURIComponent(nome) : 'Destino';
-      window.location.href = 'intent://navigation/now?ll=' + destino
-        + '&title=' + titleEnc
-        + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
+      var isTWA = (document.referrer && document.referrer.includes('android-app://'));
+      if (isTWA) {
+        // TWA (Play Store): window.open(_blank) → Chrome externo → abre Google Maps
+        var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
+          + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '');
+        window.open(mapsUrl, '_blank');
+      } else {
+        // Chrome normal / atalho
+        var titleEnc = nome ? encodeURIComponent(nome) : 'Destino';
+        window.location.href = 'intent://navigation/now?ll=' + destino
+          + '&title=' + titleEnc
+          + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
+      }
 
     } else {
       // ── Desktop / outros: abre google.com/maps no browser ────────────────────────
@@ -4941,23 +4948,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     _abrirWazeNativo(lat, lng);
 }
 
-  // Função central Waze — URL oficial documentação google.com/waze/deeplinks
+  // Função central Waze
   function _abrirWazeNativo(lat, lng) {
-    // navigate=yes → inicia navegação direto | zoom=17 → usa GPS como origem
     var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
     var ua = navigator.userAgent || '';
     var isAndroid = /android/i.test(ua);
-    if (isAndroid) {
-      // intent://ul?ll=...#Intent;scheme=waze → Android monta waze://ul?ll=... e abre app nativo
-      // scheme=waze (NÃO https) — com https o Android monta https://ul?ll=... (URL inválida)
-      // browser_fallback_url → fallback para Chrome se Waze não instalado
-      var fallback = encodeURIComponent(wazeWeb);
-      window.location.href = 'intent://ul?ll=' + lat + ',' + lng
-        + '&navigate=yes&zoom=17'
-        + '#Intent;scheme=waze;package=com.waze;'
-        + 'S.browser_fallback_url=' + fallback + ';end';
+    var isTWA = (document.referrer && document.referrer.includes('android-app://'));
+    if (isAndroid && isTWA) {
+      // TWA (Play Store): window.open(_blank) → Chrome externo intercepta e abre Waze
+      window.open(wazeWeb, '_blank');
     } else {
-      // iOS e desktop: URL web oficial funciona direto
       window.location.href = wazeWeb;
     }
   }

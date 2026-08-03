@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v32', build: '20260803b' })
+  return c.json({ version: 'v33', build: '20260803c' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,7 +6645,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v15';
+const CACHE_NAME = 'rotaposto-v16';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7316,20 +7316,19 @@ function abrirWpp() {
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
 function _abrirWazeNativo(lat, lng) {
-  // NOTA: navigate=yes foi quebrado pelo Waze na v5.3 (jan/2025) — ignorado no Android
-  // Solução: geo: URI → Android abre app de navegação padrão do usuário (Waze, Maps, etc)
-  // Se Waze for o app padrão de mapas, abre direto no Waze e inicia navegação
   var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
   var ua = navigator.userAgent || '';
   var isAndroid = /android/i.test(ua);
-  var isIOS = /iphone|ipad|ipod/i.test(ua);
+  var isTWA = (document.referrer && document.referrer.includes('android-app://'));
   if (isAndroid) {
-    // geo: URI é o padrão Android — abre seletor de app de navegação ou app padrão
-    // ?q=label aparece como nome do destino no app
-    window.location.href = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng;
-  } else if (isIOS) {
-    // iOS: URL web do Waze — abre app se instalado, site se não
-    window.location.href = wazeWeb;
+    if (isTWA) {
+      // TWA (Play Store): intent:// não funciona no WebView do TWA
+      // window.open(_blank) passa o link para o Chrome externo que intercepta e abre o Waze
+      window.open(wazeWeb, '_blank');
+    } else {
+      // Chrome normal / atalho: abre direto
+      window.location.href = wazeWeb;
+    }
   } else {
     window.location.href = wazeWeb;
   }
@@ -7358,13 +7357,19 @@ function _abrirGoogleMapsNativo(lat, lng, nome) {
     window.location.href = mapsAppIOS;
 
   } else if (isAndroid) {
-    // ── Android: google.navigation intent → inicia navegação turn-by-turn imediatamente ──
-    // Fonte: dev.to/luc45hn (jun/2026) — único método confirmado que funciona em PWA standalone
-    // scheme=google.navigation + package=com.google.android.apps.maps → Maps abre e navega
-    var titleEnc = nome ? encodeURIComponent(nome) : 'Destino';
-    window.location.href = 'intent://navigation/now?ll=' + destino
-      + '&title=' + titleEnc
-      + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
+    var isTWA = (document.referrer && document.referrer.includes('android-app://'));
+    if (isTWA) {
+      // TWA (Play Store): window.open(_blank) passa para Chrome externo → abre Google Maps
+      var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
+        + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '');
+      window.open(mapsUrl, '_blank');
+    } else {
+      // Chrome normal / atalho: intent:// abre Maps nativo direto
+      var titleEnc = nome ? encodeURIComponent(nome) : 'Destino';
+      window.location.href = 'intent://navigation/now?ll=' + destino
+        + '&title=' + titleEnc
+        + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
+    }
 
   } else {
     // ── Desktop / outros: abre google.com/maps no browser ────────────────────
