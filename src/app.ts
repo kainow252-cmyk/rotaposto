@@ -4814,19 +4814,9 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       window.location.href = mapsAppIOS;
 
     } else if (isAndroid) {
-      var isTWA = (document.referrer && document.referrer.includes('android-app://'));
-      if (isTWA) {
-        // TWA (Play Store): window.open(_blank) → Chrome externo → abre Google Maps
-        var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
-          + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '');
-        window.open(mapsUrl, '_blank');
-      } else {
-        // Chrome normal / atalho
-        var titleEnc = nome ? encodeURIComponent(nome) : 'Destino';
-        window.location.href = 'intent://navigation/now?ll=' + destino
-          + '&title=' + titleEnc
-          + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
-      }
+      // geo: URI — Android mostra seletor nativo (Maps, Waze, Uber...)
+      var nomeLabel = nome ? encodeURIComponent(nome) : 'Destino';
+      window.location.href = 'geo:' + destino + '?q=' + destino + '(' + nomeLabel + ')';
 
     } else {
       // ── Desktop / outros: abre google.com/maps no browser ────────────────────────
@@ -4948,17 +4938,16 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     _abrirWazeNativo(lat, lng);
 }
 
-  // Função central Waze
+  // Função central navegação
   function _abrirWazeNativo(lat, lng) {
-    var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
     var ua = navigator.userAgent || '';
     var isAndroid = /android/i.test(ua);
-    var isTWA = (document.referrer && document.referrer.includes('android-app://'));
-    if (isAndroid && isTWA) {
-      // TWA (Play Store): window.open(_blank) → Chrome externo intercepta e abre Waze
-      window.open(wazeWeb, '_blank');
+    if (isAndroid) {
+      // geo: URI — Android mostra seletor nativo (Maps, Waze, Uber...)
+      // Funciona em Chrome, TWA (Play Store), PWA standalone — qualquer contexto Android
+      window.location.href = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng;
     } else {
-      window.location.href = wazeWeb;
+      window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
     }
   }
 

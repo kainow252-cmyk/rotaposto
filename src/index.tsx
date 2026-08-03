@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v33', build: '20260803c' })
+  return c.json({ version: 'v34', build: '20260803d' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,7 +6645,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v16';
+const CACHE_NAME = 'rotaposto-v17';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7357,19 +7357,10 @@ function _abrirGoogleMapsNativo(lat, lng, nome) {
     window.location.href = mapsAppIOS;
 
   } else if (isAndroid) {
-    var isTWA = (document.referrer && document.referrer.includes('android-app://'));
-    if (isTWA) {
-      // TWA (Play Store): window.open(_blank) passa para Chrome externo → abre Google Maps
-      var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destino
-        + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '');
-      window.open(mapsUrl, '_blank');
-    } else {
-      // Chrome normal / atalho: intent:// abre Maps nativo direto
-      var titleEnc = nome ? encodeURIComponent(nome) : 'Destino';
-      window.location.href = 'intent://navigation/now?ll=' + destino
-        + '&title=' + titleEnc
-        + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
-    }
+    // geo: URI — Android mostra seletor nativo (Maps, Waze, Uber...)
+    // Funciona em Chrome, TWA (Play Store), PWA standalone — qualquer contexto Android
+    var nomeLabel = nome ? encodeURIComponent(nome) : 'Destino';
+    window.location.href = 'geo:' + destino + '?q=' + destino + '(' + nomeLabel + ')';
 
   } else {
     // ── Desktop / outros: abre google.com/maps no browser ────────────────────
