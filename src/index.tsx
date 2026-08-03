@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v36', build: '20260803f' })
+  return c.json({ version: 'v37', build: '20260803g' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,7 +6645,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v19';
+const CACHE_NAME = 'rotaposto-v20';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7321,15 +7321,41 @@ function abrirWpp() {
   var num = _posto.whatsapp.replace(/\\D/g,'');
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
+function _tentarSchemeComFallback(schemeUrl, fallbackUrl) {
+  // Tenta abrir scheme nativo via iframe oculto.
+  // Se o scheme não for reconhecido (APK antigo / Chrome / PWA),
+  // o iframe falha silenciosamente e o timeout dispara o fallback.
+  var saiu = false;
+  var iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  document.body.appendChild(iframe);
+  // Detecta saída da página = scheme funcionou
+  var onHide = function() {
+    saiu = true;
+    document.removeEventListener('visibilitychange', onHide);
+  };
+  document.addEventListener('visibilitychange', onHide);
+  // Dispara o scheme
+  try { iframe.contentWindow.location.href = schemeUrl; } catch(e) {}
+  // Fallback após 600ms se a página ainda estiver visível
+  setTimeout(function() {
+    document.body.removeChild(iframe);
+    document.removeEventListener('visibilitychange', onHide);
+    if (!saiu) {
+      window.location.href = fallbackUrl;
+    }
+  }, 600);
+}
 function _abrirWazeNativo(lat, lng) {
-  var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
+  var wazeNativo  = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
+  var wazeWeb     = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
   var ua = navigator.userAgent || '';
   var isAndroid = /android/i.test(ua);
   if (isAndroid) {
-    // TWA (Play Store) + Chrome + PWA standalone:
-    // rotaposto://maps é tratado como "fora do escopo" pelo TWA →
-    // MapLaunchActivity intercepta e abre waze:// diretamente via startActivity nativo
-    window.location.href = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze';
+    // 1ª tentativa: rotaposto:// → MapLaunchActivity (APK v84+)
+    // Se o APK for antigo e não reconhecer rotaposto://, cai para waze:// direto
+    var rotapostoUrl = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze';
+    _tentarSchemeComFallback(rotapostoUrl, wazeNativo);
   } else {
     window.location.href = wazeWeb;
   }
@@ -7358,9 +7384,11 @@ function _abrirGoogleMapsNativo(lat, lng, nome) {
     window.location.href = mapsAppIOS;
 
   } else if (isAndroid) {
-    // TWA (Play Store) + Chrome + PWA standalone:
-    // rotaposto://maps é interceptado pela MapLaunchActivity que abre google.navigation:// nativo
-    window.location.href = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=google';
+    // 1ª tentativa: rotaposto:// → MapLaunchActivity (APK v84+)
+    // Fallback: google.navigation:// direto (funciona no Chrome/PWA)
+    var rotapostoUrl = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=google';
+    var mapsNativo   = 'google.navigation:q=' + destino + '&mode=d';
+    _tentarSchemeComFallback(rotapostoUrl, mapsNativo);
 
   } else {
     // ── Desktop / outros: abre google.com/maps no browser ────────────────────
