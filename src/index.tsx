@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v38', build: '20260803h' })
+  return c.json({ version: 'v39', build: '20260803i' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,7 +6645,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v21';
+const CACHE_NAME = 'rotaposto-v22';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7322,18 +7322,19 @@ function abrirWpp() {
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
 function _abrirWazeNativo(lat, lng) {
-  var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
+  var wazeDeep = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
+  var wazeWeb  = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
   var ua = navigator.userAgent || '';
   var isAndroid = /android/i.test(ua);
   var isTWA = (document.referrer && document.referrer.includes('android-app://'));
   if (isAndroid) {
     if (isTWA) {
-      // TWA (Play Store APK): window.open abre no Chrome externo que intercepta e abre Waze
-      // Quando APK v85 estiver instalado, rotaposto:// vai ser interceptado automaticamente
-      window.open(wazeWeb, '_blank');
+      // TWA: window.open abre no Chrome externo.
+      // Chrome consegue resolver waze:// deep link e abre o app nativo diretamente.
+      window.open(wazeDeep, '_blank');
     } else {
-      // Chrome normal / PWA instalado pelo Chrome
-      window.location.href = wazeWeb;
+      // Chrome normal / PWA: tenta waze:// direto
+      window.location.href = wazeDeep;
     }
   } else {
     window.location.href = wazeWeb;
