@@ -4944,20 +4944,24 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // Função central navegação
   function _abrirWazeNativo(lat, lng) {
-    var wazeDeep = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
-    var wazeWeb  = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
     var ua = navigator.userAgent || '';
     var isAndroid = /android/i.test(ua);
     var isTWA = (document.referrer && document.referrer.includes('android-app://'));
-    if (isAndroid) {
-      if (isTWA) {
-        // Chrome externo (aberto pelo TWA) resolve waze:// e abre app nativo direto
-        window.open(wazeDeep, '_blank');
-      } else {
-        window.location.href = wazeDeep;
-      }
+
+    if (isAndroid && isTWA) {
+      var intentUrl = 'intent://?' +
+        'll=' + lat + '%2C' + lng +
+        '&navigate=yes' +
+        '#Intent;' +
+        'scheme=waze;' +
+        'package=com.waze;' +
+        'S.browser_fallback_url=' + encodeURIComponent('https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes') + ';' +
+        'end';
+      window.location.href = intentUrl;
+    } else if (isAndroid) {
+      window.location.href = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
     } else {
-      window.location.href = wazeWeb;
+      window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
     }
   }
 

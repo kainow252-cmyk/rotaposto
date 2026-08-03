@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v39', build: '20260803i' })
+  return c.json({ version: 'v40', build: '20260803j' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,7 +6645,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v22';
+const CACHE_NAME = 'rotaposto-v23';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7322,22 +7322,32 @@ function abrirWpp() {
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
 function _abrirWazeNativo(lat, lng) {
-  var wazeDeep = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
-  var wazeWeb  = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
   var ua = navigator.userAgent || '';
   var isAndroid = /android/i.test(ua);
   var isTWA = (document.referrer && document.referrer.includes('android-app://'));
-  if (isAndroid) {
-    if (isTWA) {
-      // TWA: window.open abre no Chrome externo.
-      // Chrome consegue resolver waze:// deep link e abre o app nativo diretamente.
-      window.open(wazeDeep, '_blank');
-    } else {
-      // Chrome normal / PWA: tenta waze:// direto
-      window.location.href = wazeDeep;
-    }
+
+  if (isAndroid && isTWA) {
+    // TWA (Play Store APK):
+    // intent:// é o ÚNICO scheme que o TWA passa para o Android resolver nativamente.
+    // O Android vê o intent, checa se Waze está instalado e abre direto.
+    // S.i=navigate → inicia navegação | S.ll=lat,lng → coordenadas
+    var intentUrl = 'intent://?' +
+      'll=' + lat + '%2C' + lng +
+      '&navigate=yes' +
+      '#Intent;' +
+      'scheme=waze;' +
+      'package=com.waze;' +
+      'S.browser_fallback_url=' + encodeURIComponent('https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes') + ';' +
+      'end';
+    window.location.href = intentUrl;
+
+  } else if (isAndroid) {
+    // Chrome normal / PWA standalone: waze:// funciona direto
+    window.location.href = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
+
   } else {
-    window.location.href = wazeWeb;
+    // iOS / Desktop
+    window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
   }
 }
 function abrirWaze() {
