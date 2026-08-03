@@ -4946,18 +4946,10 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
   function _abrirWazeNativo(lat, lng) {
     var ua = navigator.userAgent || '';
     var isAndroid = /android/i.test(ua);
-    var isTWA = (document.referrer && document.referrer.includes('android-app://'));
-
+    var isTWA = (document.referrer && document.referrer.includes('android-app://')) ||
+                /; wv\)/.test(ua);
     if (isAndroid && isTWA) {
-      var intentUrl = 'intent://?' +
-        'll=' + lat + '%2C' + lng +
-        '&navigate=yes' +
-        '#Intent;' +
-        'scheme=waze;' +
-        'package=com.waze;' +
-        'S.browser_fallback_url=' + encodeURIComponent('https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes') + ';' +
-        'end';
-      window.location.href = intentUrl;
+      window.location.href = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze';
     } else if (isAndroid) {
       window.location.href = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
     } else {

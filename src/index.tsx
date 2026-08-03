@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v40', build: '20260803j' })
+  return c.json({ version: 'v41', build: '20260803k' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,7 +6645,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v23';
+const CACHE_NAME = 'rotaposto-v24';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7324,27 +7324,17 @@ function abrirWpp() {
 function _abrirWazeNativo(lat, lng) {
   var ua = navigator.userAgent || '';
   var isAndroid = /android/i.test(ua);
-  var isTWA = (document.referrer && document.referrer.includes('android-app://'));
+  // Detecta TWA pelo referrer OU pelo userAgent (WebView embarcado)
+  var isTWA = (document.referrer && document.referrer.includes('android-app://')) ||
+              /; wv\)/.test(ua);
 
   if (isAndroid && isTWA) {
-    // TWA (Play Store APK):
-    // intent:// é o ÚNICO scheme que o TWA passa para o Android resolver nativamente.
-    // O Android vê o intent, checa se Waze está instalado e abre direto.
-    // S.i=navigate → inicia navegação | S.ll=lat,lng → coordenadas
-    var intentUrl = 'intent://?' +
-      'll=' + lat + '%2C' + lng +
-      '&navigate=yes' +
-      '#Intent;' +
-      'scheme=waze;' +
-      'package=com.waze;' +
-      'S.browser_fallback_url=' + encodeURIComponent('https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes') + ';' +
-      'end';
-    window.location.href = intentUrl;
-
+    // APK v85+ tem MapLaunchActivity que captura rotaposto://
+    // e abre waze:// via startActivity nativo (sem passar pelo WebView)
+    window.location.href = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze';
   } else if (isAndroid) {
-    // Chrome normal / PWA standalone: waze:// funciona direto
+    // Chrome normal / PWA standalone
     window.location.href = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
-
   } else {
     // iOS / Desktop
     window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
