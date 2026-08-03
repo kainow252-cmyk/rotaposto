@@ -4814,9 +4814,13 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       window.location.href = mapsAppIOS;
 
     } else if (isAndroid) {
-      var rotapostoUrl = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=google';
-      var mapsNativo   = 'google.navigation:q=' + destino + '&mode=d';
-      _tentarSchemeComFallback(rotapostoUrl, mapsNativo);
+      var isTWA = (document.referrer && document.referrer.includes('android-app://'));
+      var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + destino + '&travelmode=driving';
+      if (isTWA) {
+        window.open(mapsUrl, '_blank');
+      } else {
+        window.location.href = mapsUrl;
+      }
 
     } else {
       // ── Desktop / outros: abre google.com/maps no browser ────────────────────────
@@ -4939,32 +4943,19 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 }
 
   // Função central navegação
-  function _tentarSchemeComFallback(schemeUrl, fallbackUrl) {
-    var saiu = false;
-    var iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    var onHide = function() {
-      saiu = true;
-      document.removeEventListener('visibilitychange', onHide);
-    };
-    document.addEventListener('visibilitychange', onHide);
-    try { iframe.contentWindow.location.href = schemeUrl; } catch(e) {}
-    setTimeout(function() {
-      document.body.removeChild(iframe);
-      document.removeEventListener('visibilitychange', onHide);
-      if (!saiu) { window.location.href = fallbackUrl; }
-    }, 600);
-  }
   function _abrirWazeNativo(lat, lng) {
+    var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
     var ua = navigator.userAgent || '';
     var isAndroid = /android/i.test(ua);
+    var isTWA = (document.referrer && document.referrer.includes('android-app://'));
     if (isAndroid) {
-      var rotapostoUrl = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze';
-      var wazeNativo   = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
-      _tentarSchemeComFallback(rotapostoUrl, wazeNativo);
+      if (isTWA) {
+        window.open(wazeWeb, '_blank');
+      } else {
+        window.location.href = wazeWeb;
+      }
     } else {
-      window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
+      window.location.href = wazeWeb;
     }
   }
 
