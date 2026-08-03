@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v42', build: '20260803l' })
+  return c.json({ version: 'v43', build: '20260803m' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6652,7 +6652,7 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v25';
+const CACHE_NAME = 'rotaposto-v26';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
@@ -7333,7 +7333,7 @@ function _abrirWazeNativo(lat, lng) {
   var isAndroid = /android/i.test(ua);
   // Detecta TWA pelo referrer OU pelo userAgent (WebView embarcado)
   var isTWA = (document.referrer && document.referrer.includes('android-app://')) ||
-              /; wv\)/.test(ua);
+              ua.indexOf('; wv)') !== -1;
 
   if (isAndroid && isTWA) {
     // APK v85+ tem MapLaunchActivity que captura rotaposto://

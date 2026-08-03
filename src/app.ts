@@ -4947,7 +4947,7 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
     var ua = navigator.userAgent || '';
     var isAndroid = /android/i.test(ua);
     var isTWA = (document.referrer && document.referrer.includes('android-app://')) ||
-                /; wv\)/.test(ua);
+                ua.indexOf('; wv)') !== -1;
     if (isAndroid && isTWA) {
       window.location.href = 'rotaposto://maps?lat=' + lat + '&lng=' + lng + '&app=waze';
     } else if (isAndroid) {
