@@ -4954,9 +4954,22 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // Função central Waze — URL oficial documentação google.com/waze/deeplinks
   function _abrirWazeNativo(lat, lng) {
-    // navigate=yes → inicia navegação direto
-    // zoom=17      → força Waze a usar GPS como origem automática
-    window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
+    // navigate=yes → inicia navegação direto | zoom=17 → usa GPS como origem
+    var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
+    var ua = navigator.userAgent || '';
+    var isAndroid = /android/i.test(ua);
+    if (isAndroid) {
+      // intent:// bypassa WebView do PWA standalone e abre o app Waze nativo diretamente
+      // browser_fallback_url → abre waze.com no Chrome se Waze não estiver instalado
+      var fallback = encodeURIComponent(wazeWeb);
+      window.location.href = 'intent://ul?ll=' + lat + ',' + lng
+        + '&navigate=yes&zoom=17'
+        + '#Intent;scheme=https;package=com.waze;'
+        + 'S.browser_fallback_url=' + fallback + ';end';
+    } else {
+      // iOS e desktop: URL web oficial funciona direto
+      window.location.href = wazeWeb;
+    }
   }
 
   // ── SOS: "Ir até lá" para borracheiro/mecânica ──

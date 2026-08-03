@@ -7905,9 +7905,22 @@ document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
 
   // Função central Waze — URL oficial documentação google.com/waze/deeplinks
   function _abrirWazeNativo(lat, lng) {
-    // navigate=yes → inicia navegação direto
-    // zoom=17      → força Waze a usar GPS como origem automática
-    window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
+    // navigate=yes → inicia navegação direto | zoom=17 → usa GPS como origem
+    var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
+    var ua = navigator.userAgent || '';
+    var isAndroid = /android/i.test(ua);
+    if (isAndroid) {
+      // intent:// bypassa WebView do PWA standalone e abre o app Waze nativo diretamente
+      // browser_fallback_url → abre waze.com no Chrome se Waze não estiver instalado
+      var fallback = encodeURIComponent(wazeWeb);
+      window.location.href = 'intent://ul?ll=' + lat + ',' + lng
+        + '&navigate=yes&zoom=17'
+        + '#Intent;scheme=https;package=com.waze;'
+        + 'S.browser_fallback_url=' + fallback + ';end';
+    } else {
+      // iOS e desktop: URL web oficial funciona direto
+      window.location.href = wazeWeb;
+    }
   }
 
   // ── SOS: "Ir até lá" para borracheiro/mecânica ──
@@ -19588,11 +19601,22 @@ function abrirWpp() {
 }
 function _abrirWazeNativo(lat, lng) {
   // Deep Link OFICIAL Waze (documentação google.com/waze/deeplinks)
-  // https://waze.com/ul?ll=lat,lng&navigate=yes&zoom=17
-  // navigate=yes → inicia navegação direto (não só mostra local)
-  // zoom=17      → zoom próximo — força Waze a usar GPS como origem automática
-  // O Waze abre o app se instalado, ou o site se não instalado
-  window.location.href = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
+  // navigate=yes → inicia navegação direto | zoom=17 → usa GPS como origem
+  var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
+  var ua = navigator.userAgent || '';
+  var isAndroid = /android/i.test(ua);
+  if (isAndroid) {
+    // intent:// bypassa WebView do PWA standalone e abre o app Waze nativo diretamente
+    // browser_fallback_url → abre waze.com no Chrome se Waze não estiver instalado
+    var fallback = encodeURIComponent(wazeWeb);
+    window.location.href = 'intent://ul?ll=' + lat + ',' + lng
+      + '&navigate=yes&zoom=17'
+      + '#Intent;scheme=https;package=com.waze;'
+      + 'S.browser_fallback_url=' + fallback + ';end';
+  } else {
+    // iOS e desktop: URL web oficial funciona direto
+    window.location.href = wazeWeb;
+  }
 }
 function abrirWaze() {
   if (!_posto || !_posto.lat || !_posto.lng) return;
