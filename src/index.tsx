@@ -383,7 +383,7 @@ app.use('/__/auth/*', async (c) => {
 // ─── DEBUG: inspecionar bindings + testar R2 read/write no runtime ───────────
 // Versão atual do SW — usada pelo SW para auto-verificar se está desatualizado
 app.get('/api/sw-version', (c) => {
-  return c.json({ version: 'v35', build: '20260803e' })
+  return c.json({ version: 'v36', build: '20260803f' })
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -6645,12 +6645,18 @@ app.get('/sw.js', (c) => {
 // NUCLEAR RESET: desregistra si mesmo, limpa TODOS os caches e força reload
 // Motivo: versões antigas do SW estavam servindo JS desatualizado para PWA instalado
 
-const CACHE_NAME = 'rotaposto-v18';
+const CACHE_NAME = 'rotaposto-v19';
 
 // ── INSTALL: skipWaiting imediato para substituir o SW antigo sem esperar ─────
 self.addEventListener('install', event => {
-  // Não pré-cacheia nada — páginas são sempre buscadas do servidor (no-cache)
   self.skipWaiting();
+});
+
+// ── MESSAGE: recebe SKIP_WAITING do cliente para forçar ativação ──────────────
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // ── ACTIVATE: limpa TODOS os caches antigos e toma controle ──────────────────
@@ -10214,9 +10220,11 @@ let _swRegistration = null;
 function registrarSW() {
   if (!('serviceWorker' in navigator)) return;
 
+  navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    .then(reg => {
+      _swRegistration = reg;
 
-
-      // Checar por update imediatamente (importante ao abrir o PWA)
+      // Checar por update imediatamente (importante ao abrir o TWA/PWA)
       reg.update().catch(() => {});
 
       // Quando um novo SW é encontrado
@@ -10227,11 +10235,8 @@ function registrarSW() {
         novoSW.addEventListener('statechange', () => {
           if (novoSW.state === 'installed') {
             if (navigator.serviceWorker.controller) {
-              // Ha um SW antigo ativo — novo SW esperando
-              // Auto-aplicar: enviar SKIP_WAITING e recarregar
+              // Ha um SW antigo ativo — forçar ativação imediata
               novoSW.postMessage({ type: 'SKIP_WAITING' });
-            } else {
-              // Primeira instalacao
             }
           }
         });
@@ -10242,12 +10247,11 @@ function registrarSW() {
   // Escutar mensagem SW_UPDATED (enviada pelo SW apos ativar)
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data?.type === 'SW_UPDATED') {
-      // Recarregar silenciosamente para aplicar novo SW
       window.location.reload();
     }
   });
 
-  // Detectar quando o controlador muda (SW novo tomou conta)
+  // Detectar quando o controlador muda (SW novo tomou conta) → reload
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload();
   });
