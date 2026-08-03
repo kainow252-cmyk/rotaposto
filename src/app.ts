@@ -4814,23 +4814,12 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
       window.location.href = mapsAppIOS;
 
     } else if (isAndroid) {
-      // ── Android (Chrome, PWA standalone, WebView, Instagram, FB, TikTok) ────────
-      // intent:// é o ÚNICO método que abre o app nativo em TODOS os casos Android
-      // scheme=http OBRIGATÓRIO — Maps não responde a scheme=https
-      var fallbackUrl = encodeURIComponent(
-        'https://www.google.com/maps/dir/?api=1'
-        + '&destination=' + destino
-        + '&travelmode=driving'
-        + (nome ? '&destination_place_name=' + nomeEnc : '')
-      );
-      window.location.href = 'intent://maps.google.com/maps?daddr=' + destino
-        + '&directionsmode=driving'
-        + (nome ? '&q=' + nomeEnc : '')
-        + '#Intent;'
-        + 'scheme=http;'
-        + 'package=com.google.android.apps.maps;'
-        + 'S.browser_fallback_url=' + fallbackUrl
-        + ';end';
+      // ── Android: google.navigation intent → inicia navegação turn-by-turn imediatamente ──
+      // Fonte: dev.to/luc45hn (jun/2026) — único método confirmado PWA standalone
+      var titleEnc = nome ? encodeURIComponent(nome) : 'Destino';
+      window.location.href = 'intent://navigation/now?ll=' + destino
+        + '&title=' + titleEnc
+        + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
 
     } else {
       // ── Desktop / outros: abre google.com/maps no browser ────────────────────────

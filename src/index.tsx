@@ -7316,22 +7316,21 @@ function abrirWpp() {
   window.open('https://wa.me/55' + num + '?text=Olá! Vi seu posto no RotaPosto e gostaria de mais informações.','_blank');
 }
 function _abrirWazeNativo(lat, lng) {
-  // Deep Link OFICIAL Waze (documentação google.com/waze/deeplinks)
-  // navigate=yes → inicia navegação direto | zoom=17 → usa GPS como origem
+  // NOTA: navigate=yes foi quebrado pelo Waze na v5.3 (jan/2025) — ignorado no Android
+  // Solução: geo: URI → Android abre app de navegação padrão do usuário (Waze, Maps, etc)
+  // Se Waze for o app padrão de mapas, abre direto no Waze e inicia navegação
   var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes&zoom=17';
   var ua = navigator.userAgent || '';
   var isAndroid = /android/i.test(ua);
+  var isIOS = /iphone|ipad|ipod/i.test(ua);
   if (isAndroid) {
-    // intent://ul?ll=...#Intent;scheme=waze → Android monta waze://ul?ll=... e abre app nativo
-    // scheme=waze (NÃO https) — com https o Android monta https://ul?ll=... (URL inválida)
-    // browser_fallback_url → fallback para Chrome se Waze não instalado
-    var fallback = encodeURIComponent(wazeWeb);
-    window.location.href = 'intent://ul?ll=' + lat + ',' + lng
-      + '&navigate=yes&zoom=17'
-      + '#Intent;scheme=waze;package=com.waze;'
-      + 'S.browser_fallback_url=' + fallback + ';end';
+    // geo: URI é o padrão Android — abre seletor de app de navegação ou app padrão
+    // ?q=label aparece como nome do destino no app
+    window.location.href = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng;
+  } else if (isIOS) {
+    // iOS: URL web do Waze — abre app se instalado, site se não
+    window.location.href = wazeWeb;
   } else {
-    // iOS e desktop: URL web oficial funciona direto
     window.location.href = wazeWeb;
   }
 }
@@ -7359,18 +7358,13 @@ function _abrirGoogleMapsNativo(lat, lng, nome) {
     window.location.href = mapsAppIOS;
 
   } else if (isAndroid) {
-    // ── Android (Chrome, PWA standalone, WebView, Instagram, FB) ──────────────
-    // intent:// é o único método que abre o APP nativo do Maps em TODOS os casos
-    // scheme=http OBRIGATÓRIO — Maps ignora scheme=https
-    // S.browser_fallback_url garante fallback se Maps não estiver instalado
-    var fallbackUrl = encodeURIComponent(
-      'https://www.google.com/maps/dir/?api=1&destination=' + destino
-      + '&travelmode=driving' + (nome ? '&destination_place_name=' + nomeEnc : '')
-    );
-    window.location.href = 'intent://maps.google.com/maps?daddr=' + destino
-      + '&directionsmode=driving' + (nome ? '&q=' + nomeEnc : '')
-      + '#Intent;scheme=http;package=com.google.android.apps.maps;'
-      + 'S.browser_fallback_url=' + fallbackUrl + ';end';
+    // ── Android: google.navigation intent → inicia navegação turn-by-turn imediatamente ──
+    // Fonte: dev.to/luc45hn (jun/2026) — único método confirmado que funciona em PWA standalone
+    // scheme=google.navigation + package=com.google.android.apps.maps → Maps abre e navega
+    var titleEnc = nome ? encodeURIComponent(nome) : 'Destino';
+    window.location.href = 'intent://navigation/now?ll=' + destino
+      + '&title=' + titleEnc
+      + '#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end';
 
   } else {
     // ── Desktop / outros: abre google.com/maps no browser ────────────────────
