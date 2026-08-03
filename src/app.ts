@@ -4954,7 +4954,8 @@ export function getAppHTML(firebaseScripts: string, googleApiKey?: string): stri
 
   // Função central Waze — scheme nativo + fallback web
   function _abrirWazeNativo(lat, lng) {
-    var wazeApp = 'waze://ul?ll=' + lat + ',' + lng + '&navigate=yes';
+    // waze://?ll= é o deep link oficial para INICIAR navegação direto
+    var wazeApp = 'waze://?ll=' + lat + ',' + lng + '&navigate=yes';
     var wazeWeb = 'https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes';
     var t = setTimeout(function() { window.location.href = wazeWeb; }, 1500);
     document.addEventListener('visibilitychange', function c() {
