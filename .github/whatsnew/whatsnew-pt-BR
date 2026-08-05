@@ -1,7 +1,8 @@
-v2.1.6 — Correção definitiva do crash ao abrir
+v2.1.7 — Correções de conectividade e diagnóstico
 
-• Corrigido: app fechava imediatamente ao abrir (crash de inicialização)
-• Removido conflito de permissões entre bibliotecas GPS
-• Logo oficial do RotaPosto no splash e no ícone do app
-• Navegação abre Google Maps externo (sem API key necessária)
-• GPS nativo Android de alta precisão
+• Corrigido: app exibia tela em branco ao falhar na conexão com o servidor (erro "offline")
+• Melhorado: mensagens de erro claras quando sem internet ou GPS indisponível
+• Adicionado: botão "Tentar novamente" nas telas de erro de rede
+• Adicionado: botão "Configurações" quando permissão de localização está bloqueada
+• Melhorado: logs de diagnóstico para facilitar suporte
+• Sem mudanças nas funcionalidades principais — app 100% nativo Flutter

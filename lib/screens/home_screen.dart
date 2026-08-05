@@ -24,6 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _carregandoPostos = false;
   String _combustivelSelecionado = 'gasolina';
   String? _errGps;
+  String? _errPostos;
+  bool _permissaoNegadaPermanente = false;
 
   @override
   void initState() {
@@ -32,7 +34,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _inicializarLocalizacao() async {
-    setState(() { _carregandoGPS = true; _errGps = null; });
+    setState(() {
+      _carregandoGPS = true;
+      _errGps = null;
+      _errPostos = null;
+      _permissaoNegadaPermanente = false;
+    });
+
+    // Verifica permissão antes de pedir GPS
+    final perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.deniedForever) {
+      if (mounted) {
+        setState(() {
+          _carregandoGPS = false;
+          _permissaoNegadaPermanente = true;
+          _errGps = 'Permissão de localização bloqueada. Abra as Configurações para ativar.';
+        });
+        // Ainda carrega postos com posição padrão
+        await _carregarPostos();
+      }
+      return;
+    }
 
     // Tenta obter GPS real
     final pos = await LocalizacaoService.obterLocalizacao();
@@ -42,44 +64,95 @@ class _HomeScreenState extends State<HomeScreen> {
         _posicaoAtual = pos;
         _carregandoGPS = false;
         if (pos == null) {
-          _errGps = 'Não foi possível obter localização. Usando Vitória/ES.';
+          _errGps = 'GPS indisponível — mostrando postos de Vitória/ES';
         }
       });
       // Carrega postos com a posição obtida (real ou placeholder)
-      _carregarPostos();
+      await _carregarPostos();
     }
   }
 
   Future<void> _carregarPostos() async {
-    setState(() => _carregandoPostos = true);
+    if (!mounted) return;
+
+    setState(() {
+      _carregandoPostos = true;
+      _errPostos = null;
+    });
 
     final lat = _posicaoAtual?.latitude ?? LocalizacaoService.posicaoPadrao['lat']!;
     final lng = _posicaoAtual?.longitude ?? LocalizacaoService.posicaoPadrao['lng']!;
 
-    final postos = await PostosService.buscarPostosProximos(
-      lat: lat,
-      lng: lng,
-      raioKm: 5.0,
-      combustivel: _combustivelSelecionado,
-    );
+    try {
+      final postos = await PostosService.buscarPostosProximos(
+        lat: lat,
+        lng: lng,
+        raioKm: 10.0,
+        combustivel: _combustivelSelecionado,
+      );
 
-    // Calcular distância de cada posto
-    for (final p in postos) {
-      p.distanciaKm = LocalizacaoService.calcularDistancia(lat, lng, p.lat, p.lng);
-    }
-    postos.sort((a, b) => (a.distanciaKm ?? 99).compareTo(b.distanciaKm ?? 99));
+      // Calcular distância de cada posto
+      for (final p in postos) {
+        p.distanciaKm = LocalizacaoService.calcularDistancia(lat, lng, p.lat, p.lng);
+      }
+      postos.sort((a, b) => (a.distanciaKm ?? 99).compareTo(b.distanciaKm ?? 99));
 
-    if (mounted) {
-      setState(() {
-        _postos = postos;
-        _carregandoPostos = false;
-      });
+      if (mounted) {
+        setState(() {
+          _postos = postos;
+          _carregandoPostos = false;
+        });
+      }
+    } on PostosException catch (e) {
+      if (mounted) {
+        setState(() {
+          _errPostos = e.message;
+          _carregandoPostos = false;
+        });
+        // Mostra SnackBar com botão de retry
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'Tentar novamente',
+              textColor: Colors.white,
+              onPressed: _carregarPostos,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        const msg = 'Erro inesperado. Verifique sua conexão e tente novamente.';
+        setState(() {
+          _errPostos = msg;
+          _carregandoPostos = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(msg),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'Tentar novamente',
+              textColor: Colors.white,
+              onPressed: _carregarPostos,
+            ),
+          ),
+        );
+      }
     }
   }
 
   void _onCombustivelChanged(String tipo) {
     setState(() => _combustivelSelecionado = tipo);
     _carregarPostos();
+  }
+
+  Future<void> _abrirConfiguracoes() async {
+    await Geolocator.openAppSettings();
   }
 
   @override
@@ -97,6 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onCombustivelChanged: _onCombustivelChanged,
         gpsReal: _posicaoAtual != null,
         onRefresh: _inicializarLocalizacao,
+        errPostos: _errPostos,
       ),
       ListaScreen(
         postos: _postos,
@@ -104,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
         combustivel: _combustivelSelecionado,
         onCombustivelChanged: _onCombustivelChanged,
         onRefresh: _carregarPostos,
+        errPostos: _errPostos,
       ),
       EconomiaScreen(
         postos: _postos,
@@ -118,41 +193,48 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Stack(
         children: [
           IndexedStack(index: _tabIndex, children: telas),
-          // Banner GPS se não tiver localização real
-          if (_errGps != null && _tabIndex == 0)
+
+          // Banner GPS (permissão negada permanentemente)
+          if (_permissaoNegadaPermanente && _tabIndex <= 1)
             Positioned(
               top: MediaQuery.of(context).padding.top + 8,
               left: 16,
               right: 16,
-              child: Material(
-                borderRadius: BorderRadius.circular(12),
-                color: AppTheme.orange.withValues(alpha: 0.95),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.location_off, color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _errGps!,
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: _inicializarLocalizacao,
-                        child: const Text(
-                          'Tentar',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              child: _buildBanner(
+                icon: Icons.location_disabled,
+                msg: 'Localização bloqueada — ative nas Configurações',
+                btnLabel: 'Configurações',
+                onBtn: _abrirConfiguracoes,
+                color: Colors.red.shade600,
+              ),
+            )
+          // Banner GPS (sem localização, não bloqueada)
+          else if (_errGps != null && _tabIndex <= 1)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 16,
+              right: 16,
+              child: _buildBanner(
+                icon: Icons.gps_not_fixed,
+                msg: _errGps!,
+                btnLabel: 'Tentar',
+                onBtn: _inicializarLocalizacao,
+                color: AppTheme.orange,
+              ),
+            ),
+
+          // Banner erro de rede / API
+          if (_errPostos != null && _postos.isEmpty && !_carregandoPostos && _tabIndex <= 1)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + (_errGps != null ? 58 : 8),
+              left: 16,
+              right: 16,
+              child: _buildBanner(
+                icon: Icons.wifi_off_rounded,
+                msg: _errPostos!,
+                btnLabel: 'Recarregar',
+                onBtn: _carregarPostos,
+                color: Colors.red.shade600,
               ),
             ),
         ],
@@ -184,6 +266,56 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Perfil',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBanner({
+    required IconData icon,
+    required String msg,
+    required String btnLabel,
+    required VoidCallback onBtn,
+    required Color color,
+  }) {
+    return Material(
+      borderRadius: BorderRadius.circular(12),
+      color: color.withValues(alpha: 0.95),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                msg,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onBtn,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  btnLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/posto.dart';
 
@@ -13,23 +15,27 @@ class PostosService {
     double raioKm = 10.0,
     String combustivel = 'gasolina',
   }) async {
-    try {
-      final uri = Uri.parse('$_baseUrl/api/postos').replace(
-        queryParameters: {
-          'lat': lat.toString(),
-          'lng': lng.toString(),
-          'raio': raioKm.toStringAsFixed(0),
-          'combustivel': combustivel,
-        },
-      );
+    final uri = Uri.parse('$_baseUrl/api/postos').replace(
+      queryParameters: {
+        'lat': lat.toString(),
+        'lng': lng.toString(),
+        'raio': raioKm.toStringAsFixed(0),
+        'combustivel': combustivel,
+      },
+    );
 
+    debugPrint('[API] GET $uri');
+
+    try {
       final res = await http.get(
         uri,
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'RotaPosto-App/2.1',
+          'User-Agent': 'RotaPosto-App/2.1.7',
         },
       ).timeout(const Duration(seconds: 20));
+
+      debugPrint('[API] Status: ${res.statusCode} | Bytes: ${res.bodyBytes.length}');
 
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
@@ -46,11 +52,15 @@ class PostosService {
           lista = [];
         }
 
+        debugPrint('[API] Total postos recebidos: ${lista.length}');
+
         final postos = lista
             .map((j) => _parsePosto(j as Map<String, dynamic>, lat, lng))
             .where((p) => p != null)
             .cast<Posto>()
             .toList();
+
+        debugPrint('[API] Postos parseados com sucesso: ${postos.length}');
 
         // Ordenar por preço do combustível selecionado
         postos.sort((a, b) {
@@ -60,12 +70,28 @@ class PostosService {
         });
 
         return postos;
+      } else {
+        debugPrint('[API] Erro HTTP ${res.statusCode}: ${res.body.substring(0, res.body.length.clamp(0, 200))}');
+        throw PostosException('Servidor retornou erro ${res.statusCode}. Tente novamente.');
       }
+    } on SocketException catch (e) {
+      debugPrint('[API] Sem conexão de rede: $e');
+      throw const PostosException('Sem conexão com a internet. Verifique seu Wi-Fi ou dados móveis.');
+    } on HttpException catch (e) {
+      debugPrint('[API] Erro HTTP: $e');
+      throw const PostosException('Erro de conexão com o servidor. Tente novamente.');
+    } on FormatException catch (e) {
+      debugPrint('[API] Erro ao parsear JSON: $e');
+      throw const PostosException('Erro ao processar dados do servidor. Tente novamente.');
     } catch (e) {
-      // Erro de rede — retorna lista vazia para UI mostrar mensagem
+      debugPrint('[API] Erro inesperado: $e');
+      if (e is PostosException) rethrow;
+      // TimeoutException ou outro
+      if (e.toString().contains('TimeoutException') || e.toString().contains('timeout')) {
+        throw const PostosException('Servidor demorou muito para responder. Verifique sua conexão.');
+      }
+      throw const PostosException('Não foi possível carregar os postos. Tente novamente.');
     }
-
-    return [];
   }
 
   /// Tenta parsear um posto do JSON da API real do RotaPosto
@@ -147,7 +173,8 @@ class PostosService {
       );
 
       return posto;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[PARSE] Erro ao parsear posto: $e');
       return null;
     }
   }
@@ -181,7 +208,10 @@ class PostosService {
         },
       );
       final res = await http
-          .get(uri, headers: {'Accept': 'application/json'})
+          .get(uri, headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'RotaPosto-App/2.1.7',
+          })
           .timeout(const Duration(seconds: 20));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
@@ -202,4 +232,13 @@ class PostosService {
     } catch (_) {}
     return [];
   }
+}
+
+/// Exceção específica do serviço de postos com mensagem amigável
+class PostosException implements Exception {
+  final String message;
+  const PostosException(this.message);
+
+  @override
+  String toString() => message;
 }

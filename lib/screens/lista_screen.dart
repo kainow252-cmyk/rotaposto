@@ -9,6 +9,7 @@ class ListaScreen extends StatelessWidget {
   final String combustivel;
   final ValueChanged<String> onCombustivelChanged;
   final VoidCallback onRefresh;
+  final String? errPostos;
 
   const ListaScreen({
     super.key,
@@ -17,6 +18,7 @@ class ListaScreen extends StatelessWidget {
     required this.combustivel,
     required this.onCombustivelChanged,
     required this.onRefresh,
+    this.errPostos,
   });
 
   static const _combustiveis = [
@@ -88,9 +90,11 @@ class ListaScreen extends StatelessWidget {
                 valueColor: AlwaysStoppedAnimation(AppTheme.orange),
               ),
             )
-          : postos.isEmpty
-              ? _buildVazio()
-              : _buildLista(),
+          : postos.isEmpty && errPostos != null
+              ? _buildErro(errPostos!)
+              : postos.isEmpty
+                  ? _buildVazio()
+                  : _buildLista(),
     );
   }
 
@@ -111,6 +115,41 @@ class ListaScreen extends StatelessWidget {
             style: TextStyle(fontSize: 13, color: AppTheme.grayLight),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErro(String msg) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 64, color: AppTheme.grayLight),
+            const SizedBox(height: 16),
+            const Text(
+              'Sem conexão',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.black),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              msg,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: AppTheme.gray),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tentar novamente'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.orange,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

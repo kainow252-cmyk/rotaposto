@@ -13,6 +13,7 @@ class MapaScreen extends StatefulWidget {
   final ValueChanged<String> onCombustivelChanged;
   final bool gpsReal;
   final VoidCallback onRefresh;
+  final String? errPostos;
 
   const MapaScreen({
     super.key,
@@ -24,6 +25,7 @@ class MapaScreen extends StatefulWidget {
     required this.onCombustivelChanged,
     required this.gpsReal,
     required this.onRefresh,
+    this.errPostos,
   });
 
   @override
@@ -74,9 +76,11 @@ class _MapaScreenState extends State<MapaScreen> {
           Expanded(
             child: widget.carregando
                 ? _buildLoading()
-                : widget.postos.isEmpty
-                    ? _buildVazio()
-                    : _buildLista(),
+                : widget.postos.isEmpty && widget.errPostos != null
+                    ? _buildErroRede(widget.errPostos!)
+                    : widget.postos.isEmpty
+                        ? _buildVazio()
+                        : _buildLista(),
           ),
         ],
       ),
@@ -248,6 +252,55 @@ class _MapaScreenState extends State<MapaScreen> {
             label: const Text('Tentar novamente'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErroRede(String msg) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: Icon(Icons.wifi_off_rounded, size: 40, color: Colors.red.shade400),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Sem conexão com o servidor',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.black,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              msg,
+              style: const TextStyle(fontSize: 13, color: AppTheme.gray),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            ElevatedButton.icon(
+              onPressed: widget.onRefresh,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tentar novamente'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 class LocalizacaoService {
@@ -6,48 +7,64 @@ class LocalizacaoService {
 
   /// Retorna localização real do GPS nativo.
   /// Sem intermediários, sem API externa, direto do hardware.
+  /// Retorna null se GPS indisponível ou permissão negada.
   static Future<Position?> obterLocalizacao() async {
     try {
       // Verificar se serviço de localização está ativo
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        debugPrint('[GPS] Serviço de localização desativado no dispositivo');
         return null;
       }
 
       // Verificar/solicitar permissão
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
+        debugPrint('[GPS] Solicitando permissão de localização...');
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
+          debugPrint('[GPS] Permissão de localização negada pelo usuário');
           return null;
         }
       }
       if (permission == LocationPermission.deniedForever) {
+        debugPrint('[GPS] Permissão negada permanentemente — redirecionar para configurações');
         return null;
       }
 
-      // FASE 1: Localização rápida (rede/WiFi) — resposta em ~2s
+      debugPrint('[GPS] Permissão OK: $permission — buscando posição...');
+
+      // FASE 1: Localização rápida (rede/WiFi) — resposta em ~3s
       try {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.low,
-            timeLimit: Duration(seconds: 5),
+            timeLimit: Duration(seconds: 8),
           ),
         );
+        debugPrint('[GPS] Fase 1 OK: ${pos.latitude}, ${pos.longitude} (accuracy: ${pos.accuracy}m)');
         return pos;
-      } catch (_) {
-        // Se fase 1 falhar, tenta fase 2
+      } catch (e) {
+        // Fase 1 falhou (timeout ou sem sinal) — tenta GPS preciso
+        debugPrint('[GPS] Fase 1 falhou: $e — tentando GPS preciso...');
       }
 
       // FASE 2: GPS preciso (satélite) — resposta em até 30s
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 30),
-        ),
-      );
-      return pos;
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 25),
+          ),
+        );
+        debugPrint('[GPS] Fase 2 OK: ${pos.latitude}, ${pos.longitude} (accuracy: ${pos.accuracy}m)');
+        return pos;
+      } catch (e) {
+        debugPrint('[GPS] Fase 2 falhou: $e — usando posição padrão');
+        return null;
+      }
     } catch (e) {
+      debugPrint('[GPS] Erro inesperado: $e');
       return null;
     }
   }
